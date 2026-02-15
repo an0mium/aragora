@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 from aragora_debate.arena import Arena
@@ -131,6 +132,81 @@ def _wrap(text: str, width: int = 72) -> list[str]:
     if current:
         lines.append(current)
     return lines or [""]
+
+
+def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
+    """Build a receipt dict from a DebateResult for saving/rendering."""
+    verdict_str = "consensus"
+    if result.verdict:
+        verdict_str = result.verdict.value
+
+    receipt_id = ""
+    artifact_hash = ""
+    signature_algorithm = ""
+    consensus_proof: dict[str, Any] = {}
+
+    if result.receipt:
+        receipt_id = result.receipt.receipt_id
+        artifact_hash = result.receipt.signature or ""
+        signature_algorithm = result.receipt.signature_algorithm or ""
+        if result.receipt.consensus:
+            consensus_proof = {
+                "reached": result.receipt.consensus.reached,
+                "method": result.receipt.consensus.method.value,
+                "confidence": result.receipt.consensus.confidence,
+                "supporting_agents": result.receipt.consensus.supporting_agents,
+                "dissenting_agents": result.receipt.consensus.dissenting_agents,
+            }
+
+    dissent_items = []
+    if result.dissenting_views:
+        for view in result.dissenting_views:
+            dissent_items.append(str(view))
+
+    summary = result.final_answer or ""
+
+    return {
+        "receipt_id": receipt_id,
+        "question": result.task,
+        "verdict": verdict_str,
+        "confidence": result.confidence,
+        "agents": result.participants,
+        "rounds": result.rounds_used,
+        "summary": summary,
+        "dissent": dissent_items,
+        "dissenting_views": dissent_items,
+        "consensus_proof": consensus_proof,
+        "artifact_hash": artifact_hash,
+        "signature_algorithm": signature_algorithm,
+        "elapsed_seconds": elapsed,
+        "mode": "demo (offline)",
+        "proposals": result.proposals,
+    }
+
+
+def _save_demo_receipt(
+    result: DebateResult,
+    elapsed: float,
+    output_path: str,
+) -> str:
+    """Save a demo receipt to file. Returns the path written."""
+    import json
+
+    receipt_data = _build_receipt_data(result, elapsed)
+    path = Path(output_path)
+
+    if path.suffix.lower() in (".html", ".htm"):
+        from aragora.cli.receipt_formatter import receipt_to_html
+
+        path.write_text(receipt_to_html(receipt_data))
+    elif path.suffix.lower() == ".md":
+        from aragora.cli.receipt_formatter import receipt_to_markdown
+
+        path.write_text(receipt_to_markdown(receipt_data))
+    else:
+        path.write_text(json.dumps(receipt_data, indent=2, default=str))
+
+    return str(path)
 
 
 def _print_result(result: DebateResult, elapsed: float) -> None:
@@ -374,13 +450,28 @@ def main(args: argparse.Namespace) -> None:
 
     # Custom topic via --topic
     custom_topic = getattr(args, "topic", None)
+    receipt_path = getattr(args, "receipt", None)
+
     if custom_topic:
-        asyncio.run(_run_demo_debate(custom_topic))
+        result, elapsed = asyncio.run(_run_demo_debate(custom_topic))
+        if receipt_path:
+            saved = _save_demo_receipt(result, elapsed, receipt_path)
+            print(f"\n  Receipt saved to: {saved}")
         return
 
     # Named demo
     demo_name = getattr(args, "name", None) or _DEFAULT_DEMO
-    run_demo(demo_name)
+    if demo_name not in DEMO_TASKS:
+        print(f"Unknown demo: {demo_name}")
+        print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
+        return
+
+    topic = DEMO_TASKS[demo_name]["topic"]
+    result, elapsed = asyncio.run(_run_demo_debate(topic))
+
+    if receipt_path:
+        saved = _save_demo_receipt(result, elapsed, receipt_path)
+        print(f"\n  Receipt saved to: {saved}")
 
 
 if __name__ == "__main__":

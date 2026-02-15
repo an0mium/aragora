@@ -20,12 +20,14 @@ Actions:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import aiohttp
 from aiohttp import ClientTimeout
 
 from aragora.integrations.base import BaseIntegration
@@ -201,8 +203,11 @@ class MakeIntegration(BaseIntegration):
                 timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
-        except Exception as e:
-            logger.error(f"Failed to send Make webhook: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"Make webhook connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"Make webhook payload error: {type(e).__name__}: {e}")
             return False
 
     # =========================================================================
@@ -420,8 +425,11 @@ class MakeIntegration(BaseIntegration):
                 else:
                     logger.warning(f"Make webhook {webhook.id} failed: {response.status}")
                     return False
-        except Exception as e:
-            logger.error(f"Failed to trigger Make webhook {webhook.id}: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"Make webhook {webhook.id} connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"Make webhook {webhook.id} payload error: {type(e).__name__}: {e}")
             return False
 
     def _format_webhook_payload(

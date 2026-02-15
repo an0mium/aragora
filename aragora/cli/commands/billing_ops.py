@@ -61,12 +61,21 @@ def cmd_billing_ops(args: argparse.Namespace) -> None:
         asyncio.run(_cmd_budget(args))
     elif subcommand == "forecast":
         asyncio.run(_cmd_forecast(args))
+    elif subcommand == "dashboard":
+        _cmd_dashboard(args)
+    elif subcommand == "report":
+        _cmd_report(args)
+    elif subcommand == "agents":
+        _cmd_agents(args)
     else:
         print("\nUsage: aragora costs <command>")
         print("\nCommands:")
-        print("  usage      Current usage summary")
-        print("  budget     Budget status and limits")
-        print("  forecast   Cost forecast and projections")
+        print("  usage      Current usage summary (API)")
+        print("  budget     Budget status and limits (API)")
+        print("  forecast   Cost forecast and projections (API)")
+        print("  dashboard  Cost dashboard summary (local)")
+        print("  report     Generate cost report (local)")
+        print("  agents     Per-agent cost breakdown (local)")
 
 
 async def _cmd_usage(args: argparse.Namespace) -> None:
@@ -191,6 +200,141 @@ async def _cmd_forecast(args: argparse.Namespace) -> None:
         print(f"\nError: {e}")
 
 
+def _get_cost_tracker():
+    """Get a CostTracker instance for local cost operations."""
+    try:
+        from aragora.billing.cost_tracker import get_cost_tracker
+
+        return get_cost_tracker()
+    except ImportError:
+        logger.debug("CostTracker not available")
+        return None
+
+
+def _cmd_dashboard(args: argparse.Namespace) -> None:
+    """Show cost dashboard summary (local, no server required)."""
+    as_json = getattr(args, "json", False)
+    tracker = _get_cost_tracker()
+    if tracker is None:
+        print("\nError: CostTracker not available. Install billing dependencies.")
+        return
+
+    try:
+        summary = tracker.get_dashboard_summary()
+    except (AttributeError, TypeError):
+        print("\nError: CostTracker.get_dashboard_summary() not available.")
+        return
+
+    if as_json:
+        print(json.dumps(summary, indent=2, default=str))
+        return
+
+    print("\n" + "=" * 60)
+    print("COST DASHBOARD")
+    print("=" * 60 + "\n")
+
+    print(f"  Total spend:    ${summary.get('total_spend', 0):.4f}")
+    print(f"  Budget limit:   ${summary.get('budget_limit', 0):.2f}")
+    print(f"  Budget used:    {summary.get('budget_used_pct', 0):.1f}%")
+    print(f"  Debates today:  {summary.get('debates_today', 0)}")
+
+    top_agents = summary.get("top_agents", [])
+    if top_agents:
+        print("\n  Top agents by cost:")
+        for entry in top_agents[:5]:
+            name = entry.get("agent", "unknown")
+            cost = entry.get("cost", 0)
+            print(f"    {name:25} ${cost:.4f}")
+
+    projections = summary.get("projections", {})
+    if projections:
+        daily = projections.get("daily_average", 0)
+        monthly = projections.get("monthly_projected", 0)
+        print(f"\n  Daily average:  ${daily:.4f}")
+        print(f"  Monthly proj:   ${monthly:.2f}")
+
+
+def _cmd_report(args: argparse.Namespace) -> None:
+    """Generate a cost report (local, no server required)."""
+    as_json = getattr(args, "json", False)
+    days = getattr(args, "days", 30)
+    tracker = _get_cost_tracker()
+    if tracker is None:
+        print("\nError: CostTracker not available. Install billing dependencies.")
+        return
+
+    try:
+        report = tracker.generate_report(days=days)
+    except (AttributeError, TypeError):
+        print("\nError: CostTracker.generate_report() not available.")
+        return
+
+    if as_json:
+        print(json.dumps(report, indent=2, default=str))
+        return
+
+    print("\n" + "=" * 60)
+    print(f"COST REPORT (Last {days} days)")
+    print("=" * 60 + "\n")
+
+    print(f"  Period:         {report.get('period', f'{days} days')}")
+    print(f"  Total cost:     ${report.get('total_cost', 0):.4f}")
+    print(f"  Total tokens:   {report.get('total_tokens', 0):,}")
+    print(f"  Total debates:  {report.get('total_debates', 0)}")
+
+    by_provider = report.get("by_provider", {})
+    if by_provider:
+        print("\n  By provider:")
+        for provider, data in sorted(by_provider.items()):
+            cost = data.get("cost", 0) if isinstance(data, dict) else data
+            print(f"    {provider:20} ${cost:.4f}")
+
+    by_day = report.get("by_day", [])
+    if by_day:
+        print("\n  Daily breakdown:")
+        for entry in by_day[-7:]:
+            day = entry.get("date", "")
+            cost = entry.get("cost", 0)
+            print(f"    {day:12} ${cost:.4f}")
+
+
+def _cmd_agents(args: argparse.Namespace) -> None:
+    """Show per-agent cost breakdown (local, no server required)."""
+    as_json = getattr(args, "json", False)
+    days = getattr(args, "days", 30)
+    tracker = _get_cost_tracker()
+    if tracker is None:
+        print("\nError: CostTracker not available. Install billing dependencies.")
+        return
+
+    try:
+        agent_costs = tracker.get_agent_costs(days=days)
+    except (AttributeError, TypeError):
+        print("\nError: CostTracker.get_agent_costs() not available.")
+        return
+
+    if as_json:
+        print(json.dumps(agent_costs, indent=2, default=str))
+        return
+
+    print("\n" + "=" * 60)
+    print(f"AGENT COSTS (Last {days} days)")
+    print("=" * 60 + "\n")
+
+    if not agent_costs:
+        print("  No agent cost data available.")
+        return
+
+    print(f"  {'Agent':<25} {'Cost':>10} {'Tokens':>12} {'Debates':>8}")
+    print(f"  {'-'*25} {'-'*10} {'-'*12} {'-'*8}")
+    for entry in agent_costs:
+        name = entry.get("agent", "unknown")
+        cost = entry.get("cost", 0)
+        tokens = entry.get("tokens", 0)
+        debates = entry.get("debates", 0)
+        print(f"  {name:<25} ${cost:>9.4f} {tokens:>12,} {debates:>8}")
+
+
 def _print_api_error(e: httpx.HTTPStatusError) -> None:
     """Print a human-readable API error message."""
     try:
@@ -228,6 +372,24 @@ def add_billing_ops_parser(subparsers: Any) -> None:
         "--days", "-d", type=int, default=30, help="Forecast horizon in days (default: 30)"
     )
     forecast_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # dashboard (local)
+    dashboard_p = bp_sub.add_parser("dashboard", help="Cost dashboard summary (local)")
+    dashboard_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # report (local)
+    report_p = bp_sub.add_parser("report", help="Generate cost report (local)")
+    report_p.add_argument(
+        "--days", "-d", type=int, default=30, help="Report period in days (default: 30)"
+    )
+    report_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # agents (local)
+    agents_p = bp_sub.add_parser("agents", help="Per-agent cost breakdown (local)")
+    agents_p.add_argument(
+        "--days", "-d", type=int, default=30, help="Period in days (default: 30)"
+    )
+    agents_p.add_argument("--json", action="store_true", help="Output as JSON")
 
 
 __all__ = [

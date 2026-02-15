@@ -151,8 +151,11 @@ class TelegramIntegration:
                     data = await response.json()
                     return data.get("ok", False)
                 return False
-        except Exception as e:
-            logger.warning(f"Telegram verification failed: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning(f"Telegram verification connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, KeyError) as e:
+            logger.warning(f"Telegram verification response parse error: {type(e).__name__}: {e}")
             return False
 
     def _check_rate_limit(self) -> bool:
@@ -208,8 +211,11 @@ class TelegramIntegration:
                     await asyncio.sleep(self.config.retry_delay * (2**attempt))
                     continue
                 return False
-            except Exception as e:
-                logger.error(f"Telegram send failed: {e}")
+            except (ValueError, TypeError) as e:
+                logger.error(f"Telegram payload error: {type(e).__name__}: {e}")
+                return False
+            except OSError as e:
+                logger.error(f"Telegram network error: {type(e).__name__}: {e}")
                 return False
 
         return False
