@@ -621,7 +621,7 @@ class RoutingRulesHandler(SecureHandler):
                 "status": "success",
                 "rule": rule.to_dict(),
             }
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to create rule: {e}")
             return {
                 "status": "error",
@@ -639,7 +639,7 @@ class RoutingRulesHandler(SecureHandler):
                 "status": "success",
                 "rule": _rules_store[rule_id],
             }
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Failed to get rule {rule_id}: {e}")
             return {
                 "status": "error",
@@ -709,7 +709,7 @@ class RoutingRulesHandler(SecureHandler):
                 "status": "success",
                 "rule": existing,
             }
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to update rule {rule_id}: {e}")
             return {
                 "status": "error",
@@ -735,7 +735,7 @@ class RoutingRulesHandler(SecureHandler):
                 "status": "success",
                 "message": f"Rule {rule_id} deleted",
             }
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Failed to delete rule {rule_id}: {e}")
             return {
                 "status": "error",

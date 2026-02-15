@@ -212,7 +212,7 @@ class DealOperationsMixin:
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("CRM create_deal: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -259,7 +259,7 @@ class DealOperationsMixin:
                 cb.record_success()
                 return self._json_response(201, self._normalize_hubspot_deal(deal))
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("CRM create_deal failed for %s: %s", platform, e, exc_info=True)
             cb.record_failure()
             return self._error_response(500, "Deal creation failed")

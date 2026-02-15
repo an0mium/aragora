@@ -139,7 +139,7 @@ class BatchOperationsMixin:
                 run_async(spam_moderation.initialize())
         except ImportError:
             logger.debug("Spam moderation not available for batch validation")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to initialize spam moderation for batch: {e}")
 
         for i, item_data in enumerate(items_data):
@@ -168,14 +168,14 @@ class BatchOperationsMixin:
                             f"(confidence: {spam_result.confidence:.2f})"
                         )
                         continue
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                     logger.warning(f"Spam check failed for batch item {i}: {e}")
                     # Continue processing on error (fail-open)
 
             try:
                 item = BatchItem.from_dict(item_data)
                 items.append(item)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.warning("Batch item %d validation failed: %s", i, e)
                 errors.append(f"Item {i}: validation failed")
 
@@ -286,7 +286,7 @@ class BatchOperationsMixin:
                         logger.info(
                             f"Incremented batch usage for org {user_ctx.org_id} by {batch_size}"
                         )
-                    except Exception as ue:
+                    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as ue:
                         logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {ue}")
 
             return json_response(
@@ -298,7 +298,7 @@ class BatchOperationsMixin:
                 }
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 

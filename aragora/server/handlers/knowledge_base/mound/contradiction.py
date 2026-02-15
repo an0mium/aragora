@@ -83,7 +83,7 @@ class ContradictionOperationsMixin:
             )
 
             return json_response(report.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error detecting contradictions: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -124,7 +124,7 @@ class ContradictionOperationsMixin:
                     "contradictions": [c.to_dict() for c in contradictions],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error listing contradictions: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -194,7 +194,7 @@ class ContradictionOperationsMixin:
                     "contradiction": result.to_dict(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error resolving contradiction: {e}")
             return error_response(safe_error_message(e), status=500)
 

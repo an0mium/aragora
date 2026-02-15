@@ -868,7 +868,7 @@ class TelegramCommandsMixin:
                 # Manual formatting if receipt module unavailable
                 return self._format_debate_as_receipt(debate)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected receipt error: {e}")
             return "Sorry, an error occurred while processing your request."
 

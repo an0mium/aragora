@@ -475,7 +475,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden running periodic learning: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error running periodic learning: %s", e)
             return web.json_response(
                 {"success": False, "error": "Periodic learning run failed"},

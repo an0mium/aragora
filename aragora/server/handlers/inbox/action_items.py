@@ -570,7 +570,7 @@ async def handle_batch_extract(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Failed batch extraction")
         return error_response("Batch extraction failed", status=500)
 
@@ -631,7 +631,7 @@ async def handle_detect_meeting(
 
         return success_response(result.to_dict())
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to detect meeting")
         return error_response("Detection operation failed", status=500)
 
@@ -731,7 +731,7 @@ async def handle_auto_snooze_meeting(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to auto-snooze meeting")
         return error_response("Auto-snooze operation failed", status=500)
 

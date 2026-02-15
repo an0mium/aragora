@@ -167,7 +167,7 @@ class VisibilityOperationsMixin:
 
         try:
             node = _run_async(mound.get_node(node_id))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to get node: {e}")
             return error_response("Failed to get node", 500)
 
@@ -255,7 +255,7 @@ class VisibilityOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to grant access: {e}")
             return error_response("Failed to grant access", 500)
 
@@ -327,7 +327,7 @@ class VisibilityOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to revoke access: {e}")
             return error_response("Failed to revoke access", 500)
 
@@ -363,7 +363,7 @@ class VisibilityOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to list access grants: {e}")
             return error_response("Failed to list access grants", 500)
 

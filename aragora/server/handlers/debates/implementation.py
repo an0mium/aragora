@@ -492,7 +492,7 @@ class ImplementationOperationsMixin:
                     )
                     store_plan(computer_use_plan)
                     response_payload["plan_id"] = computer_use_plan.id
-                except Exception as exc:
+                except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
                     logger.debug("Computer use plan persistence failed: %s", exc)
             else:
                 _persist_plan(package.plan, debate_id)
@@ -525,7 +525,7 @@ class ImplementationOperationsMixin:
                         else signature_result,
                         "integrity": integrity_result,
                     }
-                except Exception as exc:
+                except (ImportError, KeyError, ValueError, OSError, AttributeError) as exc:
                     logger.debug("Receipt verification for Obsidian writeback failed: %s", exc)
 
             if config is None:
@@ -540,7 +540,7 @@ class ImplementationOperationsMixin:
                         verification=verification_payload,
                     )
                 )
-        except Exception as exc:
+        except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
             logger.debug("Obsidian writeback failed: %s", exc)
 
     def _handle_workflow_mode(
@@ -636,7 +636,7 @@ class ImplementationOperationsMixin:
             risk_level_for_approval = rc.risk_level
             try:
                 risk_level_for_approval = plan.highest_risk_level.value
-            except Exception as e:
+            except (AttributeError, ValueError, TypeError) as e:
                 logger.debug("Could not extract risk level from plan: %s", e)
 
             approval_flow = get_approval_flow()
@@ -837,7 +837,7 @@ class ImplementationOperationsMixin:
                     "duration_seconds": outcome.duration_seconds,
                 },
             }
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
             response_payload["execution"] = {
                 "status": "failed",
                 "mode": "computer_use",

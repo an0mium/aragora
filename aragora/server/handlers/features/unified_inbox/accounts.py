@@ -164,7 +164,7 @@ async def connect_gmail(
                     synced_msg, account.id, EmailProvider.GMAIL
                 )
                 schedule_message_persist(tenant_id, unified)
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"[UnifiedInbox] Error converting message: {e}")
 
         # Create sync service
@@ -194,7 +194,7 @@ async def connect_gmail(
             )
             store = get_gmail_token_store()
             await store.save(state)
-        except Exception as e:
+        except (ImportError, OSError, ValueError) as e:
             logger.warning(f"[UnifiedInbox] Failed to persist Gmail tokens: {e}")
 
         # Start sync using the authenticated connector
@@ -212,7 +212,7 @@ async def connect_gmail(
         account.status = AccountStatus.CONNECTED
         logger.warning("[UnifiedInbox] GmailSyncService not available, using mock mode")
         return {"success": True}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning("Gmail connection failed: %s", e)
         return {"success": False, "error": "Gmail connection failed"}
 

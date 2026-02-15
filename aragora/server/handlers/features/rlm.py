@@ -1044,7 +1044,7 @@ class RLMHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get RLM metrics: {e}")
             return error_response(safe_error_message(e, "Failed to get metrics"), 500)
 

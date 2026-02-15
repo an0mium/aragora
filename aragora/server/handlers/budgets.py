@@ -1041,7 +1041,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get org trends: {e}")
             return error_response("Failed to retrieve trends", 500)
 
@@ -1079,7 +1079,7 @@ class BudgetHandler(BaseHandler):
 
         except ImportError:
             return error_response("Cost tracking module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to get agent costs: {e}")
             return error_response("Failed to retrieve agent costs", 500)
 
@@ -1124,7 +1124,7 @@ class BudgetHandler(BaseHandler):
 
         except ImportError:
             return error_response("Cost tracking module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to get cost anomalies: {e}")
             return error_response("Failed to retrieve cost anomalies", 500)
 

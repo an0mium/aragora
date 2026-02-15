@@ -412,7 +412,7 @@ class EndpointAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting endpoint performance: {e}")
             return error_response(
                 safe_error_message(e, "endpoint performance"),
@@ -486,7 +486,7 @@ class EndpointAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting health summary: {e}")
             return error_response(
                 safe_error_message(e, "health summary"),

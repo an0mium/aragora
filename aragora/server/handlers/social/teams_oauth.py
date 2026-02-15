@@ -221,7 +221,7 @@ class TeamsOAuthHandler(SecureHandler):
         # All other routes require authentication
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-        except (UnauthorizedError, Exception) as e:
+        except (UnauthorizedError, PermissionError, ValueError, RuntimeError) as e:
             logger.debug(f"Teams OAuth auth failed: {e}")
             return error_response("Authentication required", 401)
 
@@ -337,7 +337,7 @@ class TeamsOAuthHandler(SecureHandler):
         state_store = _get_state_store()
         try:
             state = state_store.generate(metadata={"org_id": org_id, "provider": "teams"})
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
             logger.error(f"Failed to generate OAuth state: {e}")
             return error_response("Failed to initialize OAuth flow", 503)
 
@@ -434,7 +434,7 @@ class TeamsOAuthHandler(SecureHandler):
         except httpx.HTTPStatusError as e:
             logger.error(f"Teams token exchange failed: status={e.response.status_code}")
             return error_response("Token exchange failed", 500)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Teams token exchange failed: {e}")
             return error_response("Token exchange failed", 500)
 

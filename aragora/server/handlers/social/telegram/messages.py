@@ -70,7 +70,7 @@ class TelegramMessagesMixin:
                 if not result.get("ok"):
                     logger.warning("Telegram API error: %s", result.get("description"))
                     status = "error"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Error sending Telegram message: %s", e)
             status = "error"
         finally:
@@ -114,7 +114,7 @@ class TelegramMessagesMixin:
                 if not result.get("ok"):
                     logger.warning("Telegram callback answer failed: %s", result.get("description"))
                     status = "error"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Error answering Telegram callback: %s", e)
             status = "error"
         finally:
@@ -157,7 +157,7 @@ class TelegramMessagesMixin:
                 if not result.get("ok"):
                     logger.warning("Telegram inline answer failed: %s", result.get("description"))
                     status = "error"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Error answering Telegram inline query: %s", e)
             status = "error"
         finally:
@@ -197,7 +197,7 @@ class TelegramMessagesMixin:
                     result.audio_bytes,
                     result.duration_seconds,
                 )
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.warning("Failed to send voice summary: %s", e)
 
     async def _send_voice_async(

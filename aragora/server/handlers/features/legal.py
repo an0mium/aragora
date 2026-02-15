@@ -615,7 +615,7 @@ class LegalHandler:
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError) as e:
             logger.error(f"Error processing DocuSign webhook: {e}")
             # Return 200 to prevent retries for malformed payloads
             return success_response({"received": True, "error": "Webhook processing failed"})
@@ -675,7 +675,7 @@ class LegalHandler:
                     StreamEventType.CONNECTOR_DOCUSIGN_ENVELOPE_STATUS.value,
                     event_data,
                 )
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, AttributeError) as e:
             logger.debug(f"[Legal] Event emission skipped: {e}")
 
 

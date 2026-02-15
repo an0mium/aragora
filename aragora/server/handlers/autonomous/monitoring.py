@@ -470,7 +470,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden recording metric: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             circuit_breaker.record_failure()
             logger.error("Error recording metric: %s", e)
             return web.json_response(
@@ -566,7 +566,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting trend: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             circuit_breaker.record_failure()
             logger.error("Error getting trend: %s", e)
             return web.json_response(
@@ -631,7 +631,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting trends: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             circuit_breaker.record_failure()
             logger.error("Error getting trends: %s", e)
             return web.json_response(
@@ -724,7 +724,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting anomalies: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             circuit_breaker.record_failure()
             logger.error("Error getting anomalies: %s", e)
             return web.json_response(

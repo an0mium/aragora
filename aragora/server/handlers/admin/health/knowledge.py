@@ -300,7 +300,7 @@ class KnowledgeMixin:
                 "status": "not_available",
                 "note": "RLM module not installed",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError, ValueError) as e:
             logger.debug("RLM integration check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -337,7 +337,7 @@ class KnowledgeMixin:
                 "status": "not_available",
                 "note": "knowledge_mound_ops module not available",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, RuntimeError, ValueError) as e:
             logger.debug("Debate integration check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -371,7 +371,7 @@ class KnowledgeMixin:
                 "status": "not_available",
                 "note": "Redis cache module not installed",
             }
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.debug("KM Redis cache check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -423,7 +423,7 @@ class KnowledgeMixin:
                 "status": "partial",
                 "error": "Some adapters not available",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.debug("KM adapters check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -458,7 +458,7 @@ class KnowledgeMixin:
                 "status": "not_available",
                 "error": "Module not available",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.debug("Control plane adapter check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,

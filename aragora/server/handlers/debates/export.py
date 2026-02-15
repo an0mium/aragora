@@ -228,12 +228,12 @@ class ExportOperationsMixin:
                 # Fallback for storage backends without batch support
                 for debate_id in debate_ids:
                     debates_map[debate_id] = storage.get_debate(debate_id)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Batch fetch failed, falling back to individual queries: {e}")
             for debate_id in debate_ids:
                 try:
                     debates_map[debate_id] = storage.get_debate(debate_id)
-                except Exception as e:
+                except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
                     logger.warning(f"Failed to fetch debate {debate_id}: {type(e).__name__}: {e}")
                     debates_map[debate_id] = None
 
@@ -257,7 +257,7 @@ class ExportOperationsMixin:
 
                 item.completed_at = time.time()
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
                 item.status = BatchExportStatus.FAILED
                 item.error = "Export failed"
                 item.completed_at = time.time()
@@ -467,7 +467,7 @@ class ExportOperationsMixin:
                         yield f"data: {json.dumps({'type': 'completed', **job.to_dict()})}\n\n"
                         break
 
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning(f"SSE stream error for {job_id}: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'Stream error'})}\n\n"
 

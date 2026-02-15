@@ -109,7 +109,7 @@ class NodeOperationsMixin:
                     node_types=node_types,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Mound query failed: {e}")
             return error_response("Query execution failed", 500)
 

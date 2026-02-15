@@ -413,7 +413,7 @@ class UnifiedInboxHandler(BaseHandler):
             result = await execute_bulk_action(tenant_id, message_ids, action, self._store)
             return success_response(result)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.exception(f"Error executing bulk action: {e}")
             return error_response("Bulk action failed", 500)
 
@@ -450,7 +450,7 @@ class UnifiedInboxHandler(BaseHandler):
                     message.account_id,
                     {"last_sync": datetime.now(timezone.utc)},
                 )
-            except Exception as e:
+            except (OSError, ValueError, KeyError) as e:
                 logger.warning(f"[UnifiedInbox] Failed to persist message: {e}")
 
         try:
