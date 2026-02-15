@@ -145,7 +145,7 @@ export class SSONamespace {
     SAMLResponse?: string;
     RelayState?: string;
   }): Promise<SSOCallbackResult> {
-    return this.client.request<SSOCallbackResult>('GET', '/auth/sso/callback', { body: params });
+    return this.client.request<SSOCallbackResult>('POST', '/auth/sso/callback', { body: params });
   }
 
   /**

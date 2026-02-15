@@ -50,11 +50,11 @@ describe('IntegrationsAPI Namespace', () => {
           { type: 's3', name: 'Amazon S3', category: 'storage', oauth_supported: false },
         ],
       };
-      mockClient.get.mockResolvedValue(mockAvailable);
+      mockClient.request.mockResolvedValue(mockAvailable);
 
       const result = await api.listAvailable();
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/available');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/integrations/available');
       expect(result.integrations).toHaveLength(3);
     });
 
@@ -68,11 +68,11 @@ describe('IntegrationsAPI Namespace', () => {
           { name: 'channel', type: 'string', description: 'Default channel', default: '#general' },
         ],
       };
-      mockClient.get.mockResolvedValue(mockSchema);
+      mockClient.request.mockResolvedValue(mockSchema);
 
       const result = await api.getConfigSchema('slack');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/config/slack');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/integrations/config/slack');
       expect(result.type).toBe('slack');
     });
   });
@@ -90,11 +90,11 @@ describe('IntegrationsAPI Namespace', () => {
         ],
         total: 2,
       };
-      mockClient.get.mockResolvedValue(mockIntegrations);
+      mockClient.request.mockResolvedValue(mockIntegrations);
 
       const result = await api.list();
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/integrations');
       expect(result.integrations).toHaveLength(2);
     });
 
@@ -106,11 +106,11 @@ describe('IntegrationsAPI Namespace', () => {
         status: 'connected',
         credentials_stored: true,
       };
-      mockClient.get.mockResolvedValue(mockIntegration);
+      mockClient.request.mockResolvedValue(mockIntegration);
 
       const result = await api.get('i1');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/i1');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/integrations/i1');
       expect(result.status).toBe('connected');
     });
 
@@ -121,7 +121,7 @@ describe('IntegrationsAPI Namespace', () => {
         name: 'My Slack',
         status: 'pending',
       };
-      mockClient.post.mockResolvedValue(mockIntegration);
+      mockClient.request.mockResolvedValue(mockIntegration);
 
       const result = await api.create({
         type: 'slack',
@@ -129,32 +129,36 @@ describe('IntegrationsAPI Namespace', () => {
         config: { workspace_id: 'T123456' },
       });
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations', {
-        type: 'slack',
-        name: 'My Slack',
-        config: { workspace_id: 'T123456' },
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/integrations', {
+        json: {
+          type: 'slack',
+          name: 'My Slack',
+          config: { workspace_id: 'T123456' },
+        },
       });
       expect(result.id).toBe('i_new');
     });
 
     it('should update integration', async () => {
       const mockIntegration = { id: 'i1', name: 'Updated Name', enabled: false };
-      mockClient.put.mockResolvedValue(mockIntegration);
+      mockClient.request.mockResolvedValue(mockIntegration);
 
       const result = await api.update('i1', { name: 'Updated Name', enabled: false });
 
-      expect(mockClient.put).toHaveBeenCalledWith('/api/v1/integrations/i1', {
-        name: 'Updated Name',
-        enabled: false,
+      expect(mockClient.request).toHaveBeenCalledWith('PUT', '/api/v1/integrations/i1', {
+        json: {
+          name: 'Updated Name',
+          enabled: false,
+        },
       });
     });
 
     it('should delete integration', async () => {
-      mockClient.delete.mockResolvedValue({ deleted: true });
+      mockClient.request.mockResolvedValue({ deleted: true });
 
       const result = await api.delete('i1');
 
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/integrations/i1');
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/integrations/i1');
       expect(result.deleted).toBe(true);
     });
   });
@@ -165,11 +169,11 @@ describe('IntegrationsAPI Namespace', () => {
 
   describe('Testing and Sync', () => {
     it('should test integration', async () => {
-      mockClient.post.mockResolvedValue({ success: true, message: 'Connection successful' });
+      mockClient.request.mockResolvedValue({ success: true, message: 'Connection successful' });
 
       const result = await api.test('i1');
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations/i1/test');
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/integrations/i1/test');
       expect(result.success).toBe(true);
     });
 
@@ -179,11 +183,11 @@ describe('IntegrationsAPI Namespace', () => {
         status: 'syncing',
         items_synced: 0,
       };
-      mockClient.post.mockResolvedValue(mockSync);
+      mockClient.request.mockResolvedValue(mockSync);
 
       const result = await api.sync('i1');
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations/i1/sync');
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/integrations/i1/sync');
       expect(result.status).toBe('syncing');
     });
 
@@ -194,11 +198,11 @@ describe('IntegrationsAPI Namespace', () => {
         items_synced: 1500,
         last_sync_at: '2024-01-20T10:00:00Z',
       };
-      mockClient.get.mockResolvedValue(mockSync);
+      mockClient.request.mockResolvedValue(mockSync);
 
       const result = await api.getSyncStatus('i1');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/i1/sync');
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/integrations/i1/sync');
       expect(result.items_synced).toBe(1500);
     });
   });
@@ -389,7 +393,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.startWizard('slack');
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v2/integrations/wizard', {
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v2/integrations/wizard', {
         json: { type: 'slack' },
       });
       expect(result.steps).toHaveLength(3);

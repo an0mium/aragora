@@ -30,7 +30,10 @@ def temp_git_repo(tmp_path: Path) -> Path:
     """Create a temporary git repo for testing worktree operations."""
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(["git", "init"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "init", "--initial-branch=main"],
+        cwd=repo, capture_output=True, check=True,
+    )
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
         cwd=repo, capture_output=True, check=True,

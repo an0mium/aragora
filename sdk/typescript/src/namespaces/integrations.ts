@@ -411,7 +411,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/available
    */
   async listAvailable(): Promise<{ integrations: AvailableIntegration[] }> {
-    return this.client.request('POST', '/api/v1/integrations/available');
+    return this.client.request('GET', '/api/v1/integrations/available');
   }
 
   /**
@@ -427,7 +427,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/config
    */
   async getConfig(): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/integrations/config');
+    return this.client.request('GET', '/api/v1/integrations/config');
   }
 
   /**

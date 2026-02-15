@@ -677,10 +677,12 @@ class TestOrchestrationHandlerAuth:
     @pytest.mark.asyncio
     async def test_handle_get_requires_auth(self, handler, mock_http_handler):
         """Test that GET endpoints require authentication."""
+        from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(
             handler,
             "get_auth_context",
-            side_effect=Exception("Unauthorized"),
+            side_effect=UnauthorizedError("Unauthorized"),
         ):
             # The handler should catch auth errors gracefully
             result = await handler.handle("/api/v1/orchestration/templates", {}, mock_http_handler)
@@ -2207,7 +2209,7 @@ class TestSyncVsAsyncDeliberation:
             return_value=mock_result,
         ):
             with patch(
-                "aragora.server.handlers.orchestration.run_async",
+                "aragora.server.handlers.orchestration.handler.run_async",
                 return_value=mock_result,
             ):
                 result = handler._handle_deliberate(

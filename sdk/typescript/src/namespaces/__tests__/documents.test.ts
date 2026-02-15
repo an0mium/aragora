@@ -13,6 +13,7 @@ import { DocumentsAPI } from '../documents';
 interface MockClient {
   get: Mock;
   post: Mock;
+  request: Mock;
 }
 
 describe('DocumentsAPI Namespace', () => {
@@ -23,6 +24,7 @@ describe('DocumentsAPI Namespace', () => {
     mockClient = {
       get: vi.fn(),
       post: vi.fn(),
+      request: vi.fn(),
     };
     api = new DocumentsAPI(mockClient as any);
   });
@@ -56,11 +58,13 @@ describe('DocumentsAPI Namespace', () => {
         ],
         total: 2,
       };
-      mockClient.get.mockResolvedValue(mockDocuments);
+      mockClient.request.mockResolvedValue(mockDocuments);
 
       const result = await api.list();
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/documents');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/documents', {
+        params: undefined,
+      });
       expect(result.documents).toHaveLength(2);
       expect(result.total).toBe(2);
     });
@@ -70,29 +74,35 @@ describe('DocumentsAPI Namespace', () => {
         documents: [{ id: 'doc_1', name: 'evidence.pdf', debate_id: 'd_123' }],
         total: 1,
       };
-      mockClient.get.mockResolvedValue(mockDocuments);
+      mockClient.request.mockResolvedValue(mockDocuments);
 
       await api.list({ debate_id: 'd_123' });
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/documents?debate_id=d_123');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/documents', {
+        params: { debate_id: 'd_123' },
+      });
     });
 
     it('should list documents with pagination', async () => {
       const mockDocuments = { documents: [], total: 100 };
-      mockClient.get.mockResolvedValue(mockDocuments);
+      mockClient.request.mockResolvedValue(mockDocuments);
 
       await api.list({ limit: 10, offset: 20 });
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/documents?limit=10&offset=20');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/documents', {
+        params: { limit: 10, offset: 20 },
+      });
     });
 
     it('should list documents with all filters', async () => {
       const mockDocuments = { documents: [], total: 0 };
-      mockClient.get.mockResolvedValue(mockDocuments);
+      mockClient.request.mockResolvedValue(mockDocuments);
 
       await api.list({ debate_id: 'd_123', limit: 5, offset: 10 });
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/documents?debate_id=d_123&limit=5&offset=10');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/documents', {
+        params: { debate_id: 'd_123', limit: 5, offset: 10 },
+      });
     });
   });
 
