@@ -331,8 +331,11 @@ class AragoraKnowledgeTool(BaseTool):
 
             return "\n".join(formatted)
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"[AragoraKnowledgeTool] connection error: {type(e).__name__}: {e}")
+            return f"Error querying knowledge (connection): {e}"
         except Exception as e:
-            logger.error(f"[AragoraKnowledgeTool] Error: {e}")
+            logger.error(f"[AragoraKnowledgeTool] error: {type(e).__name__}: {e}")
             return f"Error querying knowledge: {e}"
 
 
@@ -431,8 +434,11 @@ class AragoraDecisionTool(BaseTool):
                 f"Receipt ID: {receipt_id}"
             )
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"[AragoraDecisionTool] connection error: {type(e).__name__}: {e}")
+            return f"Error making decision (connection): {e}"
         except Exception as e:
-            logger.error(f"[AragoraDecisionTool] Error: {e}")
+            logger.error(f"[AragoraDecisionTool] error: {type(e).__name__}: {e}")
             return f"Error making decision: {e}"
 
 

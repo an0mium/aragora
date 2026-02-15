@@ -548,3 +548,92 @@ class BasicHandlersMixin:
             pass  # Knowledge Mound not available
         except Exception as e:
             logger.debug(f"KM outcome persistence failed: {e}")
+
+    def _handle_tier_demotion_to_revalidation(self, event: StreamEvent) -> None:
+        """Memory tier demotion → Re-validation trigger.
+
+        When a memory entry is demoted to slow or glacial tier, trigger
+        re-validation to ensure the content is still accurate before
+        it becomes harder to access. This prevents stale or incorrect
+        knowledge from persisting in lower tiers without review.
+        """
+        data = event.data
+        memory_id = data.get("memory_id", "")
+        to_tier = data.get("to_tier", "")
+        from_tier = data.get("from_tier", "")
+
+        if not memory_id:
+            return
+
+        # Only re-validate on demotion to slow or glacial tiers
+        if to_tier not in ("slow", "glacial"):
+            return
+
+        logger.info(
+            "Tier demotion re-validation: memory=%s from=%s to=%s",
+            memory_id,
+            from_tier,
+            to_tier,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            # Mark for re-validation in KM
+            if hasattr(mound, "mark_for_revalidation"):
+                mound.mark_for_revalidation(
+                    source=f"continuum:{memory_id}",
+                    reason=f"tier_demotion:{from_tier}->{to_tier}",
+                )
+                logger.debug(
+                    "Marked memory %s for KM re-validation after demotion",
+                    memory_id,
+                )
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except Exception as e:
+            logger.debug(f"KM re-validation trigger failed: {e}")
+
+    def _handle_tier_promotion_to_knowledge(self, event: StreamEvent) -> None:
+        """Memory tier promotion → Knowledge Mound notification.
+
+        When a memory entry is promoted to a faster tier, notify KM
+        so it can prioritize that knowledge for retrieval and ensure
+        the entry's importance is reflected in search rankings.
+        """
+        data = event.data
+        memory_id = data.get("memory_id", "")
+        to_tier = data.get("to_tier", "")
+        surprise_score = data.get("surprise_score", 0.0)
+
+        if not memory_id:
+            return
+
+        logger.debug(
+            "Tier promotion notification: memory=%s to=%s surprise=%.3f",
+            memory_id,
+            to_tier,
+            surprise_score,
+        )
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            # Boost importance in KM based on promotion
+            if hasattr(mound, "boost_importance"):
+                mound.boost_importance(
+                    source=f"continuum:{memory_id}",
+                    factor=1.0 + surprise_score,
+                )
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except Exception as e:
+            logger.debug(f"KM importance boost failed: {e}")
