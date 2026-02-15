@@ -215,7 +215,9 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 
 
 def _run_inline_mock_debate(
-    topic: str, rounds: int, agent_count: int,
+    topic: str,
+    rounds: int,
+    agent_count: int,
 ) -> dict[str, Any]:
     """Run a mock debate without the aragora-debate package."""
     start = time.monotonic()
@@ -234,13 +236,15 @@ def _run_inline_mock_debate(
             if i == j:
                 continue
             lo, hi = _MOCK_SEVERITY[style]
-            critiques.append({
-                "agent": name,
-                "target_agent": target,
-                "issues": list(_MOCK_CRITIQUE_ISSUES[style]),
-                "suggestions": list(_MOCK_CRITIQUE_SUGGESTIONS[style]),
-                "severity": round(random.uniform(lo, hi), 1),
-            })
+            critiques.append(
+                {
+                    "agent": name,
+                    "target_agent": target,
+                    "issues": list(_MOCK_CRITIQUE_ISSUES[style]),
+                    "suggestions": list(_MOCK_CRITIQUE_SUGGESTIONS[style]),
+                    "severity": round(random.uniform(lo, hi), 1),
+                }
+            )
 
     votes: list[dict[str, Any]] = []
     vote_tally: dict[str, float] = {}
@@ -253,10 +257,14 @@ def _run_inline_mock_debate(
         else:
             choice = random.choice(others)
         conf = _MOCK_CONFIDENCE.get(style, 0.7)
-        votes.append({
-            "agent": name, "choice": choice, "confidence": conf,
-            "reasoning": f"Selected based on {style} evaluation of the arguments",
-        })
+        votes.append(
+            {
+                "agent": name,
+                "choice": choice,
+                "confidence": conf,
+                "reasoning": f"Selected based on {style} evaluation of the arguments",
+            }
+        )
         vote_tally[choice] = vote_tally.get(choice, 0.0) + conf
 
     total_weight = sum(vote_tally.values())
@@ -278,35 +286,56 @@ def _run_inline_mock_debate(
     duration = time.monotonic() - start
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"DR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
-    receipt_hash = hashlib.sha256(f"{receipt_id}:{topic}:{verdict}:{confidence}".encode()).hexdigest()
+    receipt_hash = hashlib.sha256(
+        f"{receipt_id}:{topic}:{verdict}:{confidence}".encode()
+    ).hexdigest()
 
     return {
-        "id": debate_id, "topic": topic,
+        "id": debate_id,
+        "topic": topic,
         "status": "consensus_reached" if consensus_reached else "completed",
-        "rounds_used": rounds, "consensus_reached": consensus_reached,
-        "confidence": confidence, "verdict": verdict,
-        "duration_seconds": round(duration, 3), "participants": names,
-        "proposals": proposals, "critiques": critiques, "votes": votes,
+        "rounds_used": rounds,
+        "consensus_reached": consensus_reached,
+        "confidence": confidence,
+        "verdict": verdict,
+        "duration_seconds": round(duration, 3),
+        "participants": names,
+        "proposals": proposals,
+        "critiques": critiques,
+        "votes": votes,
         "dissenting_views": [
             f"{v['agent']}: {v['reasoning']}" for v in votes if v["choice"] != leading
         ],
         "final_answer": proposals.get(leading, ""),
         "receipt": {
-            "receipt_id": receipt_id, "question": topic, "verdict": verdict,
+            "receipt_id": receipt_id,
+            "question": topic,
+            "verdict": verdict,
             "confidence": confidence,
             "consensus": {
-                "reached": consensus_reached, "method": "majority",
-                "confidence": confidence, "supporting_agents": supporting,
+                "reached": consensus_reached,
+                "method": "majority",
+                "confidence": confidence,
+                "supporting_agents": supporting,
                 "dissenting_agents": dissenting,
                 "dissents": [
-                    {"agent": v["agent"], "reasons": [v["reasoning"]],
-                     "alternative_view": f"Preferred: {v['choice']}", "severity": 0.5}
-                    for v in votes if v["choice"] != leading
+                    {
+                        "agent": v["agent"],
+                        "reasons": [v["reasoning"]],
+                        "alternative_view": f"Preferred: {v['choice']}",
+                        "severity": 0.5,
+                    }
+                    for v in votes
+                    if v["choice"] != leading
                 ],
             },
-            "agents": names, "rounds_used": rounds, "claims": 0,
-            "evidence_count": 0, "timestamp": now_iso,
-            "signature": receipt_hash, "signature_algorithm": "SHA-256-content-hash",
+            "agents": names,
+            "rounds_used": rounds,
+            "claims": 0,
+            "evidence_count": 0,
+            "timestamp": now_iso,
+            "signature": receipt_hash,
+            "signature_algorithm": "SHA-256-content-hash",
         },
         "receipt_hash": receipt_hash,
     }
@@ -577,14 +606,16 @@ class PlaygroundHandler(BaseHandler):
         estimated_cost = round(agent_count * rounds * per_agent_per_round, 4)
         budget_cap = 0.05
 
-        return json_response({
-            "estimated_cost_usd": estimated_cost,
-            "budget_cap_usd": budget_cap,
-            "agent_count": agent_count,
-            "rounds": rounds,
-            "timeout_seconds": _LIVE_TIMEOUT,
-            "note": "Actual cost may vary. Capped at budget limit.",
-        })
+        return json_response(
+            {
+                "estimated_cost_usd": estimated_cost,
+                "budget_cap_usd": budget_cap,
+                "agent_count": agent_count,
+                "rounds": rounds,
+                "timeout_seconds": _LIVE_TIMEOUT,
+                "note": "Actual cost may vary. Capped at budget limit.",
+            }
+        )
 
     # ------------------------------------------------------------------
     # POST /api/v1/playground/debate/live
@@ -817,7 +848,9 @@ def start_playground_debate(
                 "rounds_used": result.rounds_used,
                 "consensus_reached": result.consensus_reached,
                 "confidence": result.confidence,
-                "verdict": result.verdict.value if hasattr(result, "verdict") and result.verdict else None,
+                "verdict": result.verdict.value
+                if hasattr(result, "verdict") and result.verdict
+                else None,
                 "duration_seconds": result.duration_seconds,
                 "participants": result.participants,
                 "proposals": result.proposals,
@@ -830,7 +863,9 @@ def start_playground_debate(
                         "severity": c.severity,
                     }
                     for c in result.critiques
-                ] if hasattr(result, "critiques") else [],
+                ]
+                if hasattr(result, "critiques")
+                else [],
                 "votes": [
                     {
                         "agent": v.agent,
@@ -839,8 +874,12 @@ def start_playground_debate(
                         "reasoning": v.reasoning,
                     }
                     for v in result.votes
-                ] if hasattr(result, "votes") else [],
-                "dissenting_views": result.dissenting_views if hasattr(result, "dissenting_views") else [],
+                ]
+                if hasattr(result, "votes")
+                else [],
+                "dissenting_views": result.dissenting_views
+                if hasattr(result, "dissenting_views")
+                else [],
                 "final_answer": result.final_answer,
             }
         except asyncio.TimeoutError:

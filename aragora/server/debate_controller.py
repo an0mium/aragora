@@ -627,6 +627,19 @@ Return JSON with these exact fields:
 
             result = run_async(run_with_timeout())
 
+            # Extract explanation summary if available
+            explanation_text = ""
+            explanation_obj = getattr(result, "explanation", None)
+            if explanation_obj:
+                if isinstance(explanation_obj, str):
+                    explanation_text = explanation_obj
+                elif hasattr(explanation_obj, "summary"):
+                    explanation_text = str(getattr(explanation_obj, "summary", ""))
+                elif hasattr(explanation_obj, "text"):
+                    explanation_text = str(getattr(explanation_obj, "text", ""))
+                else:
+                    explanation_text = str(explanation_obj)
+
             # Update status with result
             update_debate_status(
                 debate_id,
@@ -641,6 +654,9 @@ Return JSON with these exact fields:
                     "grounded_verdict": (
                         result.grounded_verdict.to_dict() if result.grounded_verdict else None
                     ),
+                    "total_cost_usd": getattr(result, "total_cost_usd", None) or 0.0,
+                    "per_agent_cost": getattr(result, "per_agent_cost", None) or {},
+                    "explanation_summary": explanation_text[:500] if explanation_text else "",
                 },
             )
 
@@ -696,14 +712,13 @@ Return JSON with these exact fields:
             # Emit leaderboard update
             self._emit_leaderboard_update(debate_id)
 
-            # Auto-generate receipt for onboarding debates
-            if config.metadata and config.metadata.get("is_onboarding"):
-                self._generate_onboarding_receipt(
-                    debate_id=debate_id,
-                    config=config,
-                    result=result,
-                    duration_seconds=time.time() - start_time,
-                )
+            # Auto-generate receipt for ALL completed debates
+            self._generate_debate_receipt(
+                debate_id=debate_id,
+                config=config,
+                result=result,
+                duration_seconds=time.time() - start_time,
+            )
 
         except ValueError as e:
             # Validation errors (not enough agents, etc.)
@@ -837,14 +852,14 @@ Return JSON with these exact fields:
             # RuntimeError: emission failure
             logger.debug(f"Leaderboard emission failed: {e}")
 
-    def _generate_onboarding_receipt(
+    def _generate_debate_receipt(
         self,
         debate_id: str,
         config: DebateConfig,
         result: Any,
         duration_seconds: float,
     ) -> None:
-        """Generate and save a receipt for onboarding debates.
+        """Generate and save a receipt for a completed debate.
 
         Args:
             debate_id: Unique debate identifier
@@ -887,9 +902,11 @@ Return JSON with these exact fields:
             input_content = f"{config.question}|{config.agents_str}|{config.rounds}"
             input_hash = hashlib.sha256(input_content.encode()).hexdigest()
 
+            is_onboarding = bool(config.metadata and config.metadata.get("is_onboarding"))
+
             receipt_dict = {
                 "receipt_id": receipt_id,
-                "gauntlet_id": f"onboarding-{debate_id}",
+                "gauntlet_id": f"debate-{debate_id}",
                 "debate_id": debate_id,
                 "timestamp": timestamp,
                 "input_summary": config.question[:200],
@@ -906,7 +923,7 @@ Return JSON with these exact fields:
                 "consensus_reached": (
                     result.consensus_reached if hasattr(result, "consensus_reached") else False
                 ),
-                "is_onboarding": True,
+                "is_onboarding": is_onboarding,
             }
 
             # Calculate checksum
@@ -915,28 +932,53 @@ Return JSON with these exact fields:
 
             # Save receipt
             receipt_store.save(receipt_dict)
-            logger.info(f"[onboarding] Generated receipt {receipt_id} for debate {debate_id}")
+            logger.info(f"[debate] Generated receipt {receipt_id} for debate {debate_id}")
 
-            # Update onboarding flow with receipt ID if user_id is available
-            user_id = config.metadata.get("user_id") if config.metadata else None
-            org_id = config.metadata.get("organization_id") if config.metadata else None
-            if user_id:
-                try:
-                    from aragora.storage.repositories.onboarding import get_onboarding_repository
+            # Add receipt_id to the debate status
+            update_debate_status(debate_id, "completed", result={"receipt_id": receipt_id})
 
-                    repo = get_onboarding_repository()
-                    flow = repo.get_flow(user_id, org_id)
-                    if flow:
-                        repo.update_flow(
-                            flow["id"],
-                            {"metadata": {**flow.get("metadata", {}), "receipt_id": receipt_id}},
+            # Emit RECEIPT_GENERATED stream event
+            self.emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.RECEIPT_GENERATED,
+                    data={
+                        "debate_id": debate_id,
+                        "receipt_id": receipt_id,
+                        "verdict": verdict,
+                        "confidence": receipt_dict["confidence"],
+                    },
+                    loop_id=debate_id,
+                )
+            )
+
+            # Update onboarding flow with receipt ID if this is an onboarding debate
+            if is_onboarding:
+                user_id = config.metadata.get("user_id") if config.metadata else None
+                org_id = config.metadata.get("organization_id") if config.metadata else None
+                if user_id:
+                    try:
+                        from aragora.storage.repositories.onboarding import (
+                            get_onboarding_repository,
                         )
-                except (ImportError, KeyError, TypeError, OSError) as e:
-                    # ImportError: onboarding repository not available
-                    # KeyError: missing flow data
-                    # TypeError: unexpected flow structure
-                    # OSError: database access errors
-                    logger.debug(f"Could not update onboarding flow with receipt: {e}")
+
+                        repo = get_onboarding_repository()
+                        flow = repo.get_flow(user_id, org_id)
+                        if flow:
+                            repo.update_flow(
+                                flow["id"],
+                                {
+                                    "metadata": {
+                                        **flow.get("metadata", {}),
+                                        "receipt_id": receipt_id,
+                                    }
+                                },
+                            )
+                    except (ImportError, KeyError, TypeError, OSError) as e:
+                        # ImportError: onboarding repository not available
+                        # KeyError: missing flow data
+                        # TypeError: unexpected flow structure
+                        # OSError: database access errors
+                        logger.debug(f"Could not update onboarding flow with receipt: {e}")
 
         except (ImportError, ValueError, TypeError, OSError, KeyError) as e:
             # ImportError: receipt store module not available
@@ -944,9 +986,63 @@ Return JSON with these exact fields:
             # TypeError: unexpected data types
             # OSError: storage access errors
             # KeyError: missing required fields
-            logger.warning(f"[onboarding] Failed to generate receipt for {debate_id}: {e}")
+            logger.warning(f"[debate] Failed to generate receipt for {debate_id}: {e}")
 
     @classmethod
     def shutdown(cls) -> None:
         """Shutdown the thread pool executor via StateManager."""
         get_state_manager().shutdown_executor()
+
+    def start_playground_debate(
+        self,
+        question: str,
+        agent_count: int = 3,
+        max_rounds: int = 2,
+        timeout: int = 60,
+    ) -> dict[str, Any]:
+        """Run a simplified synchronous debate for the playground.
+
+        Skips storage/auth. Runs in a separate ThreadPoolExecutor.
+        Sets ``public_spectate: true`` in metadata for spectator URLs.
+
+        Args:
+            question: The debate question
+            agent_count: Number of agents (2-5)
+            max_rounds: Maximum debate rounds (1-2)
+            timeout: Timeout in seconds (default 60)
+
+        Returns:
+            Dict with debate result fields (final_answer, consensus, etc.)
+        """
+        import time as _time
+
+        debate_id = f"playground_{uuid.uuid4().hex[:8]}"
+        start_time = _time.time()
+
+        config = DebateConfig(
+            question=question,
+            agents_str=DEFAULT_AGENTS,
+            rounds=max_rounds,
+            debate_format="light",
+            debate_id=debate_id,
+            metadata={"public_spectate": True, "is_playground": True},
+        )
+
+        arena = self.factory.create_arena(config)
+
+        async def _run_arena():
+            return await asyncio.wait_for(arena.run(), timeout=timeout)
+
+        result = run_async(_run_arena())
+        duration = _time.time() - start_time
+
+        return {
+            "debate_id": debate_id,
+            "status": result.status,
+            "rounds_used": getattr(result, "rounds_used", max_rounds),
+            "consensus_reached": result.consensus_reached,
+            "confidence": result.confidence,
+            "final_answer": result.final_answer,
+            "participants": result.participants,
+            "duration_seconds": round(duration, 3),
+        }
