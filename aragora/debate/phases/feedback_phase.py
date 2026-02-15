@@ -409,6 +409,7 @@ class FeedbackPhase:
 
         # Fire-and-forget workflow to not block debate completion
         asyncio.create_task(self._run_workflow_async(ctx))
+        ctx.post_debate_workflow_triggered = True  # type: ignore[attr-defined]
         logger.info(
             "[workflow] Triggered post-debate workflow for debate %s (confidence=%.2f)",
             ctx.debate_id,

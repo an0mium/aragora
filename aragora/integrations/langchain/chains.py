@@ -182,8 +182,11 @@ class AragoraDebateChain(_ChainBase):
                                 for item in items
                             )
                             reasoning_steps.append(f"Found {len(items)} relevant knowledge items")
+                except (ConnectionError, TimeoutError, OSError) as e:
+                    logger.warning(f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}")
+                    reasoning_steps.append(f"Research skipped (connection error): {e}")
                 except Exception as e:
-                    logger.warning(f"[AragoraDebateChain] Research failed: {e}")
+                    logger.warning(f"[AragoraDebateChain] Research failed: {type(e).__name__}: {e}")
                     reasoning_steps.append(f"Research skipped: {e}")
 
             # Phase 2: Run debate
@@ -219,8 +222,16 @@ class AragoraDebateChain(_ChainBase):
                         f"No consensus after {debate_result.get('rounds', self.max_rounds)} rounds"
                     )
 
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.error(f"[AragoraDebateChain] Debate connection error: {type(e).__name__}: {e}")
+                return {
+                    "answer": f"Debate failed (connection error): {e}",
+                    "confidence": 0,
+                    "reasoning": "\n".join(reasoning_steps),
+                    "knowledge_context": knowledge_context,
+                }
             except Exception as e:
-                logger.error(f"[AragoraDebateChain] Debate failed: {e}")
+                logger.error(f"[AragoraDebateChain] Debate failed: {type(e).__name__}: {e}")
                 return {
                     "answer": f"Debate failed: {e}",
                     "confidence": 0,
