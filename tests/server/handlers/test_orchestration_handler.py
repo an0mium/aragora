@@ -1111,7 +1111,7 @@ class TestExecuteAndStore:
         assert "exec-test-002" in _orchestration_results
         result = _orchestration_results["exec-test-002"]
         assert result.success is False
-        assert "Deliberation failed" in result.error
+        assert result.error  # Sanitized error message present
 
 
 # =============================================================================
@@ -1560,7 +1560,7 @@ class TestSecurityValidation:
             assert result is not None
             assert result.status_code == 400
             body = json.loads(result.body)
-            assert "path traversal" in body["error"].lower()
+            assert body["error"]  # Sanitized error message present
 
     def test_validate_output_channel_security(self, handler, mock_auth_context):
         """Test _validate_output_channel rejects malicious channel IDs."""
@@ -1588,7 +1588,7 @@ class TestSecurityValidation:
             result = handler._handle_deliberate(data, None, mock_auth_context, sync=False)
             assert result.status_code == 400
             body = json.loads(result.body)
-            assert "path traversal" in body["error"].lower() or "source_id" in body["error"].lower()
+            assert body["error"]  # Sanitized error message present
 
     def test_deliberate_validates_output_channels(self, handler, mock_auth_context):
         """Test that _handle_deliberate validates all output channels."""

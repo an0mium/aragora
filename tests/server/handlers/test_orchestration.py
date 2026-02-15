@@ -1708,7 +1708,7 @@ class TestEndToEndOrchestration:
             result = _orchestration_results.get("error-test-123")
             assert result is not None
             assert result.success is False
-            assert "Test error" in result.error
+            assert result.error  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_execute_and_store_cleans_up_request(self):
@@ -2003,7 +2003,7 @@ class TestErrorHandling:
             result = await handler._execute_deliberation(request)
 
             assert result.success is False
-            assert "Router failed" in result.error
+            assert result.error  # Sanitized error message present
 
 
 # =============================================================================

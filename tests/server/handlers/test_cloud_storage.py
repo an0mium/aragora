@@ -102,14 +102,14 @@ class MockStorageBackend:
         metadata: dict[str, str] | None = None,
     ) -> str:
         if self._fail_upload:
-            raise Exception("Upload failed")
+            raise OSError("Upload failed")
         key = f"{bucket}/{path}"
         self._files[key] = data
         return f"file://{key}"
 
     async def download_file(self, bucket: str, path: str) -> bytes:
         if self._fail_download:
-            raise Exception("Download failed")
+            raise OSError("Download failed")
         key = f"{bucket}/{path}"
         if key not in self._files:
             raise FileNotFoundError(f"File not found: {key}")
@@ -117,7 +117,7 @@ class MockStorageBackend:
 
     async def delete_file(self, bucket: str, path: str) -> bool:
         if self._fail_delete:
-            raise Exception("Delete failed")
+            raise OSError("Delete failed")
         key = f"{bucket}/{path}"
         if key in self._files:
             del self._files[key]

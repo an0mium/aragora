@@ -859,7 +859,7 @@ class TestExternalAgentsErrorHandling:
             patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
         ):
             mock_auth.return_value = (MagicMock(id="user-1"), None)
-            mock_registry.list_specs.side_effect = Exception("Database error")
+            mock_registry.list_specs.side_effect = TypeError("Database error")
 
             result = external_agents_handler.handle(
                 "/api/external-agents/adapters", {}, mock_handler
@@ -885,7 +885,7 @@ class TestExternalAgentsErrorHandling:
             mock_auth.return_value = (mock_user, None)
             mock_registry.list_specs.return_value = [mock_adapter_spec]
             # Mock adapter creation to raise an exception
-            mock_adapter_spec.adapter_class.side_effect = Exception("Connection failed")
+            mock_adapter_spec.adapter_class.side_effect = RuntimeError("Connection failed")
 
             result = external_agents_handler.handle("/api/external-agents/health", {}, mock_handler)
 
@@ -916,7 +916,7 @@ class TestExternalAgentsErrorHandling:
             )
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
-            mock_run_coro.side_effect = Exception("Unexpected error")
+            mock_run_coro.side_effect = RuntimeError("Unexpected error")
 
             result = external_agents_handler.handle_post(
                 "/api/external-agents/tasks", {}, mock_handler
@@ -958,7 +958,7 @@ class TestExternalAgentsErrorHandling:
             mock_auth.return_value = (mock_authenticated_user, None)
             mock_registry.is_registered.return_value = True
             mock_registry.create.return_value = MagicMock()
-            mock_run_coro.side_effect = Exception("Network error")
+            mock_run_coro.side_effect = RuntimeError("Network error")
 
             result = external_agents_handler.handle_delete(
                 "/api/external-agents/tasks/task-123", {}, mock_handler
@@ -1181,7 +1181,7 @@ class TestRecordMetrics:
         with patch(
             "aragora.server.handlers.external_agents.record_external_agent_task"
         ) as mock_task:
-            mock_task.side_effect = Exception("Metrics error")
+            mock_task.side_effect = TypeError("Metrics error")
 
             # Should not raise
             _record_metrics("submit", "openhands", "code", 1.5)

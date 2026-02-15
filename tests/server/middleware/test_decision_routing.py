@@ -554,7 +554,7 @@ class TestDecisionRoutingMiddleware:
             result = await middleware.process("Test", context)
 
         assert result["success"] is False
-        assert "Router exploded" in result["error"]
+        assert "failed" in result["error"].lower() or "routing" in result["error"].lower()
         assert result["request_id"] == "error-req"
 
     @pytest.mark.asyncio
@@ -602,7 +602,7 @@ class TestDecisionRoutingMiddleware:
                     result = await middleware.process("Error test", context)
 
         assert result["success"] is False
-        assert "fb fail" in result["error"]
+        assert "failed" in result["error"].lower() or "routing" in result["error"].lower()
 
 
 class TestMiddlewareMultiPlatformRouting:
@@ -1068,4 +1068,4 @@ class TestConsistentErrorHandling:
         with _patch_router(middleware, side_effect=TimeoutError("timed out")):
             result = await middleware.process("Test", context)
         assert result["success"] is False
-        assert "timed out" in result["error"]
+        assert "failed" in result["error"].lower() or "routing" in result["error"].lower()

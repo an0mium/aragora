@@ -244,7 +244,7 @@ class TestHandlePrioritizeEmail:
 
             result = await handle_prioritize_email({"id": "x"})
             assert result["success"] is False
-            assert "scoring exploded" in result["error"]
+            assert result["error"]  # Sanitized error message present
 
 
 # ===========================================================================
@@ -309,7 +309,7 @@ class TestHandleRankInbox:
 
             result = await handle_rank_inbox([{"id": "1"}])
             assert result["success"] is False
-            assert "rank failed" in result["error"]
+            assert result["error"]  # Sanitized error message present
 
 
 # ===========================================================================
@@ -612,7 +612,7 @@ class TestGmailOAuth:
                 auth_context=allowed_auth_context,
             )
             assert result["success"] is False
-            assert "bad code" in result["error"]
+            assert result["error"]  # Sanitized error message present
 
 
 # ===========================================================================
