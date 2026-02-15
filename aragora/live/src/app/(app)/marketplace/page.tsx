@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import {
@@ -57,6 +58,7 @@ export default function MarketplacePage() {
     getFilteredTemplates,
   } = useMarketplaceStore();
 
+  const router = useRouter();
   const { setContext, clearContext } = useRightSidebar();
   const [showPublish, setShowPublish] = useState(false);
 
@@ -213,6 +215,7 @@ export default function MarketplacePage() {
                     onInstall={() => installTemplate(template.metadata.id)}
                     onUninstall={() => uninstallTemplate(template.metadata.id)}
                     onStar={() => starTemplate(template.metadata.id)}
+                    onUse={() => router.push(`/arena?template=${encodeURIComponent(template.metadata.name)}`)}
                     featured
                   />
                 ))}
@@ -257,6 +260,7 @@ export default function MarketplacePage() {
                   onInstall={() => installTemplate(template.metadata.id)}
                   onUninstall={() => uninstallTemplate(template.metadata.id)}
                   onStar={() => starTemplate(template.metadata.id)}
+                  onUse={() => router.push(`/arena?template=${encodeURIComponent(template.metadata.name)}`)}
                 />
               ))}
             </div>
@@ -293,6 +297,7 @@ interface TemplateCardProps {
   onInstall: () => void;
   onUninstall: () => void;
   onStar: () => void;
+  onUse: () => void;
   featured?: boolean;
 }
 
@@ -303,6 +308,7 @@ function TemplateCard({
   onInstall,
   onUninstall,
   onStar,
+  onUse,
   featured,
 }: TemplateCardProps) {
   const { metadata } = template;
@@ -365,23 +371,34 @@ function TemplateCard({
             <span className="text-yellow-400">{metadata.stars}</span> stars
           </button>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isInstalled) {
-              onUninstall();
-            } else {
-              onInstall();
-            }
-          }}
-          className={`px-2 py-1 text-xs font-mono transition-colors ${
-            isInstalled
-              ? 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
-              : 'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20'
-          }`}
-        >
-          {isInstalled ? 'UNINSTALL' : 'INSTALL'}
-        </button>
+        <div className="flex gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onUse();
+            }}
+            className="px-2 py-1 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/20 transition-colors"
+          >
+            USE
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isInstalled) {
+                onUninstall();
+              } else {
+                onInstall();
+              }
+            }}
+            className={`px-2 py-1 text-xs font-mono transition-colors ${
+              isInstalled
+                ? 'bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20'
+                : 'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20'
+            }`}
+          >
+            {isInstalled ? 'UNINSTALL' : 'INSTALL'}
+          </button>
+        </div>
       </div>
     </div>
   );

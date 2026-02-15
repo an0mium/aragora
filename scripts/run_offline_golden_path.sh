@@ -4,12 +4,25 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Resolve a working Python 3 interpreter.
+# Prefer the project virtualenv, then fall back to system python3.
+if [ -x "$ROOT_DIR/.venv/bin/python3" ]; then
+  PYTHON="$ROOT_DIR/.venv/bin/python3"
+elif command -v python3 &>/dev/null; then
+  PYTHON="python3"
+else
+  echo "[offline-golden-path] ERROR: No python3 found" >&2
+  exit 1
+fi
+
+echo "[offline-golden-path] Using Python: $PYTHON"
+
 echo "[offline-golden-path] Installing dev/test dependencies"
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev,test]"
+"$PYTHON" -m pip install --upgrade pip
+"$PYTHON" -m pip install -e ".[dev,test]"
 
 echo "[offline-golden-path] Running offline behavior tests"
-python -m pytest tests/cli/test_offline_golden_path.py -v --timeout=120 --tb=short
+"$PYTHON" -m pytest tests/cli/test_offline_golden_path.py -v --timeout=120 --tb=short
 
 echo "[offline-golden-path] Running offline demo CLI smoke"
 ARAGORA_OFFLINE=1 aragora ask "Offline mode smoke" --demo --rounds 1

@@ -1,186 +1,142 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { TemplateSearch } from '@/components/templates/TemplateSearch';
+import { API_BASE_URL } from '@/config';
 
 interface Template {
-  id: string;
+  id?: string;
   name: string;
   category: string;
   description: string;
-  prompt: string;
+  prompt?: string;
   agents: string[];
   rounds: number;
-  tags: string[];
+  tags?: string[];
   examples?: string[];
+  example_topics?: string[];
 }
 
-const TEMPLATES: Template[] = [
-  // Architecture
+// Fallback templates used when API is unavailable
+const FALLBACK_TEMPLATES: Template[] = [
   {
-    id: 'microservices-vs-monolith',
     name: 'Microservices vs Monolith',
     category: 'Architecture',
     description: 'Evaluate whether your project should use a microservices architecture or a monolithic design.',
-    prompt: 'We are building [PROJECT_DESCRIPTION]. Should we use a microservices architecture or a monolith? Consider: team size, deployment complexity, scaling needs, and long-term maintenance.',
     agents: ['claude', 'gpt-4', 'gemini'],
     rounds: 3,
     tags: ['architecture', 'scaling', 'deployment'],
-    examples: ['E-commerce platform', 'SaaS dashboard', 'Mobile app backend'],
+    example_topics: ['E-commerce platform', 'SaaS dashboard', 'Mobile app backend'],
   },
   {
-    id: 'database-selection',
     name: 'Database Selection',
     category: 'Architecture',
     description: 'Choose the right database technology for your use case.',
-    prompt: 'For [USE_CASE], which database should we use? Options: PostgreSQL, MongoDB, DynamoDB, Redis, or other. Consider: query patterns, scale, consistency needs, and operational complexity.',
     agents: ['claude', 'gpt-4', 'codestral'],
     rounds: 3,
     tags: ['database', 'infrastructure', 'data'],
   },
   {
-    id: 'api-design',
-    name: 'API Design Review',
-    category: 'Architecture',
-    description: 'Review and improve your API design before implementation.',
-    prompt: 'Review this API design: [API_SPEC]. Evaluate: REST vs GraphQL choice, versioning strategy, authentication approach, error handling, and pagination.',
-    agents: ['claude', 'gpt-4', 'gemini'],
-    rounds: 3,
-    tags: ['api', 'design', 'rest', 'graphql'],
-  },
-  // Code Review
-  {
-    id: 'code-quality',
-    name: 'Code Quality Assessment',
-    category: 'Code Review',
-    description: 'Get an objective assessment of your code quality and suggestions for improvement.',
-    prompt: 'Review this code for quality: [CODE]. Evaluate: readability, maintainability, SOLID principles, error handling, and potential bugs.',
-    agents: ['claude', 'codestral', 'gpt-4'],
-    rounds: 2,
-    tags: ['code', 'quality', 'review'],
-  },
-  {
-    id: 'refactoring-strategy',
-    name: 'Refactoring Strategy',
-    category: 'Code Review',
-    description: 'Develop a refactoring plan for legacy code.',
-    prompt: 'This legacy code needs refactoring: [CODE_DESCRIPTION]. What should be the refactoring strategy? Consider: risk, incremental approach, testing strategy, and time investment.',
-    agents: ['claude', 'gpt-4', 'codestral'],
-    rounds: 3,
-    tags: ['refactoring', 'legacy', 'technical-debt'],
-  },
-  // Security
-  {
-    id: 'security-review',
     name: 'Security Assessment',
     category: 'Security',
     description: 'Identify security vulnerabilities and get remediation advice.',
-    prompt: 'Review this system/code for security vulnerabilities: [DESCRIPTION]. Check for: OWASP Top 10, authentication flaws, authorization issues, injection attacks, and data exposure risks.',
     agents: ['claude', 'gpt-4', 'gemini'],
     rounds: 3,
     tags: ['security', 'vulnerabilities', 'owasp'],
   },
   {
-    id: 'auth-strategy',
-    name: 'Authentication Strategy',
-    category: 'Security',
-    description: 'Choose the right authentication approach for your application.',
-    prompt: 'For [APPLICATION_TYPE], what authentication strategy should we use? Options: JWT, sessions, OAuth2, SAML, passwordless. Consider: security, UX, implementation complexity.',
-    agents: ['claude', 'gpt-4', 'mistral'],
-    rounds: 3,
-    tags: ['auth', 'security', 'identity'],
-  },
-  // DevOps
-  {
-    id: 'deployment-strategy',
-    name: 'Deployment Strategy',
-    category: 'DevOps',
-    description: 'Choose the right deployment strategy for your release.',
-    prompt: 'For [RELEASE_DESCRIPTION], what deployment strategy should we use? Options: blue-green, canary, rolling, feature flags. Consider: risk tolerance, rollback needs, and monitoring.',
-    agents: ['claude', 'gpt-4', 'gemini'],
-    rounds: 2,
-    tags: ['deployment', 'devops', 'release'],
-  },
-  {
-    id: 'cloud-provider',
-    name: 'Cloud Provider Selection',
-    category: 'DevOps',
-    description: 'Compare cloud providers for your workload.',
-    prompt: 'For [WORKLOAD_DESCRIPTION], which cloud provider is best? Compare: AWS, GCP, Azure. Consider: cost, services needed, team expertise, and vendor lock-in.',
-    agents: ['claude', 'gpt-4', 'gemini'],
-    rounds: 3,
-    tags: ['cloud', 'aws', 'gcp', 'azure'],
-  },
-  // Product
-  {
-    id: 'feature-prioritization',
     name: 'Feature Prioritization',
     category: 'Product',
     description: 'Prioritize features for your product roadmap.',
-    prompt: 'We have these potential features: [FEATURE_LIST]. How should we prioritize them? Consider: user impact, effort, strategic alignment, and dependencies.',
     agents: ['claude', 'gpt-4', 'gemini'],
     rounds: 3,
     tags: ['product', 'prioritization', 'roadmap'],
   },
   {
-    id: 'build-vs-buy',
     name: 'Build vs Buy',
     category: 'Product',
     description: 'Decide whether to build a feature in-house or use a third-party solution.',
-    prompt: 'Should we build [FEATURE] in-house or buy/integrate a third-party solution? Consider: cost, time, customization needs, and long-term maintenance.',
     agents: ['claude', 'gpt-4', 'gemini'],
     rounds: 3,
     tags: ['build', 'buy', 'make-or-buy'],
   },
-  // Testing
   {
-    id: 'testing-strategy',
-    name: 'Testing Strategy',
-    category: 'Testing',
-    description: 'Design a comprehensive testing strategy for your project.',
-    prompt: 'For [PROJECT_TYPE], what should our testing strategy be? Consider: unit tests, integration tests, e2e tests, load tests, and the testing pyramid.',
-    agents: ['claude', 'gpt-4', 'codestral'],
+    name: 'Deployment Strategy',
+    category: 'DevOps',
+    description: 'Choose the right deployment strategy for your release.',
+    agents: ['claude', 'gpt-4', 'gemini'],
     rounds: 2,
-    tags: ['testing', 'qa', 'quality'],
+    tags: ['deployment', 'devops', 'release'],
   },
 ];
 
-const CATEGORIES = [...new Set(TEMPLATES.map((t) => t.category))];
-
 export default function TemplatesPage() {
   const router = useRouter();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
+  const highlightRef = useRef<string | null>(null);
 
-  const filteredTemplates = TEMPLATES.filter((template) => {
+  // Fetch templates from API
+  useEffect(() => {
+    async function fetchTemplates() {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/templates`);
+        if (response.ok) {
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : data.templates ?? [];
+          setTemplates(items);
+        } else {
+          setTemplates(FALLBACK_TEMPLATES);
+          setError('Could not load templates from server. Showing defaults.');
+        }
+      } catch {
+        setTemplates(FALLBACK_TEMPLATES);
+        setError('Could not connect to server. Showing default templates.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTemplates();
+  }, []);
+
+  const categories = [...new Set(templates.map((t) => t.category))];
+
+  const filteredTemplates = templates.filter((template) => {
     const matchesCategory = !selectedCategory || template.category === selectedCategory;
     const matchesSearch =
       !searchQuery ||
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      (template.tags ?? []).some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
   const handleUseTemplate = (template: Template) => {
-    setSelectedTemplate(template);
-    setCustomPrompt(template.prompt);
+    router.push(`/arena?template=${encodeURIComponent(template.name)}`);
   };
 
-  const handleStartDebate = () => {
-    if (selectedTemplate && customPrompt) {
-      // Navigate to home with the prompt pre-filled
-      const params = new URLSearchParams({
-        prompt: customPrompt,
-        agents: selectedTemplate.agents.join(','),
-        rounds: selectedTemplate.rounds.toString(),
-      });
-      router.push(`/?${params.toString()}`);
+  const handleSearchSelect = (templateName: string) => {
+    highlightRef.current = templateName;
+    const el = document.getElementById(`template-${templateName.replace(/\s+/g, '-').toLowerCase()}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-acid-green');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-acid-green');
+        highlightRef.current = null;
+      }, 2000);
     }
   };
+
+  const topics = (t: Template) => t.example_topics ?? t.examples ?? [];
 
   return (
     <>
@@ -202,6 +158,21 @@ export default function TemplatesPage() {
         </div>
 
         <div className="container mx-auto px-4 py-8">
+          {/* Smart Search */}
+          <div className="mb-6">
+            <TemplateSearch onSelect={handleSearchSelect} />
+          </div>
+
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-4 border border-acid-cyan/30 bg-acid-cyan/5 p-3 flex items-center justify-between">
+              <span className="text-xs font-mono text-acid-cyan">{error}</span>
+              <button onClick={() => setError(null)} className="text-acid-cyan hover:text-acid-green text-xs font-mono">
+                [X]
+              </button>
+            </div>
+          )}
+
           {/* Filters */}
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             {/* Category Filter */}
@@ -216,7 +187,7 @@ export default function TemplatesPage() {
               >
                 [ALL]
               </button>
-              {CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
@@ -237,66 +208,95 @@ export default function TemplatesPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search templates..."
+                placeholder="Filter templates..."
                 className="w-full px-4 py-2 text-sm font-mono bg-surface border border-acid-green/30
                          text-text placeholder-text-muted/50 focus:border-acid-green focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Template Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => (
-              <div
-                key={template.id}
-                className="card p-6 hover:border-acid-green/60 transition-colors"
-              >
-                {/* Category Badge */}
-                <div className="text-xs font-mono text-acid-cyan mb-2">
-                  [{template.category.toUpperCase()}]
-                </div>
-
-                {/* Name */}
-                <h3 className="font-mono text-acid-green mb-2">
-                  {template.name}
-                </h3>
-
-                {/* Description */}
-                <p className="text-sm font-mono text-text-muted mb-4">
-                  {template.description}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1 mb-4">
-                  {template.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 text-xs font-mono bg-surface border border-acid-green/20 text-text-muted"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Meta */}
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted mb-4">
-                  <span>{template.agents.length} agents</span>
-                  <span>{template.rounds} rounds</span>
-                </div>
-
-                {/* Use Template Button */}
-                <button
-                  onClick={() => handleUseTemplate(template)}
-                  className="w-full px-4 py-2 text-sm font-mono border border-acid-green/50
-                           text-acid-green hover:bg-acid-green/10 transition-colors"
-                >
-                  [USE TEMPLATE]
-                </button>
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-text-muted text-sm font-mono">Loading templates...</p>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          {filteredTemplates.length === 0 && (
+          {/* Template Grid */}
+          {!isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTemplates.map((template) => (
+                <div
+                  key={template.name}
+                  id={`template-${template.name.replace(/\s+/g, '-').toLowerCase()}`}
+                  className="card p-6 hover:border-acid-green/60 transition-all"
+                >
+                  {/* Category Badge */}
+                  <div className="text-xs font-mono text-acid-cyan mb-2">
+                    [{template.category.toUpperCase()}]
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="font-mono text-acid-green mb-2">
+                    {template.name}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-sm font-mono text-text-muted mb-4">
+                    {template.description}
+                  </p>
+
+                  {/* Example Topics */}
+                  {topics(template).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {topics(template).slice(0, 4).map((topic) => (
+                        <span
+                          key={topic}
+                          className="px-2 py-0.5 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20"
+                        >
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {(template.tags ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {(template.tags ?? []).map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 text-xs font-mono bg-surface border border-acid-green/20 text-text-muted"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Meta */}
+                  <div className="flex items-center justify-between text-xs font-mono text-text-muted mb-4">
+                    <span>{template.agents.length} agents</span>
+                    <span>{template.rounds} rounds</span>
+                  </div>
+
+                  {/* Use Template Button */}
+                  <button
+                    onClick={() => handleUseTemplate(template)}
+                    className="w-full px-4 py-2 text-sm font-mono border border-acid-green/50
+                             text-acid-green hover:bg-acid-green/10 transition-colors"
+                  >
+                    [USE TEMPLATE]
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isLoading && filteredTemplates.length === 0 && (
             <div className="text-center py-12">
               <p className="text-text-muted font-mono">No templates match your search.</p>
             </div>
@@ -342,17 +342,16 @@ export default function TemplatesPage() {
               </div>
 
               {/* Examples */}
-              {selectedTemplate.examples && (
+              {topics(selectedTemplate).length > 0 && (
                 <div className="mb-6">
                   <label className="block text-sm font-mono text-text-muted mb-2">
                     EXAMPLE CONTEXTS
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {selectedTemplate.examples.map((example) => (
+                    {topics(selectedTemplate).map((example) => (
                       <button
                         key={example}
                         onClick={() => {
-                          // Replace first placeholder with example
                           const placeholder = customPrompt.match(/\[([^\]]+)\]/)?.[0];
                           if (placeholder) {
                             setCustomPrompt(customPrompt.replace(placeholder, example));
@@ -392,7 +391,16 @@ export default function TemplatesPage() {
                   [CANCEL]
                 </button>
                 <button
-                  onClick={handleStartDebate}
+                  onClick={() => {
+                    if (selectedTemplate && customPrompt) {
+                      const params = new URLSearchParams({
+                        prompt: customPrompt,
+                        agents: selectedTemplate.agents.join(','),
+                        rounds: selectedTemplate.rounds.toString(),
+                      });
+                      router.push(`/?${params.toString()}`);
+                    }
+                  }}
                   className="flex-1 px-6 py-2 font-mono text-sm bg-acid-green text-bg
                            hover:bg-acid-green/80 transition-colors"
                 >

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { API_BASE_URL } from '@/config';
 
 // ============================================================================
 // Types - Maps to aragora/marketplace/models.py
@@ -183,12 +184,8 @@ const initialState: MarketplaceState = {
 // API Helpers
 // ============================================================================
 
-const API_URL = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
-  : 'http://localhost:8080';
-
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -217,7 +214,14 @@ export const useMarketplaceStore = create<MarketplaceState & MarketplaceActions>
       fetchTemplates: async () => {
         set({ isLoading: true, error: null });
         try {
-          const templates = await fetchApi<Template[]>('/api/marketplace/templates');
+          // Try v1 browse endpoint first, then fall back to legacy
+          let templates: Template[];
+          try {
+            const data = await fetchApi<{ templates?: Template[] } | Template[]>('/api/v1/marketplace/browse');
+            templates = Array.isArray(data) ? data : (data.templates ?? []);
+          } catch {
+            templates = await fetchApi<Template[]>('/api/marketplace/templates');
+          }
           set({ templates, isLoading: false });
         } catch (error) {
           set({
@@ -229,8 +233,14 @@ export const useMarketplaceStore = create<MarketplaceState & MarketplaceActions>
 
       fetchFeatured: async () => {
         try {
-          const featuredTemplates = await fetchApi<Template[]>('/api/marketplace/templates/featured');
-          set({ featuredTemplates });
+          let featured: Template[];
+          try {
+            const data = await fetchApi<{ templates?: Template[] } | Template[]>('/api/v1/marketplace/featured');
+            featured = Array.isArray(data) ? data : (data.templates ?? []);
+          } catch {
+            featured = await fetchApi<Template[]>('/api/marketplace/templates/featured');
+          }
+          set({ featuredTemplates: featured });
         } catch {
           // Featured is non-critical
         }

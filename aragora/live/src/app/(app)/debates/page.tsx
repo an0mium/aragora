@@ -131,7 +131,7 @@ export default function DebatesPage() {
   });
 
   const handleCopyLink = async (debateId: string) => {
-    const url = `${window.location.origin}/debate/${debateId}`;
+    const url = `${window.location.origin}/debates/${debateId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(debateId);
@@ -226,7 +226,7 @@ export default function DebatesPage() {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <Link
-                            href={`/debate/${debate.id}`}
+                            href={`/debates/${debate.id}`}
                             className="text-sm font-mono text-acid-green hover:text-acid-cyan transition-colors block mb-2"
                           >
                             {debate.task}
@@ -249,19 +249,30 @@ export default function DebatesPage() {
                               })}
                             </div>
 
-                            {/* Status */}
-                            <div className="flex items-center gap-2 text-text-muted">
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  debate.consensus_reached ? 'bg-green-400' : 'bg-yellow-400'
-                                }`}
-                              />
-                              <span>
-                                {debate.consensus_reached ? 'Consensus' : 'No consensus'}
+                            {/* Status Badge */}
+                            <span
+                              className={`px-1.5 py-0.5 text-[10px] font-mono border ${
+                                debate.winning_proposal
+                                  ? 'bg-acid-green/10 text-acid-green border-acid-green/30'
+                                  : debate.consensus_reached
+                                    ? 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30'
+                                    : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                              }`}
+                            >
+                              {debate.winning_proposal ? 'COMPLETED' : debate.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
+                            </span>
+
+                            {/* Confidence */}
+                            <span className="text-text-muted">
+                              {Math.round(debate.confidence * 100)}% conf
+                            </span>
+
+                            {/* Receipt indicator */}
+                            {debate.vote_tally && (
+                              <span className="text-[10px] font-mono text-acid-green" title="Has receipt">
+                                [RCV]
                               </span>
-                              <span className="text-text-muted/50">|</span>
-                              <span>{Math.round(debate.confidence * 100)}% conf</span>
-                            </div>
+                            )}
 
                             {/* Phase and Cycle */}
                             <div className="text-text-muted">

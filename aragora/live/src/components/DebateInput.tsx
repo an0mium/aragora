@@ -11,7 +11,9 @@ interface DebateInputProps {
   apiBase: string;
   onDebateStarted?: (debateId: string, question: string) => void;
   onError?: (error: string) => void;
+  onQuestionChange?: (question: string) => void;
   defaultFormat?: 'light' | 'full';
+  defaultQuestion?: string;
   templateId?: string;
 }
 
@@ -80,10 +82,22 @@ function detectDomain(text: string): string {
   return 'general';
 }
 
-export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, templateId: _templateId }: DebateInputProps) {
+export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChange, defaultFormat, defaultQuestion, templateId: _templateId }: DebateInputProps) {
   const router = useRouter();
   const { tokens, isLoading: authLoading, isAuthenticated } = useAuth();
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState(defaultQuestion ?? '');
+
+  // Sync if defaultQuestion changes (e.g., template loaded async)
+  useEffect(() => {
+    if (defaultQuestion && !question) {
+      setQuestion(defaultQuestion);
+    }
+  }, [defaultQuestion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notify parent of question changes
+  useEffect(() => {
+    onQuestionChange?.(question);
+  }, [question]); // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [agents, setAgents] = useState(DEFAULT_AGENTS);

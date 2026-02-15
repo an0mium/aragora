@@ -244,7 +244,10 @@ export function Sidebar() {
           </div>
 
           {/* Start - Use cases */}
-          {renderNavSection('Start', startItems)}
+          {renderNavSection('Start', showOnboarding
+            ? [{ label: 'Get Started', href: '/onboarding', icon: '>', minMode: 'simple' as ProgressiveMode }, ...startItems]
+            : startItems
+          )}
 
           {/* Browse - View past content */}
           {renderNavSection('Browse', browseItems)}

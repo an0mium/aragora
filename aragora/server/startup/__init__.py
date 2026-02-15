@@ -450,18 +450,41 @@ async def _init_all_components(
         from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
 
         dlq = IngestionDeadLetterQueue()
-        failed_items = dlq.list_failed(limit=1)
+        failed_items = dlq.list_failed(limit=100)
         if failed_items:
             logger.info(
-                "Found %d items in KM ingestion dead letter queue",
-                len(dlq.list_failed(limit=100)),
+                "Found %d items in KM ingestion dead letter queue, processing...",
+                len(failed_items),
             )
+            try:
+                from aragora.knowledge.mound import get_knowledge_mound
+
+                km = get_knowledge_mound()
+
+                def _retry_ingest(result_dict: dict) -> None:
+                    """Re-ingest a debate result dict into the Knowledge Mound."""
+                    debate_id = result_dict.get("debate_id", "unknown")
+                    conclusion = result_dict.get("conclusion", "")
+                    if conclusion and hasattr(km, "store_sync"):
+                        km.store_sync(
+                            content=conclusion,
+                            metadata={"debate_id": debate_id, "source": "dlq_retry"},
+                        )
+
+                succeeded = dlq.process_queue(ingest_fn=_retry_ingest)
+                still_failing = len(failed_items) - succeeded
+                logger.info(
+                    "DLQ processing complete: %d retried, %d succeeded, %d still failing",
+                    len(failed_items), succeeded, still_failing,
+                )
+            except (ImportError, AttributeError):
+                logger.debug("KM not available for DLQ retry, items preserved for next startup")
         status["ingestion_dlq"] = True
     except ImportError:
         logger.debug("Ingestion DLQ module not available")
         status["ingestion_dlq"] = False
     except Exception as e:
-        logger.debug(f"Ingestion DLQ check failed: {e}")
+        logger.debug(f"Ingestion DLQ processing failed: {e}")
         status["ingestion_dlq"] = False
 
     # Cost tracking (after KM so it can wire the KM adapter)

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DebateInput } from '@/components/DebateInput';
+import { TemplateSuggestions } from '@/components/arena/TemplateSuggestions';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { API_BASE_URL } from '@/config';
@@ -60,6 +61,15 @@ const TEMPLATE_CONFIGS: Record<string, { name: string; description: string; form
   },
 };
 
+interface FetchedTemplate {
+  name: string;
+  category: string;
+  description: string;
+  example_topics?: string[];
+  agents?: string[];
+  rounds?: number;
+}
+
 // Loading fallback for Suspense boundary
 function ArenaLoading() {
   return (
@@ -94,7 +104,36 @@ function ArenaContent() {
   const templateConfig = templateId ? TEMPLATE_CONFIGS[templateId] : null;
   const [error, setError] = useState<string | null>(null);
   const [recentDebates, setRecentDebates] = useState<{ id: string; question: string; created_at: string }[]>([]);
+  const [fetchedTemplate, setFetchedTemplate] = useState<FetchedTemplate | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState('');
   const { setContext, clearContext } = useRightSidebar();
+
+  // If template param is set but not in TEMPLATE_CONFIGS, fetch from API
+  useEffect(() => {
+    if (!templateId || templateConfig) {
+      setFetchedTemplate(null);
+      return;
+    }
+
+    async function fetchTemplate() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/templates/${encodeURIComponent(templateId!)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFetchedTemplate(data);
+        }
+      } catch {
+        // Template fetch is non-critical
+      }
+    }
+    fetchTemplate();
+  }, [templateId, templateConfig]);
+
+  // Resolve display info: local config takes priority, then API-fetched template
+  const displayName = templateConfig?.name ?? fetchedTemplate?.name ?? null;
+  const displayDescription = templateConfig?.description ?? fetchedTemplate?.description ?? null;
+  const displayFormat = templateConfig?.format ?? (fetchedTemplate ? 'full' : undefined);
+  const defaultQuestion = fetchedTemplate?.example_topics?.[0] ?? '';
 
   // Handle debate started - navigate to debate viewer
   const handleDebateStarted = useCallback((debateId: string, _question: string) => {
@@ -174,17 +213,16 @@ function ArenaContent() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
-              {'>'} {templateConfig ? templateConfig.name.toUpperCase() : 'DEBATE ARENA'}
+              {'>'} {displayName ? displayName.toUpperCase() : 'DEBATE ARENA'}
             </h1>
             <p className="text-sm text-[var(--text-muted)] font-mono max-w-xl mx-auto">
-              {templateConfig
-                ? templateConfig.description
-                : 'Harness the collective intelligence of multiple AI models for better decisions. Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.'}
+              {displayDescription
+                ?? 'Harness the collective intelligence of multiple AI models for better decisions. Choose your question and let Claude, GPT, Gemini, Grok & DeepSeek collaborate through debate.'}
             </p>
-            {templateConfig && (
+            {displayName && (
               <div className="mt-3 flex items-center justify-center gap-4">
                 <span className="px-2 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
-                  {templateConfig.format === 'light' ? 'Quick (~5 min)' : 'Thorough (~15 min)'}
+                  Using template: {displayName}
                 </span>
                 <Link
                   href="/arena"
@@ -216,9 +254,16 @@ function ArenaContent() {
               apiBase={API_BASE_URL}
               onDebateStarted={handleDebateStarted}
               onError={handleError}
-              defaultFormat={templateConfig?.format}
+              onQuestionChange={setCurrentQuestion}
+              defaultFormat={displayFormat}
+              defaultQuestion={defaultQuestion}
               templateId={templateId || undefined}
             />
+
+            {/* Template Suggestions (Task 18B) */}
+            {!templateId && (
+              <TemplateSuggestions question={currentQuestion} />
+            )}
           </div>
 
           {/* Quick Info */}
