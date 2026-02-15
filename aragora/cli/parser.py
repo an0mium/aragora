@@ -1671,3 +1671,107 @@ def _add_coordinate_parser(subparsers) -> None:
     from aragora.cli.commands.coordinate import add_coordinate_parser
 
     add_coordinate_parser(subparsers)
+
+
+def _add_self_improve_parser(subparsers) -> None:
+    """Add the 'self-improve' subcommand -- unified hardened pipeline.
+
+    This is the recommended entry point for autonomous self-improvement.
+    All hardened flags default to True.
+    """
+    si_parser = subparsers.add_parser(
+        "self-improve",
+        help="Run self-improvement pipeline with worktree isolation and validation",
+        description="""
+Run the full self-improvement pipeline:
+
+  1. MetaPlanner debate -> prioritize goals
+  2. TaskDecomposer -> break into subtasks per track
+  3. WorktreeManager -> create isolated worktrees per subtask
+  4. HardenedOrchestrator -> execute with gauntlet validation + mode enforcement
+  5. BranchCoordinator -> merge passing branches, reject failing ones
+  6. DecisionReceipt -> generate audit receipts per subtask
+
+Examples:
+  aragora self-improve "Make Aragora the best decision platform for SMEs"
+  aragora self-improve "Improve test coverage" --tracks qa --budget-limit 5
+  aragora self-improve "Harden security" --dry-run
+  aragora self-improve "Add docstrings to aragora/resilience/" --budget-limit 1.0
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    si_parser.add_argument(
+        "goal",
+        help="The improvement goal to execute",
+    )
+    si_parser.add_argument(
+        "--tracks",
+        "-t",
+        help="Comma-separated tracks (sme, developer, self_hosted, qa, core, security)",
+    )
+    si_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview decomposition without executing",
+    )
+    si_parser.add_argument(
+        "--max-cycles",
+        type=int,
+        default=5,
+        help="Maximum improvement cycles per subtask (default: 5)",
+    )
+    si_parser.add_argument(
+        "--require-approval",
+        action="store_true",
+        help="Require human approval at checkpoint gates",
+    )
+    si_parser.add_argument(
+        "--budget-limit",
+        type=float,
+        default=None,
+        help="Maximum budget in USD for this run",
+    )
+    si_parser.add_argument(
+        "--spectate",
+        action="store_true",
+        default=True,
+        help="Enable real-time spectate event streaming (default: on)",
+    )
+    si_parser.add_argument(
+        "--no-spectate",
+        dest="spectate",
+        action="store_false",
+        help="Disable spectate streaming",
+    )
+    si_parser.add_argument(
+        "--receipt",
+        action="store_true",
+        default=True,
+        help="Generate DecisionReceipts (default: on)",
+    )
+    si_parser.add_argument(
+        "--no-receipt",
+        dest="receipt",
+        action="store_false",
+        help="Disable receipt generation",
+    )
+    si_parser.add_argument(
+        "--sessions",
+        type=int,
+        default=None,
+        help="Number of parallel sessions (maps to BranchCoordinator parallelism)",
+    )
+    si_parser.add_argument(
+        "--path",
+        "-p",
+        help="Path to codebase (default: current dir)",
+    )
+    si_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed progress",
+    )
+    si_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.self_improve", "cmd_self_improve")
+    )
