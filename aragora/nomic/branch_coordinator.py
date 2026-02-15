@@ -710,9 +710,9 @@ class BranchCoordinator:
             assignment.result = result
 
         except Exception as e:
-            logger.exception(f"Assignment failed: {e}")
+            logger.warning("Assignment failed: %s", e)
             assignment.status = "failed"
-            assignment.error = str(e)
+            assignment.error = f"Failed: {type(e).__name__}"
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)

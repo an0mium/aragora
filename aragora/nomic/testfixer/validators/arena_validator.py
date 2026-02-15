@@ -136,9 +136,9 @@ class ArenaValidator:
                 logger.info("arena_validator.agent_created type=%s", agent_type)
             except Exception as e:
                 logger.warning(
-                    "arena_validator.agent_create_failed type=%s error=%s",
+                    "arena_validator.agent_create_failed type=%s: %s",
                     agent_type,
-                    str(e),
+                    e,
                 )
 
         if not self.agents:
@@ -302,9 +302,9 @@ IMPROVEMENTS: [Suggestions]
             return None
         except Exception as e:
             logger.warning(
-                "arena_validator.agent_error agent=%s error=%s",
+                "arena_validator.agent_error agent=%s: %s",
                 agent.name,
-                str(e),
+                e,
             )
             return None
 
@@ -521,8 +521,8 @@ IMPROVEMENTS: [Suggestions]
             )
         except Exception as e:
             logger.warning(
-                "arena_validator.arena_error error=%s",
-                str(e),
+                "arena_validator.arena_error: %s",
+                e,
             )
             # Fall back to simple validation
             return await self.validate(proposal, analysis)

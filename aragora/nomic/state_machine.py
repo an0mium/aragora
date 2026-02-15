@@ -494,10 +494,11 @@ class NomicStateMachine:
                 await self._run_state_handler(state, trigger_event)
             else:
                 # Max retries exceeded
+                logger.warning("State %s handler failed after max retries: %s", state.name, e)
                 self.context.errors.append(
                     {
                         "state": state.name,
-                        "error": str(e),
+                        "error": f"State handler failed: {type(e).__name__}",
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )

@@ -105,8 +105,8 @@ def _init_metrics() -> bool:
                 # Fallback: unregister and recreate
                 try:
                     REGISTRY.unregister(REGISTRY._names_to_collectors.get(name))
-                except Exception:
-                    pass
+                except (KeyError, ValueError, AttributeError) as e:
+                    logger.debug("Could not unregister metric %s: %s", name, e)
                 return metric_cls(name, description, labels, **kwargs)
 
         # Request metrics

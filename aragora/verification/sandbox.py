@@ -137,15 +137,18 @@ class ProofSandbox:
     def __del__(self):
         """Destructor - fallback cleanup if context manager not used.
 
-        Note: Bare except is intentional here - during garbage collection,
-        any exception (including AttributeError for partially-constructed objects)
-        must be suppressed to avoid runtime errors during interpreter shutdown.
+        During garbage collection, partially-constructed objects may raise
+        AttributeError and the logging subsystem may be torn down, so we
+        catch broadly and best-effort log.
         """
         try:
             if not self._closed and self.config.cleanup_on_exit:
                 self._cleanup_temp_dirs()
-        except Exception:  # noqa: BLE001 - GC cleanup must not raise
-            pass
+        except Exception as e:  # noqa: BLE001 - GC cleanup must not raise
+            try:
+                logger.debug("Sandbox __del__ cleanup failed: %s", e)
+            except Exception:  # noqa: BLE001 - logger may be unavailable during shutdown
+                pass
 
     def _create_temp_dir(self) -> Path:
         """Create a temporary directory for sandboxed execution."""

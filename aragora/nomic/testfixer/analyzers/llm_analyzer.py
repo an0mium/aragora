@@ -119,9 +119,9 @@ class LLMFailureAnalyzer(AIAnalyzer):
                 logger.info("llm_analyzer.agent_created type=%s", agent_type)
             except Exception as e:
                 logger.warning(
-                    "llm_analyzer.agent_create_failed type=%s error=%s",
+                    "llm_analyzer.agent_create_failed type=%s: %s",
                     agent_type,
-                    str(e),
+                    e,
                 )
 
         if not self.agents:
@@ -316,10 +316,10 @@ Your assessment of the analysis, including any issues or improvements...
         except Exception as e:
             duration = time.perf_counter() - start_time
             logger.warning(
-                "llm_analyzer.agent_error agent=%s error=%s duration=%.2fs",
+                "llm_analyzer.agent_error agent=%s duration=%.2fs: %s",
                 agent.name,
-                str(e),
                 duration,
+                e,
             )
             return None
 

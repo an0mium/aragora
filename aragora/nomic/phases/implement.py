@@ -13,11 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 from . import ImplementResult
 from .scope_limiter import ScopeLimiter
@@ -446,10 +449,10 @@ class ImplementPhase:
                     plan = await self._plan_generator(design, self.aragora_path)
                     self._log(f"  Plan generated: {len(plan.tasks)} tasks")
                 except Exception as e:
-                    self._log(f"  Plan generation failed: {e}")
+                    logger.warning("Plan generation failed: %s", e)
                     return ImplementResult(
                         success=False,
-                        error=str(e),
+                        error=f"Plan generation failed: {type(e).__name__}",
                         data={},
                         duration_seconds=(datetime.now() - phase_start).total_seconds(),
                         files_modified=[],
@@ -592,23 +595,24 @@ class ImplementPhase:
                 )
 
         except Exception as e:
-            self._log(f"  Catastrophic failure: {e}")
+            logger.warning("Catastrophic implementation failure: %s", e)
             self._log("  Rolling back changes...")
             await self._git_stash_pop(stash_ref)
             phase_duration = (datetime.now() - phase_start).total_seconds()
+            error_desc = f"Implementation failed: {type(e).__name__}"
             self._stream_emit(
                 "on_phase_end",
                 "implement",
                 self.cycle_count,
                 False,
                 phase_duration,
-                {"error": str(e)},
+                {"error": error_desc},
             )
-            self._stream_emit("on_error", "implement", str(e), True)
+            self._stream_emit("on_error", "implement", error_desc, True)
 
             return ImplementResult(
                 success=False,
-                error=str(e),
+                error=error_desc,
                 data={},
                 duration_seconds=phase_duration,
                 files_modified=[],
@@ -684,18 +688,20 @@ CRITICAL SAFETY RULES:
                 diff_summary="",
             )
         except Exception as e:
+            logger.warning("Legacy implementation failed: %s", e)
             phase_duration = (datetime.now() - phase_start).total_seconds()
+            error_desc = f"Legacy implementation failed: {type(e).__name__}"
             self._stream_emit(
                 "on_phase_end",
                 "implement",
                 self.cycle_count,
                 False,
                 phase_duration,
-                {"error": str(e)},
+                {"error": error_desc},
             )
             return ImplementResult(
                 success=False,
-                error=str(e),
+                error=error_desc,
                 data={},
                 duration_seconds=phase_duration,
                 files_modified=[],

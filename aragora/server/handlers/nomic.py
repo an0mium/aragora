@@ -706,9 +706,11 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             max_cycles = max(1, min(max_cycles, 100))
             auto_approve = bool(body.get("auto_approve", False))
 
-            # Security assertion: verify all subprocess args are bounded integers
-            assert isinstance(cycles, int) and 1 <= cycles <= 100
-            assert isinstance(max_cycles, int) and 1 <= max_cycles <= 100
+            # Security check: verify all subprocess args are bounded integers
+            if not isinstance(cycles, int) or not (1 <= cycles <= 100):
+                raise ValueError(f"cycles must be an integer in [1, 100], got {cycles!r}")
+            if not isinstance(max_cycles, int) or not (1 <= max_cycles <= 100):
+                raise ValueError(f"max_cycles must be an integer in [1, 100], got {max_cycles!r}")
 
             # Start nomic loop as subprocess
             script_path = nomic_dir.parent.parent / "scripts" / "nomic_loop.py"

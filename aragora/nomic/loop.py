@@ -226,16 +226,16 @@ class NomicLoop:
             }
 
         except Exception as e:
-            logger.exception(f"Cycle {self._current_cycle_id} failed with exception")
+            logger.warning("Cycle %s failed with exception: %s", self._current_cycle_id, e)
             self.create_checkpoint()
 
             # Record failure with error
-            self._finalize_cycle_record(success=False, error=str(e))
+            self._finalize_cycle_record(success=False, error=f"Cycle failed: {type(e).__name__}")
 
             return {
                 "success": False,
                 "cycle_id": self._current_cycle_id,
-                "error": str(e),
+                "error": f"Cycle failed: {type(e).__name__}",
                 "phase": self._cycle_context.get("current_phase", "unknown"),
             }
 

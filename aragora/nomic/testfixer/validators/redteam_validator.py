@@ -181,9 +181,9 @@ class RedTeamValidator:
                 logger.info("redteam_validator.attacker_created type=%s", agent_type)
             except Exception as e:
                 logger.warning(
-                    "redteam_validator.attacker_failed type=%s error=%s",
+                    "redteam_validator.attacker_failed type=%s: %s",
                     agent_type,
-                    str(e),
+                    e,
                 )
 
         # Create defender agent
@@ -198,9 +198,9 @@ class RedTeamValidator:
                 logger.info("redteam_validator.defender_created type=%s", self.config.defender_type)
             except Exception as e:
                 logger.warning(
-                    "redteam_validator.defender_failed type=%s error=%s",
+                    "redteam_validator.defender_failed type=%s: %s",
                     self.config.defender_type,
-                    str(e),
+                    e,
                 )
 
         if not self.attackers:
@@ -492,7 +492,7 @@ Be honest. Don't dismiss valid concerns - acknowledge and explain tradeoffs.
             logger.warning("redteam_validator.defense_timeout round=%d", round_num)
             return []
         except Exception as e:
-            logger.warning("redteam_validator.defense_error error=%s", str(e))
+            logger.warning("redteam_validator.defense_error: %s", e)
             return []
 
     async def validate(

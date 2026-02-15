@@ -708,8 +708,8 @@ class TestRunner:
 
         except Exception as e:
             execution_error = e
-            logger.exception("test.run.execution_error run_id=%s", run_id)
-            stderr = str(e)
+            logger.warning("test.run.execution_error run_id=%s: %s", run_id, e)
+            stderr = f"Test execution failed: {type(e).__name__}"
             stdout = ""
             exit_code = -1
 

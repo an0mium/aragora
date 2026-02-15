@@ -8,6 +8,7 @@ Phase 5: Commit changes if verified
 - Structured commit gate with audit trail
 """
 
+import logging
 import os
 import re
 import subprocess
@@ -16,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 from . import CommitResult
 
@@ -234,15 +237,16 @@ class CommitPhase:
             )
 
         except Exception as e:
-            self._log(f"  Commit error: {e}")
+            logger.warning("Commit phase error: %s", e)
             phase_duration = (datetime.now() - phase_start).total_seconds()
+            error_desc = f"Commit failed: {type(e).__name__}"
             self._stream_emit(
-                "on_phase_end", "commit", self.cycle_count, False, phase_duration, {"error": str(e)}
+                "on_phase_end", "commit", self.cycle_count, False, phase_duration, {"error": error_desc}
             )
-            self._stream_emit("on_error", "commit", str(e), True)
+            self._stream_emit("on_error", "commit", error_desc, True)
             return CommitResult(
                 success=False,
-                error=str(e),
+                error=error_desc,
                 data={},
                 duration_seconds=phase_duration,
                 commit_hash=None,

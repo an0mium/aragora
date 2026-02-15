@@ -156,9 +156,9 @@ class PatternLearner:
                 )
             except Exception as e:
                 logger.warning(
-                    "pattern_learner.load_failed path=%s error=%s",
+                    "pattern_learner.load_failed path=%s: %s",
                     self.store_path,
-                    str(e),
+                    e,
                 )
 
         self._loaded = True
@@ -452,7 +452,7 @@ class PatternLearner:
                     self.patterns[pattern.id] = pattern
                     imported += 1
             except Exception as e:
-                logger.warning("pattern_learner.import_failed error=%s", str(e))
+                logger.warning("pattern_learner.import_failed: %s", e)
 
         if imported > 0:
             self._save()

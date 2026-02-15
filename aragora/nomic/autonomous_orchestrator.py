@@ -691,16 +691,12 @@ class AutonomousOrchestrator:
 
         except Exception as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-            logger.exception(
-                "orchestration_failed",
-                orchestration_id=self._orchestration_id,
-                error=str(e),
-            )
+            logger.warning("orchestration_failed orchestration_id=%s: %s", self._orchestration_id, e)
 
             # Fail the convoy on exception
             if self.enable_convoy_tracking and self._convoy_id:
                 try:
-                    await self._complete_convoy(success=False, error=str(e))
+                    await self._complete_convoy(success=False, error=f"Orchestration failed: {type(e).__name__}")
                 except Exception:
                     logger.debug("Failed to update convoy on error")
 
@@ -713,7 +709,7 @@ class AutonomousOrchestrator:
                 assignments=self._active_assignments,
                 duration_seconds=duration,
                 success=False,
-                error=str(e),
+                error=f"Orchestration failed: {type(e).__name__}",
             )
 
     async def _decompose_goal(
@@ -1018,14 +1014,10 @@ class AutonomousOrchestrator:
                         await self._update_bead_status(subtask.id, "failed")
 
         except Exception as e:
-            logger.exception(
-                "assignment_failed",
-                subtask_id=subtask.id,
-                error=str(e),
-            )
+            logger.warning("assignment_failed subtask_id=%s: %s", subtask.id, e)
             assignment.status = "failed"
-            assignment.result = {"error": str(e)}
-            await self._update_bead_status(subtask.id, "failed", error=str(e))
+            assignment.result = {"error": f"Assignment execution failed: {type(e).__name__}"}
+            await self._update_bead_status(subtask.id, "failed", error=f"Assignment failed: {type(e).__name__}")
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)

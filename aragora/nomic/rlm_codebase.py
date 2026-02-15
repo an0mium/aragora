@@ -310,14 +310,14 @@ async def summarize_codebase_with_rlm(
             used_fallback=result.used_compression_fallback,
         )
     except Exception as e:
-        logger.warning(f"[nomic-rlm] TRUE RLM summary failed: {e}")
+        logger.warning("[nomic-rlm] TRUE RLM summary failed: %s", e)
         fallback = _build_summary_nodes(corpus, repo_path)[0].content
         return CodebaseRLMResult(
             summary=fallback,
             corpus=corpus,
             used_true_rlm=False,
             used_fallback=True,
-            error=str(e),
+            error=f"RLM summary failed: {type(e).__name__}",
         )
 
 

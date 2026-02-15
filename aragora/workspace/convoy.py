@@ -295,7 +295,8 @@ class ConvoyTracker:
     ) -> Convoy:
         """Create a new convoy."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         metadata = self._to_nomic_metadata(
             workspace_id=workspace_id,
             rig_id=rig_id,
@@ -321,14 +322,16 @@ class ConvoyTracker:
     async def get_convoy(self, convoy_id: str) -> Convoy | None:
         """Get a convoy by ID."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         return self._from_nomic_convoy(nomic_convoy) if nomic_convoy else None
 
     async def add_beads(self, convoy_id: str, bead_ids: list[str]) -> Convoy | None:
         """Add beads to a convoy."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -342,7 +345,8 @@ class ConvoyTracker:
     async def start_assigning(self, convoy_id: str) -> Convoy | None:
         """Transition convoy to ASSIGNING state."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -361,7 +365,8 @@ class ConvoyTracker:
     ) -> Convoy | None:
         """Transition convoy to EXECUTING state."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -380,7 +385,8 @@ class ConvoyTracker:
     async def start_merging(self, convoy_id: str) -> Convoy | None:
         """Transition convoy to MERGING state."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -399,7 +405,8 @@ class ConvoyTracker:
     ) -> Convoy | None:
         """Mark a convoy as done."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -420,7 +427,8 @@ class ConvoyTracker:
     async def fail_convoy(self, convoy_id: str, error: str) -> Convoy | None:
         """Mark a convoy as failed."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -441,7 +449,8 @@ class ConvoyTracker:
     async def cancel_convoy(self, convoy_id: str) -> Convoy | None:
         """Cancel a convoy."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
         if not nomic_convoy:
             return None
@@ -465,7 +474,8 @@ class ConvoyTracker:
     ) -> list[Convoy]:
         """List convoys with optional filters."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         convoys = await self._nomic_manager.list_convoys(agent_id=agent_id)
         results: list[Convoy] = []
         for nomic_convoy in convoys:
@@ -489,7 +499,8 @@ class ConvoyTracker:
     ) -> Convoy | None:
         """Update convoy metadata and assigned agents."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         nomic_convoy = await self._nomic_manager.update_convoy(
             convoy_id,
             metadata_updates=metadata_updates,
@@ -500,7 +511,8 @@ class ConvoyTracker:
     async def get_stats(self) -> dict[str, Any]:
         """Get convoy tracker statistics."""
         await self._ensure_nomic_manager()
-        assert self._nomic_manager is not None
+        if self._nomic_manager is None:
+            raise RuntimeError("Nomic manager not available after _ensure_nomic_manager()")
         convoys = await self._nomic_manager.list_convoys()
         by_status: dict[str, int] = {}
         for convoy in convoys:

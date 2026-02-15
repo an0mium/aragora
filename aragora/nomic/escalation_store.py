@@ -698,9 +698,9 @@ class EscalationStore:
 
             return result
         except Exception as e:
-            logger.error(f"Handler for level {level.value} failed: {e}")
+            logger.warning("Handler for level %s failed: %s", level.value, e)
             if chain.events:
-                chain.events[-1].handler_result = {"error": str(e)}
+                chain.events[-1].handler_result = {"error": f"Handler failed: {type(e).__name__}"}
             return None
 
     async def get_chain(self, chain_id: str) -> EscalationChain | None:

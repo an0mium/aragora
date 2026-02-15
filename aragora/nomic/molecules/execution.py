@@ -135,7 +135,8 @@ class ParallelStepExecutor(StepExecutor):
                     result = await agent.generate(task)
                     return {"agent": agent.name, "result": result, "success": True}
                 except Exception as e:
-                    return {"agent": agent.name, "error": str(e), "success": False}
+                    logger.warning("Agent %s execution failed: %s", agent.name, e)
+                    return {"agent": agent.name, "error": f"Agent execution failed: {type(e).__name__}", "success": False}
 
             results = await asyncio.gather(*[run_agent(a) for a in agents])
 
@@ -504,7 +505,7 @@ class MoleculeEngine:
 
         except Exception as e:
             step.status = StepStatus.FAILED
-            step.error_message = str(e)
+            step.error_message = f"Step execution failed: {type(e).__name__}"
             raise
 
         finally:
@@ -600,17 +601,19 @@ class MoleculeEngine:
                             failure_reason = f"Deadlock detected while executing {step.name}"
                             raise
                         except Exception as e:
-                            logger.error(f"Step {step.name} failed: {e}")
+                            logger.warning("Step %s failed: %s", step.name, e)
                             if step.can_retry():
                                 step.status = StepStatus.PENDING
                                 logger.info(
-                                    f"Will retry step {step.name} "
-                                    f"({step.attempt_count}/{step.max_attempts})"
+                                    "Will retry step %s (%d/%d)",
+                                    step.name,
+                                    step.attempt_count,
+                                    step.max_attempts,
                                 )
                             else:
-                                step_results[step.id] = {"error": str(e)}
+                                step_results[step.id] = {"error": f"Step execution failed: {type(e).__name__}"}
                                 molecule.status = MoleculeStatus.FAILED
-                                molecule.error_message = f"Step {step.name} failed: {e}"
+                                molecule.error_message = f"Step {step.name} failed: {type(e).__name__}"
                                 execution_failed = True
                                 failure_reason = molecule.error_message
                                 await self._checkpoint(molecule)
@@ -635,21 +638,21 @@ class MoleculeEngine:
 
             except (CyclicDependencyError, DeadlockError) as e:
                 molecule.status = MoleculeStatus.FAILED
-                molecule.error_message = str(e)
+                molecule.error_message = f"Molecule failed: {type(e).__name__}"
                 molecule.completed_at = datetime.now(timezone.utc)
                 execution_failed = True
-                failure_reason = str(e)
+                failure_reason = molecule.error_message
                 await self._checkpoint(molecule)
-                logger.error(f"Molecule {molecule.id} failed: {e}")
+                logger.warning("Molecule %s failed: %s", molecule.id, e)
 
             except Exception as e:
                 molecule.status = MoleculeStatus.FAILED
-                molecule.error_message = str(e)
+                molecule.error_message = f"Molecule execution failed: {type(e).__name__}"
                 molecule.completed_at = datetime.now(timezone.utc)
                 execution_failed = True
-                failure_reason = str(e)
+                failure_reason = molecule.error_message
                 await self._checkpoint(molecule)
-                logger.error(f"Molecule {molecule.id} failed: {e}")
+                logger.warning("Molecule %s failed: %s", molecule.id, e)
 
             # Handle transaction commit/rollback
             if transaction:

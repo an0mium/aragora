@@ -396,17 +396,18 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     "failed": result.failed_subtasks,
                 }
             except Exception as e:
-                logger.exception(
-                    "coordinated_assignment_failed track=%s error=%s",
+                logger.warning(
+                    "coordinated_assignment_failed track=%s: %s",
                     ta.goal.track.value,
-                    str(e),
+                    e,
                 )
+                error_desc = f"Assignment failed: {type(e).__name__}"
                 self._emit_event(
                     "assignment_failed",
                     track=ta.goal.track.value,
-                    error=str(e)[:200],
+                    error=error_desc[:200],
                 )
-                return {"success": False, "error": str(e)}
+                return {"success": False, "error": error_desc}
 
         coord_result = await coordinator.coordinate_parallel_work(
             assignments=assignments,
@@ -1987,13 +1988,13 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     self._generate_assignment_receipt(assignment)
 
         except Exception as e:
-            logger.exception(
-                "worktree_execution_failed subtask=%s error=%s",
+            logger.warning(
+                "worktree_execution_failed subtask=%s: %s",
                 assignment.subtask.id,
-                str(e),
+                e,
             )
             assignment.status = "failed"
-            assignment.result = {"error": str(e)}
+            assignment.result = {"error": f"Worktree execution failed: {type(e).__name__}"}
 
         finally:
             # Always clean up the worktree
@@ -2046,9 +2047,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             logger.debug("Gauntlet unavailable, skipping validation")
         except Exception as e:
             logger.warning(
-                "gauntlet_error subtask=%s error=%s",
+                "gauntlet_error subtask=%s: %s",
                 assignment.subtask.id,
-                str(e),
+                e,
             )
 
     def _build_gauntlet_content(self, assignment: AgentAssignment) -> str:

@@ -177,7 +177,10 @@ class SSOHandler(SecureHandler):
                 legacy["status"] = legacy["status_code"]
             return legacy
 
-        assert isinstance(result, HandlerResult)
+        if not isinstance(result, HandlerResult):
+            raise TypeError(
+                f"Expected HandlerResult, got {type(result).__name__}"
+            )
         result_body: Any = result.body
         if result.content_type and result.content_type.startswith("application/json"):
             try:

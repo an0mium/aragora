@@ -402,7 +402,8 @@ class WorkflowScheduler:
     # -- Internal ------------------------------------------------------------
 
     async def _loop(self) -> None:
-        assert self._stop_event is not None
+        if self._stop_event is None:
+            raise RuntimeError("WorkflowScheduler._loop called before start()")
         while not self._stop_event.is_set():
             try:
                 await self._tick()

@@ -199,9 +199,10 @@ class VerifyPhase:
             self._stream_emit("on_verification_result", "syntax", passed, stderr_text)
             return check
         except Exception as e:
-            self._log(f"    FAILED syntax: {e}")
-            self._stream_emit("on_verification_result", "syntax", False, str(e))
-            return {"check": "syntax", "passed": False, "error": str(e)}
+            logger.warning("Syntax check failed: %s", e)
+            error_desc = f"Syntax check failed: {type(e).__name__}"
+            self._stream_emit("on_verification_result", "syntax", False, error_desc)
+            return {"check": "syntax", "passed": False, "error": error_desc}
 
     async def _check_imports(self) -> dict:
         """Check that aragora can be imported."""
@@ -232,9 +233,10 @@ class VerifyPhase:
             self._stream_emit("on_verification_result", "import", False, "timeout")
             return {"check": "import", "passed": False, "error": "timeout"}
         except Exception as e:
-            self._log(f"    FAILED import: {e}")
-            self._stream_emit("on_verification_result", "import", False, str(e))
-            return {"check": "import", "passed": False, "error": str(e)}
+            logger.warning("Import check failed: %s", e)
+            error_desc = f"Import check failed: {type(e).__name__}"
+            self._stream_emit("on_verification_result", "import", False, error_desc)
+            return {"check": "import", "passed": False, "error": error_desc}
 
     async def _run_tests(self) -> dict:
         """Run pytest tests."""
@@ -281,12 +283,13 @@ class VerifyPhase:
                 "note": "Test execution timed out",
             }
         except Exception as e:
-            self._log(f"    FAILED tests (exception): {e}")
-            self._stream_emit("on_verification_result", "tests", False, f"Exception: {e}")
+            logger.warning("Test execution failed: %s", e)
+            error_desc = f"Test execution failed: {type(e).__name__}"
+            self._stream_emit("on_verification_result", "tests", False, error_desc)
             return {
                 "check": "tests",
                 "passed": False,
-                "error": str(e),
+                "error": error_desc,
                 "note": "Test execution failed",
             }
 
@@ -349,11 +352,11 @@ Be concise - this is a quality gate, not a full review."""
                         "output": audit_response[:500],
                     }
         except (ConnectionError, TimeoutError, asyncio.TimeoutError, RuntimeError, ValueError) as e:
-            self._log(f"  [hybrid] Codex audit error: {e}")
+            logger.warning("Codex audit error: %s", e)
             return {
                 "check": "codex_audit",
                 "passed": True,  # Don't block on audit failure
-                "error": str(e),
+                "error": f"Codex audit skipped: {type(e).__name__}",
                 "note": "Audit skipped due to error",
             }
         return None

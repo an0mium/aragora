@@ -1082,7 +1082,8 @@ Preserve all existing functionality while fixing the issue."""
         except ValueError as e:
             return False, f"Validation error: {e}"
         except Exception as e:
-            return False, str(e)
+            logger.warning("Lint execution failed for %s: %s", file_path, e)
+            return False, f"Lint execution failed: {type(e).__name__}"
 
     async def _run_typecheck(self, file_path: str) -> tuple[bool, str]:
         """Run type checker on file."""
@@ -1101,7 +1102,8 @@ Preserve all existing functionality while fixing the issue."""
         except ValueError as e:
             return False, f"Validation error: {e}"
         except Exception as e:
-            return False, str(e)
+            logger.warning("Typecheck execution failed for %s: %s", file_path, e)
+            return False, f"Typecheck execution failed: {type(e).__name__}"
 
     async def _run_tests_for_file(self, file_path: str) -> tuple[bool, str]:
         """Run tests related to a file."""
@@ -1125,7 +1127,8 @@ Preserve all existing functionality while fixing the issue."""
         except ValueError as e:
             return False, f"Validation error: {e}"
         except Exception as e:
-            return False, str(e)
+            logger.warning("Test execution failed for %s: %s", file_path, e)
+            return False, f"Test execution failed: {type(e).__name__}"
 
     async def _run_tests(self) -> bool:
         """Run full test suite."""

@@ -274,10 +274,9 @@ class AudioHandler(BaseHandler):
                 episode_count += 1
 
             # Generate RSS feed
-            # Assertions for type narrowing - we already checked PODCAST_AVAILABLE above
-            assert PodcastConfig is not None
-            assert PodcastFeedGenerator is not None
-            assert PodcastEpisode is not None
+            # Type narrowing - we already checked PODCAST_AVAILABLE above
+            if PodcastConfig is None or PodcastFeedGenerator is None or PodcastEpisode is None:
+                raise RuntimeError("Podcast modules not available despite PODCAST_AVAILABLE check")
             config = PodcastConfig()
             generator = PodcastFeedGenerator(config)
 

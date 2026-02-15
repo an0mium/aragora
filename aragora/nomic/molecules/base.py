@@ -230,8 +230,8 @@ class MoleculeTransaction:
             logger.info(f"Transaction {self.transaction_id} committed successfully")
             return True
         except Exception as e:
-            logger.error(f"Transaction commit failed: {e}")
-            self.error_message = str(e)
+            logger.warning("Transaction commit failed: %s", e)
+            self.error_message = f"Failed: {type(e).__name__}"
             self.state = TransactionState.FAILED
             return False
 

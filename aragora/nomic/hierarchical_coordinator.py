@@ -384,12 +384,13 @@ class HierarchicalCoordinator:
                 error=f"Worker timed out after {self.config.worker_timeout_seconds}s",
             )
         except Exception as e:
+            logger.warning("Worker assignment %s failed: %s", assignment_id, e)
             return WorkerReport(
                 assignment_id=assignment_id,
                 subtask_title=subtask.title,
                 success=False,
                 duration_seconds=time.time() - start_time,
-                error=str(e),
+                error=f"Worker execution failed: {type(e).__name__}",
             )
 
     # =========================================================================
