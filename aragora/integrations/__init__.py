@@ -84,13 +84,48 @@ from aragora.integrations.n8n import (
     N8nOperation,
     get_n8n_integration,
 )
-from aragora.integrations.langchain import (
-    AragoraTool,
-    AragoraRetriever,
-    AragoraCallbackHandler,
-    is_langchain_available,
-    LANGCHAIN_AVAILABLE,
-)
+# LangChain integration is loaded lazily because importing it pulls in
+# ``langchain`` -> ``langchain_core`` -> ``transformers`` -> ``huggingface_hub``,
+# which may attempt network downloads (model cache validation, token checks) at
+# import time, blocking indefinitely in offline / CI environments.
+# Use module-level __getattr__ below to defer the import until first access.
+
+_LANGCHAIN_NAMES = {
+    "AragoraTool",
+    "AragoraRetriever",
+    "AragoraCallbackHandler",
+    "is_langchain_available",
+    "LANGCHAIN_AVAILABLE",
+}
+
+_langchain_cache: dict | None = None
+
+
+def _load_langchain():
+    global _langchain_cache
+    if _langchain_cache is None:
+        from aragora.integrations.langchain import (
+            AragoraTool,
+            AragoraRetriever,
+            AragoraCallbackHandler,
+            is_langchain_available,
+            LANGCHAIN_AVAILABLE,
+        )
+        _langchain_cache = {
+            "AragoraTool": AragoraTool,
+            "AragoraRetriever": AragoraRetriever,
+            "AragoraCallbackHandler": AragoraCallbackHandler,
+            "is_langchain_available": is_langchain_available,
+            "LANGCHAIN_AVAILABLE": LANGCHAIN_AVAILABLE,
+        }
+    return _langchain_cache
+
+
+def __getattr__(name: str):
+    if name in _LANGCHAIN_NAMES:
+        return _load_langchain()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Base

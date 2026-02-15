@@ -786,7 +786,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to acknowledge alert: {e}")
-            return error_response(f"Failed to acknowledge alert: {str(e)[:100]}", 500)
+            return error_response("Alert acknowledgment failed", 500)
 
     async def _add_override(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
         """Add budget override for a user."""
@@ -833,7 +833,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to add override: {e}")
-            return error_response(f"Failed to add override: {str(e)[:100]}", 500)
+            return error_response("Override addition failed", 500)
 
     def _remove_override(self, budget_id: str, org_id: str, target_user_id: str) -> HandlerResult:
         """Remove budget override for a user."""
@@ -859,7 +859,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to remove override: {e}")
-            return error_response(f"Failed to remove override: {str(e)[:100]}", 500)
+            return error_response("Override removal failed", 500)
 
     def _reset_budget(self, budget_id: str, org_id: str) -> HandlerResult:
         """Reset budget period."""
@@ -882,7 +882,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to reset budget: {e}")
-            return error_response(f"Failed to reset budget: {str(e)[:100]}", 500)
+            return error_response("Budget reset failed", 500)
 
     def _get_transactions(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
         """Get transaction history for a budget."""
@@ -952,7 +952,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get transactions: {e}")
-            return error_response(f"Failed to get transactions: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve transactions", 500)
 
     def _get_budget_trends(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
         """Get spending trends for a budget."""
@@ -1001,7 +1001,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get trends: {e}")
-            return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve trends", 500)
 
     def _get_org_trends(self, org_id: str, handler: Any) -> HandlerResult:
         """Get org-wide spending trends across all budgets."""
@@ -1043,7 +1043,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get org trends: {e}")
-            return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve trends", 500)
 
     # =========================================================================
     # Cost Analytics Endpoints
@@ -1081,7 +1081,7 @@ class BudgetHandler(BaseHandler):
             return error_response("Cost tracking module not available", 503)
         except Exception as e:
             logger.error(f"Failed to get agent costs: {e}")
-            return error_response(f"Failed to get agent costs: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve agent costs", 500)
 
     def _get_cost_anomalies(self, org_id: str, handler: Any) -> HandlerResult:
         """Get recent cost anomalies with advisory."""
@@ -1126,7 +1126,7 @@ class BudgetHandler(BaseHandler):
             return error_response("Cost tracking module not available", 503)
         except Exception as e:
             logger.error(f"Failed to get cost anomalies: {e}")
-            return error_response(f"Failed to get cost anomalies: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve cost anomalies", 500)
 
 
 # Handler factory function

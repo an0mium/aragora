@@ -29,24 +29,48 @@ from aragora.debate.evidence_quality import (
 
 logger = logging.getLogger(__name__)
 
-# Attempt to import sentence-transformers for semantic similarity
-# Catching broad exceptions as sentence-transformers can fail for various reasons
-# (e.g., keras version conflicts, missing dependencies)
-EMBEDDINGS_AVAILABLE = False
-SentenceTransformer = None
-np = None
+# Lazy availability check for sentence-transformers.
+# We avoid importing the actual module at file scope because it transitively
+# imports ``transformers`` -> ``huggingface_hub``, which may attempt network
+# downloads (model cache validation, token checks) at import time.  This
+# blocks indefinitely in offline / CI environments.
+_EMBEDDINGS_CHECKED = False
+_EMBEDDINGS_AVAILABLE: bool = False
+_SentenceTransformer: type | None = None
+_np = None  # numpy module, lazily loaded
 
-try:
-    import numpy as _np
-    from sentence_transformers import SentenceTransformer as _SentenceTransformer
 
-    SentenceTransformer = _SentenceTransformer
-    np = _np
-    EMBEDDINGS_AVAILABLE = True
-except Exception as e:
-    logger.debug(
-        f"sentence-transformers not available: {e}. Using heuristic claim-evidence linking"
-    )
+def _ensure_embeddings_checked() -> None:
+    """Lazily probe for sentence-transformers + numpy on first use."""
+    global _EMBEDDINGS_CHECKED, _EMBEDDINGS_AVAILABLE, _SentenceTransformer, _np
+    if _EMBEDDINGS_CHECKED:
+        return
+    _EMBEDDINGS_CHECKED = True
+    try:
+        import numpy as __np  # noqa: N812
+        from sentence_transformers import (
+            SentenceTransformer as __ST,  # noqa: N812
+        )
+
+        _SentenceTransformer = __ST
+        _np = __np
+        _EMBEDDINGS_AVAILABLE = True
+    except Exception as e:
+        logger.debug(
+            f"sentence-transformers not available: {e}. "
+            "Using heuristic claim-evidence linking"
+        )
+
+
+# Keep the public name for backward compatibility (e.g. ``from
+# aragora.debate.evidence_linker import EMBEDDINGS_AVAILABLE``).  Reads go
+# through the module-level ``__getattr__`` so the lazy check runs first.
+
+def __getattr__(name: str):
+    if name == "EMBEDDINGS_AVAILABLE":
+        _ensure_embeddings_checked()
+        return _EMBEDDINGS_AVAILABLE
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # Claim detection patterns
 CLAIM_INDICATORS = [
@@ -157,13 +181,14 @@ class EvidenceClaimLinker:
 
         # Initialize embedder if available and requested
         self._embedder = None
-        if use_embeddings is True and not EMBEDDINGS_AVAILABLE:
+        _ensure_embeddings_checked()
+        if use_embeddings is True and not _EMBEDDINGS_AVAILABLE:
             logger.warning("Embeddings requested but sentence-transformers not installed")
         elif (
-            use_embeddings is not False and EMBEDDINGS_AVAILABLE and SentenceTransformer is not None
+            use_embeddings is not False and _EMBEDDINGS_AVAILABLE and _SentenceTransformer is not None
         ):
             try:
-                self._embedder = SentenceTransformer(embedding_model)
+                self._embedder = _SentenceTransformer(embedding_model)
                 logger.debug(f"Loaded embedding model: {embedding_model}")
             except Exception as e:
                 logger.warning(f"Failed to load embedding model: {e}")
@@ -364,13 +389,13 @@ class EvidenceClaimLinker:
 
     def _compute_semantic_similarity(self, text1: str, text2: str) -> float:
         """Compute semantic similarity using embeddings."""
-        if self._embedder is None or np is None:
+        if self._embedder is None or _np is None:
             return 0.5
 
         embeddings = self._embedder.encode([text1, text2])
         # Cosine similarity
-        similarity = np.dot(embeddings[0], embeddings[1]) / (
-            np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])
+        similarity = _np.dot(embeddings[0], embeddings[1]) / (
+            _np.linalg.norm(embeddings[0]) * _np.linalg.norm(embeddings[1])
         )
         # Normalize to 0-1
         return float((similarity + 1) / 2)

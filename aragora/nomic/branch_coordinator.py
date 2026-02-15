@@ -93,6 +93,8 @@ class BranchCoordinatorConfig:
     auto_merge_safe: bool = True
     require_tests_pass: bool = True
     max_parallel_branches: int = 3
+    worktree_base_dir: Path | None = None  # Default: {repo}/.worktrees/
+    use_worktrees: bool = True  # Use git worktree for isolation
 
 
 class BranchCoordinator:
@@ -112,6 +114,11 @@ class BranchCoordinator:
         self.config = config or BranchCoordinatorConfig()
         self.on_conflict = on_conflict
         self._active_branches: list[str] = []
+        self._worktree_dir = (
+            self.config.worktree_base_dir or self.repo_path / ".worktrees"
+        )
+        # Map branch name -> worktree path
+        self._worktree_paths: dict[str, Path] = {}
 
     def _run_git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
         """Run a git command."""
@@ -139,6 +146,17 @@ class BranchCoordinator:
         )
         return result.returncode == 0
 
+    def get_worktree_path(self, branch_name: str) -> Path | None:
+        """Get the worktree path for a branch.
+
+        Args:
+            branch_name: The branch name
+
+        Returns:
+            Path to the worktree directory, or None if not using worktrees
+        """
+        return self._worktree_paths.get(branch_name)
+
     async def create_track_branch(
         self,
         track: Track,
@@ -146,6 +164,9 @@ class BranchCoordinator:
         base_branch: str | None = None,
     ) -> str:
         """Create a feature branch for a track.
+
+        If worktrees are enabled, creates a git worktree for isolated parallel
+        work. Otherwise falls back to git checkout.
 
         Args:
             track: Development track
@@ -162,6 +183,46 @@ class BranchCoordinator:
         timestamp = datetime.now(timezone.utc).strftime("%m%d")
         branch_name = f"{self.config.branch_prefix}/{track.value}-{goal_slug}-{timestamp}"
 
+        if self.config.use_worktrees:
+            return await self._create_worktree_branch(branch_name, base)
+        else:
+            return await self._create_checkout_branch(branch_name, base)
+
+    async def _create_worktree_branch(self, branch_name: str, base: str) -> str:
+        """Create an isolated git worktree for a branch.
+
+        Each branch gets its own working directory, allowing true parallel
+        work without any checkout conflicts.
+        """
+        # Sanitize branch name for directory path (replace / with -)
+        dir_name = branch_name.replace("/", "-")
+        worktree_path = self._worktree_dir / dir_name
+        self._worktree_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.branch_exists(branch_name):
+            logger.warning(f"Branch {branch_name} already exists")
+            if worktree_path.exists():
+                logger.info(f"Worktree already exists at {worktree_path}")
+            else:
+                # Add worktree for existing branch
+                self._run_git(
+                    "worktree", "add", str(worktree_path), branch_name,
+                    check=False,
+                )
+        else:
+            # Create new branch with worktree in one command
+            self._run_git(
+                "worktree", "add", "-b", branch_name,
+                str(worktree_path), base,
+            )
+            logger.info(f"Created worktree branch: {branch_name} at {worktree_path}")
+
+        self._active_branches.append(branch_name)
+        self._worktree_paths[branch_name] = worktree_path
+        return branch_name
+
+    async def _create_checkout_branch(self, branch_name: str, base: str) -> str:
+        """Create a branch using traditional git checkout (legacy mode)."""
         # Ensure we're on base branch
         current = self.get_current_branch()
         if current != base:
@@ -198,8 +259,9 @@ class BranchCoordinator:
             )
             assignment.branch_name = branch
 
-        # Return to base branch
-        self._run_git("checkout", self.config.base_branch, check=False)
+        # Return to base branch (only needed in checkout mode)
+        if not self.config.use_worktrees:
+            self._run_git("checkout", self.config.base_branch, check=False)
 
         return assignments
 
@@ -445,7 +507,11 @@ class BranchCoordinator:
         assignment: TrackAssignment,
         run_nomic_fn: Callable[[TrackAssignment], Any],
     ) -> None:
-        """Run a single assignment on its branch."""
+        """Run a single assignment on its branch.
+
+        When worktrees are enabled, work happens in the worktree directory
+        without needing to checkout/switch branches in the main repo.
+        """
         if not assignment.branch_name:
             return
 
@@ -453,8 +519,16 @@ class BranchCoordinator:
         assignment.started_at = datetime.now(timezone.utc)
 
         try:
-            # Checkout the branch
-            self._run_git("checkout", assignment.branch_name)
+            if self.config.use_worktrees:
+                # No checkout needed -- worktree is already on the branch
+                worktree_path = self.get_worktree_path(assignment.branch_name)
+                if worktree_path:
+                    logger.info(
+                        f"Running assignment in worktree: {worktree_path}"
+                    )
+            else:
+                # Legacy: checkout the branch in main repo
+                self._run_git("checkout", assignment.branch_name)
 
             # Run the nomic loop
             result = await run_nomic_fn(assignment)
@@ -469,8 +543,9 @@ class BranchCoordinator:
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)
-            # Return to base branch
-            self._run_git("checkout", self.config.base_branch, check=False)
+            if not self.config.use_worktrees:
+                # Only need to switch back in checkout mode
+                self._run_git("checkout", self.config.base_branch, check=False)
 
     def _generate_summary(self, assignments: list[TrackAssignment]) -> str:
         """Generate a summary of coordination result."""
@@ -503,7 +578,7 @@ class BranchCoordinator:
         return slug
 
     def cleanup_branches(self, branches: list[str] | None = None) -> int:
-        """Delete merged or stale branches.
+        """Delete merged or stale branches and their worktrees.
 
         Args:
             branches: Specific branches to clean up (default: all active)
@@ -511,11 +586,13 @@ class BranchCoordinator:
         Returns:
             Number of branches deleted
         """
-        branches = branches or self._active_branches
+        branches = branches or list(self._active_branches)
         deleted = 0
 
         for branch in branches:
             if not self.branch_exists(branch):
+                # Still try to remove worktree if it exists
+                self._remove_worktree(branch)
                 continue
 
             # Check if merged into main
@@ -528,11 +605,27 @@ class BranchCoordinator:
             merged_branches = result.stdout.strip().split("\n")
 
             if branch in merged_branches or f"  {branch}" in merged_branches:
+                # Remove worktree first, then branch
+                self._remove_worktree(branch)
                 self._run_git("branch", "-d", branch, check=False)
                 deleted += 1
                 logger.info(f"Deleted merged branch: {branch}")
 
         return deleted
+
+    def _remove_worktree(self, branch_name: str) -> None:
+        """Remove a git worktree for a branch if it exists."""
+        worktree_path = self._worktree_paths.pop(branch_name, None)
+        if worktree_path and worktree_path.exists():
+            self._run_git("worktree", "remove", str(worktree_path), check=False)
+            logger.info(f"Removed worktree: {worktree_path}")
+        elif branch_name in self._active_branches:
+            # Try to remove by convention path
+            dir_name = branch_name.replace("/", "-")
+            fallback_path = self._worktree_dir / dir_name
+            if fallback_path.exists():
+                self._run_git("worktree", "remove", str(fallback_path), check=False)
+                logger.info(f"Removed worktree (fallback): {fallback_path}")
 
 
 __all__ = [

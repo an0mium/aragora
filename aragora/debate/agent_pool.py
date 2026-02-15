@@ -504,7 +504,7 @@ class AgentPool:
                 try:
                     rating = self._config.elo_system.get_rating(name)
                     metrics.elo_rating = rating.elo
-                except (KeyError, AttributeError) as e:
+                except (KeyError, AttributeError, TypeError, ValueError) as e:
                     logger.debug(f"ELO rating refresh failed for {name}: {e}")
 
             # Update calibration score
@@ -513,7 +513,7 @@ class AgentPool:
                     cal = self._config.calibration_tracker.get_calibration(name)
                     if hasattr(cal, "brier_score"):
                         metrics.calibration_score = 1.0 - min(cal.brier_score, 1.0)
-                except (KeyError, AttributeError) as e:
+                except (KeyError, AttributeError, TypeError, ValueError) as e:
                     logger.debug(f"Calibration refresh failed for {name}: {e}")
 
     def get_pool_status(self) -> dict[str, Any]:

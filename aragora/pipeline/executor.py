@@ -375,7 +375,10 @@ class PlanExecutor:
                     max_parallel=max_parallel,
                 )
             elif mode == "computer_use":
-                outcome = await self._run_computer_use(plan)
+                outcome = await self._run_computer_use(
+                    plan,
+                    on_task_complete=on_task_complete,
+                )
             else:
                 outcome = await self._run_workflow(
                     plan,
@@ -828,7 +831,11 @@ class PlanExecutor:
             lessons=lessons,
         )
 
-    async def _run_computer_use(self, plan: DecisionPlan) -> PlanOutcome:
+    async def _run_computer_use(
+        self,
+        plan: DecisionPlan,
+        on_task_complete: Any | None = None,
+    ) -> PlanOutcome:
         """Run plan using ComputerUseOrchestrator for browser-based implementation.
 
         Computer Use mode executes tasks through browser automation via Playwright,
@@ -837,6 +844,7 @@ class PlanExecutor:
 
         Args:
             plan: DecisionPlan with task description
+            on_task_complete: Optional callback invoked when a task step finishes.
 
         Returns:
             PlanOutcome with execution results
@@ -905,6 +913,15 @@ class PlanExecutor:
                     a.action_type for a in result.actions if hasattr(a, "action_type")
                 )
                 lessons.append(f"Used actions: {', '.join(str(t) for t in action_types)}")
+
+            # Emit per-step progress callback
+            if on_task_complete is not None:
+                for i, step in enumerate(getattr(result, "steps", [])):
+                    step_id = f"step-{i}"
+                    try:
+                        on_task_complete(step_id, step)
+                    except Exception as cb_err:
+                        logger.debug("on_task_complete callback error: %s", cb_err)
 
             # Update plan status
             plan.status = PlanStatus.COMPLETED if success else PlanStatus.FAILED

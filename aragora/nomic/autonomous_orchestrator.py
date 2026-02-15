@@ -447,6 +447,7 @@ class AutonomousOrchestrator:
         use_debate_decomposition: bool = False,
         enable_curriculum: bool = True,
         curriculum_config: Any | None = None,
+        branch_coordinator: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -463,9 +464,11 @@ class AutonomousOrchestrator:
                 (slower but better for abstract goals)
             enable_curriculum: Enable SOAR curriculum for failed tasks
             curriculum_config: Optional curriculum configuration
+            branch_coordinator: Optional BranchCoordinator for worktree isolation
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
+        self.branch_coordinator = branch_coordinator
         self.workflow_engine = workflow_engine or get_workflow_engine()
         self.task_decomposer = task_decomposer or TaskDecomposer(
             config=DecomposerConfig(complexity_threshold=4)
@@ -825,13 +828,24 @@ class AutonomousOrchestrator:
             assignment.track,
         )
 
+        # Resolve repo path: prefer worktree path for isolation
+        repo_path = self.aragora_path
+        if self.branch_coordinator is not None:
+            # Look up if this assignment's track has a worktree
+            for branch, wt_path in getattr(
+                self.branch_coordinator, "_worktree_paths", {}
+            ).items():
+                if assignment.track.value in branch:
+                    repo_path = wt_path
+                    break
+
         # Build implementation step config matching ImplementationStep's expected format
         implement_config: dict[str, Any] = {
             "task_id": subtask.id,
             "description": subtask.description,
             "files": subtask.file_scope,
             "complexity": subtask.estimated_complexity,
-            "repo_path": str(self.aragora_path),
+            "repo_path": str(repo_path),
         }
 
         # If agent needs a coding harness, add it to the config
