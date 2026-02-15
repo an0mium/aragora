@@ -109,7 +109,7 @@ async def handle_gmail_oauth_callback(
             "messages_total": user_info.get("messagesTotal"),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception(f"OAuth callback failed: {e}")
         return {
             "success": False,
@@ -156,14 +156,14 @@ async def handle_gmail_status(
                 logger.warning(f"Network error checking Gmail status: {e}")
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
-            except Exception as e:
+            except (ValueError, TypeError, OSError) as e:
                 logger.warning(f"Unexpected error checking Gmail status: {e}")
                 result["authenticated"] = False
                 result["error"] = "Token expired or invalid"
 
         return result
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception(f"Failed to check Gmail status: {e}")
         return {
             "success": False,

@@ -354,7 +354,7 @@ class ApprovalHandler:
                 {"success": False, "error": "Approval request not found"},
                 status=404,
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error approving request: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to approve request"},
@@ -446,7 +446,7 @@ class ApprovalHandler:
                 {"success": False, "error": "Approval request not found"},
                 status=404,
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error rejecting request: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to reject request"},

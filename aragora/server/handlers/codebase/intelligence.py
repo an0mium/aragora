@@ -943,7 +943,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                         result["security_findings"] = [f.to_dict() for f in report.findings[:50]]
                         result["files_analyzed"] = report.files_scanned
                         result["lines_analyzed"] = report.lines_scanned
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Security scan failed: {e}")
 
             # Bug detection
@@ -956,7 +956,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                         if not result["files_analyzed"]:
                             result["files_analyzed"] = report.files_scanned
                             result["lines_analyzed"] = report.lines_scanned
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Bug detection failed: {e}")
 
             # Dead code analysis
@@ -974,7 +974,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                             }
                             for n in dead_code.unreachable_functions[:30]
                         ]
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, AttributeError) as e:
                         logger.warning(f"Dead code analysis failed: {e}")
 
             # Calculate risk score

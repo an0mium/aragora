@@ -136,7 +136,7 @@ def _get_oauth_audit_logger() -> Any:
             from aragora.audit.slack_audit import get_slack_audit_logger
 
             _slack_oauth_audit = get_slack_audit_logger()
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError) as e:
             logger.debug(f"Slack OAuth audit logger not available: {e}")
             _slack_oauth_audit = None
     return _slack_oauth_audit
@@ -302,7 +302,7 @@ class SlackOAuthHandler(SecureHandler):
                     try:
                         raw_body = hndlr.rfile.read(content_length)
                         body = json_module.loads(raw_body) if raw_body else {}
-                    except Exception as e:
+                    except (json.JSONDecodeError, ValueError, KeyError, UnicodeDecodeError) as e:
                         logger.warning(
                             f"Failed to parse Slack webhook body: {type(e).__name__}: {e}"
                         )

@@ -229,7 +229,7 @@ class SharingOperationsMixin:
                     limit=limit,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to get shared items: {e}")
             return error_response("Failed to get shared items", 500)
 
@@ -295,7 +295,7 @@ class SharingOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to revoke share: {e}")
             return error_response("Failed to revoke share", 500)
 
@@ -337,7 +337,7 @@ class SharingOperationsMixin:
                     workspace_id=workspace_id,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to list shares: {e}")
             return error_response("Failed to list shares", 500)
 
@@ -408,7 +408,7 @@ class SharingOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to update share: {e}")
             return error_response("Failed to update share", 500)
 

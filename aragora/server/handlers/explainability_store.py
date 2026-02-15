@@ -497,7 +497,7 @@ def get_batch_job_store() -> BatchJobStore:
                 _batch_store = PostgresBatchJobStore(database_url, ttl_seconds=ttl_seconds)
                 logger.info("batch_job_store_initialized", extra={"backend": "postgresql"})
                 return _batch_store
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, RuntimeError) as e:
                 logger.warning("PostgreSQL batch store unavailable: %s", e)
                 _batch_store = _create_sqlite_store(
                     "PostgreSQL unavailable for explainability batch store"
@@ -525,7 +525,7 @@ def get_batch_job_store() -> BatchJobStore:
                 _batch_store = RedisBatchJobStore(redis_client, ttl=ttl_seconds)
                 logger.info("batch_job_store_initialized", extra={"backend": "redis"})
                 return _batch_store
-    except Exception as e:
+    except (ImportError, ConnectionError, OSError, RuntimeError) as e:
         logger.debug("Redis batch store unavailable: %s", e)
 
     # Fallback to SQLite, then memory
@@ -533,7 +533,7 @@ def get_batch_job_store() -> BatchJobStore:
         _batch_store = _create_sqlite_store("Defaulting to SQLite for explainability batch store")
         logger.info("batch_job_store_initialized", extra={"backend": "sqlite"})
         return _batch_store
-    except Exception as e:
+    except (OSError, RuntimeError, ImportError) as e:
         logger.warning("SQLite batch store unavailable: %s", e)
 
     if not _warned_memory:

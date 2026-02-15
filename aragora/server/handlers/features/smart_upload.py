@@ -913,7 +913,7 @@ async def _expand_archive(
                             "size": member.size,
                         }
                     )
-        except Exception as e:
+        except (tarfile.TarError, OSError, ValueError) as e:
             logger.warning("Archive expansion failed: %s", e)
             return error_dict("Archive expansion failed", code="INTERNAL_ERROR", status=500)
 
@@ -1027,7 +1027,7 @@ async def smart_upload(
                 result.result = {}
             result.result["content_type_warning"] = validation.mismatch_warning
 
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.error("Smart upload failed for %s: %s", filename, e)
         result.status = "failed"
         result.error = "Internal server error"

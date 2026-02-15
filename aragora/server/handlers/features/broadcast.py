@@ -237,7 +237,7 @@ class BroadcastHandler(BaseHandler):
 
         try:
             trace = DebateTrace.load(trace_path)
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError) as e:
             return error_response(_safe_error_message(e, "load trace"), status=500)
 
         try:
@@ -255,7 +255,7 @@ class BroadcastHandler(BaseHandler):
                         try:
                             audio = MP3(temp_output_path)
                             duration_seconds = int(audio.info.length)
-                        except Exception as e:
+                        except (OSError, ValueError, KeyError, TypeError) as e:
                             logger.warning(
                                 f"Failed to extract audio metadata from {temp_output_path}: {e}"
                             )
@@ -282,7 +282,7 @@ class BroadcastHandler(BaseHandler):
                         }
                     )
 
-                except Exception as e:
+                except (OSError, ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Failed to persist audio: {e}")
                     return json_response(
                         {
@@ -302,5 +302,5 @@ class BroadcastHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             return error_response(_safe_error_message(e, "broadcast_generation"), status=500)

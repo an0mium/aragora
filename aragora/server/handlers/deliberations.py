@@ -104,7 +104,7 @@ class DeliberationsHandler(BaseHandler):
                 roles=roles,
                 org_id=getattr(auth_ctx, "org_id", None),
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.debug(f"Failed to extract auth context: {e}")
             return None
 

@@ -481,7 +481,7 @@ class AgentsHandler(  # type: ignore[misc]
                     "servers": status.get("servers", []),
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Could not get local LLM status: {e}")
             return json_response(
                 {
@@ -545,7 +545,7 @@ class AgentsHandler(  # type: ignore[misc]
                         health["overall_status"] = "degraded"
         except ImportError:
             health["circuit_breakers"]["_note"] = "CircuitBreaker module not available"
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Could not get circuit breaker status: {e}")
             health["circuit_breakers"]["_error"] = "Health check failed"
 
@@ -560,7 +560,7 @@ class AgentsHandler(  # type: ignore[misc]
             }
         except ImportError:
             health["fallback"]["_note"] = "Fallback module not available"
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Could not get fallback status: {e}")
             health["fallback"]["_error"] = "Health check failed"
 
@@ -602,7 +602,7 @@ class AgentsHandler(  # type: ignore[misc]
                 health["agents"][agent_type] = agent_health
         except ImportError:
             health["agents"]["_note"] = "AgentRegistry not available"
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Could not get agent registry: {e}")
             health["agents"]["_error"] = "Health check failed"
 
