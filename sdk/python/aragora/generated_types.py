@@ -12,7 +12,8 @@ Generated from: docs/api/openapi.json
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date as date_aliased
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
@@ -2159,8 +2160,8 @@ class UnifiedCampaign(BaseModel):
         None
     )
     total_budget: Annotated[float | None, Field(description="Total campaign budget")] = None
-    start_date: Annotated[date | None, Field(description="Campaign start date")] = None
-    end_date: Annotated[date | None, Field(description="Campaign end date")] = None
+    start_date: Annotated[date_aliased | None, Field(description="Campaign start date")] = None
+    end_date: Annotated[date_aliased | None, Field(description="Campaign end date")] = None
     created_at: Annotated[datetime | None, Field(description="When the campaign was created")] = (
         None
     )
