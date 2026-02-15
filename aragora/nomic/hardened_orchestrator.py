@@ -751,6 +751,120 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             self._active_assignments.remove(assignment)
 
     # =========================================================================
+    # I. Rate Limiting
+    # =========================================================================
+
+    async def _enforce_rate_limit(self) -> None:
+        """Enforce sliding window rate limiting on agent API calls.
+
+        Uses a deque of timestamps to track calls within the current window.
+        When the window is full, waits until the oldest call expires.
+        """
+        config = self.hardened_config
+        now = time.monotonic()
+        window = config.rate_limit_window_seconds
+
+        # Evict expired timestamps
+        while self._call_timestamps and (now - self._call_timestamps[0]) > window:
+            self._call_timestamps.popleft()
+
+        # If at capacity, wait for the oldest call to expire
+        if len(self._call_timestamps) >= config.rate_limit_max_calls:
+            wait_time = window - (now - self._call_timestamps[0])
+            if wait_time > 0:
+                logger.info(
+                    "rate_limit_wait seconds=%.2f calls=%d",
+                    wait_time,
+                    len(self._call_timestamps),
+                )
+                await asyncio.sleep(wait_time)
+                # Re-evict after waiting
+                now = time.monotonic()
+                while self._call_timestamps and (now - self._call_timestamps[0]) > window:
+                    self._call_timestamps.popleft()
+
+        self._call_timestamps.append(time.monotonic())
+
+    # =========================================================================
+    # J. Agent Circuit Breaker
+    # =========================================================================
+
+    def _check_agent_circuit_breaker(self, agent_type: str) -> bool:
+        """Check if the circuit breaker is open for an agent type.
+
+        Uses the resilience CircuitBreaker when available, falls back to
+        a simple failure counter with timeout.
+
+        Returns:
+            True if the agent is allowed to execute, False if circuit is open.
+        """
+        config = self.hardened_config
+
+        # Try to use resilience CircuitBreaker
+        if agent_type in self._agent_circuit_breakers:
+            cb = self._agent_circuit_breakers[agent_type]
+            return cb.state != "open"
+
+        if agent_type not in self._agent_circuit_breakers:
+            try:
+                from aragora.resilience.circuit_breaker import CircuitBreaker
+
+                cb = CircuitBreaker(
+                    name=f"agent-{agent_type}",
+                    failure_threshold=config.circuit_breaker_threshold,
+                    recovery_timeout=config.circuit_breaker_timeout,
+                )
+                self._agent_circuit_breakers[agent_type] = cb
+                return True
+            except ImportError:
+                pass
+
+        # Fallback: simple failure counter
+        open_until = self._agent_open_until.get(agent_type, 0)
+        if time.monotonic() < open_until:
+            logger.warning(
+                "circuit_breaker_open agent_type=%s failures=%d",
+                agent_type,
+                self._agent_failure_counts[agent_type],
+            )
+            return False
+
+        # If was open and timeout expired, reset to half-open (allow one attempt)
+        if open_until > 0 and time.monotonic() >= open_until:
+            self._agent_failure_counts[agent_type] = 0
+            self._agent_open_until.pop(agent_type, None)
+
+        return True
+
+    def _record_agent_outcome(self, agent_type: str, success: bool) -> None:
+        """Record success/failure for agent circuit breaker tracking."""
+        config = self.hardened_config
+
+        # Try resilience CircuitBreaker
+        cb = self._agent_circuit_breakers.get(agent_type)
+        if cb is not None and hasattr(cb, "record_success"):
+            if success:
+                cb.record_success()
+            else:
+                cb.record_failure()
+            return
+
+        # Fallback: simple counter
+        if success:
+            self._agent_failure_counts[agent_type] = 0
+        else:
+            self._agent_failure_counts[agent_type] += 1
+            if self._agent_failure_counts[agent_type] >= config.circuit_breaker_threshold:
+                self._agent_open_until[agent_type] = (
+                    time.monotonic() + config.circuit_breaker_timeout
+                )
+                logger.warning(
+                    "circuit_breaker_opened agent_type=%s threshold=%d",
+                    agent_type,
+                    config.circuit_breaker_threshold,
+                )
+
+    # =========================================================================
     # B. Mode Enforcement
     # =========================================================================
 
