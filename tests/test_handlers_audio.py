@@ -98,6 +98,14 @@ def handler_ctx(audio_store, storage):
     }
 
 
+@pytest.fixture(autouse=True)
+def _reset_audio_limiter():
+    """Reset the module-level audio rate limiter between tests."""
+    from aragora.server.handlers.features.audio import _audio_limiter
+
+    _audio_limiter.clear()
+
+
 @pytest.fixture
 def audio_handler(handler_ctx, storage):
     """Create AudioHandler instance."""
