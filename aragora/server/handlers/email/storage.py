@@ -76,7 +76,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
                 "success": False,
                 "error": f"Permission denied: {decision.reason}",
             }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning(f"RBAC check failed for {permission_key}: {e}")
         return None  # Fail open
 
@@ -108,7 +108,7 @@ def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict
             config = store.get_user_config(user_id, workspace_id)
             if config:
                 return config
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
     return {}
 
@@ -123,7 +123,7 @@ def _save_config_to_store(
     if store:
         try:
             store.save_user_config(user_id, workspace_id, config)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
 
 

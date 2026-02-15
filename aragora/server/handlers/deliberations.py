@@ -182,7 +182,7 @@ class DeliberationsHandler(BaseHandler):
                 "count": len(deliberations),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }, 200
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error fetching deliberations: {e}")
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
@@ -287,7 +287,7 @@ class DeliberationsHandler(BaseHandler):
                 "top_agents": _stats.get("top_agents", []),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }, 200
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error fetching stats: {e}")
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
@@ -311,7 +311,7 @@ class DeliberationsHandler(BaseHandler):
                 pass
 
             return (error_dict("Deliberation not found", code="NOT_FOUND"), 404)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error fetching deliberation {deliberation_id}: {e}")
             return (error_dict("Internal server error", code="INTERNAL_ERROR"), 500)
 
@@ -338,7 +338,7 @@ async def broadcast_deliberation_event(event: dict[str, Any]) -> None:
     for queue in _stream_clients:
         try:
             await queue.put(event)
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             logger.debug(f"Failed to broadcast event to stream client: {e}")
 
 

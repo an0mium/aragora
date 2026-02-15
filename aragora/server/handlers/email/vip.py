@@ -80,7 +80,7 @@ async def handle_add_vip(
                 if store:
                     try:
                         store.add_vip_sender(user_id, workspace_id, email)
-                    except Exception as e:
+                    except (KeyError, ValueError, OSError, TypeError) as e:
                         logger.debug(f"Failed to add VIP sender to store: {e}")
 
             if domain:
@@ -106,7 +106,7 @@ async def handle_add_vip(
             "vip_domains": result_domains,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError) as e:
         logger.exception(f"Failed to add VIP: {e}")
         return {
             "success": False,
@@ -156,7 +156,7 @@ async def handle_remove_vip(
                     if store:
                         try:
                             store.remove_vip_sender(user_id, workspace_id, email)
-                        except Exception as e:
+                        except (KeyError, ValueError, OSError, TypeError) as e:
                             logger.debug(f"Failed to remove VIP sender from store: {e}")
 
             if domain and "vip_domains" in config:
@@ -181,7 +181,7 @@ async def handle_remove_vip(
             "vip_domains": result_domains,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError) as e:
         logger.exception(f"Failed to remove VIP: {e}")
         return {
             "success": False,

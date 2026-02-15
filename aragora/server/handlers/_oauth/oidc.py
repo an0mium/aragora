@@ -123,7 +123,7 @@ class OIDCOAuthMixin:
             token_data = self._exchange_oidc_code(code, discovery)  # type: ignore[arg-type]
             if inspect.isawaitable(token_data):
                 token_data = await token_data
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"OIDC token exchange failed: {e}")
             return self._redirect_with_error("Failed to exchange authorization code")
 
@@ -134,7 +134,7 @@ class OIDCOAuthMixin:
             user_info = self._get_oidc_user_info(access_token, id_token, discovery)  # type: ignore[arg-type]
             if inspect.isawaitable(user_info):
                 user_info = await user_info
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get OIDC user info: {e}")
             return self._redirect_with_error("Failed to get user info")
 
@@ -152,7 +152,7 @@ class OIDCOAuthMixin:
                 with urllib_request.urlopen(req) as response:
                     body = response.read()
                 return json.loads(body.decode("utf-8")) if body else {}
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
                 logger.error(f"OIDC discovery failed: {e}")
                 return {}
 
@@ -161,7 +161,7 @@ class OIDCOAuthMixin:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.get(discovery_url)
                     return response.json()
-            except Exception as e:
+            except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.error(f"OIDC discovery failed: {e}")
                 return {}
 

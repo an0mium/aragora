@@ -993,7 +993,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
                 f"{len(result['bug_findings'])} bugs"
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
             result["status"] = "failed"
             result["error"] = "Audit failed"
             logger.error(f"[{audit_id}] Audit failed: {e}")

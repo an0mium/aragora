@@ -657,7 +657,7 @@ class AgentsHandler(  # type: ignore[misc]
                     health["overall_status"] = "degraded"
         except ImportError:
             health["cross_pollination"] = {"_note": "Cross-pollination module not available"}
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Could not get cross-pollination status: {e}")
             health["cross_pollination"] = {"_error": "Health check failed"}
 

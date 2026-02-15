@@ -106,7 +106,7 @@ class AgentHandlerMixin:
         if method:
             try:
                 _run_async(method(*args, **kwargs))
-            except Exception as e:
+            except (RuntimeError, OSError, TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"Stream emission failed for {emit_method}: {e}")
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
@@ -154,7 +154,7 @@ class AgentHandlerMixin:
         except (RuntimeError, TimeoutError) as e:
             logger.error(f"Runtime error listing agents: {type(e).__name__}: {e}")
             return error_response(safe_error_message(e, "control plane"), 503)
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError) as e:
             return self._handle_coordinator_error(e, "list_agents")
 
     @api_endpoint(
@@ -177,7 +177,7 @@ class AgentHandlerMixin:
                 return error_response(f"Agent not found: {agent_id}", 404)
 
             return json_response(agent.to_dict())
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             return self._handle_coordinator_error(e, f"get_agent:{agent_id}")
 
     @api_endpoint(
@@ -233,7 +233,7 @@ class AgentHandlerMixin:
             )
 
             return json_response(agent.to_dict(), status=201)
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Error registering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 

@@ -77,7 +77,7 @@ async def _get_store() -> SyncStore | None:
         try:
             _store = await get_sync_store()
             logger.info("Using persistent sync store for enterprise connectors")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(
                 f"ENTERPRISE CONNECTORS: Failed to initialize sync store: {e}. "
                 "Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!"
@@ -420,7 +420,7 @@ class ConnectorsHandler(SecureHandler):
         """Configure a new connector."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -478,7 +478,7 @@ class ConnectorsHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -645,7 +645,7 @@ class ConnectorsHandler(SecureHandler):
         """Test a connector configuration without saving."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 

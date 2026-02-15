@@ -486,7 +486,7 @@ class SlackOAuthHandler(SecureHandler):
         state_store = _get_state_store()
         try:
             state = state_store.generate(metadata={"tenant_id": tenant_id, "provider": "slack"})
-        except Exception as e:
+        except (ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to generate OAuth state: {e}")
             return error_response("Failed to initialize OAuth flow", 503)
 
@@ -916,7 +916,7 @@ class SlackOAuthHandler(SecureHandler):
 
         except ImportError:
             return error_response("httpx not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"[{request_id}] Slack token exchange failed: {e}")
             return error_response("Token exchange failed", 500)
 
@@ -1233,7 +1233,7 @@ class SlackOAuthHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Workspace store not available: {e}")
             return error_response("Workspace storage not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to list workspaces: {e}")
             return error_response("Failed to list workspaces", 500)
 
@@ -1294,7 +1294,7 @@ class SlackOAuthHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Workspace store not available: {e}")
             return error_response("Workspace storage not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get workspace status: {e}")
             return error_response("Failed to get workspace status", 500)
 
@@ -1401,7 +1401,7 @@ class SlackOAuthHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Workspace store not available: {e}")
             return error_response("Workspace storage not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to refresh token: {e}")
             return error_response("Failed to refresh token", 500)
 

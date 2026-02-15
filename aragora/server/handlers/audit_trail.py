@@ -127,7 +127,7 @@ class AuditTrailHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling audit trail request: {e}")
             return error_response("Internal server error", 500)
 
@@ -289,7 +289,7 @@ class AuditTrailHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Error verifying audit trail {trail_id}: {e}")
             return json_response(
                 {
