@@ -974,7 +974,7 @@ class TeamSelector:
             if not hasattr(self.elo_system, "get_top_agents_for_domain"):
                 return 0.0
 
-            top_agents = self.elo_system.get_top_agents_for_domain(domain, limit=20)
+            top_agents = self.elo_system.get_top_agents_for_domain(domain, limit=20)  # type: ignore[attr-defined]
             if not top_agents:
                 return 0.0
 
