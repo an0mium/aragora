@@ -1226,6 +1226,11 @@ Examples:
         default="auto",
         help="Spectator output format (default: auto)",
     )
+    decide_parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run in demo mode with mock agents (no API keys required)",
+    )
     decide_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_decide"))
 
 
