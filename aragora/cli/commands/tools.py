@@ -244,12 +244,14 @@ def _run_orchestration(
     max_parallel: int,
     codebase_path: Path,
     verbose: bool,
+    use_hardened: bool = False,
+    use_worktree: bool = False,
+    spectate: bool = False,
+    generate_receipts: bool = False,
+    budget_limit: float | None = None,
+    coordinated: bool = False,
 ) -> None:
-    """Run full orchestration via AutonomousOrchestrator."""
-    from aragora.nomic.autonomous_orchestrator import (
-        AutonomousOrchestrator,
-    )
-
+    """Run full orchestration via AutonomousOrchestrator or HardenedOrchestrator."""
     checkpoints: list[tuple[str, dict[str, Any]]] = []
 
     def on_checkpoint(phase: str, data: dict[str, Any]) -> None:
@@ -264,24 +266,62 @@ def _run_orchestration(
 
     print("-" * 60)
     print("STARTING ORCHESTRATION")
+    if use_hardened or use_worktree:
+        print("  Mode: HARDENED (worktree isolation, gauntlet, mode enforcement)")
+    if spectate:
+        print("  Spectate: ON")
+    if generate_receipts:
+        print("  Receipts: ON")
+    if budget_limit:
+        print(f"  Budget: ${budget_limit:.2f}")
+    if coordinated:
+        print("  Pipeline: COORDINATED (MetaPlanner -> BranchCoordinator)")
     print("-" * 60)
 
-    orchestrator = AutonomousOrchestrator(
-        aragora_path=codebase_path,
-        require_human_approval=require_approval,
-        max_parallel_tasks=max_parallel,
-        on_checkpoint=on_checkpoint,
-        use_debate_decomposition=use_debate,
-    )
+    # Use HardenedOrchestrator when hardened flags are set
+    if use_hardened or use_worktree or coordinated:
+        from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+
+        orchestrator = HardenedOrchestrator(
+            aragora_path=codebase_path,
+            require_human_approval=require_approval,
+            max_parallel_tasks=max_parallel,
+            on_checkpoint=on_checkpoint,
+            use_debate_decomposition=use_debate,
+            use_worktree_isolation=True,
+            enable_gauntlet_validation=use_hardened,
+            budget_limit_usd=budget_limit,
+            generate_receipts=generate_receipts,
+            spectate_stream=spectate,
+        )
+    else:
+        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+        orchestrator = AutonomousOrchestrator(
+            aragora_path=codebase_path,
+            require_human_approval=require_approval,
+            max_parallel_tasks=max_parallel,
+            on_checkpoint=on_checkpoint,
+            use_debate_decomposition=use_debate,
+        )
 
     try:
-        result = asyncio.run(
-            orchestrator.execute_goal(
-                goal=goal,
-                tracks=tracks,
-                max_cycles=max_cycles,
+        if coordinated and hasattr(orchestrator, "execute_goal_coordinated"):
+            result = asyncio.run(
+                orchestrator.execute_goal_coordinated(
+                    goal=goal,
+                    tracks=tracks,
+                    max_cycles=max_cycles,
+                )
             )
-        )
+        else:
+            result = asyncio.run(
+                orchestrator.execute_goal(
+                    goal=goal,
+                    tracks=tracks,
+                    max_cycles=max_cycles,
+                )
+            )
         _print_result(result, verbose)
 
     except KeyboardInterrupt:
