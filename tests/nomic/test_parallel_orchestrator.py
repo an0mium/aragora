@@ -880,3 +880,81 @@ class TestParallelOrchestratorIntegration:
 
         assert result.success is True
         assert result.completed_subtasks == 2
+
+    @pytest.mark.asyncio
+    async def test_full_lifecycle_init_execute_cleanup(self):
+        """Simulate self_develop.py --parallel: init → execute → cleanup."""
+        engine = _mock_workflow_engine()
+        decomposer = _mock_decomposer()
+
+        with patch(
+            "aragora.nomic.parallel_orchestrator.BranchCoordinator"
+        ) as mock_bc_cls:
+            mock_bc = MagicMock()
+            mock_bc.create_track_branch = AsyncMock(return_value="dev/sme-task-001")
+            mock_bc.create_track_branches = AsyncMock(return_value=[])
+            mock_bc.safe_merge = MagicMock(return_value=MagicMock(success=True))
+            mock_bc.cleanup_all_worktrees = MagicMock()
+            mock_bc._worktree_paths = {}
+            mock_bc_cls.return_value = mock_bc
+
+            po = ParallelOrchestrator(
+                use_worktrees=True,
+                enable_gauntlet=True,
+                enable_convoy_tracking=False,
+                workflow_engine=engine,
+                task_decomposer=decomposer,
+                max_parallel_tasks=3,
+                budget_limit_usd=10.0,
+            )
+
+            # Execute
+            result = await po.execute_goal(
+                goal="Improve error handling",
+                tracks=["developer"],
+                max_cycles=2,
+            )
+
+            assert result.success is True
+
+            # Cleanup
+            await po.cleanup()
+            mock_bc.cleanup_all_worktrees.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_without_worktrees(self):
+        """Cleanup should be a no-op when worktrees are disabled."""
+        po = ParallelOrchestrator(
+            use_worktrees=False,
+            enable_gauntlet=False,
+            enable_convoy_tracking=False,
+            workflow_engine=_mock_workflow_engine(),
+            task_decomposer=_mock_decomposer(),
+        )
+
+        # Should not raise
+        await po.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_handles_worktree_errors_gracefully(self):
+        """Cleanup should not raise if worktree removal fails."""
+        with patch(
+            "aragora.nomic.parallel_orchestrator.BranchCoordinator"
+        ) as mock_bc_cls:
+            mock_bc = MagicMock()
+            mock_bc.cleanup_all_worktrees = MagicMock(
+                side_effect=RuntimeError("worktree locked")
+            )
+            mock_bc._worktree_paths = {}
+            mock_bc_cls.return_value = mock_bc
+
+            po = ParallelOrchestrator(
+                use_worktrees=True,
+                enable_gauntlet=False,
+                enable_convoy_tracking=False,
+                workflow_engine=_mock_workflow_engine(),
+                task_decomposer=_mock_decomposer(),
+            )
+
+            # Should not raise despite cleanup failure
+            await po.cleanup()
