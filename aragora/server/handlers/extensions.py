@@ -160,7 +160,8 @@ async def handle_gastown_workspaces_list(ctx: AuthorizationContext) -> dict[str,
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 @require_permission("workspaces:write")
@@ -197,7 +198,8 @@ async def handle_gastown_workspace_create(
             },
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 @require_permission("convoys:read")
@@ -230,7 +232,8 @@ async def handle_gastown_convoys_list(ctx: AuthorizationContext) -> dict[str, An
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 # =============================================================================
@@ -272,7 +275,8 @@ async def handle_moltbot_inbox_messages(ctx: AuthorizationContext) -> dict[str, 
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 @require_permission("devices:read")
@@ -305,7 +309,8 @@ async def handle_moltbot_gateway_devices(ctx: AuthorizationContext) -> dict[str,
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 @require_permission("onboarding:read")
@@ -349,7 +354,8 @@ async def handle_moltbot_onboarding_flows(ctx: AuthorizationContext) -> dict[str
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 # =============================================================================
@@ -386,7 +392,8 @@ async def handle_fabric_agents_list(ctx: AuthorizationContext) -> dict[str, Any]
             ],
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 @require_permission("tasks:read")
@@ -411,7 +418,8 @@ async def handle_fabric_tasks_list(ctx: AuthorizationContext) -> dict[str, Any]:
             "stats": stats,
         }
     except Exception as e:
-        return error_dict(str(e), code="INTERNAL_ERROR")
+        logger.warning("Extension handler error: %s", e)
+        return error_dict("Internal server error", code="INTERNAL_ERROR")
 
 
 # =============================================================================

@@ -115,8 +115,10 @@ class HybridExecutor:
         complexity_router: dict[str, str] | None = None,
         task_type_router: dict[str, str] | None = None,
         capability_router: dict[str, str] | None = None,
+        use_harness: bool = False,
     ):
         self.repo_path = repo_path
+        self.use_harness = use_harness
 
         # Initialize agents lazily (created on first use)
         self._claude: ClaudeAgent | None = None
