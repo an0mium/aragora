@@ -137,7 +137,7 @@ class ConsensusHandler(BaseHandler):
                 logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
                 return error_response(f"Permission denied: {decision.reason}", 403)
             return None
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
 
@@ -383,7 +383,7 @@ class ConsensusHandler(BaseHandler):
             )
         except ImportError:
             return error_response("Fixtures module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.error(f"Failed to seed demo data: {e}")
             return error_response(safe_error_message(e, "seeding"), 500)
 
@@ -449,7 +449,7 @@ class ConsensusHandler(BaseHandler):
                         "reasoning": record.reasoning if record.reasoning else None,
                     }
                 )
-            except Exception as e:
+            except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to parse dissent record: {e}")
 
         return json_response({"dissents": dissents})
@@ -473,7 +473,7 @@ class ConsensusHandler(BaseHandler):
             try:
                 retriever = DissentRetriever(memory)
                 records = retriever.find_contrarian_views(topic, domain=domain, limit=limit)
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError) as e:
                 logger.warning("DissentRetriever.find_contrarian_views failed: %s", e)
                 records = []
         else:
@@ -494,7 +494,7 @@ class ConsensusHandler(BaseHandler):
                     from aragora.memory.consensus import DissentRecord
 
                     records.append(DissentRecord.from_dict(json.loads(row[0])))
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to parse contrarian view record: {e}")
 
         return json_response(

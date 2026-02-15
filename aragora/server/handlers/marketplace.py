@@ -450,7 +450,7 @@ class MarketplaceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error listing templates: %s", e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -490,7 +490,7 @@ class MarketplaceHandler(BaseHandler):
 
             return self.json_response(template.to_dict())
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error getting template %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -541,7 +541,7 @@ class MarketplaceHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Invalid template data: %s", e)
             return self.json_error("Invalid template data", HTTPStatus.BAD_REQUEST)
-        except Exception as e:
+        except (KeyError, TypeError, OSError, json.JSONDecodeError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error creating template: %s", e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -582,7 +582,7 @@ class MarketplaceHandler(BaseHandler):
 
             return self.json_response({"success": True, "deleted": template_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error deleting template %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -651,7 +651,7 @@ class MarketplaceHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Invalid rating data for template %s: %s", template_id, e)
             return self.json_error("Invalid rating data", HTTPStatus.BAD_REQUEST)
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error rating template %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -697,7 +697,7 @@ class MarketplaceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error getting ratings for %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)

@@ -243,7 +243,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error searching skills: {e}")
             return error_response("Search operation failed", 500)
 
@@ -262,7 +262,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error getting skill: {e}")
             return error_response("Failed to retrieve skill", 500)
 
@@ -286,7 +286,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error getting versions: {e}")
             return error_response("Failed to retrieve versions", 500)
 
@@ -312,7 +312,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error getting ratings: {e}")
             return error_response("Failed to retrieve ratings", 500)
 
@@ -393,7 +393,7 @@ class SkillMarketplaceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error publishing skill: {e}")
             return error_response("Publish operation failed", 500)
 
@@ -445,7 +445,7 @@ class SkillMarketplaceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error installing skill: {e}")
             return error_response("Installation failed", 500)
 
@@ -494,7 +494,7 @@ class SkillMarketplaceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error uninstalling skill: {e}")
             return error_response("Uninstallation failed", 500)
 
@@ -532,7 +532,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Invalid request", 400)
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error rating skill: {e}")
             return error_response("Rating submission failed", 500)
 

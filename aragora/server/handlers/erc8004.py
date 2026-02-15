@@ -83,7 +83,7 @@ def _get_provider():
                 "web3 is required for blockchain endpoints. "
                 "Install with: pip install aragora[blockchain]"
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to create Web3Provider: {e}")
             raise
     return _provider
@@ -180,7 +180,7 @@ async def handle_blockchain_config() -> HandlerResult:
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
         logger.error(f"Error getting blockchain config: {e}")
         return error_response("Configuration error. Check server logs for details.", status=500)
 
@@ -222,7 +222,7 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching agent {token_id}: {e}")
         return error_response("Agent not found or could not be retrieved.", status=404)
 
@@ -278,7 +278,7 @@ async def handle_get_reputation(
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching reputation for agent {token_id}: {e}")
         return error_response("Reputation not found or could not be retrieved.", status=404)
 
@@ -330,7 +330,7 @@ async def handle_get_validations(
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching validations for agent {token_id}: {e}")
         return error_response("Validations not found or could not be retrieved.", status=404)
 

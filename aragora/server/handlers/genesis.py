@@ -231,7 +231,7 @@ class GenesisHandler(BaseHandler):
                     "merkle_root": ledger.get_merkle_root()[:32] + "...",
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genesis_stats"), 500)
 
     def _get_genesis_events(
@@ -308,7 +308,7 @@ class GenesisHandler(BaseHandler):
                     "count": len(events),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genesis_events"), 500)
 
     def _get_genome_lineage(
@@ -392,7 +392,7 @@ class GenesisHandler(BaseHandler):
                                 enriched_node["event_type"] = "crossover"
                                 enriched_node["created_at"] = event.timestamp
                                 break
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError) as e:
                     logger.debug(
                         f"Optional event lookup failed for genome lineage: {type(e).__name__}"
                     )
@@ -407,7 +407,7 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genome_lineage"), 500)
 
     def _get_debate_tree(self, nomic_dir: Path | None, debate_id: str) -> HandlerResult:
@@ -431,7 +431,7 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "debate_tree"), 500)
 
     def _get_genomes(self, nomic_dir: Path | None, limit: int, offset: int) -> HandlerResult:
@@ -460,7 +460,7 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genomes_list"), 500)
 
     def _get_top_genomes(self, nomic_dir: Path | None, limit: int) -> HandlerResult:
@@ -483,7 +483,7 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genomes_top"), 500)
 
     def _get_genome(self, nomic_dir: Path | None, genome_id: str) -> HandlerResult:
@@ -508,7 +508,7 @@ class GenesisHandler(BaseHandler):
             else:
                 return error_response(f"Genome not found: {genome_id}", 404)
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genome_get"), 500)
 
     def _get_population(self, nomic_dir: Path | None) -> HandlerResult:

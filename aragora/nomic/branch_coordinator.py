@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 
 from aragora.nomic.meta_planner import PrioritizedGoal, Track
 
@@ -40,6 +40,7 @@ class TrackAssignment:
 
     goal: PrioritizedGoal
     branch_name: str | None = None
+    worktree_path: Path | None = None
     status: str = "pending"  # pending, running, completed, failed, merged
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -250,7 +251,7 @@ class BranchCoordinator:
             assignments: List of track assignments
 
         Returns:
-            Updated assignments with branch names
+            Updated assignments with branch names and worktree paths
         """
         for assignment in assignments:
             branch = await self.create_track_branch(
@@ -258,6 +259,7 @@ class BranchCoordinator:
                 goal=assignment.goal.description,
             )
             assignment.branch_name = branch
+            assignment.worktree_path = self.get_worktree_path(branch)
 
         # Return to base branch (only needed in checkout mode)
         if not self.config.use_worktrees:
@@ -576,6 +578,20 @@ class BranchCoordinator:
         slug = re.sub(r"[^a-z0-9]+", "-", slug)
         slug = slug.strip("-")
         return slug
+
+    def cleanup_worktrees(self) -> int:
+        """Remove all active worktrees and prune stale entries.
+
+        Returns:
+            Number of worktrees removed.
+        """
+        removed = 0
+        for branch in list(self._worktree_paths):
+            self._remove_worktree(branch)
+            removed += 1
+        # Prune any stale worktree entries that git still tracks
+        self._run_git("worktree", "prune", check=False)
+        return removed
 
     def cleanup_branches(self, branches: list[str] | None = None) -> int:
         """Delete merged or stale branches and their worktrees.
