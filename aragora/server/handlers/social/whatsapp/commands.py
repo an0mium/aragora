@@ -276,7 +276,7 @@ async def run_debate_async(
 
         except ImportError:
             logger.debug("Binding router not available, using default agents")
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Binding resolution failed: {e}, using default agents")
 
         agents = get_agents_by_names(agent_names)

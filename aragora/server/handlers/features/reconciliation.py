@@ -325,7 +325,7 @@ class ReconciliationHandler:
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in reconciliation handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -476,7 +476,7 @@ class ReconciliationHandler:
         except ImportError:
             self._circuit_breaker.record_failure()
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception(f"Error running reconciliation: {e}")
             return error_response("Reconciliation failed", 500)
@@ -647,7 +647,7 @@ class ReconciliationHandler:
             else:
                 return error_response("Failed to resolve discrepancy", 400)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Error resolving discrepancy: {e}")
             return error_response("Resolution failed", 500)
 
@@ -741,7 +741,7 @@ class ReconciliationHandler:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Error in bulk resolve: {e}")
             return error_response("Bulk resolution failed", 500)
 
@@ -804,7 +804,7 @@ class ReconciliationHandler:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Error approving reconciliation: {e}")
             return error_response("Approval failed", 500)
 

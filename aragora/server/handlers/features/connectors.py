@@ -611,7 +611,7 @@ class ConnectorsHandler(SecureHandler):
 
             logger.info(f"Completed sync {sync_id} for connector {connector_id}")
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
             sync_job["status"] = "failed"
             sync_job["error_message"] = "Sync operation failed"
             sync_job["completed_at"] = datetime.now(timezone.utc).isoformat()

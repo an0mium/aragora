@@ -403,7 +403,7 @@ class AuditTrailHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Error verifying receipt {receipt_id}: {e}")
             return json_response(
                 {
@@ -445,7 +445,7 @@ class AuditTrailHandler(BaseHandler):
                     # Also cache in-memory for backward compatibility
                     self._trails[trail_id] = trail_dict
                     return trail_dict
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.debug(f"Could not generate audit trail: {e}")
 
         return None
@@ -483,7 +483,7 @@ class AuditTrailHandler(BaseHandler):
                     # Also cache in-memory for backward compatibility
                     self._receipts[receipt_id] = receipt_dict
                     return receipt_dict
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.debug(f"Could not generate receipt: {e}")
 
         return None

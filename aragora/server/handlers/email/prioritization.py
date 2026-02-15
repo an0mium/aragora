@@ -105,7 +105,7 @@ async def handle_prioritize_email(
             "result": result.to_dict(),
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.exception(f"Failed to prioritize email: {e}")
         return {
             "success": False,
@@ -176,7 +176,7 @@ async def handle_rank_inbox(
             "total": len(results),
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.exception(f"Failed to rank inbox: {e}")
         return {
             "success": False,
@@ -247,7 +247,7 @@ async def handle_email_feedback(
             "recorded_at": datetime.now().isoformat(),
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.exception(f"Failed to record feedback: {e}")
         return {
             "success": False,

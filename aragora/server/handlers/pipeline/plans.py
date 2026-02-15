@@ -147,7 +147,7 @@ class PlanManagementHandler(BaseHandler):
                     "offset": offset,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("List plans failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to list plans", 500)
 

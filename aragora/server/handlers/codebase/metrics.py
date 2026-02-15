@@ -157,7 +157,7 @@ async def handle_analyze_metrics(
                     f"{report.total_files} files, avg complexity {report.avg_complexity:.2f}"
                 )
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, OSError, AttributeError, RuntimeError) as e:
                 logger.exception(f"Analysis {analysis_id} failed: {e}")
                 # Store error state
                 error_report = MetricsReport(
@@ -184,7 +184,7 @@ async def handle_analyze_metrics(
             "repository": repo_id,
         }
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, OSError, AttributeError) as e:
         logger.exception(f"Failed to start metrics analysis: {e}")
         return {
             "success": False,
@@ -226,7 +226,7 @@ async def handle_get_metrics(
                 "report": latest.to_dict(),
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get metrics: {e}")
         return {
             "success": False,
@@ -266,7 +266,7 @@ async def handle_get_hotspots(
             "analysis_id": latest.scan_id,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get hotspots: {e}")
         return {
             "success": False,
@@ -315,7 +315,7 @@ async def handle_get_duplicates(
             "analysis_id": latest.scan_id,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get duplicates: {e}")
         return {
             "success": False,

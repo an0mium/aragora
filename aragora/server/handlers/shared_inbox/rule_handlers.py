@@ -283,7 +283,7 @@ async def handle_create_routing_rule(
             "rule": rule.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to create routing rule: {e}")
         return {
             "success": False,
@@ -379,7 +379,7 @@ async def handle_list_routing_rules(
             "offset": offset,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to list routing rules: {e}")
         return {
             "success": False,
@@ -610,7 +610,7 @@ async def handle_update_routing_rule(
 
         return {"success": False, "error": "Rule not found"}
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to update routing rule: {e}")
         return {
             "success": False,

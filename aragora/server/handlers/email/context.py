@@ -45,7 +45,7 @@ async def handle_get_context(
             "context": context.to_dict(),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception(f"Failed to get context: {e}")
         return {
             "success": False,
@@ -114,7 +114,7 @@ async def handle_get_email_context_boost(
             },
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, ConnectionError, TimeoutError) as e:
         logger.exception(f"Failed to get context boost: {e}")
         return {
             "success": False,

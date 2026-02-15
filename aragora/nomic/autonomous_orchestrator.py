@@ -51,6 +51,17 @@ from aragora.observability import get_logger
 logger = get_logger(__name__)
 
 
+class BudgetExceededError(RuntimeError):
+    """Raised when the orchestration budget limit is exceeded."""
+
+    def __init__(self, limit: float, spent: float):
+        self.limit = limit
+        self.spent = spent
+        super().__init__(
+            f"Budget ${limit:.2f} exceeded (spent ${spent:.2f})"
+        )
+
+
 class Track(Enum):
     """Development tracks for domain-based routing."""
 
@@ -564,6 +575,10 @@ class AutonomousOrchestrator:
         # File-based approval gate
         self._auto_approve = not require_human_approval
         self._approval_gate_dir = self.aragora_path / ".aragora_beads" / "approval_gates"
+
+        # Budget enforcement
+        self.budget_limit: float | None = None
+        self._total_cost_usd: float = 0.0
 
         # State
         self._active_assignments: list[AgentAssignment] = []

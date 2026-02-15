@@ -144,7 +144,7 @@ class GoogleOAuthMixin:
             if inspect.isawaitable(token_data):
                 token_data = await token_data
             logger.info("OAuth callback: token exchange successful")
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Token exchange failed: {e}", exc_info=True)
             return self._redirect_with_error("Failed to exchange authorization code")
 
@@ -159,7 +159,7 @@ class GoogleOAuthMixin:
             if inspect.isawaitable(user_info):
                 user_info = await user_info
             logger.info(f"OAuth callback: got user info for {user_info.email}")
-        except Exception as e:
+        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to get user info: {e}", exc_info=True)
             return self._redirect_with_error("Failed to get user info from Google")
 

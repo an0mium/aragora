@@ -283,7 +283,7 @@ class AgentHandlerMixin:
             )
 
             return json_response(agent.to_dict(), status=201)
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Error registering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -323,7 +323,7 @@ class AgentHandlerMixin:
                 return error_response(f"Agent not found: {agent_id}", 404)
 
             return json_response({"acknowledged": True})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Error processing heartbeat: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -357,7 +357,7 @@ class AgentHandlerMixin:
                 return error_response(f"Agent not found: {agent_id}", 404)
 
             return json_response({"acknowledged": True})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Error processing heartbeat: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -398,6 +398,6 @@ class AgentHandlerMixin:
             )
 
             return json_response({"unregistered": True})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Error unregistering agent: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
