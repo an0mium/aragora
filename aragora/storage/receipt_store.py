@@ -900,10 +900,11 @@ class ReceiptStore:
             )
 
         except ImportError as e:
+            logger.warning("Signing module not available: %s", e)
             return SignatureVerificationResult(
                 receipt_id=receipt_id,
                 is_valid=False,
-                error=f"Signing module not available: {e}",
+                error="Signing module not available",
             )
         except Exception as e:
             logger.warning(f"Signature verification failed: {e}")
@@ -913,7 +914,7 @@ class ReceiptStore:
                 algorithm=receipt.signature_algorithm,
                 key_id=receipt.signature_key_id,
                 signed_at=receipt.signed_at,
-                error=str(e),
+                error="Signature verification failed",
             )
 
     def verify_batch(
@@ -988,7 +989,7 @@ class ReceiptStore:
             return {
                 "receipt_id": receipt_id,
                 "integrity_valid": False,
-                "error": str(e),
+                "error": "Integrity verification failed",
             }
 
     # =========================================================================

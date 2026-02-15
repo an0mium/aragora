@@ -249,7 +249,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
             logger.error(f"[{self.name}] Task execution failed: {e}")
             return {
                 "success": False,
-                "output": str(e),
+                "output": "Task execution failed",
                 "agent": self.name,
                 "capabilities_used": [],
             }
@@ -315,7 +315,7 @@ class OpenClawAgent(ExternalFrameworkAgent):
             logger.error(f"[{self.name}] Failed to send message to {channel}: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Message send failed",
                 "channel": channel,
             }
 

@@ -218,7 +218,7 @@ def track_operation(operation_type: str):
 
                 return result
             except Exception as e:
-                operation_metrics.record_failure(str(e))
+                operation_metrics.record_failure(type(e).__name__)
                 metrics.consecutive_failures += 1
 
                 # Mark unhealthy after 3 consecutive failures
@@ -275,7 +275,7 @@ class InstrumentedIntegrationStore:
                 self._metrics.record_cache_miss()  # Actually fetched
             return result
         except Exception as e:
-            self._metrics.get_operations.record_failure(str(e))
+            self._metrics.get_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
                 self._metrics.is_healthy = False
@@ -291,7 +291,7 @@ class InstrumentedIntegrationStore:
             self._metrics.consecutive_failures = 0
             self._metrics.is_healthy = True
         except Exception as e:
-            self._metrics.save_operations.record_failure(str(e))
+            self._metrics.save_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
                 self._metrics.is_healthy = False
@@ -308,7 +308,7 @@ class InstrumentedIntegrationStore:
             self._metrics.is_healthy = True
             return result
         except Exception as e:
-            self._metrics.delete_operations.record_failure(str(e))
+            self._metrics.delete_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
                 self._metrics.is_healthy = False
@@ -326,7 +326,7 @@ class InstrumentedIntegrationStore:
             self._metrics.is_healthy = True
             return result
         except Exception as e:
-            self._metrics.list_operations.record_failure(str(e))
+            self._metrics.list_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
                 self._metrics.is_healthy = False
@@ -344,7 +344,7 @@ class InstrumentedIntegrationStore:
             self._metrics.is_healthy = True
             return result
         except Exception as e:
-            self._metrics.list_operations.record_failure(str(e))
+            self._metrics.list_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
                 self._metrics.is_healthy = False

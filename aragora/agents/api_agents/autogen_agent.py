@@ -336,7 +336,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
             logger.error(f"[{self.name}] Failed to initiate chat: {e}")
             return {
                 "conversation_id": conversation_id,
-                "response": str(e),
+                "response": "Chat initiation failed",
                 "success": False,
             }
 
@@ -383,7 +383,7 @@ class AutoGenAgent(ExternalFrameworkAgent):
         except (AgentError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"[{self.name}] Failed to continue chat: {e}")
             return {
-                "response": str(e),
+                "response": "Chat continuation failed",
                 "success": False,
             }
 

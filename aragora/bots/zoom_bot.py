@@ -353,7 +353,7 @@ class AragoraZoomBot:
             return {"status": "error", "message": "httpx not installed"}
         except OSError as e:
             logger.error(f"Zoom send error: {e}")
-            return {"status": "error", "message": str(e)[:100]}
+            return {"status": "error", "message": "Failed to send message"}
 
     def _create_context(
         self,

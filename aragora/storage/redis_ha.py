@@ -880,10 +880,12 @@ def check_redis_health(config: RedisHAConfig | None = None) -> dict:
                 result["info"]["connected_slaves"] = info.get("connected_slaves", 0)
 
         except (ConnectionError, TimeoutError, OSError, KeyError, TypeError) as e:
-            result["info"]["error"] = str(e)
+            logger.warning("Failed to retrieve Redis info: %s", e)
+            result["info"]["error"] = "Failed to retrieve server info"
 
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        result["error"] = str(e)
+        logger.warning("Redis health check failed: %s", e)
+        result["error"] = "Redis connection failed"
 
     return result
 
@@ -932,10 +934,12 @@ async def check_async_redis_health(config: RedisHAConfig | None = None) -> dict:
                 "role": info.get("role", "unknown"),
             }
         except (ConnectionError, TimeoutError, OSError, KeyError, TypeError) as e:
-            result["info"]["error"] = str(e)
+            logger.warning("Failed to retrieve async Redis info: %s", e)
+            result["info"]["error"] = "Failed to retrieve server info"
 
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
-        result["error"] = str(e)
+        logger.warning("Async Redis health check failed: %s", e)
+        result["error"] = "Redis connection failed"
 
     return result
 

@@ -467,7 +467,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             logger.error(f"[{self.name}] Crew execution failed: {e}")
             return {
                 "success": False,
-                "output": str(e),
+                "output": "Crew execution failed",
                 "agent": self.name,
                 "tools_used": [],
                 "process": self.crewai_config.process,

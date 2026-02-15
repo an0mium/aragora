@@ -225,7 +225,7 @@ class CommandRegistry:
             return result
         except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Command '{command_name}' failed: {e}", exc_info=True)
-            return CommandResult.fail(f"Command failed: {str(e)}")
+            return CommandResult.fail("Command failed. Please try again.")
 
     def command(
         self,
@@ -437,7 +437,8 @@ async def _route_via_http_api(
     except asyncio.TimeoutError:
         return CommandResult.fail("Request timed out. Please try again.")
     except OSError as e:
-        return CommandResult.fail(f"Failed to start debate: {str(e)}")
+        logger.error("Failed to start debate: %s", e)
+        return CommandResult.fail("Failed to start debate. Please try again.")
 
 
 async def _run_debate(
@@ -546,7 +547,8 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         except asyncio.TimeoutError:
             return CommandResult.fail("Health check timed out.")
         except OSError as e:
-            return CommandResult.fail(f"Health check failed: {str(e)}")
+            logger.error("Health check failed: %s", e)
+            return CommandResult.fail("Health check failed. Please try again.")
 
     @registry.command(
         "debate",
@@ -668,4 +670,5 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")
         except OSError as e:
-            return CommandResult.fail(f"Failed to start gauntlet: {str(e)}")
+            logger.error("Failed to start gauntlet: %s", e)
+            return CommandResult.fail("Failed to start gauntlet. Please try again.")

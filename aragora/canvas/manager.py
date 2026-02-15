@@ -675,21 +675,21 @@ class CanvasStateManager:
         except Exception as e:
             logger.error(f"Debate execution failed: {e}")
             debate_node.data["status"] = "error"
-            debate_node.data["error"] = str(e)
+            debate_node.data["error"] = "Debate execution failed"
             await self._broadcast(
                 canvas.id,
                 CanvasEvent(
                     event_type=CanvasEventType.ERROR,
                     canvas_id=canvas.id,
                     node_id=debate_node.id,
-                    data={"error": str(e)},
+                    data={"error": "Debate execution failed"},
                 ),
             )
             return {
                 "success": False,
                 "action": "start_debate",
                 "debate_node_id": debate_node.id,
-                "error": str(e),
+                "error": "Debate execution failed",
             }
 
     async def _get_debate_agents(self, agent_config: list[str] | None = None):
@@ -824,12 +824,12 @@ class CanvasStateManager:
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
             workflow_node.data["status"] = "error"
-            workflow_node.data["error"] = str(e)
+            workflow_node.data["error"] = "Workflow execution failed"
             return {
                 "success": False,
                 "action": "run_workflow",
                 "workflow_node_id": workflow_node.id,
-                "error": str(e),
+                "error": "Workflow execution failed",
             }
 
     async def _load_workflow_definition(self, workflow_id: str):
@@ -922,12 +922,12 @@ class CanvasStateManager:
         except Exception as e:
             logger.error(f"Knowledge query failed: {e}")
             knowledge_node.data["status"] = "error"
-            knowledge_node.data["error"] = str(e)
+            knowledge_node.data["error"] = "Knowledge query failed"
             return {
                 "success": False,
                 "action": "query_knowledge",
                 "knowledge_node_id": knowledge_node.id,
-                "error": str(e),
+                "error": "Knowledge query failed",
             }
 
     async def _query_knowledge_mound(

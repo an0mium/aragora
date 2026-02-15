@@ -426,7 +426,7 @@ class DefaultBotEventHandler(BotEventHandler):
             await self.on_error(e, {"command": ctx.args, "user": ctx.user_id})
             await self.client.send_message(
                 ctx.channel_id,
-                f"Error executing command: {str(e)}",
+                "Sorry, an error occurred processing your request.",
                 thread_id=ctx.thread_id,
             )
 

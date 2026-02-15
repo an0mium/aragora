@@ -554,7 +554,7 @@ class DecisionRouter:
                 confidence=0.0,
                 consensus_reached=False,
                 success=False,
-                error=str(e),
+                error=f"Decision routing failed: {type(e).__name__}",
                 duration_seconds=error_duration,
             )
 
@@ -1222,7 +1222,7 @@ class DecisionRouter:
                 confidence=0.0,
                 consensus_reached=False,
                 success=False,
-                error=str(e),
+                error=f"Quick response failed: {type(e).__name__}",
             )
         finally:
             if span_ctx:
