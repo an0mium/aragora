@@ -363,6 +363,52 @@ class BudgetsAPI:
         """Remove a budget override."""
         return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
 
+    # =========================================================================
+    # Cost Analytics
+    # =========================================================================
+
+    def get_agent_costs(
+        self,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get per-agent cost breakdown.
+
+        Returns cost data grouped by agent, including total cost and
+        per-agent spending for the workspace.
+
+        Args:
+            workspace_id: Optional workspace to scope costs to.
+
+        Returns:
+            Agent cost breakdown with totals.
+        """
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/agents", params=params)
+
+    def get_cost_anomalies(
+        self,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get recent cost anomalies with advisory.
+
+        Detects unusual spending patterns and returns anomalies
+        along with a cost advisory summary.
+
+        Args:
+            workspace_id: Optional workspace to scope anomaly detection to.
+
+        Returns:
+            Detected anomalies, count, and cost advisory.
+        """
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/costs/anomalies", params=params)
+
 
 class AsyncBudgetsAPI:
     """Asynchronous budgets API."""
@@ -570,3 +616,27 @@ class AsyncBudgetsAPI:
     async def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
         """Remove a budget override."""
         return await self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+
+    # =========================================================================
+    # Cost Analytics
+    # =========================================================================
+
+    async def get_agent_costs(
+        self,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get per-agent cost breakdown."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/costs/agents", params=params)
+
+    async def get_cost_anomalies(
+        self,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get recent cost anomalies with advisory."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/costs/anomalies", params=params)

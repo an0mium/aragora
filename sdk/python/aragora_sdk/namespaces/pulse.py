@@ -61,6 +61,18 @@ class PulseAPI:
             params["category"] = category
         return self._client.request("GET", "/api/v1/pulse/suggest", params=params)
 
+    def get_scheduler_analytics(self) -> dict[str, Any]:
+        """Get scheduler runtime metrics and store analytics.
+
+        Returns combined scheduler metrics (polls, debates created/failed,
+        uptime) and store analytics (by platform, by category, daily counts).
+
+        Returns:
+            Scheduler metrics and store analytics.
+        """
+        return self._client.request("GET", "/api/v1/pulse/scheduler/analytics")
+
+
 class AsyncPulseAPI:
     """Asynchronous Pulse API for trending topics and signals."""
 
@@ -93,4 +105,8 @@ class AsyncPulseAPI:
         if category:
             params["category"] = category
         return await self._client.request("GET", "/api/v1/pulse/suggest", params=params)
+
+    async def get_scheduler_analytics(self) -> dict[str, Any]:
+        """Get scheduler runtime metrics and store analytics."""
+        return await self._client.request("GET", "/api/v1/pulse/scheduler/analytics")
 

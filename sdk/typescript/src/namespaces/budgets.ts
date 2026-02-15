@@ -37,6 +37,27 @@ export interface TrendsOptions {
   limit?: number;
 }
 
+/**
+ * Per-agent cost breakdown response.
+ */
+export interface AgentCostsResponse {
+  agents: Record<string, unknown>;
+  workspace_id: string;
+  total_cost_usd: string;
+  count: number;
+}
+
+/**
+ * Cost anomalies response.
+ */
+export interface CostAnomaliesResponse {
+  anomalies: unknown[];
+  workspace_id: string;
+  count: number;
+  cost_advisory: Record<string, unknown> | null;
+  advisory: string;
+}
+
 interface BudgetsClientInterface {
   listBudgets(params?: PaginationParams): Promise<BudgetList>;
   createBudget(body: CreateBudgetRequest): Promise<Budget>;
@@ -62,6 +83,8 @@ interface BudgetsClientInterface {
   getCostTimeline(params?: { period?: string; granularity?: string }): Promise<import('../types').CostTimeline>;
   getCostAlerts(): Promise<{ alerts: import('../types').CostAlert[] }>;
   setCostBudget(body: { daily_limit?: number; monthly_limit?: number; alert_threshold?: number }): Promise<{ set: boolean }>;
+  getAgentCosts(params?: { workspace_id?: string }): Promise<AgentCostsResponse>;
+  getCostAnomalies(params?: { workspace_id?: string }): Promise<CostAnomaliesResponse>;
 }
 
 /**
@@ -364,6 +387,30 @@ export class BudgetsAPI {
    */
   async setCostBudget(body: { daily_limit?: number; monthly_limit?: number; alert_threshold?: number }): Promise<{ set: boolean }> {
     return this.client.setCostBudget(body);
+  }
+
+  /**
+   * Get per-agent cost breakdown.
+   *
+   * Returns cost data grouped by agent, including total cost and
+   * per-agent spending for the workspace.
+   *
+   * @param params.workspace_id - Optional workspace to scope costs to
+   */
+  async getAgentCosts(params?: { workspace_id?: string }): Promise<AgentCostsResponse> {
+    return this.client.getAgentCosts(params);
+  }
+
+  /**
+   * Get recent cost anomalies with advisory.
+   *
+   * Detects unusual spending patterns and returns anomalies
+   * along with a cost advisory summary.
+   *
+   * @param params.workspace_id - Optional workspace to scope anomaly detection to
+   */
+  async getCostAnomalies(params?: { workspace_id?: string }): Promise<CostAnomaliesResponse> {
+    return this.client.getCostAnomalies(params);
   }
 }
 

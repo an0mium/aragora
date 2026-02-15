@@ -126,6 +126,28 @@ class BeliefAPI:
         """
         return self._client.request("GET", f"/api/v1/debate/{debate_id}/graph-stats")
 
+    def get_crux_analysis(
+        self,
+        debate_id: str,
+        limit: int = 5,
+    ) -> dict[str, Any]:
+        """Get advanced crux analysis for a debate.
+
+        Uses influence, disagreement, uncertainty, and centrality scores
+        to identify debate-pivotal claims via the CruxDetector.
+
+        Args:
+            debate_id: The debate ID.
+            limit: Maximum cruxes to return (1-20, default: 5).
+
+        Returns:
+            Crux analysis with scored and ranked pivotal claims.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        return self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/cruxes", params=params
+        )
+
 
 class AsyncBeliefAPI:
     """Asynchronous Belief Network API for claim analysis and provenance."""
@@ -193,3 +215,14 @@ class AsyncBeliefAPI:
     ) -> dict[str, Any]:
         """Get argument graph statistics for a debate."""
         return await self._client.request("GET", f"/api/v1/debate/{debate_id}/graph-stats")
+
+    async def get_crux_analysis(
+        self,
+        debate_id: str,
+        limit: int = 5,
+    ) -> dict[str, Any]:
+        """Get advanced crux analysis for a debate."""
+        params: dict[str, Any] = {"limit": limit}
+        return await self._client.request(
+            "GET", f"/api/v1/debates/{debate_id}/cruxes", params=params
+        )
