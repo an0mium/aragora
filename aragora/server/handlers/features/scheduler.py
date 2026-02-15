@@ -349,7 +349,7 @@ class SchedulerHandler(BaseHandler):
             else:
                 _scheduler_circuit_breaker.record_failure()
                 return error_response("Failed to trigger job", 500)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             _scheduler_circuit_breaker.record_failure()
             logger.error(f"Failed to trigger job {job_id}: {e}")
             return error_response(safe_error_message(e, "Failed to trigger job"), 500)
@@ -457,7 +457,7 @@ class SchedulerHandler(BaseHandler):
                     "runs": [run.to_dict() for run in runs],
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             logger.error(f"Webhook handling failed: {e}")
             return error_response(safe_error_message(e, "Webhook handling"), 500)
 

@@ -205,7 +205,7 @@ class FederationOperationsMixin:
                 )
                 metrics_ctx["nodes_synced"] = result.nodes_synced
                 metrics_ctx["status"] = "success" if result.success else "failed"
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
                 metrics_ctx["status"] = "error"
                 logger.error(f"Failed to sync to region: {e}")
                 return error_response("Failed to sync to region", 500)
@@ -271,7 +271,7 @@ class FederationOperationsMixin:
                 )
                 metrics_ctx["nodes_synced"] = result.nodes_synced
                 metrics_ctx["status"] = "success" if result.success else "failed"
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
                 metrics_ctx["status"] = "error"
                 logger.error(f"Failed to pull from region: {e}")
                 return error_response("Failed to pull from region", 500)
@@ -327,7 +327,7 @@ class FederationOperationsMixin:
                     since=since,
                 )
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to sync all regions: {e}")
             return error_response("Failed to sync all regions", 500)
 
@@ -362,7 +362,7 @@ class FederationOperationsMixin:
 
         try:
             status = _run_async(mound.get_federation_status())
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to get federation status: {e}")
             return error_response("Failed to get federation status", 500)
 

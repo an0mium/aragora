@@ -856,6 +856,62 @@ class AutonomousOrchestrator:
         async with self._semaphore:
             await self._execute_single_assignment(assignment, max_cycles)
 
+    async def _check_plan_approval(
+        self,
+        assignment: AgentAssignment,
+    ) -> bool:
+        """Check plan approval gate before implementation.
+
+        When ``HierarchyConfig.plan_gate_blocking`` is True, the orchestrator
+        requests approval (via the file-based gate) before allowing a subtask
+        to proceed to implementation.
+
+        Returns True if approved (or gate is not blocking), False otherwise.
+        """
+        gate_id = f"plan_{assignment.subtask.id}"
+        return await self.request_approval(
+            gate_id=gate_id,
+            description=(
+                f"Plan approval for subtask: {assignment.subtask.title}\n"
+                f"Track: {assignment.track.value}\n"
+                f"Agent: {assignment.agent_type}\n"
+                f"Description: {assignment.subtask.description[:200]}"
+            ),
+            metadata={
+                "subtask_id": assignment.subtask.id,
+                "track": assignment.track.value,
+                "gate": "plan_approval",
+            },
+        )
+
+    async def _check_final_review(
+        self,
+        assignment: AgentAssignment,
+        result: Any,
+    ) -> bool:
+        """Check final review gate after verification.
+
+        When ``HierarchyConfig.final_review_blocking`` is True, the orchestrator
+        requests approval before marking a subtask as completed.
+
+        Returns True if approved (or gate is not blocking), False otherwise.
+        """
+        gate_id = f"review_{assignment.subtask.id}"
+        return await self.request_approval(
+            gate_id=gate_id,
+            description=(
+                f"Final review for subtask: {assignment.subtask.title}\n"
+                f"Track: {assignment.track.value}\n"
+                f"Result: {'success' if result.success else 'failed'}"
+            ),
+            metadata={
+                "subtask_id": assignment.subtask.id,
+                "track": assignment.track.value,
+                "gate": "final_review",
+                "result_success": result.success,
+            },
+        )
+
     async def _execute_single_assignment(
         self,
         assignment: AgentAssignment,
@@ -870,6 +926,27 @@ class AutonomousOrchestrator:
             track=assignment.track.value,
             agent=assignment.agent_type,
         )
+
+        # Budget check before each assignment
+        if self.budget_limit is not None and self._total_cost_usd > self.budget_limit:
+            assignment.status = "skipped"
+            logger.warning(
+                "assignment_skipped_budget subtask_id=%s spent=%.2f limit=%.2f",
+                subtask.id,
+                self._total_cost_usd,
+                self.budget_limit,
+            )
+            return
+
+        # Plan approval gate (blocking)
+        if self.hierarchy.enabled and self.hierarchy.plan_gate_blocking:
+            approved = await self._check_plan_approval(assignment)
+            if not approved:
+                assignment.status = "blocked"
+                logger.info(
+                    "assignment_blocked_plan_gate subtask_id=%s", subtask.id
+                )
+                return
 
         # Update bead status to RUNNING
         await self._update_bead_status(subtask.id, "running")
@@ -890,6 +967,17 @@ class AutonomousOrchestrator:
             )
 
             if result.success:
+                # Final review gate (blocking)
+                if self.hierarchy.enabled and self.hierarchy.final_review_blocking:
+                    approved = await self._check_final_review(assignment, result)
+                    if not approved:
+                        assignment.status = "rejected"
+                        logger.info(
+                            "assignment_rejected_review subtask_id=%s", subtask.id
+                        )
+                        await self._update_bead_status(subtask.id, "failed", error="Rejected at review gate")
+                        return
+
                 assignment.status = "completed"
                 assignment.result = {"workflow_result": result.final_output}
                 await self._update_bead_status(subtask.id, "done")

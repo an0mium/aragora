@@ -632,5 +632,5 @@ class RelationshipHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (OSError, KeyError, ValueError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "relationships_stats"), 500)

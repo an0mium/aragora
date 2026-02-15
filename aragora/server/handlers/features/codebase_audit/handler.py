@@ -370,7 +370,7 @@ class CodebaseAuditHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"Comprehensive scan error: {e}")
@@ -485,7 +485,7 @@ class CodebaseAuditHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"{scan_type.value} scan error: {e}")
@@ -535,7 +535,7 @@ class CodebaseAuditHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.exception(f"Metrics analysis error: {e}")
             return error_response("Analysis operation failed", 500)
 
