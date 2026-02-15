@@ -56,8 +56,8 @@ class TestPostDebateConfig:
 
     def test_defaults(self):
         config = PostDebateConfig()
-        assert config.auto_explain is False
-        assert config.auto_create_plan is False
+        assert config.auto_explain is True
+        assert config.auto_create_plan is True
         assert config.auto_notify is True
         assert config.auto_execute_plan is False
         assert config.plan_min_confidence == 0.7
@@ -272,5 +272,5 @@ class TestStepImplementations:
 
     def test_default_config(self):
         coordinator = PostDebateCoordinator()
-        assert coordinator.config.auto_explain is False
+        assert coordinator.config.auto_explain is True
         assert coordinator.config.auto_notify is True

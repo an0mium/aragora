@@ -63,6 +63,7 @@ const toolsItems: NavItem[] = [
   { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'advanced' },
   { label: 'Templates', href: '/templates', icon: '[', minMode: 'standard' },
   { label: 'Autonomous', href: '/autonomous', icon: '!', minMode: 'expert' },
+  { label: 'MCP Tools', href: '/mcp', icon: '~', minMode: 'advanced' },
 ];
 
 // Advanced section - power user features

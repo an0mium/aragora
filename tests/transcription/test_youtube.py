@@ -26,15 +26,7 @@ from aragora.transcription.youtube import (
     YOUTUBE_PATTERNS,
 )
 
-# Check if yt-dlp is available
-try:
-    import yt_dlp
-
-    YT_DLP_AVAILABLE = True
-except ImportError:
-    YT_DLP_AVAILABLE = False
-
-requires_yt_dlp = pytest.mark.skipif(not YT_DLP_AVAILABLE, reason="yt-dlp not installed")
+import yt_dlp  # noqa: F401
 
 
 def validate_youtube_url(url: str) -> bool:
@@ -250,7 +242,6 @@ class TestYouTubeFetcher:
         fetcher = YouTubeFetcher(max_duration=1800)
         assert fetcher.max_duration == 1800
 
-    @requires_yt_dlp
     @pytest.mark.asyncio
     async def test_get_video_info(self, fetcher, mock_yt_dlp):
         """Test fetching video info."""
@@ -276,7 +267,6 @@ class TestYouTubeFetcher:
         with pytest.raises(ValueError, match="[Pp]laylist"):
             await fetcher.get_video_info("https://www.youtube.com/playlist?list=PLtest123")
 
-    @requires_yt_dlp
     @pytest.mark.asyncio
     async def test_download_audio_success(self, mock_yt_dlp, tmp_path):
         """Test successful audio extraction."""
@@ -304,7 +294,6 @@ class TestYouTubeFetcher:
             assert result is not None
             assert result.exists()
 
-    @requires_yt_dlp
     @pytest.mark.asyncio
     async def test_download_audio_duration_exceeded(self, fetcher, mock_yt_dlp):
         """Test rejection of videos exceeding duration limit."""
@@ -364,7 +353,6 @@ class TestEdgeCases:
             is True
         )
 
-    @requires_yt_dlp
     @pytest.mark.asyncio
     async def test_network_error_handling(self, fetcher):
         """Test handling of network errors."""

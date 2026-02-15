@@ -119,6 +119,9 @@ class StreamEventType(Enum):
     GRAPH_BRANCH_CREATED = "graph_branch_created"  # New branch created
     GRAPH_BRANCH_MERGED = "graph_branch_merged"  # Branches merged/synthesized
 
+    # Argument cartography events
+    GRAPH_UPDATE = "graph_update"  # ArgumentCartographer graph state update
+
     # Position tracking events
     FLIP_DETECTED = "flip_detected"  # Agent position reversal detected
 

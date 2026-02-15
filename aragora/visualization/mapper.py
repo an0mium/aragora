@@ -244,6 +244,20 @@ class ArgumentCartographer:
 
         return node_id
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the full graph state as a dictionary.
+
+        Used for emitting graph_update events over WebSocket so the
+        frontend can render the argument graph in real time.
+        """
+        return {
+            "debate_id": self.debate_id,
+            "topic": self.topic,
+            "nodes": [n.to_dict() for n in self.nodes.values()],
+            "edges": [e.to_dict() for e in self.edges],
+            "statistics": self.get_statistics(),
+        }
+
     def export_mermaid(self, direction: str = "TD") -> str:
         """
         Generate Mermaid.js diagram code.

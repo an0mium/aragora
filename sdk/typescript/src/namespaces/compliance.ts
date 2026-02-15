@@ -215,6 +215,107 @@ export interface EuAiActArtifactBundle {
   integrity_hash: string;
 }
 
+// ===========================================================================
+// HIPAA Types
+// ===========================================================================
+
+/**
+ * HIPAA compliance status overview.
+ */
+export interface HipaaComplianceStatus {
+  compliance_framework: string;
+  assessed_at: string;
+  overall_status: 'compliant' | 'substantially_compliant' | 'partially_compliant' | 'non_compliant';
+  compliance_score: number;
+  rules: {
+    privacy_rule: { status: string; phi_handling: string };
+    security_rule: { status: string; safeguards_assessed: number; safeguards_compliant: number };
+    breach_notification_rule: { status: string; procedures_documented: boolean };
+  };
+  business_associates: { total_baas: number; active: number; expiring_soon: number; expired: number };
+  recommendations?: Array<{ priority: string; category: string; recommendation: string; reference: string }>;
+}
+
+/**
+ * HIPAA breach risk assessment result.
+ */
+export interface HipaaBreachAssessment {
+  assessment_id: string;
+  incident_id: string;
+  assessed_at: string;
+  phi_involved: boolean;
+  breach_determination: string | null;
+  risk_factors: Array<{ factor: string; risk: string; details: string }>;
+  notification_required: boolean;
+  notification_deadlines: Record<string, string> | null;
+}
+
+/**
+ * Business Associate Agreement record.
+ */
+export interface HipaaBaa {
+  baa_id: string;
+  business_associate: string;
+  ba_type: 'vendor' | 'subcontractor';
+  services_provided: string;
+  phi_access_scope: string[];
+  agreement_date: string;
+  expiration_date?: string;
+  subcontractor_clause: boolean;
+  status: string;
+}
+
+/**
+ * PHI de-identification result.
+ */
+export interface HipaaDeidentifyResult {
+  original_hash: string;
+  anonymized_content: string;
+  fields_anonymized: string[];
+  method_used: Record<string, string>;
+  identifiers_count: number;
+  reversible: boolean;
+  audit_id: string;
+  anonymized_at: string;
+}
+
+/**
+ * Safe Harbor verification result.
+ */
+export interface HipaaSafeHarborResult {
+  compliant: boolean;
+  identifiers_remaining: Array<{
+    type: string;
+    value_preview: string;
+    confidence: number;
+    position: { start: number; end: number };
+  }>;
+  verification_notes: string[];
+  verified_at: string;
+  hipaa_reference: string;
+}
+
+/**
+ * PHI detection result.
+ */
+export interface HipaaPhiDetectionResult {
+  identifiers: Array<{
+    type: string;
+    value: string;
+    start: number;
+    end: number;
+    confidence: number;
+  }>;
+  count: number;
+  min_confidence: number;
+  hipaa_reference: string;
+}
+
+/**
+ * Anonymization method for HIPAA de-identification.
+ */
+export type HipaaAnonymizationMethod = 'redact' | 'hash' | 'generalize' | 'suppress' | 'pseudonymize';
+
 /**
  * Options for artifact bundle generation.
  */
@@ -529,6 +630,236 @@ export class ComplianceAPI {
 
     return this.client.request('POST', '/api/v2/compliance/eu-ai-act/generate-bundle', {
       json: body,
+    });
+  }
+
+  // ===========================================================================
+  // HIPAA Compliance
+  // ===========================================================================
+
+  /**
+   * Get HIPAA compliance status overview.
+   *
+   * @param options - Status options
+   * @param options.scope - 'summary' or 'full' (includes safeguard details)
+   * @param options.includeRecommendations - Include compliance recommendations
+   *
+   * @example
+   * ```typescript
+   * const status = await client.compliance.hipaaStatus();
+   * console.log(`Score: ${status.compliance_score}%`);
+   * console.log(`Status: ${status.overall_status}`);
+   * ```
+   */
+  async hipaaStatus(options?: {
+    scope?: 'summary' | 'full';
+    includeRecommendations?: boolean;
+  }): Promise<HipaaComplianceStatus> {
+    return this.client.request('GET', '/api/v2/compliance/hipaa/status', {
+      params: {
+        scope: options?.scope ?? 'summary',
+        include_recommendations: String(options?.includeRecommendations ?? true),
+      },
+    });
+  }
+
+  /**
+   * Get PHI access log for audit purposes (45 CFR 164.312(b)).
+   *
+   * @param options - Filter options
+   * @param options.patientId - Filter by patient ID
+   * @param options.userId - Filter by accessing user
+   * @param options.from - Start date (ISO format)
+   * @param options.to - End date (ISO format)
+   * @param options.limit - Max results (default 100, max 1000)
+   */
+  async hipaaPhiAccessLog(options?: {
+    patientId?: string;
+    userId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>> {
+    const params: Record<string, unknown> = { limit: options?.limit ?? 100 };
+    if (options?.patientId) params.patient_id = options.patientId;
+    if (options?.userId) params.user_id = options.userId;
+    if (options?.from) params.from = options.from;
+    if (options?.to) params.to = options.to;
+    return this.client.request('GET', '/api/v2/compliance/hipaa/phi-access', { params });
+  }
+
+  /**
+   * Perform HIPAA breach risk assessment (45 CFR 164.402).
+   *
+   * Four-factor analysis to determine if an incident constitutes a breach
+   * requiring notification.
+   *
+   * @param incidentId - Unique incident identifier
+   * @param incidentType - Type of security incident
+   * @param options - Assessment details
+   */
+  async hipaaBreachAssessment(
+    incidentId: string,
+    incidentType: string,
+    options?: {
+      phiInvolved?: boolean;
+      phiTypes?: string[];
+      affectedIndividuals?: number;
+      unauthorizedAccess?: Record<string, unknown>;
+      mitigationActions?: string[];
+    }
+  ): Promise<HipaaBreachAssessment> {
+    const body: Record<string, unknown> = {
+      incident_id: incidentId,
+      incident_type: incidentType,
+      phi_involved: options?.phiInvolved ?? false,
+      affected_individuals: options?.affectedIndividuals ?? 0,
+    };
+    if (options?.phiTypes) body.phi_types = options.phiTypes;
+    if (options?.unauthorizedAccess) body.unauthorized_access = options.unauthorizedAccess;
+    if (options?.mitigationActions) body.mitigation_actions = options.mitigationActions;
+    return this.client.request('POST', '/api/v2/compliance/hipaa/breach-assessment', { json: body });
+  }
+
+  /**
+   * List Business Associate Agreements (BAAs).
+   *
+   * @param options - Filter options
+   * @param options.status - Filter by status (active, expired, pending, all)
+   * @param options.baType - Filter by BA type (vendor, subcontractor, all)
+   */
+  async hipaaListBaas(options?: {
+    status?: string;
+    baType?: string;
+  }): Promise<{ business_associates: HipaaBaa[]; count: number }> {
+    return this.client.request('GET', '/api/v2/compliance/hipaa/baa', {
+      params: {
+        status: options?.status ?? 'active',
+        ba_type: options?.baType ?? 'all',
+      },
+    });
+  }
+
+  /**
+   * Register a new Business Associate Agreement.
+   *
+   * @param businessAssociate - Name of the business associate
+   * @param baType - 'vendor' or 'subcontractor'
+   * @param servicesProvided - Description of services
+   * @param options - Optional BAA details
+   */
+  async hipaaCreateBaa(
+    businessAssociate: string,
+    baType: 'vendor' | 'subcontractor',
+    servicesProvided: string,
+    options?: {
+      phiAccessScope?: string[];
+      agreementDate?: string;
+      expirationDate?: string;
+      subcontractorClause?: boolean;
+    }
+  ): Promise<{ message: string; baa: HipaaBaa }> {
+    const body: Record<string, unknown> = {
+      business_associate: businessAssociate,
+      ba_type: baType,
+      services_provided: servicesProvided,
+      subcontractor_clause: options?.subcontractorClause ?? true,
+    };
+    if (options?.phiAccessScope) body.phi_access_scope = options.phiAccessScope;
+    if (options?.agreementDate) body.agreement_date = options.agreementDate;
+    if (options?.expirationDate) body.expiration_date = options.expirationDate;
+    return this.client.request('POST', '/api/v2/compliance/hipaa/baa', { json: body });
+  }
+
+  /**
+   * Generate HIPAA Security Rule compliance report.
+   *
+   * @param options - Report options
+   * @param options.format - Output format ('json' or 'html')
+   * @param options.includeEvidence - Include evidence references
+   */
+  async hipaaSecurityReport(options?: {
+    format?: 'json' | 'html';
+    includeEvidence?: boolean;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/compliance/hipaa/security-report', {
+      params: {
+        format: options?.format ?? 'json',
+        include_evidence: String(options?.includeEvidence ?? false),
+      },
+    });
+  }
+
+  /**
+   * De-identify content using HIPAA Safe Harbor method.
+   *
+   * Removes the 18 HIPAA identifiers from text or structured data.
+   *
+   * @param options - De-identification options
+   * @param options.content - Text content to de-identify
+   * @param options.data - Structured data to de-identify (alternative to content)
+   * @param options.method - Anonymization method (default: 'redact')
+   * @param options.identifierTypes - Specific identifier types to target
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compliance.hipaaDeidentify({
+   *   content: 'Patient John Smith, SSN 123-45-6789',
+   *   method: 'redact',
+   * });
+   * console.log(result.anonymized_content); // "Patient [NAME], SSN [SSN]"
+   * ```
+   */
+  async hipaaDeidentify(options: {
+    content?: string;
+    data?: Record<string, unknown>;
+    method?: HipaaAnonymizationMethod;
+    identifierTypes?: string[];
+  }): Promise<HipaaDeidentifyResult> {
+    const body: Record<string, unknown> = { method: options.method ?? 'redact' };
+    if (options.content) body.content = options.content;
+    if (options.data) body.data = options.data;
+    if (options.identifierTypes) body.identifier_types = options.identifierTypes;
+    return this.client.request('POST', '/api/v2/compliance/hipaa/deidentify', { json: body });
+  }
+
+  /**
+   * Verify content meets HIPAA Safe Harbor de-identification requirements.
+   *
+   * Checks content for the 18 HIPAA identifiers and reports compliance.
+   *
+   * @param content - Text content to verify
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compliance.hipaaSafeHarborVerify('Patient data here');
+   * if (!result.compliant) {
+   *   console.log(`Found ${result.identifiers_remaining.length} identifiers`);
+   * }
+   * ```
+   */
+  async hipaaSafeHarborVerify(content: string): Promise<HipaaSafeHarborResult> {
+    return this.client.request('POST', '/api/v2/compliance/hipaa/safe-harbor/verify', {
+      json: { content },
+    });
+  }
+
+  /**
+   * Detect HIPAA PHI identifiers in content.
+   *
+   * Scans content and returns all detected identifiers with positions
+   * and confidence scores without modifying the content.
+   *
+   * @param content - Text content to scan
+   * @param options - Detection options
+   * @param options.minConfidence - Minimum confidence threshold (default: 0.5)
+   */
+  async hipaaDetectPhi(
+    content: string,
+    options?: { minConfidence?: number }
+  ): Promise<HipaaPhiDetectionResult> {
+    return this.client.request('POST', '/api/v2/compliance/hipaa/detect-phi', {
+      json: { content, min_confidence: options?.minConfidence ?? 0.5 },
     });
   }
 }

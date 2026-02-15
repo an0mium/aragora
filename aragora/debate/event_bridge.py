@@ -42,6 +42,8 @@ class EventEmitterBridge:
         "token_start": "TOKEN_START",
         "token_delta": "TOKEN_DELTA",
         "token_end": "TOKEN_END",
+        # Cartography events
+        "graph_update": "GRAPH_UPDATE",
         # New event mappings for feedback loop events
         "claim_verification": "CLAIM_VERIFICATION_RESULT",
         "memory_tier_promotion": "MEMORY_TIER_PROMOTION",
@@ -146,6 +148,7 @@ class EventEmitterBridge:
         if not self.cartographer:
             return
 
+        updated = False
         try:
             agent = kwargs.get("agent", "")
             details = kwargs.get("details", "")
@@ -158,6 +161,7 @@ class EventEmitterBridge:
                     role="proposer",
                     round_num=round_num,
                 )
+                updated = True
             elif event_type == "critique":
                 target = self._extract_critique_target(details)
                 severity = kwargs.get("metric", 0.5)
@@ -168,6 +172,7 @@ class EventEmitterBridge:
                     round_num=round_num,
                     critique_text=details,
                 )
+                updated = True
             elif event_type == "vote":
                 vote_value = details.split(":")[-1].strip() if ":" in details else details
                 self.cartographer.update_from_vote(
@@ -175,14 +180,38 @@ class EventEmitterBridge:
                     vote_value=vote_value,
                     round_num=round_num,
                 )
+                updated = True
             elif event_type == "consensus":
                 result = details.split(":")[-1].strip() if ":" in details else details
                 self.cartographer.update_from_consensus(
                     result=result,
                     round_num=round_num,
                 )
+                updated = True
+
+            if updated:
+                self._emit_graph_update()
         except Exception as e:
             logger.warning(f"Cartographer error (non-fatal): {e}")
+
+    def _emit_graph_update(self) -> None:
+        """Emit a graph_update event with the current cartographer state."""
+        if not self.event_emitter or not self.cartographer:
+            return
+
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            graph_data = self.cartographer.to_dict()
+            self.event_emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.GRAPH_UPDATE,
+                    data=graph_data,
+                    loop_id=self.loop_id or "",
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Graph update emission error (non-fatal): {e}")
 
     @staticmethod
     def _extract_critique_target(details: str) -> str:

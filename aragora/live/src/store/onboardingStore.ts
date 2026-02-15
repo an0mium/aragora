@@ -9,6 +9,11 @@ import { devtools, persist } from 'zustand/middleware';
 
 export type OnboardingStep =
   | 'welcome'
+  | 'industry'
+  | 'try-debate'
+  | 'create-account'
+  | 'connect-tools'
+  | 'launch'
   | 'organization'
   | 'team-invite'
   | 'template-select'
@@ -47,6 +52,10 @@ interface OnboardingState {
   currentStep: OnboardingStep;
   stepsCompleted: Set<OnboardingStep>;
 
+  // Progressive onboarding (no-auth steps)
+  selectedIndustry: string | null;
+  trialDebateResult: Record<string, unknown> | null;
+
   // Organization setup
   organizationName: string;
   organizationSlug: string;
@@ -84,6 +93,10 @@ interface OnboardingActions {
   previousStep: () => void;
   markStepComplete: (step: OnboardingStep) => void;
 
+  // Progressive onboarding
+  setSelectedIndustry: (industry: string | null) => void;
+  setTrialDebateResult: (result: Record<string, unknown> | null) => void;
+
   // Organization
   setOrganizationName: (name: string) => void;
   setOrganizationSlug: (slug: string) => void;
@@ -120,12 +133,11 @@ interface OnboardingActions {
 // ============================================================================
 
 const STEP_ORDER: OnboardingStep[] = [
-  'welcome',
-  'organization',
-  'team-invite',
-  'template-select',
-  'first-debate',
-  'completion',
+  'industry',
+  'try-debate',
+  'create-account',
+  'connect-tools',
+  'launch',
 ];
 
 function getNextStep(current: OnboardingStep): OnboardingStep {
@@ -145,8 +157,11 @@ function getPreviousStep(current: OnboardingStep): OnboardingStep {
 // ============================================================================
 
 const initialState: OnboardingState = {
-  currentStep: 'welcome',
+  currentStep: 'industry',
   stepsCompleted: new Set(),
+
+  selectedIndustry: null,
+  trialDebateResult: null,
 
   organizationName: '',
   organizationSlug: '',
@@ -209,6 +224,10 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
           set((state) => ({
             stepsCompleted: new Set([...state.stepsCompleted, step]),
           })),
+
+        // Progressive onboarding
+        setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
+        setTrialDebateResult: (result) => set({ trialDebateResult: result }),
 
         // Organization
         setOrganizationName: (name) => set({ organizationName: name }),
@@ -277,6 +296,7 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
         partialize: (state) => ({
           isComplete: state.isComplete,
           isSkipped: state.isSkipped,
+          selectedIndustry: state.selectedIndustry,
           organizationName: state.organizationName,
           organizationSlug: state.organizationSlug,
           startedAt: state.startedAt,
@@ -308,12 +328,22 @@ export const selectIsLastStep = (state: OnboardingState) =>
 
 export const selectCanProceed = (state: OnboardingState): boolean => {
   switch (state.currentStep) {
+    case 'industry':
+      return state.selectedIndustry !== null;
+    case 'try-debate':
+      return state.trialDebateResult !== null;
+    case 'create-account':
+      return true; // Auth transition handled externally
+    case 'connect-tools':
+      return true; // Optional step
+    case 'launch':
+      return true;
     case 'welcome':
       return true;
     case 'organization':
       return state.organizationName.length >= 3 && state.teamSize !== null;
     case 'team-invite':
-      return true; // Optional step
+      return true;
     case 'template-select':
       return state.selectedTemplate !== null;
     case 'first-debate':

@@ -523,6 +523,91 @@ class PRReviewRunner:
 
         return result
 
+    async def review_diff(self, diff: str, label: str = "local") -> ReviewResult:
+        """
+        Review a raw diff string without requiring a GitHub PR URL.
+
+        This enables autonomous review in contexts like the Nomic Loop verify
+        phase where changes exist as local git diffs, not yet pushed to GitHub.
+
+        Args:
+            diff: Unified diff text to review.
+            label: Human-readable label for the review (used in receipt).
+
+        Returns:
+            ReviewResult with findings and receipt.
+        """
+        started_at = time.time()
+        review_id = hashlib.sha256(f"{label}:{started_at}".encode()).hexdigest()[:16]
+
+        logger.info("Starting diff review %s (label=%s, %d bytes)", review_id, label, len(diff))
+
+        if not diff.strip():
+            return ReviewResult(
+                pr_url=label,
+                pr_number=None,
+                repo=None,
+                findings=[],
+                agreement_score=0.0,
+                agents_used=[],
+                comment_posted=False,
+                comment_url=None,
+                receipt=None,
+                error="Empty diff",
+            )
+
+        # Check diff size
+        if not self.checker.check_diff_size(diff):
+            max_bytes = self.policy.max_diff_size_kb * 1024
+            diff = diff[:max_bytes]
+            logger.info("Diff truncated to %dKB", self.policy.max_diff_size_kb)
+
+        # Run review
+        findings_data, error = await self._run_review(diff)
+        if error:
+            return self._error_result(label, None, None, f"Review failed: {error}")
+
+        # Parse findings
+        findings = _parse_findings(findings_data)
+        agreement_score = findings_data.get("agreement_score", 0.0)
+        agents_used = findings_data.get("agents_used", self.agents.split(","))
+
+        # Generate receipt (no comment posting for local diffs)
+        completed_at = time.time()
+        receipt = self._generate_receipt(
+            review_id=review_id,
+            pr_url=label,
+            started_at=started_at,
+            completed_at=completed_at,
+            findings=findings,
+            agreement_score=agreement_score,
+            agents_used=agents_used,
+        )
+
+        result = ReviewResult(
+            pr_url=label,
+            pr_number=None,
+            repo=None,
+            findings=findings,
+            agreement_score=agreement_score,
+            agents_used=agents_used,
+            comment_posted=False,
+            comment_url=None,
+            receipt=receipt,
+            raw_findings=findings_data,
+        )
+
+        logger.info(
+            "Diff review %s complete: %d findings (%d critical, %d high), agreement=%.0f%%",
+            review_id,
+            len(findings),
+            result.critical_count,
+            result.high_count,
+            agreement_score * 100,
+        )
+
+        return result
+
     async def review_repo(self, repo_url: str, limit: int = 10) -> list[ReviewResult]:
         """
         Review all open PRs in a repository.

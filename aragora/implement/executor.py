@@ -552,6 +552,45 @@ Follow existing code style and tests.""",
             "model": getattr(critic, "name", None),
         }
 
+    async def _execute_via_harness(self, task: ImplementTask) -> TaskResult:
+        """Delegate task execution to ClaudeCodeHarness.
+
+        Uses the harness system instead of raw agent subprocess calls,
+        providing structured analysis and better error reporting.
+        """
+        from aragora.harnesses.adapter import adapt_to_implement_result
+        from aragora.harnesses.base import AnalysisType
+        from aragora.harnesses.claude_code import ClaudeCodeConfig, ClaudeCodeHarness
+
+        timeout = self._get_task_timeout(task)
+        config = ClaudeCodeConfig(timeout_seconds=timeout)
+        harness = ClaudeCodeHarness(config=config)
+
+        prompt = self._build_prompt(task)
+
+        logger.info(
+            f"  Executing [{task.complexity}] {task.id} via harness (timeout {timeout}s)..."
+        )
+
+        try:
+            await harness.initialize()
+            result = await harness.analyze_repository(
+                repo_path=self.repo_path,
+                analysis_type=AnalysisType.GENERAL,
+                prompt=prompt,
+            )
+            diff = self._get_git_diff(files=task.files)
+            return adapt_to_implement_result(result, task_id=task.id, diff=diff)
+        except Exception as e:
+            logger.error(f"    Harness error: {e}")
+            return TaskResult(
+                task_id=task.id,
+                success=False,
+                error=f"Harness error: {e}",
+                model_used="harness:claude-code",
+                duration_seconds=0.0,
+            )
+
     async def execute_task(
         self,
         task: ImplementTask,
@@ -572,6 +611,10 @@ Follow existing code style and tests.""",
         Returns:
             TaskResult with success status and diff
         """
+        # Delegate to harness when enabled (first attempt, no overrides)
+        if self.use_harness and attempt == 1 and agent_override is None and not use_fallback:
+            return await self._execute_via_harness(task)
+
         # Calculate base timeout from task complexity
         base_timeout = self._get_task_timeout(task)
 

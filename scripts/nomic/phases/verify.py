@@ -45,6 +45,8 @@ class VerifyPhase:
         save_state_fn: Callable[[dict], None] | None = None,
         consistency_auditor: Optional["ConsistencyAuditor"] = None,
         enable_consistency_check: bool = True,
+        enable_pr_review: bool = False,
+        pr_review_runner: Any | None = None,
     ):
         """
         Initialize the verify phase.
@@ -60,6 +62,8 @@ class VerifyPhase:
             save_state_fn: Function to save phase state
             consistency_auditor: Optional ConsistencyAuditor for change validation
             enable_consistency_check: Whether to run consistency check (default True)
+            enable_pr_review: Whether to run autonomous PR review on diff
+            pr_review_runner: Optional PRReviewRunner instance (created on demand if None)
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -71,6 +75,8 @@ class VerifyPhase:
         self._save_state = save_state_fn or (lambda state: None)
         self.consistency_auditor = consistency_auditor
         self.enable_consistency_check = enable_consistency_check
+        self.enable_pr_review = enable_pr_review
+        self.pr_review_runner = pr_review_runner
 
     async def execute(self) -> VerifyResult:
         """
@@ -107,7 +113,16 @@ class VerifyPhase:
                 checks.append(audit_result)
                 all_passed = all(c.get("passed", False) for c in checks)
 
-        # 5. Consistency check (if enabled and auditor available)
+        # 5. Autonomous PR review on diff (if enabled)
+        if all_passed and self.enable_pr_review:
+            pr_review_result = await self._pr_review()
+            if pr_review_result:
+                checks.append(pr_review_result)
+                # Critical findings block the pipeline
+                if not pr_review_result.get("passed") and pr_review_result.get("has_critical"):
+                    all_passed = False
+
+        # 6. Consistency check (if enabled and auditor available)
         if all_passed and self.enable_consistency_check and self.consistency_auditor:
             consistency_result = await self._check_consistency()
             checks.append(consistency_result)
@@ -477,6 +492,90 @@ Be concise - this is a quality gate, not a full review."""
                 "error": str(e),
                 "note": "Check skipped due to error",
             }
+
+
+    async def _pr_review(self) -> dict | None:
+        """Run autonomous PR review on current git diff.
+
+        Uses PRReviewRunner.review_diff() to analyse the working-tree diff
+        without requiring a GitHub PR URL.
+
+        Returns:
+            Check result dict, or None if no diff to review.
+        """
+        self._log("  [pr-review] Running autonomous PR review on diff...")
+        try:
+            diff_text = await self._get_diff_text()
+            if not diff_text:
+                self._log("    [pr-review] No diff to review")
+                return None
+
+            # Lazily create runner if not injected
+            runner = self.pr_review_runner
+            if runner is None:
+                from aragora.compat.openclaw.pr_review_runner import PRReviewRunner
+
+                runner = PRReviewRunner(dry_run=True, demo=True)
+
+            result = await runner.review_diff(
+                diff=diff_text,
+                label=f"nomic-cycle-{self.cycle_count}",
+            )
+
+            has_critical = result.has_critical
+            finding_count = len(result.findings)
+            passed = not has_critical
+
+            self._log(
+                f"    [pr-review] {'BLOCKED' if has_critical else 'passed'}: "
+                f"{finding_count} findings ({result.critical_count} critical, {result.high_count} high)"
+            )
+            self._stream_emit(
+                "on_verification_result",
+                "pr_review",
+                passed,
+                f"{finding_count} findings",
+            )
+
+            return {
+                "check": "pr_review",
+                "passed": passed,
+                "has_critical": has_critical,
+                "findings_count": finding_count,
+                "critical_count": result.critical_count,
+                "high_count": result.high_count,
+                "agreement_score": result.agreement_score,
+                "output": f"{finding_count} findings ({result.critical_count} critical)",
+            }
+
+        except Exception as e:
+            self._log(f"    [pr-review] Error: {e}")
+            logger.warning("PR review check error: %s", e)
+            # Don't block on PR review failure
+            return {
+                "check": "pr_review",
+                "passed": True,
+                "error": str(e),
+                "note": "PR review skipped due to error",
+            }
+
+    async def _get_diff_text(self) -> str:
+        """Get the unified diff of all uncommitted changes."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "diff",
+                "--unified=3",
+                cwd=self.aragora_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            if proc.returncode == 0 and stdout:
+                return stdout.decode()
+        except Exception:
+            pass
+        return ""
 
 
 __all__ = ["VerifyPhase"]

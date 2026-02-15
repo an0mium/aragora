@@ -281,9 +281,46 @@ def adapt_multiple_results(
     return findings
 
 
+def adapt_to_implement_result(
+    result: HarnessResult,
+    task_id: str,
+    diff: str = "",
+) -> "TaskResult":
+    """
+    Convert a HarnessResult to an implement TaskResult.
+
+    This bridges the harness analysis system with the implementation
+    executor, allowing HybridExecutor to delegate to ClaudeCodeHarness
+    and return a standard TaskResult.
+
+    Args:
+        result: HarnessResult from a harness run
+        task_id: The implementation task ID
+        diff: Git diff produced by the harness execution
+
+    Returns:
+        TaskResult suitable for the implement pipeline
+    """
+    from aragora.implement.types import TaskResult
+
+    error: str | None = None
+    if not result.success:
+        error = result.error_message or result.error_output or "Harness execution failed"
+
+    return TaskResult(
+        task_id=task_id,
+        success=result.success,
+        diff=diff,
+        error=error,
+        model_used=f"harness:{result.harness}",
+        duration_seconds=result.duration_seconds,
+    )
+
+
 __all__ = [
     "HarnessResultAdapter",
     "AdapterConfig",
     "adapt_to_audit_findings",
     "adapt_multiple_results",
+    "adapt_to_implement_result",
 ]

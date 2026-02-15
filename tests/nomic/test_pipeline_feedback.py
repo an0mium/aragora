@@ -36,7 +36,7 @@ def _make_plan(
         debate_id=debate_id,
         task=task,
         status=status,
-        approval_mode=ApprovalMode.AUTO,
+        approval_mode=ApprovalMode.NEVER,
         max_auto_risk=RiskLevel.LOW,
         budget=BudgetAllocation(
             limit_usd=10.0,
@@ -201,7 +201,7 @@ class TestMetaPlannerPipelineFeedback:
         ))
         context = PlanningContext()
 
-        with patch("aragora.nomic.meta_planner.get_plan_store") as mock_store_fn:
+        with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:
             mock_store = MagicMock()
             mock_store.get_recent_outcomes.return_value = mock_outcomes
             mock_store_fn.return_value = mock_store
@@ -240,7 +240,7 @@ class TestMetaPlannerPipelineFeedback:
         ))
         context = PlanningContext()
 
-        with patch("aragora.nomic.meta_planner.get_plan_store") as mock_store_fn:
+        with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:
             mock_store = MagicMock()
             mock_store.get_recent_outcomes.return_value = mock_outcomes
             mock_store_fn.return_value = mock_store
@@ -267,9 +267,11 @@ class TestMetaPlannerPipelineFeedback:
         ))
         context = PlanningContext()
 
+        # Simulate the plan_store module being unavailable by making
+        # get_plan_store raise an exception
         with patch(
-            "aragora.nomic.meta_planner.get_plan_store",
-            side_effect=ImportError("no plan store"),
+            "aragora.pipeline.plan_store.get_plan_store",
+            side_effect=RuntimeError("store unavailable"),
         ):
             result = await planner._enrich_context_with_history(
                 "Do stuff", [Track.DEVELOPER], context
@@ -305,7 +307,7 @@ class TestMetaPlannerPipelineFeedback:
         ))
         context = PlanningContext()
 
-        with patch("aragora.nomic.meta_planner.get_plan_store") as mock_store_fn:
+        with patch("aragora.pipeline.plan_store.get_plan_store") as mock_store_fn:
             mock_store = MagicMock()
             mock_store.get_recent_outcomes.return_value = mock_outcomes
             mock_store_fn.return_value = mock_store

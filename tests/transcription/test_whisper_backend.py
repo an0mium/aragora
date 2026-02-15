@@ -21,13 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Check if openai is available
-try:
-    import openai
-
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
+import openai  # noqa: F401
 
 # Check if faster-whisper is available
 try:
@@ -36,8 +30,6 @@ try:
     FASTER_WHISPER_AVAILABLE = True
 except ImportError:
     FASTER_WHISPER_AVAILABLE = False
-
-requires_openai = pytest.mark.skipif(not OPENAI_AVAILABLE, reason="openai not installed")
 
 requires_faster_whisper = pytest.mark.skipif(
     not FASTER_WHISPER_AVAILABLE, reason="faster-whisper not installed"
@@ -209,7 +201,6 @@ class TestTranscriptionResult:
 # ===========================================================================
 
 
-@requires_openai
 class TestOpenAIWhisperBackend:
     """Tests for OpenAI Whisper API backend."""
 
@@ -348,7 +339,6 @@ class TestWhisperCppBackend:
 class TestBackendSelection:
     """Tests for automatic backend selection."""
 
-    @requires_openai
     def test_get_openai_backend(self):
         """Test selecting OpenAI backend."""
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
@@ -372,7 +362,6 @@ class TestBackendSelection:
             with pytest.raises(RuntimeError):
                 get_transcription_backend("whisper-cpp")
 
-    @requires_openai
     def test_get_auto_backend_openai(self):
         """Test auto-selection prefers OpenAI when available."""
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
@@ -390,7 +379,6 @@ class TestBackendSelection:
 # ===========================================================================
 
 
-@requires_openai
 class TestFileSizeLimits:
     """Tests for file size validation."""
 
@@ -421,7 +409,6 @@ class TestFileSizeLimits:
 # ===========================================================================
 
 
-@requires_openai
 class TestBackendInterface:
     """Tests verifying backend interface consistency."""
 
