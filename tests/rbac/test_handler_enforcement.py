@@ -150,6 +150,10 @@ ALLOWED_WITHOUT_RBAC = {
     "metrics_endpoint",
     # Doc endpoints (public API docs)
     "docs",
+    # Template discovery (public browsing API, rate-limited, read-only)
+    "template_discovery",
+    # Marketplace browse (public catalog browsing, read-only)
+    "marketplace_browse",
     # Health probes and dashboard monitoring (public liveness/readiness endpoints)
     "admin/dashboard_health",
     "admin/dashboard_metrics",
