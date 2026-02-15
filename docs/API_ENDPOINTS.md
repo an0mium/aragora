@@ -2531,7 +2531,15 @@ HTTP handler for the public playground demo.
 
 ### `GET` `/api/v1/playground/debate`
 
-GET /api/v1/playground/debate
+Run a live debate with real API-backed agents
+
+### `GET` `/api/v1/playground/debate/live`
+
+Run a live debate with real API-backed agents
+
+### `GET` `/api/v1/playground/debate/live/cost-estimate`
+
+GET /api/v1/playground/debate/live/cost-estimate
 
 ### `GET` `/api/v1/playground/status`
 

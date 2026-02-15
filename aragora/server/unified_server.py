@@ -70,6 +70,7 @@ def is_server_ready() -> bool:
     """Check whether the server has completed its startup sequence."""
     return _server_ready
 
+
 # Import centralized config and error utilities
 
 # Import utilities from extracted modules
