@@ -7,6 +7,7 @@ import { useLayout } from '@/context/LayoutContext';
 import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { BudgetBadge } from '@/components/layout/BudgetBadge';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
@@ -64,6 +65,9 @@ export function TopBar() {
             <span className="font-mono">⊞</span>
           </button>
         )}
+
+        {/* Budget usage indicator */}
+        <BudgetBadge />
 
         {/* Theme toggle */}
         <ThemeToggle />
