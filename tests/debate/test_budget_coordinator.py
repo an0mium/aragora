@@ -105,17 +105,26 @@ class TestCheckBudgetBeforeDebate:
         """Test handles missing budget manager gracefully."""
         coordinator = BudgetCoordinator(org_id="org-123")
 
-        # Remove the module from cache if it exists
-        for key in list(sys.modules.keys()):
-            if "aragora.billing.budget_manager" in key:
-                del sys.modules[key]
+        # Save original modules to restore after test
+        saved_modules = {
+            key: sys.modules[key]
+            for key in list(sys.modules.keys())
+            if "aragora.billing.budget_manager" in key
+        }
 
-        with patch.dict(
-            sys.modules,
-            {"aragora.billing.budget_manager": None},
-        ):
-            # Should not raise - handles ImportError internally
-            coordinator.check_budget_before_debate("debate-123")
+        try:
+            with patch.dict(
+                sys.modules,
+                {
+                    **{key: None for key in saved_modules},
+                    "aragora.billing.budget_manager": None,
+                },
+            ):
+                # Should not raise - handles ImportError internally
+                coordinator.check_budget_before_debate("debate-123")
+        finally:
+            # Ensure original modules are restored
+            sys.modules.update(saved_modules)
 
     def test_includes_user_id_when_provided(self):
         """Test includes user_id in budget check when provided."""

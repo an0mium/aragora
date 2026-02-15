@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -66,6 +67,7 @@ class ModerationAnalyticsHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
+    @require_permission("admin:read")
     @handle_errors("get moderation stats")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -46,6 +47,7 @@ class FeatureFlagsHandler(BaseHandler):
         stripped = strip_version_prefix(path)
         return stripped == "/api/feature-flags" or stripped.startswith("/api/feature-flags/")
 
+    @require_permission("admin:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if handler.command != "GET":
             return error_response("Method not allowed", 405)

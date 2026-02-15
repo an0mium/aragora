@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
 from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
@@ -18,7 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class DebateStatsHandler(BaseHandler):
-    """Handle aggregate debate statistics endpoints."""
+    """Handle aggregate debate statistics endpoints.
+
+    All endpoints require ``debates:read`` permission.
+    """
 
     ROUTES = [
         "/api/v1/debates/stats",
@@ -29,6 +33,7 @@ class DebateStatsHandler(BaseHandler):
         stripped = strip_version_prefix(path)
         return stripped in ("/api/debates/stats", "/api/debates/stats/agents")
 
+    @require_permission("debates:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if handler.command != "GET":
             return error_response("Method not allowed", 405)

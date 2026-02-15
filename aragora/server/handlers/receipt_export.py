@@ -11,6 +11,7 @@ import json
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -44,6 +45,7 @@ class ReceiptExportHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path.startswith("/api/v1/receipts/") and path.endswith("/export")
 
+    @require_permission("debates:export")
     @handle_errors("export receipt")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
