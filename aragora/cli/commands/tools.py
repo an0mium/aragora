@@ -129,6 +129,14 @@ def cmd_improve(args: argparse.Namespace) -> None:
         print("Decomposition: Multi-agent debate")
     print()
 
+    # Extract hardened flags (with defaults for older parser configs)
+    use_hardened = getattr(args, "hardened", False)
+    use_worktree = getattr(args, "worktree", False)
+    spectate = getattr(args, "spectate", False)
+    generate_receipts = getattr(args, "receipt", False)
+    budget_limit = getattr(args, "budget_limit", None)
+    coordinated = getattr(args, "coordinated", False)
+
     if dry_run:
         # Dry run: just show the decomposition plan
         _run_dry_run(goal, tracks, use_debate, verbose)
@@ -143,6 +151,12 @@ def cmd_improve(args: argparse.Namespace) -> None:
             max_parallel=max_parallel,
             codebase_path=codebase_path,
             verbose=verbose,
+            use_hardened=use_hardened,
+            use_worktree=use_worktree,
+            spectate=spectate,
+            generate_receipts=generate_receipts,
+            budget_limit=budget_limit,
+            coordinated=coordinated,
         )
 
 

@@ -976,13 +976,32 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         if not self._check_budget_allows(assignment):
             return
 
+        # J. Circuit breaker check (per agent type)
+        if not self._check_agent_circuit_breaker(assignment.agent_type):
+            self._skip_assignment(assignment, "circuit_breaker_open")
+            return
+
+        # I. Rate limiting
+        await self._enforce_rate_limit()
+
         # A. Worktree isolation path
         if self.hardened_config.use_worktree_isolation:
             await self._execute_in_worktree(assignment, max_cycles)
+            # Record agent outcome for circuit breaker
+            self._record_agent_outcome(
+                assignment.agent_type,
+                assignment.status == "completed",
+            )
             return
 
         # Non-worktree path: delegate to parent
         await super()._execute_single_assignment(assignment, max_cycles)
+
+        # Record agent outcome for circuit breaker
+        self._record_agent_outcome(
+            assignment.agent_type,
+            assignment.status == "completed",
+        )
 
         # Record budget spend (cost incurred regardless of gauntlet outcome)
         self._record_budget_spend(assignment)
