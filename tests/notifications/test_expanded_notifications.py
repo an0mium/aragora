@@ -570,7 +570,7 @@ class TestCostTrackerIntegration:
             "aragora.notifications.service.notify_cost_anomaly",
             new_callable=AsyncMock,
         ) as mock_notify:
-            anomalies = await tracker.detect_and_store_anomalies("ws-test")
+            anomalies, advisory = await tracker.detect_and_store_anomalies("ws-test")
 
             assert len(anomalies) == 1
             mock_notify.assert_awaited_once_with(
@@ -612,7 +612,7 @@ class TestCostTrackerIntegration:
             side_effect=RuntimeError("Notification service down"),
         ):
             # Should still return anomalies despite notification failure
-            anomalies = await tracker.detect_and_store_anomalies("ws-fail")
+            anomalies, advisory = await tracker.detect_and_store_anomalies("ws-fail")
             assert len(anomalies) == 1
 
     @pytest.mark.asyncio
@@ -621,7 +621,7 @@ class TestCostTrackerIntegration:
         from aragora.billing.cost_tracker import CostTracker
 
         tracker = CostTracker()
-        anomalies = await tracker.detect_and_store_anomalies("ws-none")
+        anomalies, advisory = await tracker.detect_and_store_anomalies("ws-none")
         assert anomalies == []
 
 

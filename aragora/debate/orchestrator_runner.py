@@ -353,12 +353,40 @@ async def setup_debate_infrastructure(
     # Emit agent preview for quick UI feedback
     arena._emit_agent_preview()
 
+    # Reset autotuner timer at debate start (if configured)
+    if getattr(arena._budget_coordinator, "autotuner", None) is not None:
+        arena._budget_coordinator.autotuner.start()
+
     # Check budget before starting debate (may raise BudgetExceededError)
     arena._budget_coordinator.check_budget_before_debate(
         state.debate_id,
         num_agents=len(arena.agents),
         rounds=arena.protocol.rounds,
     )
+
+    # Pre-debate compliance policy check
+    try:
+        from aragora.debate.extensions import check_pre_debate_compliance
+
+        compliance_monitor = getattr(arena, "compliance_monitor", None)
+        compliance_result = check_pre_debate_compliance(
+            debate_id=state.debate_id,
+            task=arena.env.task,
+            domain=state.domain,
+            compliance_monitor=compliance_monitor,
+        )
+        for warning in compliance_result.warnings:
+            logger.warning(f"compliance_warning: {warning}")
+        if not compliance_result.allowed:
+            raise RuntimeError(
+                f"Debate blocked by compliance policy: {'; '.join(compliance_result.issues)}"
+            )
+    except ImportError:
+        pass  # Compliance module not available
+    except RuntimeError:
+        raise  # Re-raise compliance block
+    except Exception as e:
+        logger.debug(f"Pre-debate compliance check failed (non-critical): {e}")
 
     # Initialize per-debate budget tracking in extensions
     arena.extensions.setup_debate_budget(state.debate_id)

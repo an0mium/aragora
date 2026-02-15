@@ -54,7 +54,7 @@ This is not a theoretical approach. ICE research on multi-agent debate demonstra
 
 ### 1. Multi-Model Consensus with Heterogeneous Providers
 
-Aragora runs 30+ agent types across 6+ LLM providers (Anthropic, OpenAI, Google, xAI, Mistral, and OpenRouter giving access to DeepSeek, Qwen, Llama, and more). Each model brings different training data, different failure modes, and different strengths. When models with genuinely different knowledge bases converge after adversarial challenge, the result is more trustworthy than any single model's output.
+Aragora runs 42+ agent types across 6+ LLM providers (Anthropic, OpenAI, Google, xAI, Mistral, and OpenRouter giving access to DeepSeek, Qwen, Llama, and more). Each model brings different training data, different failure modes, and different strengths. When models with genuinely different knowledge bases converge after adversarial challenge, the result is more trustworthy than any single model's output.
 
 The system automatically falls back to OpenRouter when primary providers hit rate limits, ensuring debates complete even under load.
 

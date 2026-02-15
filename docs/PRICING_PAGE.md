@@ -44,9 +44,9 @@ Aragora is open source (MIT). Use the full debate engine for free, forever. Comm
 </tr>
 <tr>
 <td>Agent types</td>
-<td align="center">30+</td>
-<td align="center">30+</td>
-<td align="center">30+ with custom provisioning</td>
+<td align="center">42+</td>
+<td align="center">42+</td>
+<td align="center">42+ with custom provisioning</td>
 </tr>
 
 <tr><td colspan="4"><strong>Decision Receipts</strong></td></tr>
@@ -257,7 +257,7 @@ The full `aragora-debate` standalone package is MIT-licensed with no usage limit
 - Decision receipts in Markdown format
 - Python and TypeScript SDKs
 - Demo mode with no API keys required
-- All 30+ agent types (bring your own API keys)
+- All 42+ agent types (bring your own API keys)
 
 ```bash
 pip install aragora-debate

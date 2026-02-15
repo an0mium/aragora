@@ -654,6 +654,8 @@ class Arena(ArenaDelegatesMixin):
             enable_consensus_estimation=cfg.enable_consensus_estimation,
             consensus_early_termination_threshold=cfg.consensus_early_termination_threshold,
         )
+        # Pass autotune_config to core for BudgetCoordinator integration
+        core.autotune_config = getattr(cfg, "autotune_config", None)
         _init_apply_core_components(self, core)
 
         # Channel integration (initialized per debate run)

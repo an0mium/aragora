@@ -480,6 +480,9 @@ class ArenaConfig:
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)
 
+        # Decision pipeline (auto-create GitHub issues from plans)
+        self.auto_execute_plan = kwargs.pop("auto_execute_plan", False)
+
         # -- Build sub-configs from flat kwargs + explicit sub-config objects --
         # For each sub-config group, collect any flat kwargs that belong to it,
         # then merge with an explicit sub-config object if provided.

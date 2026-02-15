@@ -267,7 +267,7 @@ class TestCostTrackerEnforcement:
                 return_value=mock_mgr,
             ),
         ):
-            anomalies = await tracker.detect_and_store_anomalies("ws-enforce")
+            anomalies, advisory = await tracker.detect_and_store_anomalies("ws-enforce")
 
             assert len(anomalies) == 1
             mock_mgr.handle_cost_anomaly.assert_called_once_with(
@@ -312,7 +312,7 @@ class TestCostTrackerEnforcement:
                 side_effect=RuntimeError("DB unavailable"),
             ),
         ):
-            anomalies = await tracker.detect_and_store_anomalies("ws-fail")
+            anomalies, advisory = await tracker.detect_and_store_anomalies("ws-fail")
             assert len(anomalies) == 1
 
 

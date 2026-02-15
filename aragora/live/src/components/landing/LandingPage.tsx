@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Scanlines, CRTVignette } from '../MatrixRain';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
 import { WhyAragoraSection } from './WhyAragoraSection';
@@ -36,9 +35,6 @@ export function LandingPage({ apiBase, onDebateStarted }: LandingPageProps) {
 
   return (
     <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
-
       <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col">
         <Header />
         <HeroSection

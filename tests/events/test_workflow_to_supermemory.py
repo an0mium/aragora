@@ -1,10 +1,10 @@
-"""Tests for workflow outcomes → supermemory integration (B3).
+"""Tests for workflow outcomes → Knowledge Mound integration (B3).
 
 Verifies that:
-1. WORKFLOW_COMPLETE events store success outcomes in supermemory
+1. WORKFLOW_COMPLETE events store success outcomes in Knowledge Mound
 2. WORKFLOW_FAILED events store failure outcomes with error details
 3. Cross-workflow learning metadata is properly tagged
-4. Handlers are graceful when supermemory unavailable
+4. Handlers are graceful when KM unavailable
 """
 
 from __future__ import annotations
@@ -39,16 +39,15 @@ class TestWorkflowOutcomeToSupermemory:
             "workflow_complete",
             {"workflow_id": "", "success": True},
         )
-        # Should not raise
         handler(event)
 
     def test_stores_successful_outcome(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
+        mock_mound = MagicMock()
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
@@ -62,19 +61,18 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            mock_sm.store.assert_called_once()
-            call_kwargs = mock_sm.store.call_args
-            assert "completed successfully" in call_kwargs.kwargs.get(
-                "content", call_kwargs[1].get("content", "")
-            ) or "completed successfully" in str(call_kwargs)
+            mock_mound.ingest.assert_called_once()
+            call_args = mock_mound.ingest.call_args
+            content = call_args.kwargs.get("content", "")
+            assert "completed successfully" in content
 
     def test_stores_failed_outcome_with_error(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
+        mock_mound = MagicMock()
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
@@ -89,20 +87,19 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            mock_sm.store.assert_called_once()
-            call_args = mock_sm.store.call_args
-            # Verify error is included in content
-            content = call_args.kwargs.get("content", "") or call_args[1].get("content", "")
+            mock_mound.ingest.assert_called_once()
+            call_args = mock_mound.ingest.call_args
+            content = call_args.kwargs.get("content", "")
             assert "failed" in content
             assert "API timeout" in content
 
     def test_metadata_includes_workflow_details(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
+        mock_mound = MagicMock()
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
@@ -116,20 +113,20 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_sm.store.call_args
-            metadata = call_args.kwargs.get("metadata", {}) or call_args[1].get("metadata", {})
+            call_args = mock_mound.ingest.call_args
+            metadata = call_args.kwargs.get("metadata", {})
             assert metadata["workflow_id"] == "wf-789"
             assert metadata["definition_id"] == "security_scan"
             assert metadata["success"] is True
             assert metadata["steps_executed"] == 5
 
-    def test_tags_include_workflow_outcome(self):
+    def test_node_type_is_workflow_outcome(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
+        mock_mound = MagicMock()
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
@@ -141,18 +138,16 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_sm.store.call_args
-            tags = call_args.kwargs.get("tags", []) or call_args[1].get("tags", [])
-            assert "workflow_outcome" in tags
-            assert "workflow:budget_review" in tags
+            call_args = mock_mound.ingest.call_args
+            assert call_args.kwargs.get("node_type") == "workflow_outcome"
 
     def test_source_tagged_with_workflow_id(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
+        mock_mound = MagicMock()
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
@@ -164,14 +159,13 @@ class TestWorkflowOutcomeToSupermemory:
                 },
             )
             handler(event)
-            call_args = mock_sm.store.call_args
-            source = call_args.kwargs.get("source", "") or call_args[1].get("source", "")
-            assert source == "workflow:wf-def"
+            call_args = mock_mound.ingest.call_args
+            assert call_args.kwargs.get("source") == "workflow:wf-def"
 
-    def test_graceful_when_supermemory_unavailable(self):
+    def test_graceful_when_mound_unavailable(self):
         handler = _get_handler()
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
+            "aragora.knowledge.mound.get_knowledge_mound",
             return_value=None,
             create=True,
         ):
@@ -179,33 +173,31 @@ class TestWorkflowOutcomeToSupermemory:
                 "workflow_complete",
                 {"workflow_id": "wf-ghi", "success": True},
             )
-            # Should not raise
             handler(event)
 
     def test_graceful_on_import_error(self):
         handler = _get_handler()
-        with patch.dict("sys.modules", {"aragora.memory.supermemory": None}):
+        with patch.dict("sys.modules", {"aragora.knowledge.mound": None}):
             event = _make_event(
                 "workflow_complete",
                 {"workflow_id": "wf-jkl", "success": True},
             )
             handler(event)
 
-    def test_graceful_on_store_exception(self):
+    def test_graceful_on_ingest_exception(self):
         handler = _get_handler()
-        mock_sm = MagicMock()
-        mock_sm.store.side_effect = RuntimeError("test error")
+        mock_mound = MagicMock()
+        mock_mound.ingest.side_effect = RuntimeError("test error")
 
         with patch(
-            "aragora.memory.supermemory.get_supermemory",
-            return_value=mock_sm,
+            "aragora.knowledge.mound.get_knowledge_mound",
+            return_value=mock_mound,
             create=True,
         ):
             event = _make_event(
                 "workflow_complete",
                 {"workflow_id": "wf-mno", "success": True},
             )
-            # Should handle exception gracefully
             handler(event)
 
 

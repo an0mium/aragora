@@ -217,7 +217,7 @@ class TestPodcastEpisodes:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 
-        result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -241,7 +241,7 @@ class TestPodcastEpisodes:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 
-        result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -263,7 +263,7 @@ class TestPodcastEpisodes:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 
-        result = audio_handler.handle("/api/podcast/episodes", {"limit": "2"}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {"limit": "2"}, mock_handler)
 
         assert result is not None
         import json
@@ -276,7 +276,7 @@ class TestPodcastEpisodes:
         del handler_ctx["audio_store"]
         handler = AudioHandler(handler_ctx)
 
-        result = handler.handle("/api/podcast/episodes", {}, None)
+        result = handler.handle("/api/v1/podcast/episodes", {}, None)
 
         assert result is not None
         assert result.status_code == 503
@@ -291,7 +291,7 @@ class TestPodcastFeed:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 
-        result = audio_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/feed.xml", {}, mock_handler)
 
         assert result is not None
         # Either successful RSS or error due to API incompatibility
@@ -317,7 +317,7 @@ class TestPodcastFeed:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "example.com"}
 
-        result = audio_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/feed.xml", {}, mock_handler)
 
         assert result is not None
         # Either successful RSS or error due to API incompatibility
@@ -331,7 +331,7 @@ class TestPodcastFeed:
         del handler_ctx["audio_store"]
         handler = AudioHandler(handler_ctx)
 
-        result = handler.handle("/api/podcast/feed.xml", {}, None)
+        result = handler.handle("/api/v1/podcast/feed.xml", {}, None)
 
         assert result is not None
         assert result.status_code == 503
@@ -345,7 +345,7 @@ class TestPodcastFeed:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 
-        result = audio_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/feed.xml", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -365,7 +365,7 @@ class TestSchemeDetection:
             "X-Forwarded-Proto": "https",
         }
 
-        result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {}, mock_handler)
 
         import json
 
@@ -380,7 +380,7 @@ class TestSchemeDetection:
         mock_handler = Mock()
         mock_handler.headers = {"Host": "example.com"}
 
-        result = audio_handler.handle("/api/podcast/episodes", {}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {}, mock_handler)
 
         import json
 

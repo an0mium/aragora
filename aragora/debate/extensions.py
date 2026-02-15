@@ -87,6 +87,10 @@ class ArenaExtensions:
     explanation_builder: Any = None  # Pre-configured ExplanationBuilder
     _last_explanation: Any = field(default=None, repr=False)
 
+    # Decision pipeline (auto-create GitHub issues/PRs from DecisionPlans)
+    plan_executor: Any = None  # PlanExecutor instance
+    auto_execute_plan: bool = False  # Auto-create GitHub issue on debate completion
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _last_evaluation: Any = field(default=None, repr=False)  # Store last evaluation result
@@ -99,6 +103,11 @@ class ArenaExtensions:
     def has_explanation(self) -> bool:
         """Check if auto-explanation is configured."""
         return self.auto_explain or self.explanation_builder is not None
+
+    @property
+    def has_plan_executor(self) -> bool:
+        """Check if decision plan execution is configured."""
+        return self.plan_executor is not None or self.auto_execute_plan
 
     @property
     def has_billing(self) -> bool:
@@ -252,6 +261,9 @@ class ArenaExtensions:
 
         # Auto-generate decision explanation
         self._auto_generate_explanation(ctx, result)
+
+        # Auto-create GitHub issue from decision plan
+        self._auto_execute_plan(ctx, result)
 
         # Clean up per-debate budget tracking
         self.cleanup_debate_budget(ctx.debate_id)
@@ -801,6 +813,69 @@ class ArenaExtensions:
         except Exception as e:
             logger.debug("explanation_failed: %s", e)
 
+    def _auto_execute_plan(
+        self,
+        ctx: DebateContext,
+        result: DebateResult,
+    ) -> None:
+        """Auto-create a GitHub issue from the debate's DecisionPlan.
+
+        If the debate produced an approved DecisionPlan, this creates a
+        GitHub issue with the plan's tasks, risks, and verification steps
+        as checklists.
+
+        Args:
+            ctx: The debate context with metadata
+            result: The final debate result
+        """
+        if not self.auto_execute_plan:
+            return
+
+        # Look for a DecisionPlan in result metadata or context
+        plan = None
+        for source in (result, ctx):
+            plan = getattr(source, "decision_plan", None)
+            if plan is not None:
+                break
+            meta = getattr(source, "metadata", None)
+            if isinstance(meta, dict):
+                plan = meta.get("decision_plan")
+                if plan is not None:
+                    break
+
+        if plan is None:
+            logger.debug("auto_execute_plan_skipped: no DecisionPlan found")
+            return
+
+        try:
+            # Lazy import to avoid circular dependencies
+            if self.plan_executor is None:
+                from aragora.pipeline.executor import PlanExecutor
+
+                self.plan_executor = PlanExecutor()
+
+            issue_result = self.plan_executor.execute_to_github_issue(plan)
+            if issue_result.get("url"):
+                logger.info(
+                    "auto_execute_plan_created issue=%s plan=%s",
+                    issue_result["url"],
+                    plan.id,
+                )
+                # Attach the issue URL to result metadata
+                if hasattr(result, "__dict__"):
+                    if not hasattr(result, "metadata") or not isinstance(
+                        getattr(result, "metadata", None), dict
+                    ):
+                        result.metadata = {}
+                    result.metadata["github_issue_url"] = issue_result["url"]
+            else:
+                logger.debug(
+                    "auto_execute_plan_failed: %s",
+                    issue_result.get("error", "unknown error"),
+                )
+        except Exception as e:
+            logger.warning("auto_execute_plan_failed: %s", e)
+
     def _export_training_data(
         self,
         ctx: DebateContext,
@@ -883,6 +958,8 @@ class ExtensionsConfig:
     notify_min_confidence: float = 0.0
     auto_explain: bool = False
     explanation_builder: Any = None
+    plan_executor: Any = None
+    auto_execute_plan: bool = False
 
     def create_extensions(self) -> ArenaExtensions:
         """Create ArenaExtensions from this configuration."""
@@ -909,10 +986,128 @@ class ExtensionsConfig:
             notify_min_confidence=self.notify_min_confidence,
             auto_explain=self.auto_explain,
             explanation_builder=self.explanation_builder,
+            plan_executor=self.plan_executor,
+            auto_execute_plan=self.auto_execute_plan,
         )
+
+
+@dataclass
+class ComplianceCheckResult:
+    """Result of a pre-debate compliance policy check."""
+
+    allowed: bool = True
+    issues: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    frameworks_checked: list[str] = field(default_factory=list)
+
+
+def check_pre_debate_compliance(
+    debate_id: str,
+    task: str,
+    domain: str = "general",
+    compliance_monitor: Any | None = None,
+) -> ComplianceCheckResult:
+    """Evaluate a debate task against compliance policies before execution.
+
+    Checks active compliance frameworks for any policy rules that would
+    block or warn about the given task/domain combination.
+
+    Args:
+        debate_id: Unique debate identifier for audit logging.
+        task: The debate task description to evaluate.
+        domain: Domain of the debate (e.g. "healthcare", "financial").
+        compliance_monitor: Optional ComplianceMonitor instance. If None,
+            attempts to import and use the global monitor.
+
+    Returns:
+        ComplianceCheckResult with allowed=False if CRITICAL issues found.
+    """
+    result = ComplianceCheckResult()
+
+    # Try to get compliance monitor
+    monitor = compliance_monitor
+    if monitor is None:
+        try:
+            from aragora.compliance.monitor import get_compliance_monitor
+
+            monitor = get_compliance_monitor()
+        except (ImportError, AttributeError):
+            logger.debug("Compliance monitor not available, skipping pre-debate check")
+            return result
+
+    if monitor is None:
+        return result
+
+    try:
+        # Get active frameworks from the monitor
+        frameworks = getattr(monitor, "active_frameworks", None) or []
+        if not frameworks:
+            # Try alternative attribute names
+            frameworks = getattr(monitor, "frameworks", [])
+
+        for fw in frameworks:
+            fw_name = getattr(fw, "name", str(fw))
+            result.frameworks_checked.append(fw_name)
+
+            # Check if the framework has domain restrictions
+            restricted_domains = getattr(fw, "restricted_domains", None)
+            if restricted_domains and domain in restricted_domains:
+                blocked_tasks = getattr(fw, "blocked_task_patterns", [])
+                for pattern in blocked_tasks:
+                    if pattern.lower() in task.lower():
+                        result.issues.append(
+                            f"[{fw_name}] Task matches blocked pattern: {pattern}"
+                        )
+                        result.allowed = False
+
+            # Check severity-based rules
+            rules = getattr(fw, "rules", [])
+            for rule in rules:
+                severity = getattr(rule, "severity", "low")
+                enabled = getattr(rule, "enabled", True)
+                if not enabled:
+                    continue
+
+                # Check domain applicability
+                rule_domains = getattr(rule, "domains", None)
+                if rule_domains and domain not in rule_domains:
+                    continue
+
+                # Check task pattern matching
+                rule_pattern = getattr(rule, "task_pattern", None)
+                if rule_pattern and rule_pattern.lower() in task.lower():
+                    msg = f"[{fw_name}:{getattr(rule, 'name', 'unknown')}] {getattr(rule, 'description', 'Policy rule triggered')}"
+                    if severity == "critical":
+                        result.issues.append(msg)
+                        result.allowed = False
+                    elif severity in ("high", "major"):
+                        result.warnings.append(msg)
+                    else:
+                        result.warnings.append(msg)
+
+        logger.debug(
+            "Pre-debate compliance check for %s: allowed=%s, issues=%d, warnings=%d, frameworks=%d",
+            debate_id,
+            result.allowed,
+            len(result.issues),
+            len(result.warnings),
+            len(result.frameworks_checked),
+        )
+    except Exception as e:
+        logger.warning("Pre-debate compliance check error: %s", e)
+        # Don't block debate on compliance check failure
+        result.warnings.append(f"Compliance check error: {e}")
+
+    return result
 
 
 # Convenience alias for billing/debate integration tests
 DebateExtensions = ArenaExtensions
 
-__all__ = ["ArenaExtensions", "DebateExtensions", "ExtensionsConfig"]
+__all__ = [
+    "ArenaExtensions",
+    "ComplianceCheckResult",
+    "DebateExtensions",
+    "ExtensionsConfig",
+    "check_pre_debate_compliance",
+]

@@ -722,13 +722,17 @@ class TestKMIntegration:
 
     @pytest.mark.asyncio
     async def test_detect_anomalies_no_adapter(self, tracker):
-        assert await tracker.detect_and_store_anomalies("ws-1") == []
+        anomalies, advisory = await tracker.detect_and_store_anomalies("ws-1")
+        assert anomalies == []
+        assert advisory.recommended_action == "none"
 
     @pytest.mark.asyncio
     async def test_detect_anomalies_no_stats(self, tracker):
         adapter = MagicMock()
         tracker.set_km_adapter(adapter)
-        assert await tracker.detect_and_store_anomalies("ws-unknown") == []
+        anomalies, advisory = await tracker.detect_and_store_anomalies("ws-unknown")
+        assert anomalies == []
+        assert advisory.recommended_action == "none"
 
     @pytest.mark.asyncio
     async def test_detect_anomalies_stores_results(self, tracker):
@@ -751,7 +755,7 @@ class TestKMIntegration:
         )
         await tracker.record(usage)
 
-        results = await tracker.detect_and_store_anomalies("ws-1")
+        results, advisory = await tracker.detect_and_store_anomalies("ws-1")
         assert len(results) == 1
         assert results[0]["type"] == "spike"
 
@@ -770,8 +774,9 @@ class TestKMIntegration:
         )
         await tracker.record(usage)
 
-        results = await tracker.detect_and_store_anomalies("ws-1")
+        results, advisory = await tracker.detect_and_store_anomalies("ws-1")
         assert results == []
+        assert advisory.recommended_action == "none"
 
 
 # =============================================================================

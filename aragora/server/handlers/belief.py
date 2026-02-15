@@ -74,6 +74,7 @@ class BeliefHandler(BaseHandler):
         # Versioned aliases for SDK parity
         "/api/v1/belief-network/*/graph",
         "/api/v1/belief-network/*/export",
+        "/api/v1/debates/*/cruxes",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -200,6 +201,8 @@ class BeliefHandler(BaseHandler):
             return True
         if normalized.startswith("/api/debate/") and normalized.endswith("/graph-stats"):
             return True
+        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
+            return True
         return False
 
     def _check_belief_permission(
@@ -318,6 +321,13 @@ class BeliefHandler(BaseHandler):
                 return error_response("Invalid debate_id", 400)
             return self._get_debate_graph_stats(nomic_dir, debate_id)
 
+        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
+            debate_id = self._extract_debate_id(normalized, 3)
+            if debate_id is None:
+                return error_response("Invalid debate_id", 400)
+            limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
+            return self._get_crux_analysis(nomic_dir, debate_id, limit)
+
         return None
 
     def _extract_debate_id(self, path: str, segment_index: int) -> str | None:
@@ -397,6 +407,46 @@ class BeliefHandler(BaseHandler):
                 "count": len(cruxes),
             }
         )
+
+    @handle_errors("crux analysis retrieval")
+    def _get_crux_analysis(
+        self, nomic_dir: Path | None, debate_id: str, limit: int
+    ) -> HandlerResult:
+        """Get advanced crux analysis using CruxDetector.
+
+        Uses influence, disagreement, uncertainty, and centrality scores
+        to identify debate-pivotal claims.
+        """
+        if not BELIEF_NETWORK_AVAILABLE:
+            return error_response("Belief network not available", 503)
+
+        from aragora.debate.traces import DebateTrace
+        from aragora.reasoning.crux_detector import CruxDetector
+
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+        if not trace_path.exists():
+            return error_response("Debate trace not found", 404)
+
+        trace = DebateTrace.load(trace_path)
+        result = trace.to_debate_result()
+
+        # Build belief network from debate
+        network = self._create_belief_network(debate_id)
+        for msg in result.messages:
+            network.add_claim(msg.agent, msg.content[:200], confidence=0.7)
+
+        # Run crux detection
+        km_adapter = self._get_km_adapter()
+        detector = CruxDetector(network, km_adapter=km_adapter)
+        analysis = detector.detect_cruxes(top_k=limit)
+
+        return json_response({
+            "debate_id": debate_id,
+            **analysis.to_dict(),
+        })
 
     @handle_errors("load bearing claims retrieval")
     def _get_load_bearing_claims(

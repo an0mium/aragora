@@ -20,7 +20,7 @@
   },
   "description": {
     "short": "AI-powered multi-agent debates for defensible decisions",
-    "full": "Aragora orchestrates 30+ agent types to debate your organization's knowledge and deliver defensible decisions with full audit trails. Start debates directly in Teams channels, get decision receipts with confidence scores, and maintain complete compliance documentation."
+    "full": "Aragora orchestrates 42+ agent types to debate your organization's knowledge and deliver defensible decisions with full audit trails. Start debates directly in Teams channels, get decision receipts with confidence scores, and maintain complete compliance documentation."
   },
   "accentColor": "#5558AF",
   "bots": [

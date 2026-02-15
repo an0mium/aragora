@@ -1097,16 +1097,18 @@ class BudgetHandler(BaseHandler):
                 params = parse_qs(query_str)
                 workspace_id = params.get("workspace_id", [org_id])[0]
 
-            # detect_and_store_anomalies is async
+            # detect_and_store_anomalies is async, returns (anomalies, advisory)
             try:
-                anomalies = run_async(tracker.detect_and_store_anomalies(workspace_id))
+                anomalies, cost_advisory = run_async(tracker.detect_and_store_anomalies(workspace_id))
             except (RuntimeError, OSError):
                 anomalies = []
+                cost_advisory = None
 
             return json_response({
                 "anomalies": anomalies,
                 "workspace_id": workspace_id,
                 "count": len(anomalies),
+                "cost_advisory": cost_advisory.to_dict() if cost_advisory else None,
                 "advisory": (
                     "Cost anomalies detected. Review spending patterns."
                     if anomalies

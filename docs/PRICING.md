@@ -16,7 +16,7 @@ For teams and enterprises that need managed infrastructure, compliance artifacts
 | **Code Review** | `aragora review --demo` | Unlimited with your API keys | Unlimited + managed keys |
 | **Gauntlet** | CLI access | CLI + CI integration | CLI + CI + scheduled runs |
 | **Debates** | Unlimited local | Unlimited local + API | Unlimited + priority routing |
-| **Agents** | 30+ agent types | 30+ agent types | Custom agent provisioning |
+| **Agents** | 42+ agent types | 42+ agent types | Custom agent provisioning |
 | **Decision Receipts** | Markdown export | Markdown, HTML, SARIF, CSV | + PDF with digital signatures |
 | | | | |
 | **GitHub Action** | Community-supported | Supported | Supported + custom actions |
@@ -38,7 +38,7 @@ For teams and enterprises that need managed infrastructure, compliance artifacts
 ## Frequently Asked Questions
 
 **Is the open source version limited?**
-No. The full debate engine, all 30+ agents, code review, gauntlet, CLI, SDKs, and API are included in the MIT-licensed open source package. Commercial tiers add managed infrastructure, enterprise auth, and compliance tooling.
+No. The full debate engine, all 42+ agents, code review, gauntlet, CLI, SDKs, and API are included in the MIT-licensed open source package. Commercial tiers add managed infrastructure, enterprise auth, and compliance tooling.
 
 **Do I need API keys from LLM providers?**
 Yes. Aragora orchestrates models from Anthropic, OpenAI, Google, xAI, Mistral, and others. You bring your own API keys. Demo mode (`--demo`) works without keys for evaluation.

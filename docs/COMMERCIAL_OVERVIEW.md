@@ -16,7 +16,7 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ### What Aragora Is
 
-- A multi-agent debate engine that runs 30+ agent types across 6+ LLM providers
+- A multi-agent debate engine that runs 42+ agent types across 6+ LLM providers
 - A decision audit system that produces cryptographic receipts for every decision
 - An adversarial stress-testing tool (Gauntlet mode) for specs, policies, and architectures
 - An AI code review system with multi-model consensus
@@ -288,7 +288,7 @@ Both SDKs provide typed clients for all 2,000+ API operations with full IntelliS
 | SDK namespaces | 155 per language (Python + TypeScript) |
 | Knowledge Mound adapters | 33 |
 | RBAC permissions | 390+ |
-| Agent types | 30+ |
+| Agent types | 42+ |
 | LLM providers | 6+ (Anthropic, OpenAI, Google, xAI, Mistral, OpenRouter) |
 | Workflow templates | 50+ across 6 categories |
 | Debate modules | 210+ |

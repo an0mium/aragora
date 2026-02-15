@@ -366,7 +366,7 @@ for the full mapping.
 
 `aragora-debate` is the standalone debate engine extracted from the
 [Aragora Decision Integrity Platform](https://github.com/aragora/aragora).
-The full platform adds 30+ agent types, knowledge management, enterprise auth,
+The full platform adds 42+ agent types, knowledge management, enterprise auth,
 compliance frameworks, and the Nomic Loop for autonomous self-improvement.
 
 ## License

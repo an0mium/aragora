@@ -19,6 +19,19 @@ regexes = [
     '''YOUR_.*''',
     # WebSocket RFC test nonce (base64 of "the sample nonce")
     '''dGhlIHNhbXBsZSBub25jZQ==''',
+    # CI workflow test env vars (not real secrets)
+    '''ARAGORA_JWT_SECRET=''',
+    '''ARAGORA_SSO_CLIENT_SECRET=''',
+    # Python variable reference (not a leaked credential)
+    '''credentials=self\._sp_credentials''',
+    # Agent spec comment (not a secret)
+    '''provider=anthropic-api''',
+    # LinkedIn error class import (not a client ID)
+    '''LinkedInAdsError''',
+    # Example key generation instructions
+    '''Add private key to \.env''',
+    # Discord example application ID
+    '''DISCORD_APPLICATION_ID=''',
 ]
 paths = [
     '''.*_test\.py$''',
@@ -31,7 +44,10 @@ paths = [
     '''\.env\.local\.example$''',
     '''\.env\.template$''',
     '''docs/.*\.md$''',
+    '''examples/.*\.md$''',
+    '''marketplace/.*\.md$''',
+    '''benchmarks/.*\.py$''',
+    '''deploy/k8s/secret\.yaml$''',
+    '''deploy/self-hosted/.*''',
+    '''\.github/workflows/.*\.yml$''',
 ]
-
-# Specific commit allowlist (if needed for legacy commits)
-# commits = ["abc123..."]

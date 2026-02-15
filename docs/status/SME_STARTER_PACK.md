@@ -152,7 +152,7 @@ Real-time visibility into:
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │              Core Aragora Engine                      │   │
 │  │  • Debate Orchestration (Arena)                      │   │
-│  │  • Agent Pool (30+ agent types)                      │   │
+│  │  • Agent Pool (42+ agent types)                      │   │
 │  │  • Receipt Generation (Gauntlet)                     │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘

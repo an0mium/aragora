@@ -30,7 +30,7 @@ graph TB
         ELO["ELO Rankings<br/>+ Calibration"]
     end
 
-    subgraph Agents["Agent Pool (30+ types)"]
+    subgraph Agents["Agent Pool (42+ types)"]
         ANTHROPIC["Anthropic<br/>(Claude)"]
         OPENAI["OpenAI<br/>(GPT)"]
         GEMINI["Gemini"]

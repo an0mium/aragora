@@ -24,6 +24,10 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+try:
+    from aragora.resilience.registry import get_circuit_breaker
+except ImportError:
+    get_circuit_breaker = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +101,11 @@ class SlackIntegration:
         self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
+        self._circuit_breaker = (
+            get_circuit_breaker("slack_api", provider="slack")
+            if get_circuit_breaker is not None
+            else None
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session with timeout protection."""
@@ -126,7 +135,7 @@ class SlackIntegration:
         return True
 
     async def _send_message(self, message: SlackMessage, max_retries: int = 3) -> bool:
-        """Send a message to Slack with retry logic.
+        """Send a message to Slack with retry logic and circuit breaker.
 
         Args:
             message: The message to send
@@ -136,6 +145,12 @@ class SlackIntegration:
             True if message was sent successfully
         """
         if not self._check_rate_limit():
+            return False
+
+        # Check circuit breaker before attempting
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            remaining = self._circuit_breaker.cooldown_remaining()
+            logger.warning(f"Slack circuit breaker open, retry in {remaining:.1f}s")
             return False
 
         import asyncio
@@ -156,6 +171,8 @@ class SlackIntegration:
                 ) as response:
                     if response.status == 200:
                         logger.debug("Slack message sent successfully")
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_success()
                         return True
                     elif response.status == 429:
                         # Rate limited by Slack - respect Retry-After header
@@ -169,6 +186,8 @@ class SlackIntegration:
                         logger.warning(
                             f"Slack server error (attempt {attempt + 1}): {response.status} - {text}"
                         )
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_failure()
                         if attempt < max_retries - 1:
                             await asyncio.sleep(2**attempt)
                             continue
@@ -182,12 +201,16 @@ class SlackIntegration:
             except aiohttp.ClientError as e:
                 last_error = e
                 logger.warning(f"Slack connection error (attempt {attempt + 1}): {e}")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError()
                 logger.warning(f"Slack request timed out (attempt {attempt + 1})")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
@@ -200,6 +223,8 @@ class SlackIntegration:
                 # Low-level network/socket error -- retryable
                 last_error = e
                 logger.warning(f"Slack network error (attempt {attempt + 1}): {type(e).__name__}: {e}")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue

@@ -21,7 +21,7 @@ interface NavItem {
 const quickActions: NavItem[] = [
   { label: 'New Debate', href: '/arena', icon: '+' },
   { label: 'Inbox', href: '/inbox', icon: '!' },
-  { label: 'Workflows', href: '/workflows', icon: '>' },
+  { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'standard' },
 ];
 
 // Core navigation items - always visible
@@ -35,11 +35,11 @@ const coreNav: NavItem[] = [
 
 // Enterprise section - highlighted for business users
 const enterpriseItems: NavItem[] = [
-  { label: 'Gauntlet', href: '/gauntlet', icon: '⚡' },
-  { label: 'Compliance', href: '/audit', icon: '✓' },
-  { label: 'Control Plane', href: '/control-plane', icon: '◎' },
-  { label: 'Receipts', href: '/receipts', icon: '$' },
-  { label: 'Explainability', href: '/explainability', icon: '💡' },
+  { label: 'Gauntlet', href: '/gauntlet', icon: '⚡', minMode: 'standard' },
+  { label: 'Compliance', href: '/audit', icon: '✓', minMode: 'standard' },
+  { label: 'Control Plane', href: '/control-plane', icon: '◎', minMode: 'standard' },
+  { label: 'Receipts', href: '/receipts', icon: '$', minMode: 'standard' },
+  { label: 'Explainability', href: '/explainability', icon: '💡', minMode: 'standard' },
 ];
 
 // Tools section
@@ -52,10 +52,10 @@ const toolsItems: NavItem[] = [
 
 // Browse section items
 const browseItems: NavItem[] = [
-  { label: 'Gallery', href: '/gallery', icon: '✦' },
+  { label: 'Gallery', href: '/gallery', icon: '✦', minMode: 'standard' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
   { label: 'Tournaments', href: '/tournaments', icon: '⊕', minMode: 'standard' },
-  { label: 'Reviews', href: '/reviews', icon: '<' },
+  { label: 'Reviews', href: '/reviews', icon: '<', minMode: 'standard' },
 ];
 
 // Advanced section - expert users

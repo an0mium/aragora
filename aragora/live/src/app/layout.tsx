@@ -62,7 +62,7 @@ export default function RootLayout({
         {/* SSR-safe theme initialization - prevents flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="crt-overlay crt-flicker theme-transition">
+      <body className="theme-transition">
         {/* Configuration health banner - shows warnings for missing env vars */}
         <ConfigHealthBanner />
         {/* Skip to main content link for keyboard/screen reader users */}

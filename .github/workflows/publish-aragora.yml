@@ -92,7 +92,7 @@ jobs:
           body: |
             ## aragora v${{ github.event.inputs.version }}
 
-            The Decision Integrity Platform — orchestrate 30+ agent types to adversarially vet decisions.
+            The Decision Integrity Platform — orchestrate 42+ agent types to adversarially vet decisions.
 
             ```bash
             pip install aragora==${{ github.event.inputs.version }}

@@ -14,6 +14,11 @@ from typing import Any
 
 import aiohttp
 
+try:
+    from aragora.resilience.registry import get_circuit_breaker
+except ImportError:
+    get_circuit_breaker = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,6 +95,11 @@ class DiscordIntegration:
         self.config = config
         self._request_times: list[float] = []
         self._session: aiohttp.ClientSession | None = None
+        self._circuit_breaker = (
+            get_circuit_breaker("discord_api", provider="discord")
+            if get_circuit_breaker is not None
+            else None
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -119,8 +129,14 @@ class DiscordIntegration:
         embeds: list[DiscordEmbed],
         content: str = "",
     ) -> bool:
-        """Send message via Discord webhook."""
+        """Send message via Discord webhook with circuit breaker."""
         if not self.config.enabled:
+            return False
+
+        # Check circuit breaker before attempting
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            remaining = self._circuit_breaker.cooldown_remaining()
+            logger.warning(f"Discord circuit breaker open, retry in {remaining:.1f}s")
             return False
 
         await self._check_rate_limit()
@@ -144,6 +160,8 @@ class DiscordIntegration:
                     headers={"Content-Type": "application/json"},
                 ) as response:
                     if response.status == 204:
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_success()
                         return True
                     elif response.status == 429:
                         # Rate limited by Discord
@@ -157,6 +175,8 @@ class DiscordIntegration:
                         logger.warning(
                             f"Discord server error (attempt {attempt + 1}): {response.status} - {text}"
                         )
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_failure()
                         if attempt < self.config.retry_count - 1:
                             await asyncio.sleep(2**attempt)
                             continue
@@ -169,8 +189,12 @@ class DiscordIntegration:
 
             except asyncio.TimeoutError:
                 logger.warning(f"Discord webhook timeout (attempt {attempt + 1})")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
             except aiohttp.ClientError as e:
                 logger.error(f"Discord webhook connection error: {type(e).__name__}: {e}")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
             except (ValueError, TypeError) as e:
                 logger.error(f"Discord webhook payload error: {type(e).__name__}: {e}")
                 break  # Payload errors are not retryable

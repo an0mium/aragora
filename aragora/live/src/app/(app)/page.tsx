@@ -29,6 +29,7 @@ import { useProgressiveMode } from '@/context/ProgressiveModeContext';
 import { UseCaseGuide } from '@/components/ui/UseCaseGuide';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useLayout } from '@/context/LayoutContext';
+import { useTheme } from '@/context/ThemeContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { LandingPage } from '@/components/LandingPage';
 import type { NomicState } from '@/types/events';
@@ -125,6 +126,9 @@ export default function Home() {
   // Onboarding wizard state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [, setPendingPrompt] = useState<string | null>(null);
+
+  // Theme context for conditional CRT effects
+  const { effectiveTheme } = useTheme();
 
   // Layout context for responsive behavior
   useLayout();
@@ -348,8 +352,34 @@ export default function Home() {
   if (!authLoading && !isAuthenticated) {
     return (
       <LandingPage
+        apiBase={apiBase}
         onEnterDashboard={() => router.push('/auth/login')}
       />
+    );
+  }
+
+  // Simple mode: clean dashboard with just debate input + recent debates
+  if (progressiveMode === 'simple' && isAuthenticated) {
+    return (
+      <FeaturesProvider apiBase={apiBase}>
+        <main className="min-h-screen bg-bg text-text relative z-10">
+          <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+            <HeroSection
+              error={error}
+              activeDebateId={currentDebateId}
+              activeQuestion={debateTitle}
+              apiBase={apiBase}
+              onDismissError={() => setError(null)}
+              onDebateStarted={(debateId) => router.push(`/debate/${debateId}`)}
+              onError={setError}
+            />
+            {hasVerdict && <VerdictCard events={events} />}
+            <PanelErrorBoundary panelName="Recent Debates">
+              <DebateListPanel />
+            </PanelErrorBoundary>
+          </div>
+        </main>
+      </FeaturesProvider>
     );
   }
 
@@ -367,9 +397,13 @@ export default function Home() {
         />
       )}
 
-      {/* CRT Effects */}
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+      {/* CRT Effects - only in dark + advanced mode */}
+      {effectiveTheme === 'dark' && isFeatureVisible('advanced') && (
+        <>
+          <Scanlines opacity={0.02} />
+          <CRTVignette />
+        </>
+      )}
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Compare Modal */}

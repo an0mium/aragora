@@ -6,9 +6,11 @@ Endpoints:
 - GET /api/pulse/suggest - Suggest a trending topic for debate
 - GET /api/pulse/analytics - Get analytics on trending topic debate outcomes
 - POST /api/pulse/debate-topic - Start a debate on a trending topic
+- GET /api/pulse/topics/{topic_id}/outcomes - Get debate outcomes for a topic
 
 Scheduler endpoints:
 - GET /api/pulse/scheduler/status - Current scheduler state and metrics
+- GET /api/pulse/scheduler/analytics - Scheduler runtime metrics and store analytics
 - POST /api/pulse/scheduler/start - Start the scheduler
 - POST /api/pulse/scheduler/stop - Stop the scheduler
 - POST /api/pulse/scheduler/pause - Pause the scheduler
@@ -205,11 +207,17 @@ class PulseHandler(BaseHandler):
         "/api/v1/pulse/scheduler/resume",
         "/api/v1/pulse/scheduler/config",
         "/api/v1/pulse/scheduler/history",
+        "/api/v1/pulse/scheduler/analytics",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        # Dynamic route: /api/v1/pulse/topics/{topic_id}/outcomes
+        if path.startswith("/api/v1/pulse/topics/") and path.endswith("/outcomes"):
+            return True
+        return False
 
     @require_permission("pulse:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
@@ -233,11 +241,25 @@ class PulseHandler(BaseHandler):
         if path == "/api/v1/pulse/scheduler/status":
             return self._get_scheduler_status()
 
+        if path == "/api/v1/pulse/scheduler/analytics":
+            return self._get_scheduler_analytics()
+
         if path == "/api/v1/pulse/scheduler/history":
             limit = get_int_param(query_params, "limit", 50)
             offset = get_int_param(query_params, "offset", 0)
             platform = get_string_param(query_params, "platform")
             return self._get_scheduler_history(min(limit, 100), offset, platform)
+
+        # Dynamic route: /api/v1/pulse/topics/{topic_id}/outcomes
+        if path.startswith("/api/v1/pulse/topics/") and path.endswith("/outcomes"):
+            segments = path.split("/")
+            # /api/v1/pulse/topics/{topic_id}/outcomes -> segments[5]
+            if len(segments) == 7:
+                topic_id = segments[5]
+                is_valid, err = validate_path_segment(topic_id, "topic_id", SAFE_ID_PATTERN)
+                if not is_valid:
+                    return error_response(err, 400)
+                return self._get_topic_outcomes(topic_id)
 
         return None
 
@@ -407,6 +429,112 @@ class PulseHandler(BaseHandler):
 
         analytics = manager.get_analytics()
         return json_response(analytics)
+
+    @ttl_cache(ttl_seconds=60, key_prefix="pulse_scheduler_analytics")
+    @auto_error_response("get scheduler analytics")
+    def _get_scheduler_analytics(self) -> HandlerResult:
+        """Get scheduler runtime metrics and store analytics.
+
+        GET /api/v1/pulse/scheduler/analytics
+
+        Returns combined scheduler metrics (polls, debates created/failed,
+        uptime) and store analytics (by platform, by category, daily counts).
+        Cached for 60 seconds.
+        """
+        scheduler = get_pulse_scheduler()
+        if not scheduler:
+            return feature_unavailable_response("pulse scheduler")
+
+        metrics = scheduler.metrics.to_dict() if hasattr(scheduler, "metrics") else {}
+
+        # Merge store analytics for persistence-level stats
+        store = get_scheduled_debate_store()
+        store_analytics = store.get_analytics() if store else {}
+
+        return json_response({
+            "scheduler_metrics": metrics,
+            "store_analytics": store_analytics,
+        })
+
+    @auto_error_response("get topic outcomes")
+    def _get_topic_outcomes(self, topic_id: str) -> HandlerResult:
+        """Get debate outcomes for a specific topic.
+
+        GET /api/v1/pulse/topics/{topic_id}/outcomes
+
+        Looks up outcomes by topic_hash in the scheduled debate store.
+        Falls back to matching against in-memory PulseManager outcomes
+        by debate_id.
+
+        Args:
+            topic_id: Topic hash or debate ID to look up
+
+        Returns:
+            JSON response with debate outcomes for the topic
+        """
+        # Try scheduled debate store first (persistent)
+        store = get_scheduled_debate_store()
+        if store:
+            try:
+                rows = store.fetch_all(
+                    "SELECT id, topic_hash, topic_text, platform, category, volume, "
+                    "debate_id, created_at, consensus_reached, confidence, "
+                    "rounds_used, scheduler_run_id FROM scheduled_debates "
+                    "WHERE topic_hash = ? ORDER BY created_at DESC",
+                    (topic_id,),
+                )
+                if rows:
+                    outcomes = []
+                    for row in rows:
+                        record = store._row_to_record(row)
+                        outcomes.append({
+                            "id": record.id,
+                            "topic": record.topic_text,
+                            "platform": record.platform,
+                            "category": record.category,
+                            "debate_id": record.debate_id,
+                            "consensus_reached": record.consensus_reached,
+                            "confidence": record.confidence,
+                            "rounds_used": record.rounds_used,
+                            "created_at": record.created_at,
+                            "hours_ago": record.hours_ago,
+                        })
+                    return json_response({
+                        "topic_id": topic_id,
+                        "outcomes": outcomes,
+                        "count": len(outcomes),
+                    })
+            except (sqlite3.Error, AttributeError, TypeError) as e:
+                logger.debug(f"Store lookup failed for topic {topic_id}: {e}")
+
+        # Fall back to in-memory PulseManager outcomes
+        manager = get_pulse_manager()
+        if manager and hasattr(manager, "_outcomes"):
+            matching = [
+                {
+                    "topic": o.topic[:200],
+                    "platform": o.platform,
+                    "debate_id": getattr(o, "debate_id", ""),
+                    "consensus_reached": o.consensus_reached,
+                    "confidence": o.confidence,
+                    "rounds_used": o.rounds_used,
+                    "category": o.category,
+                    "timestamp": o.timestamp,
+                }
+                for o in manager._outcomes
+                if getattr(o, "debate_id", "") == topic_id
+            ]
+            if matching:
+                return json_response({
+                    "topic_id": topic_id,
+                    "outcomes": matching,
+                    "count": len(matching),
+                })
+
+        return json_response(
+            {"topic_id": topic_id, "outcomes": [], "count": 0},
+            status=404,
+        )
 
     @require_permission("pulse:create")
     def handle_post(

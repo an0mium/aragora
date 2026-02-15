@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
+Aragora is the **Decision Integrity Platform** -- orchestrating 42+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
 
 **You don't just get an answer. You get a defensible decision trail.**
 
@@ -33,7 +33,7 @@ Aragora is built on five architectural commitments that together produce somethi
 |------------|-------------|----------------|
 | **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
 | **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
-| **Multi-Agent Consensus** | 30+ heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
+| **Multi-Agent Consensus** | 42+ heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
 | **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
 | **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
 | **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
@@ -67,7 +67,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    AGENT LAYER (30+ Agent Types)                  │   │
+│  │                    AGENT LAYER (42+ Agent Types)                  │   │
 │  │  Claude │ GPT │ Gemini │ Grok │ Mistral │ DeepSeek │ Qwen │ Kimi │   │
 │  │                     + Local Models (Ollama, LM Studio)            │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
@@ -133,7 +133,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ## Key Differentiators
 
 ### 1. Heterogeneous Agent Orchestration
-Unlike single-model solutions, Aragora runs debates across 30+ agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
+Unlike single-model solutions, Aragora runs debates across 42+ agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
 
 ### 2. Audit-Ready Output
 Every debate produces a **Decision Receipt** with:

@@ -52,13 +52,14 @@ services:
     command: >
       redis-server
       --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-aragora_redis_default}
       --maxmemory 512mb
       --maxmemory-policy volatile-lru
       --tcp-keepalive 300
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aragora_redis_default}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -80,6 +81,120 @@ services:
           cpus: '0.1'
           memory: 128M
 
+  # =============================================================================
+  # Redis Sentinel HA (3 instances with isolated runtime config)
+  # =============================================================================
+  # Each sentinel copies the read-only base config into its own volume on
+  # startup, so runtime state (leader election, rewrite) never conflicts.
+
+  sentinel1:
+    image: redis:7-alpine
+    container_name: aragora-sentinel1
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/sentinel/sentinel.conf /data/sentinel.conf &&
+          sed -i 's/redis-master/redis/g' /data/sentinel.conf &&
+          sed -i \"s/REDIS_PASSWORD_PLACEHOLDER/$$REDIS_PASSWORD/g\" /data/sentinel.conf &&
+          redis-sentinel /data/sentinel.conf"
+    volumes:
+      - ../redis/sentinel.conf:/etc/sentinel/sentinel.conf:ro
+      - sentinel1-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
+  sentinel2:
+    image: redis:7-alpine
+    container_name: aragora-sentinel2
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/sentinel/sentinel.conf /data/sentinel.conf &&
+          sed -i 's/redis-master/redis/g' /data/sentinel.conf &&
+          sed -i \"s/REDIS_PASSWORD_PLACEHOLDER/$$REDIS_PASSWORD/g\" /data/sentinel.conf &&
+          redis-sentinel /data/sentinel.conf"
+    volumes:
+      - ../redis/sentinel.conf:/etc/sentinel/sentinel.conf:ro
+      - sentinel2-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
+  sentinel3:
+    image: redis:7-alpine
+    container_name: aragora-sentinel3
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/sentinel/sentinel.conf /data/sentinel.conf &&
+          sed -i 's/redis-master/redis/g' /data/sentinel.conf &&
+          sed -i \"s/REDIS_PASSWORD_PLACEHOLDER/$$REDIS_PASSWORD/g\" /data/sentinel.conf &&
+          redis-sentinel /data/sentinel.conf"
+    volumes:
+      - ../redis/sentinel.conf:/etc/sentinel/sentinel.conf:ro
+      - sentinel3-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
   aragora:
     image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
     build:
@@ -99,8 +214,8 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD:-aragora}@postgres:5432/${POSTGRES_DB:-aragora}
       - ARAGORA_DB_BACKEND=postgres
       # Redis
-      - REDIS_URL=redis://redis:6379
-      - ARAGORA_REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_default}@redis:6379
+      - ARAGORA_REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_default}@redis:6379
       # AI Providers (at least one required)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -168,7 +283,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_default}@redis:6379
       - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD:-aragora}@postgres:5432/${POSTGRES_DB:-aragora}
       - ARAGORA_CANONICAL_STORE_PERSIST=1
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads
@@ -288,6 +403,9 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  sentinel1-data:
+  sentinel2-data:
+  sentinel3-data:
   aragora-data:
   aragora-logs:
   prometheus-data:

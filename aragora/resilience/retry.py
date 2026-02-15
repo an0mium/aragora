@@ -420,6 +420,58 @@ PROVIDER_RETRY_POLICIES: dict[str, RetryConfig] = {
         provider_name="memory",
         non_retryable_status_codes=(),
     ),
+    # Slack webhook operations
+    "slack": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=30.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="slack",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Discord webhook operations
+    "discord": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=30.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="discord",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # Microsoft Teams webhook operations
+    "teams": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=30.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="teams",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
+    # GitHub CLI operations
+    "github_cli": RetryConfig(
+        max_retries=3,
+        base_delay=1.0,
+        max_delay=60.0,
+        strategy=RetryStrategy.EXPONENTIAL,
+        jitter_mode=JitterMode.MULTIPLICATIVE,
+        jitter_factor=0.25,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+        should_retry=_is_transient_error,
+        provider_name="github_cli",
+        non_retryable_status_codes=(400, 401, 403, 404, 422),
+    ),
 }
 
 

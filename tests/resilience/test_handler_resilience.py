@@ -8,12 +8,32 @@ breaker correctly opens after repeated failures and blocks further requests.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.resilience.circuit_breaker import CircuitBreaker
 from aragora.resilience.retry import PROVIDER_RETRY_POLICIES
+
+
+def _mock_aiohttp_response(status: int, text: str = "ok"):
+    """Create a mock aiohttp response usable as an async context manager.
+
+    aiohttp's ``session.post(...)`` returns an async context manager that
+    yields a response object.  We build a helper that mimics this so
+    ``async with session.post(...) as resp:`` works in tests.
+    """
+    resp = MagicMock()
+    resp.status = status
+    resp.text = AsyncMock(return_value=text)
+    resp.headers = {}
+
+    @asynccontextmanager
+    async def _ctx(*args, **kwargs):
+        yield resp
+
+    return _ctx, resp
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +43,6 @@ from aragora.resilience.retry import PROVIDER_RETRY_POLICIES
 class TestProviderPolicies:
     """Verify new provider retry policies are registered."""
 
-    @pytest.mark.xfail(reason="Retry policies for integration handlers not yet added")
     @pytest.mark.parametrize("provider", ["slack", "discord", "teams", "github_cli"])
     def test_provider_policy_registered(self, provider: str) -> None:
         """Each integration service has a retry policy."""
@@ -32,15 +51,12 @@ class TestProviderPolicies:
         assert config.provider_name == provider
         assert config.max_retries >= 1
 
-    @pytest.mark.xfail(reason="Retry policies for integration handlers not yet added")
     @pytest.mark.parametrize("provider", ["slack", "discord", "teams", "github_cli"])
     def test_provider_policy_retries_transient(self, provider: str) -> None:
         """Provider policies should retry transient errors."""
         config = PROVIDER_RETRY_POLICIES[provider]
         assert config.should_retry is not None
-        # ConnectionError is transient
         assert config.should_retry(ConnectionError("connection refused"))
-        # TimeoutError is transient
         assert config.should_retry(TimeoutError("timed out"))
 
 
@@ -79,66 +95,53 @@ class TestSlackResilience:
         self, slack, circuit_breaker: CircuitBreaker
     ) -> None:
         """Successful send should record success on circuit breaker."""
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(200)
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         slack._session = mock_session
 
         from aragora.integrations.slack import SlackMessage
 
         result = await slack._send_message(SlackMessage(text="test"))
         assert result is True
-        # Circuit should still be closed
         assert circuit_breaker.get_status() == "closed"
         assert circuit_breaker.failures == 0
 
-    @pytest.mark.xfail(reason="Slack _send_message doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_server_error_records_failure(
         self, slack, circuit_breaker: CircuitBreaker
     ) -> None:
         """Server error (500) should record failure on circuit breaker."""
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         slack._session = mock_session
 
         from aragora.integrations.slack import SlackMessage
 
         result = await slack._send_message(SlackMessage(text="test"), max_retries=1)
         assert result is False
-        # At least one failure recorded
         assert circuit_breaker.failures >= 1
 
-    @pytest.mark.xfail(reason="Slack _send_message doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_circuit_open_blocks_requests(
         self, slack, circuit_breaker: CircuitBreaker
     ) -> None:
         """Open circuit should block requests without making network calls."""
-        # Force circuit open
         circuit_breaker.is_open = True
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
+        mock_session.post = MagicMock()
         slack._session = mock_session
 
         from aragora.integrations.slack import SlackMessage
 
         result = await slack._send_message(SlackMessage(text="test"))
         assert result is False
-        # No HTTP call should have been made
         mock_session.post.assert_not_called()
 
-    @pytest.mark.xfail(reason="Slack _send_message doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_connection_error_records_failure(
         self, slack, circuit_breaker: CircuitBreaker
@@ -146,10 +149,13 @@ class TestSlackResilience:
         """Connection error should record failure on circuit breaker."""
         import aiohttp
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(
-            side_effect=aiohttp.ClientError("Connection refused")
-        )
+        @asynccontextmanager
+        async def _raise(*a, **kw):
+            raise aiohttp.ClientError("Connection refused")
+            yield  # noqa: unreachable - needed for generator syntax
+
+        mock_session = MagicMock()
+        mock_session.post = _raise
         slack._session = mock_session
 
         from aragora.integrations.slack import SlackMessage
@@ -158,7 +164,6 @@ class TestSlackResilience:
         assert result is False
         assert circuit_breaker.failures >= 1
 
-    @pytest.mark.xfail(reason="Slack _send_message doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_circuit_opens_after_threshold(
         self, slack, circuit_breaker: CircuitBreaker
@@ -166,15 +171,17 @@ class TestSlackResilience:
         """Circuit should open after failure_threshold consecutive failures."""
         import aiohttp
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(
-            side_effect=aiohttp.ClientError("Connection refused")
-        )
+        @asynccontextmanager
+        async def _raise(*a, **kw):
+            raise aiohttp.ClientError("Connection refused")
+            yield  # noqa: unreachable
+
+        mock_session = MagicMock()
+        mock_session.post = _raise
         slack._session = mock_session
 
         from aragora.integrations.slack import SlackMessage
 
-        # Send enough failures to open the circuit
         for _ in range(3):
             await slack._send_message(SlackMessage(text="test"), max_retries=1)
 
@@ -210,39 +217,30 @@ class TestDiscordResilience:
         """DiscordIntegration should have a circuit breaker attribute."""
         assert discord._circuit_breaker is not None
 
-    @pytest.mark.xfail(reason="Discord _send_webhook doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_success_records_on_circuit_breaker(
         self, discord, circuit_breaker: CircuitBreaker
     ) -> None:
         """Successful webhook call records success."""
-        mock_response = AsyncMock()
-        mock_response.status = 204
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(204)
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         discord._session = mock_session
 
         result = await discord._send_webhook([])
         assert result is True
         assert circuit_breaker.get_status() == "closed"
 
-    @pytest.mark.xfail(reason="Discord _send_webhook doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_server_error_records_failure(
         self, discord, circuit_breaker: CircuitBreaker
     ) -> None:
         """Server error (500) records failure."""
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         discord._session = mock_session
         discord.config.retry_count = 1
 
@@ -257,21 +255,27 @@ class TestDiscordResilience:
         """Open circuit blocks requests."""
         circuit_breaker.is_open = True
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
+        mock_session.post = MagicMock()
         discord._session = mock_session
 
         result = await discord._send_webhook([])
         assert result is False
         mock_session.post.assert_not_called()
 
-    @pytest.mark.xfail(reason="Discord _send_webhook doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_timeout_records_failure(
         self, discord, circuit_breaker: CircuitBreaker
     ) -> None:
         """Timeout records failure on circuit breaker."""
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(side_effect=asyncio.TimeoutError())
+
+        @asynccontextmanager
+        async def _raise(*a, **kw):
+            raise asyncio.TimeoutError()
+            yield  # noqa: unreachable
+
+        mock_session = MagicMock()
+        mock_session.post = _raise
         discord._session = mock_session
         discord.config.retry_count = 1
 
@@ -309,7 +313,6 @@ class TestTeamsResilience:
         """TeamsIntegration should have a circuit breaker attribute."""
         assert teams._circuit_breaker is not None
 
-    @pytest.mark.xfail(reason="Teams _send_card doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_success_records_on_circuit_breaker(
         self, teams, circuit_breaker: CircuitBreaker
@@ -317,13 +320,10 @@ class TestTeamsResilience:
         """Successful card send records success."""
         from aragora.integrations.teams import AdaptiveCard
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(200)
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         teams._session = mock_session
 
         card = AdaptiveCard(title="Test")
@@ -331,7 +331,6 @@ class TestTeamsResilience:
         assert result is True
         assert circuit_breaker.get_status() == "closed"
 
-    @pytest.mark.xfail(reason="Teams _send_card doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_server_error_records_failure(
         self, teams, circuit_breaker: CircuitBreaker
@@ -339,14 +338,10 @@ class TestTeamsResilience:
         """Server error (500) records failure."""
         from aragora.integrations.teams import AdaptiveCard
 
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=False)
+        ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session = MagicMock()
+        mock_session.post = ctx_fn
         teams._session = mock_session
 
         card = AdaptiveCard(title="Test")
@@ -361,7 +356,8 @@ class TestTeamsResilience:
         """Open circuit blocks requests."""
         circuit_breaker.is_open = True
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
+        mock_session.post = MagicMock()
         teams._session = mock_session
 
         from aragora.integrations.teams import AdaptiveCard
@@ -371,7 +367,6 @@ class TestTeamsResilience:
         assert result is False
         mock_session.post.assert_not_called()
 
-    @pytest.mark.xfail(reason="Teams _send_card doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_connection_error_records_failure(
         self, teams, circuit_breaker: CircuitBreaker
@@ -380,10 +375,13 @@ class TestTeamsResilience:
         import aiohttp
         from aragora.integrations.teams import AdaptiveCard
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(
-            side_effect=aiohttp.ClientError("Connection refused")
-        )
+        @asynccontextmanager
+        async def _raise(*a, **kw):
+            raise aiohttp.ClientError("Connection refused")
+            yield  # noqa: unreachable
+
+        mock_session = MagicMock()
+        mock_session.post = _raise
         teams._session = mock_session
 
         card = AdaptiveCard(title="Test")
@@ -412,21 +410,21 @@ class TestGitHubResilience:
         assert hasattr(github, "record_circuit_breaker_success")
         assert hasattr(github, "record_circuit_breaker_failure")
 
-    @pytest.mark.xfail(reason="GitHub _run_gh doesn't check circuit breaker yet")
     @pytest.mark.asyncio
     async def test_run_gh_checks_circuit_breaker(self, github) -> None:
         """_run_gh should check circuit breaker before executing."""
-        # Mock gh CLI as unavailable
         github._gh_available = True
 
-        # Mock circuit breaker as open
-        mock_cb = MagicMock()
-        mock_cb.can_proceed.return_value = False
-        github._circuit_breaker = mock_cb
+        # Create a real CircuitBreaker that is open
+        cb = CircuitBreaker(name="gh_test", failure_threshold=1, cooldown_seconds=60)
+        cb.record_failure()  # Open the circuit
+        assert cb.get_status() == "open"
+
+        # Inject the open circuit breaker
+        github._circuit_breaker = cb
 
         result = await github._run_gh(["issue", "list"])
         assert result is None
-        mock_cb.can_proceed.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -444,12 +442,10 @@ class TestCircuitBreakerIsolation:
         discord_cb = get_circuit_breaker("discord_api_isolation_test", provider="discord")
         teams_cb = get_circuit_breaker("teams_api_isolation_test", provider="teams")
 
-        # They should be separate instances
         assert slack_cb is not discord_cb
         assert discord_cb is not teams_cb
         assert slack_cb is not teams_cb
 
-        # Different names
         assert slack_cb.name != discord_cb.name
         assert discord_cb.name != teams_cb.name
 
@@ -458,11 +454,9 @@ class TestCircuitBreakerIsolation:
         cb_a = CircuitBreaker(name="service_a", failure_threshold=2, cooldown_seconds=60)
         cb_b = CircuitBreaker(name="service_b", failure_threshold=2, cooldown_seconds=60)
 
-        # Record failures only on service A
         cb_a.record_failure()
         cb_a.record_failure()
 
-        # A should be open, B should be closed
         assert cb_a.get_status() == "open"
         assert cb_b.get_status() == "closed"
         assert cb_b.can_proceed() is True

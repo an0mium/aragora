@@ -35,6 +35,10 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+try:
+    from aragora.resilience.registry import get_circuit_breaker
+except ImportError:
+    get_circuit_breaker = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +139,11 @@ class TeamsIntegration:
         self._session: aiohttp.ClientSession | None = None
         self._message_count = 0
         self._last_reset = datetime.now()
+        self._circuit_breaker = (
+            get_circuit_breaker("teams_api", provider="teams")
+            if get_circuit_breaker is not None
+            else None
+        )
 
     @property
     def is_configured(self) -> bool:
@@ -185,6 +194,12 @@ class TeamsIntegration:
         if not self._check_rate_limit():
             return False
 
+        # Check circuit breaker before attempting
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            remaining = self._circuit_breaker.cooldown_remaining()
+            logger.warning(f"Teams circuit breaker open, retry in {remaining:.1f}s")
+            return False
+
         session = await self._get_session()
         payload = card.to_payload()
         headers = build_trace_headers()
@@ -200,6 +215,8 @@ class TeamsIntegration:
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status == 200:
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_success()
                         logger.debug("Teams message sent successfully")
                         return True
                     elif response.status == 429:
@@ -214,6 +231,8 @@ class TeamsIntegration:
                         logger.warning(
                             f"Teams server error (attempt {attempt + 1}): {response.status} - {text}"
                         )
+                        if self._circuit_breaker is not None:
+                            self._circuit_breaker.record_failure()
                         if attempt < max_retries - 1:
                             await asyncio.sleep(2**attempt)
                             continue
@@ -227,12 +246,16 @@ class TeamsIntegration:
             except aiohttp.ClientError as e:
                 last_error = e
                 logger.warning(f"Teams connection error (attempt {attempt + 1}): {e}")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
             except asyncio.TimeoutError:
                 last_error = asyncio.TimeoutError()
                 logger.warning(f"Teams request timed out (attempt {attempt + 1})")
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
