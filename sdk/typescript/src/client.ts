@@ -6586,6 +6586,20 @@ export class AragoraClient {
     return this.request<{ dismissed: boolean }>('POST', `/api/v1/costs/alerts/${encodeURIComponent(alertId)}/dismiss`);
   }
 
+  /**
+   * Get per-agent cost breakdown.
+   */
+  async getAgentCosts(params?: { workspace_id?: string }): Promise<import('./namespaces/budgets').AgentCostsResponse> {
+    return this.request<import('./namespaces/budgets').AgentCostsResponse>('GET', '/api/v1/costs/agents', { params });
+  }
+
+  /**
+   * Get cost anomaly detections.
+   */
+  async getCostAnomalies(params?: { workspace_id?: string }): Promise<import('./namespaces/budgets').CostAnomaliesResponse> {
+    return this.request<import('./namespaces/budgets').CostAnomaliesResponse>('GET', '/api/v1/costs/anomalies', { params });
+  }
+
   // ===========================================================================
   // Audit Trails
   // ===========================================================================
