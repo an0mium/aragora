@@ -407,6 +407,46 @@ def _bypass_rbac_for_root_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Bypass handler-level require_permission decorator (separate from RBAC).
+    # The handlers.utils.decorators.require_permission uses _test_user_context_override
+    # and extract_user_from_request from billing.jwt_auth, which must also be patched.
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+        from aragora.billing.auth.context import UserAuthContext
+
+        mock_user_ctx = UserAuthContext(
+            authenticated=True,
+            user_id="test-user-001",
+            email="test@example.com",
+            org_id="test-org-001",
+            role="admin",
+            token_type="access",
+        )
+
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user_ctx)
+        monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.billing.auth.context import UserAuthContext as _UAC
+
+        _mock_user = _UAC(
+            authenticated=True,
+            user_id="test-user-001",
+            email="test@example.com",
+            org_id="test-org-001",
+            role="admin",
+            token_type="access",
+        )
+
+        monkeypatch.setattr(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            lambda handler, user_store=None: _mock_user,
+        )
+    except (ImportError, AttributeError):
+        pass
+
     yield
 
 
