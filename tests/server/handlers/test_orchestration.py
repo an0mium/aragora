@@ -1996,7 +1996,7 @@ class TestErrorHandling:
 
         with patch(
             "aragora.core.decision.get_decision_router",
-            side_effect=Exception("Router failed"),
+            side_effect=RuntimeError("Router failed"),
         ):
             request = OrchestrationRequest(
                 question="Test exception?",

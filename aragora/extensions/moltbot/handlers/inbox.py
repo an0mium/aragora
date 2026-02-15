@@ -406,7 +406,8 @@ class MoltbotInboxHandler(BaseHandler):
                 metadata=body.get("metadata"),
             )
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Send message validation error: %s", e)
+            return error_response("Invalid message parameters", 400)
 
         return json_response(
             {

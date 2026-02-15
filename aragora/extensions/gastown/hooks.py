@@ -286,7 +286,8 @@ class HookRunner:
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Hook execution timed out"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Hook execution failed: %s", e)
+            return {"success": False, "error": "Hook execution failed"}
 
     async def persist_state(
         self,
@@ -400,7 +401,8 @@ class HookRunner:
             }
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Git commit failed: %s", e)
+            return {"success": False, "error": "Git commit failed"}
 
     async def create_worktree(
         self,
@@ -449,7 +451,8 @@ class HookRunner:
             }
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Worktree creation failed: %s", e)
+            return {"success": False, "error": "Worktree creation failed"}
 
     async def remove_worktree(self, worktree_path: str) -> dict[str, Any]:
         """Remove a git worktree."""
@@ -477,7 +480,8 @@ class HookRunner:
             return {"success": True}
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Worktree removal failed: %s", e)
+            return {"success": False, "error": "Worktree removal failed"}
 
     async def get_stats(self) -> dict[str, Any]:
         """Get hook runner statistics."""

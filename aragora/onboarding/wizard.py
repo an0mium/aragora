@@ -7,12 +7,15 @@ Provides guided setup experience for new users and devices.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class StepStatus(Enum):
@@ -425,9 +428,10 @@ class OnboardingWizard:
             try:
                 await self._step_handlers[step_id](session, step, data)
             except Exception as e:
-                step.validation_errors = [str(e)]
+                logger.warning("Step handler '%s' failed: %s", step_id, e)
+                step.validation_errors = ["Step processing failed"]
                 step.status = StepStatus.FAILED
-                return False, [str(e)]
+                return False, ["Step processing failed"]
 
         # Mark complete
         step.data = data
