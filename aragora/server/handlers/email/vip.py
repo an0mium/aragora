@@ -110,7 +110,7 @@ async def handle_add_vip(
         logger.exception(f"Failed to add VIP: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to add VIP",
         }
 
 
@@ -185,5 +185,5 @@ async def handle_remove_vip(
         logger.exception(f"Failed to remove VIP: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to remove VIP",
         }

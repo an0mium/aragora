@@ -76,10 +76,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "note": "ELO system not initialized",
             }
     except Exception as e:
+        logger.warning("ELO weighting health check failed: %s", e)
         features["elo_weighting"] = {
             "healthy": False,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 
@@ -105,10 +106,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "note": "Calibration tracker not initialized",
             }
     except Exception as e:
+        logger.warning("Calibration health check failed: %s", e)
         features["calibration"] = {
             "healthy": False,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 
@@ -127,10 +129,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "note": "Evidence store not initialized",
             }
     except Exception as e:
+        logger.warning("Evidence quality health check failed: %s", e)
         features["evidence_quality"] = {
             "healthy": False,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 
@@ -158,10 +161,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "note": "RLM cache module not available",
         }
     except Exception as e:
+        logger.warning("RLM caching health check failed: %s", e)
         features["rlm_caching"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Check Knowledge Mound
@@ -190,10 +194,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "note": "Knowledge Mound module not available",
         }
     except Exception as e:
+        logger.warning("Knowledge mound health check failed: %s", e)
         features["knowledge_mound"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Check trending topics (Pulse)
@@ -221,10 +226,11 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "note": "Pulse module not available",
         }
     except Exception as e:
+        logger.warning("Trending topics health check failed: %s", e)
         features["trending_topics"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Count active features

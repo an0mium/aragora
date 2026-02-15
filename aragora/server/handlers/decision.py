@@ -315,7 +315,7 @@ class DecisionHandler(BaseHandler):
                 {
                     "request_id": request.request_id,
                     "status": "failed",
-                    "error": str(e),
+                    "error": "Decision processing failed",
                 },
             )
             logger.warning("Handler error: %s", e)
@@ -559,7 +559,7 @@ class DecisionHandler(BaseHandler):
                 {
                     "request_id": new_request_id,
                     "status": "failed",
-                    "error": str(e),
+                    "error": "Decision retry failed",
                     "retried_from": request_id,
                 },
             )

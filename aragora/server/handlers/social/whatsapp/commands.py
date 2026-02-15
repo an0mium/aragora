@@ -376,7 +376,7 @@ async def run_debate_async(
         record_debate_failed("whatsapp")
         await send_text_message(
             from_number,
-            f"Debate failed: {str(e)[:100]}",
+            "Sorry, an error occurred while processing your request.",
         )
 
 
@@ -538,7 +538,7 @@ async def run_gauntlet_async(
         record_gauntlet_failed("whatsapp")
         await send_text_message(
             from_number,
-            f"Gauntlet failed: {str(e)[:100]}",
+            "Sorry, an error occurred while processing your request.",
         )
 
 
@@ -602,7 +602,7 @@ def command_search(query: str) -> str:
         return "Search service temporarily unavailable."
     except Exception as e:
         logger.exception(f"Unexpected search error: {e}")
-        return f"Search failed: {str(e)[:100]}"
+        return "Sorry, an error occurred while processing your request."
 
 
 def command_recent() -> str:
@@ -643,7 +643,7 @@ def command_recent() -> str:
         return "Recent debates service temporarily unavailable."
     except Exception as e:
         logger.exception(f"Unexpected recent debates error: {e}")
-        return f"Failed to get recent debates: {str(e)[:100]}"
+        return "Sorry, an error occurred while processing your request."
 
 
 def command_receipt(debate_id: str) -> str:
@@ -700,7 +700,7 @@ def command_receipt(debate_id: str) -> str:
 
     except Exception as e:
         logger.exception(f"Unexpected receipt error: {e}")
-        return f"Failed to get receipt: {str(e)[:100]}"
+        return "Sorry, an error occurred while processing your request."
 
 
 def _format_receipt(receipt_data: dict) -> str:

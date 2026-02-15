@@ -581,11 +581,12 @@ class DocumentHandler(BaseHandler):
             body_raw = handler.rfile.read(content_length)
             body: bytes = body_raw if isinstance(body_raw, bytes) else body_raw.encode()
         except Exception as e:
+            logger.warning("Failed to read multipart upload body: %s", e)
             return (
                 None,
                 None,
                 UploadError(
-                    UploadErrorCode.CORRUPTED_UPLOAD, f"Failed to read upload body: {str(e)[:100]}"
+                    UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"
                 ),
             )
 
@@ -726,11 +727,12 @@ class DocumentHandler(BaseHandler):
         try:
             file_content = handler.rfile.read(content_length)
         except Exception as e:
+            logger.warning("Failed to read raw upload body: %s", e)
             return (
                 None,
                 None,
                 UploadError(
-                    UploadErrorCode.CORRUPTED_UPLOAD, f"Failed to read upload body: {str(e)[:100]}"
+                    UploadErrorCode.CORRUPTED_UPLOAD, "Failed to read upload body"
                 ),
             )
 

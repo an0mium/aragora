@@ -933,7 +933,7 @@ class RLMHandler(BaseHandler):
                     "provider": "unknown",
                     "version": "unknown",
                     "features": [],
-                    "error": str(e),
+                    "error": "RLM status unavailable",
                 }
             )
 

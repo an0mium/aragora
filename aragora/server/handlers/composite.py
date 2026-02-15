@@ -482,7 +482,7 @@ class CompositeHandler(BaseHandler):
                     fallback_value.copy() if isinstance(fallback_value, dict) else fallback_value
                 )
                 if isinstance(fallback, dict):
-                    fallback["error"] = str(e)
+                    fallback["error"] = "Data unavailable"
                 return fallback
             return fallback_value
         except Exception as e:

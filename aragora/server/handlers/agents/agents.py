@@ -446,7 +446,7 @@ class AgentsHandler(  # type: ignore[misc]
                     "servers": [],
                     "total": 0,
                     "available_count": 0,
-                    "error": str(e),
+                    "error": "Internal server error",
                 }
             )
 
@@ -490,7 +490,7 @@ class AgentsHandler(  # type: ignore[misc]
                     "recommended": {"server": None, "model": None},
                     "available_agents": [],
                     "servers": [],
-                    "error": str(e),
+                    "error": "Internal server error",
                 }
             )
 
@@ -547,7 +547,7 @@ class AgentsHandler(  # type: ignore[misc]
             health["circuit_breakers"]["_note"] = "CircuitBreaker module not available"
         except Exception as e:
             logger.debug(f"Could not get circuit breaker status: {e}")
-            health["circuit_breakers"]["_error"] = str(e)
+            health["circuit_breakers"]["_error"] = "Health check failed"
 
         # Get fallback chain status
         try:
@@ -562,7 +562,7 @@ class AgentsHandler(  # type: ignore[misc]
             health["fallback"]["_note"] = "Fallback module not available"
         except Exception as e:
             logger.debug(f"Could not get fallback status: {e}")
-            health["fallback"]["_error"] = str(e)
+            health["fallback"]["_error"] = "Health check failed"
 
         # Get registered agent types and their availability
         try:
@@ -604,7 +604,7 @@ class AgentsHandler(  # type: ignore[misc]
             health["agents"]["_note"] = "AgentRegistry not available"
         except Exception as e:
             logger.debug(f"Could not get agent registry: {e}")
-            health["agents"]["_error"] = str(e)
+            health["agents"]["_error"] = "Health check failed"
 
         # Calculate summary
         available_count = sum(
@@ -659,7 +659,7 @@ class AgentsHandler(  # type: ignore[misc]
             health["cross_pollination"] = {"_note": "Cross-pollination module not available"}
         except Exception as e:
             logger.debug(f"Could not get cross-pollination status: {e}")
-            health["cross_pollination"] = {"_error": str(e)}
+            health["cross_pollination"] = {"_error": "Health check failed"}
 
         return json_response(health)
 

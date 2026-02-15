@@ -68,7 +68,7 @@ class InboxActionsMixin:
                     {
                         "emailId": email_id,
                         "success": False,
-                        "error": str(e),
+                        "error": "Action failed",
                     }
                 )
         return results

@@ -91,7 +91,7 @@ class LeaderboardViewHandler(SecureHandler):
             logger.error(
                 "Leaderboard section '%s' failed: %s: %s", key, type(e).__name__, e, exc_info=True
             )
-            errors[key] = str(e)
+            errors[key] = "Data fetch failed"
             data[key] = fallback
 
     async def handle(

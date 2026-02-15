@@ -69,7 +69,7 @@ def sync_status(handler: Any) -> HandlerResult:
         return json_response(
             {
                 "enabled": False,
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
@@ -217,7 +217,7 @@ def circuit_breakers_status(handler: Any) -> HandlerResult:
         return json_response(
             {
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
@@ -278,7 +278,7 @@ def component_health_status(handler: Any) -> HandlerResult:
         return json_response(
             {
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )

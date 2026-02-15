@@ -267,7 +267,7 @@ class TestAddCultureDocument:
         result = handler._handle_add_culture_document(http_handler)
 
         assert result.status_code == 400
-        assert "Invalid JSON" in parse_response(result)["error"]
+        assert "invalid" in parse_response(result)["error"].lower()
 
     def test_add_document_no_mound(self, handler_no_mound):
         """Test document addition when mound not available."""

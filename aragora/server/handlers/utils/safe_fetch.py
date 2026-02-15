@@ -71,7 +71,7 @@ def safe_fetch(
     except data_exceptions as e:
         if log_data_errors:
             logger.log(log_level_data, f"Data error fetching {context}: {e}")
-        return _make_fallback(fallback, str(e), include_error_in_fallback)
+        return _make_fallback(fallback, "Data unavailable", include_error_in_fallback)
     except Exception as e:
         if log_level_unexpected == logging.ERROR:
             logger.exception(f"Unexpected error fetching {context}: {e}")
@@ -114,7 +114,7 @@ async def safe_fetch_async(
     except data_exceptions as e:
         if log_data_errors:
             logger.log(log_level_data, f"Data error fetching {context}: {e}")
-        return _make_fallback(fallback, str(e), include_error_in_fallback)
+        return _make_fallback(fallback, "Data unavailable", include_error_in_fallback)
     except Exception as e:
         if log_level_unexpected == logging.ERROR:
             logger.exception(f"Unexpected error fetching {context}: {e}")

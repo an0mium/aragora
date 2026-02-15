@@ -561,7 +561,7 @@ class OrchestrationHandler(SecureHandler):
             _orchestration_results[request.request_id] = OrchestrationResult(
                 request_id=request.request_id,
                 success=False,
-                error=str(e),
+                error="Orchestration failed",
             )
         finally:
             # Clean up request from in-progress
@@ -714,7 +714,7 @@ class OrchestrationHandler(SecureHandler):
             return OrchestrationResult(
                 request_id=request.request_id,
                 success=False,
-                error=str(e),
+                error="Deliberation execution failed",
                 duration_seconds=time.time() - start_time,
                 knowledge_context_used=knowledge_context_used,
             )

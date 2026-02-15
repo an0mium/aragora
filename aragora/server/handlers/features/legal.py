@@ -618,7 +618,7 @@ class LegalHandler:
         except Exception as e:
             logger.error(f"Error processing DocuSign webhook: {e}")
             # Return 200 to prevent retries for malformed payloads
-            return success_response({"received": True, "error": str(e)})
+            return success_response({"received": True, "error": "Webhook processing failed"})
 
     # =========================================================================
     # Utilities

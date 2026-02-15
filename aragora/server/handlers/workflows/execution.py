@@ -376,7 +376,7 @@ async def execute_workflow(
             {
                 "status": "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
-                "error": str(e),
+                "error": "Invalid workflow configuration or inputs",
             }
         )
         store.save_execution(execution)
@@ -387,7 +387,7 @@ async def execute_workflow(
             {
                 "status": "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
-                "error": str(e),
+                "error": "Storage error during workflow execution",
             }
         )
         store.save_execution(execution)
@@ -398,7 +398,7 @@ async def execute_workflow(
             {
                 "status": "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
-                "error": str(e),
+                "error": "Connection error during workflow execution",
             }
         )
         store.save_execution(execution)

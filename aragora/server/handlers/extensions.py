@@ -87,7 +87,8 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
             fabric_stats = await state.fabric.get_stats()
             stats["agent_fabric"] = fabric_stats
         except Exception as e:
-            stats["agent_fabric"] = {"error": str(e)}
+            logger.warning("Failed to get agent fabric stats: %s", e)
+            stats["agent_fabric"] = {"error": "Internal server error"}
 
     # Gastown stats
     if state.gastown_enabled and state.coordinator:
@@ -95,7 +96,8 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
             gastown_stats = await state.coordinator.get_stats()
             stats["gastown"] = gastown_stats
         except Exception as e:
-            stats["gastown"] = {"error": str(e)}
+            logger.warning("Failed to get gastown stats: %s", e)
+            stats["gastown"] = {"error": "Internal server error"}
 
     # Moltbot stats
     if state.moltbot_enabled:
@@ -104,22 +106,26 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
             try:
                 moltbot_stats["inbox"] = await state.inbox_manager.get_stats()
             except Exception as e:
-                moltbot_stats["inbox"] = {"error": str(e)}
+                logger.warning("Failed to get inbox stats: %s", e)
+                moltbot_stats["inbox"] = {"error": "Internal server error"}
         if state.local_gateway:
             try:
                 moltbot_stats["gateway"] = await state.local_gateway.get_stats()
             except Exception as e:
-                moltbot_stats["gateway"] = {"error": str(e)}
+                logger.warning("Failed to get gateway stats: %s", e)
+                moltbot_stats["gateway"] = {"error": "Internal server error"}
         if state.voice_processor:
             try:
                 moltbot_stats["voice"] = await state.voice_processor.get_stats()
             except Exception as e:
-                moltbot_stats["voice"] = {"error": str(e)}
+                logger.warning("Failed to get voice stats: %s", e)
+                moltbot_stats["voice"] = {"error": "Internal server error"}
         if state.onboarding:
             try:
                 moltbot_stats["onboarding"] = await state.onboarding.get_stats()
             except Exception as e:
-                moltbot_stats["onboarding"] = {"error": str(e)}
+                logger.warning("Failed to get onboarding stats: %s", e)
+                moltbot_stats["onboarding"] = {"error": "Internal server error"}
         stats["moltbot"] = moltbot_stats
 
     return stats

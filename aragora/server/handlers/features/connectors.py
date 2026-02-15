@@ -613,10 +613,10 @@ class ConnectorsHandler(SecureHandler):
 
         except Exception as e:
             sync_job["status"] = "failed"
-            sync_job["error_message"] = str(e)
+            sync_job["error_message"] = "Sync operation failed"
             sync_job["completed_at"] = datetime.now(timezone.utc).isoformat()
             connector["status"] = "error"
-            connector["error_message"] = str(e)
+            connector["error_message"] = "Sync operation failed"
             _sync_history.append(dict(sync_job))
 
             logger.error(f"Sync {sync_id} failed: {e}")

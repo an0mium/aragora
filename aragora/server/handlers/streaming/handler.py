@@ -416,7 +416,7 @@ class StreamingConnectorHandler(BaseHandler):
             return json_response(
                 {
                     "success": False,
-                    "message": str(e),
+                    "message": "Connection test failed",
                 }
             )
 
@@ -473,7 +473,8 @@ class StreamingConnectorHandler(BaseHandler):
             elif connector_type == "snssqs":
                 return self._test_snssqs(config)
         except Exception as e:
-            return False, str(e)
+            logger.warning("Connector test failed for %s: %s", connector_type, e)
+            return False, "Connection test failed"
 
         return False, "Unknown connector type"
 

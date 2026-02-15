@@ -1064,7 +1064,7 @@ class DevOpsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Error processing PagerDuty webhook: {e}")
-            return success_response({"received": True, "error": str(e)})
+            return success_response({"received": True, "error": "Webhook processing failed"})
 
     # =========================================================================
     # Utilities

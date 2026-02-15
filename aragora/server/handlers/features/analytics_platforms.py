@@ -632,7 +632,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 report_data["platforms"][platform] = data
             except Exception as e:
                 logger.error(f"Error fetching {platform} report data: {e}")
-                report_data["platforms"][platform] = {"error": str(e)}
+                report_data["platforms"][platform] = {"error": "Failed to fetch report data"}
 
         return self._json_response(200, report_data)
 
@@ -736,7 +736,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
             except Exception as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
-                metrics["platforms"][platform] = {"error": str(e)}
+                metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         metrics["summary"] = {
             "total_users": total_users,

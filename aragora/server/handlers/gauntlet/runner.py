@@ -415,7 +415,7 @@ class GauntletRunnerMixin:
         except (OSError, RuntimeError, ValueError, ImportError, asyncio.CancelledError) as e:
             logger.error(f"Gauntlet {gauntlet_id} failed: {e}")
             gauntlet_runs[gauntlet_id]["status"] = "failed"
-            gauntlet_runs[gauntlet_id]["error"] = str(e)
+            gauntlet_runs[gauntlet_id]["error"] = "Gauntlet run failed"
 
             # Update persistent status to failed
             try:
@@ -423,7 +423,7 @@ class GauntletRunnerMixin:
                 storage.update_inflight_status(
                     gauntlet_id,
                     "failed",
-                    error=str(e),
+                    error="Gauntlet run failed",
                 )
             except (OSError, RuntimeError, ValueError):
                 pass

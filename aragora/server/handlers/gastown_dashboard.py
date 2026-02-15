@@ -457,7 +457,7 @@ class GasTownDashboardHandler(SecureHandler):
                 "Error getting convoys due to runtime error",
                 extra={"error_type": type(e).__name__, "error": str(e)},
             )
-            return error_response(f"Error getting convoys: {type(e).__name__}", 500)
+            return error_response("Internal server error", 500)
 
     async def _get_agents(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get agent workload distribution.
@@ -528,7 +528,7 @@ class GasTownDashboardHandler(SecureHandler):
                 "Error getting agents due to runtime error",
                 extra={"error_type": type(e).__name__, "error": str(e)},
             )
-            return error_response(f"Error getting agents: {type(e).__name__}", 500)
+            return error_response("Internal server error", 500)
 
     async def _get_beads(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get bead queue stats.
@@ -611,7 +611,7 @@ class GasTownDashboardHandler(SecureHandler):
                 "Error getting beads due to runtime error",
                 extra={"error_type": type(e).__name__, "error": str(e)},
             )
-            return error_response(f"Error getting beads: {type(e).__name__}", 500)
+            return error_response("Internal server error", 500)
 
     async def _get_metrics(self, query_params: dict[str, Any]) -> HandlerResult:
         """Get throughput metrics.

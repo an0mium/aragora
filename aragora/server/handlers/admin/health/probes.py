@@ -230,7 +230,7 @@ class ProbesMixin:
             checks["redis"] = {"status": "check_skipped"}
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis connectivity failed: {type(e).__name__}: {e}")
-            checks["redis"] = {"error": str(e)[:80], "error_type": "connectivity"}
+            checks["redis"] = {"error": "Redis connectivity failed", "error_type": "connectivity"}
             try:
                 from aragora.control_plane.leader import is_distributed_state_required
 
@@ -250,7 +250,7 @@ class ProbesMixin:
                 pass
         except Exception as e:
             logger.warning(f"Redis readiness check failed: {type(e).__name__}: {e}")
-            checks["redis"] = {"error": str(e)[:80]}
+            checks["redis"] = {"error": "Redis check failed"}
             try:
                 from aragora.control_plane.leader import is_distributed_state_required
 
@@ -303,7 +303,7 @@ class ProbesMixin:
             checks["postgresql"] = {"status": "check_skipped"}
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"PostgreSQL connectivity failed: {type(e).__name__}: {e}")
-            checks["postgresql"] = {"error": str(e)[:80], "error_type": "connectivity"}
+            checks["postgresql"] = {"error": "PostgreSQL connectivity failed", "error_type": "connectivity"}
             if require_database:
                 ready = False
         except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
@@ -313,6 +313,6 @@ class ProbesMixin:
                 ready = False
         except Exception as e:
             logger.warning(f"PostgreSQL readiness check failed: {type(e).__name__}: {e}")
-            checks["postgresql"] = {"error": str(e)[:80]}
+            checks["postgresql"] = {"error": "PostgreSQL check failed"}
 
         return ready, checks

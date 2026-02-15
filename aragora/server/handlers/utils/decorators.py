@@ -859,7 +859,7 @@ def safe_fetch(
     except Exception as e:
         if log_errors:
             logger.warning(f"safe_fetch '{key}' failed: {type(e).__name__}: {e}")
-        errors_dict[key] = str(e)
+        errors_dict[key] = "Fetch failed"
         data_dict[key] = fallback
 
 

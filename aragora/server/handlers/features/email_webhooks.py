@@ -658,7 +658,7 @@ class EmailWebhooksHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Error handling Gmail webhook: {e}")
             # Return 200 to acknowledge
-            return success_response({"status": "error", "message": str(e)})
+            return success_response({"status": "error", "message": "Internal server error"})
 
     # =========================================================================
     # Outlook Webhook
@@ -713,7 +713,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling Outlook webhook: {e}")
-            return success_response({"status": "error", "message": str(e)})
+            return success_response({"status": "error", "message": "Internal server error"})
 
     async def _handle_outlook_validation(self, request: Any) -> HandlerResult:
         """Handle Outlook subscription validation.
@@ -850,7 +850,8 @@ class EmailWebhooksHandler(BaseHandler):
         except ImportError:
             return {"success": True}  # Simulate success for testing
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Gmail subscription creation failed: %s", e)
+            return {"success": False, "error": "Internal server error"}
 
     async def _create_outlook_subscription(
         self, subscription: WebhookSubscription
@@ -865,7 +866,8 @@ class EmailWebhooksHandler(BaseHandler):
         except ImportError:
             return {"success": True}  # Simulate success for testing
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Outlook subscription creation failed: %s", e)
+            return {"success": False, "error": "Internal server error"}
 
     async def _handle_unsubscribe(self, request: Any, tenant_id: str) -> HandlerResult:
         """Remove webhook subscription.

@@ -176,7 +176,8 @@ class BatchOperationsMixin:
                 item = BatchItem.from_dict(item_data)
                 items.append(item)
             except Exception as e:
-                errors.append(f"Item {i}: {str(e)}")
+                logger.warning("Batch item %d validation failed: %s", i, e)
+                errors.append(f"Item {i}: validation failed")
 
         if errors:
             return error_response(

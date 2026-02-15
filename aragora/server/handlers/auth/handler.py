@@ -650,7 +650,8 @@ class AuthHandler(SecureHandler):
                 "main_loop_id": id(main_loop) if main_loop else None,
             }
         except Exception as e:
-            info["pool"] = {"error": str(e)}
+            logger.warning("Pool info check failed: %s", e)
+            info["pool"] = {"error": "Pool status unavailable"}
 
         # JWT decode check (no DB needed)
         try:
@@ -667,7 +668,8 @@ class AuthHandler(SecureHandler):
             else:
                 info["jwt"] = {"provided": False}
         except Exception as e:
-            info["jwt"] = {"error": str(e)}
+            logger.warning("JWT check failed: %s", e)
+            info["jwt"] = {"error": "JWT validation unavailable"}
 
         return json_response(info, headers=self.AUTH_NO_CACHE_HEADERS)
 

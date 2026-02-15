@@ -259,9 +259,11 @@ def job_queue_health_status(handler: Any) -> HandlerResult:
     except ImportError as e:
         errors.append(f"job_queue_store import failed: {e}")
     except (ConnectionError, TimeoutError, OSError) as e:
-        errors.append(f"Queue connectivity error: {type(e).__name__}: {str(e)[:80]}")
+        logger.warning("Queue connectivity error: %s: %s", type(e).__name__, e)
+        errors.append("Queue connectivity error")
     except Exception as e:
-        errors.append(f"Queue status error: {type(e).__name__}: {str(e)[:80]}")
+        logger.warning("Queue status error: %s: %s", type(e).__name__, e)
+        errors.append("Queue status error")
 
     # Calculate thresholds and warnings
     pending_count = queue_stats.get("pending", 0)

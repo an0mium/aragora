@@ -259,7 +259,7 @@ class ExportOperationsMixin:
 
             except Exception as e:
                 item.status = BatchExportStatus.FAILED
-                item.error = str(e)
+                item.error = "Export failed"
                 item.completed_at = time.time()
                 job.error_count += 1
                 logger.warning(f"Batch export item failed: {item.debate_id}: {e}")
@@ -469,7 +469,7 @@ class ExportOperationsMixin:
 
         except Exception as e:
             logger.warning(f"SSE stream error for {job_id}: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Stream error'})}\n\n"
 
     def _list_batch_exports(self: _DebatesHandlerProtocol, limit: int = 50) -> HandlerResult:
         """List batch export jobs."""

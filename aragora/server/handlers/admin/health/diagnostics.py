@@ -193,7 +193,7 @@ def deployment_diagnostics(handler: Any) -> HandlerResult:
         return json_response(
             {
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:200]}",
+                "error": "Deployment diagnostics check failed",
                 "response_time_ms": round((time.time() - start_time) * 1000, 2),
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             },

@@ -363,7 +363,7 @@ class GitHubClient:
 
         except Exception as e:
             logger.exception(f"Failed to submit review: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Internal server error"}
 
     def _demo_pr(self, pr_number: int) -> PRDetails:
         """Return demo PR data."""
@@ -493,7 +493,7 @@ async def handle_trigger_pr_review(
                 logger.exception(f"Review {review_id} failed: {e}")
                 with _storage_lock:
                     result.status = ReviewStatus.FAILED
-                    result.error = str(e)
+                    result.error = "Internal server error"
                     result.completed_at = datetime.now(timezone.utc)
 
             finally:
@@ -518,7 +518,7 @@ async def handle_trigger_pr_review(
         logger.exception(f"Failed to trigger PR review: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -962,7 +962,7 @@ async def handle_get_pr_details(
         logger.exception(f"Failed to get PR details: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -991,7 +991,7 @@ async def handle_get_review_status(
         logger.exception(f"Failed to get review status: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -1024,7 +1024,7 @@ async def handle_list_pr_reviews(
         logger.exception(f"Failed to list PR reviews: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -1074,7 +1074,7 @@ async def handle_submit_review(
         logger.exception(f"Failed to submit review: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 

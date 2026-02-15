@@ -590,7 +590,7 @@ class TranscriptionHandler(BaseHandler):
             self._update_job(
                 job_id,
                 TranscriptionStatus.FAILED,
-                error=str(e)[:500],
+                error="Transcription processing failed",
             )
 
     def _parse_upload(
@@ -635,12 +635,13 @@ class TranscriptionHandler(BaseHandler):
             body_raw = handler.rfile.read(content_length)
             body: bytes = body_raw if isinstance(body_raw, bytes) else body_raw.encode()
         except Exception as e:
+            logger.warning("Failed to read multipart upload body: %s", e)
             return (
                 None,
                 None,
                 TranscriptionError(
                     TranscriptionErrorCode.CORRUPTED_UPLOAD,
-                    f"Failed to read upload body: {str(e)[:100]}",
+                    "Failed to read upload body",
                 ),
             )
 
@@ -746,11 +747,12 @@ class TranscriptionHandler(BaseHandler):
             content = handler.rfile.read(content_length)
             return (content, filename, None)
         except Exception as e:
+            logger.warning("Failed to read raw upload: %s", e)
             return (
                 None,
                 None,
                 TranscriptionError(
                     TranscriptionErrorCode.CORRUPTED_UPLOAD,
-                    f"Failed to read upload: {str(e)[:100]}",
+                    "Failed to read upload",
                 ),
             )

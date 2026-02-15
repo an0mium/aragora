@@ -122,5 +122,5 @@ async def handle_fetch_and_rank_inbox(
         logger.exception(f"Failed to fetch inbox: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to fetch inbox",
         }

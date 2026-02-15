@@ -345,4 +345,4 @@ class TestSyncFacts:
         result = handler._handle_sync_facts(http_handler)
 
         assert result.status_code == 400
-        assert "Invalid JSON" in parse_response(result)["error"]
+        assert "invalid" in parse_response(result)["error"].lower()

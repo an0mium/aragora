@@ -363,7 +363,7 @@ class UsageAnalyticsMixin:
                     "org_id": org_id,
                     "time_range": time_range,
                     "active_users": {"daily": 0, "weekly": 0, "monthly": 0},
-                    "error": str(e),
+                    "error": "Failed to retrieve active users",
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )

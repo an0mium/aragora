@@ -52,7 +52,8 @@ async def execute_bulk_action(
             success_count += 1
 
         except Exception as e:
-            errors.append({"id": msg_id, "error": str(e)})
+            logger.warning("Bulk action failed for message %s: %s", msg_id, e)
+            errors.append({"id": msg_id, "error": "Action failed"})
 
     return {
         "action": action,

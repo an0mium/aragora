@@ -474,7 +474,7 @@ class SlackWorkspaceHandler(SecureHandler):
         except Exception as e:
             logger.warning(f"Slack connection test failed for {workspace_id}: {e}")
             connection_status = "error"
-            error_message = str(e)
+            error_message = "Connection test failed"
 
         result = {
             "status": connection_status,

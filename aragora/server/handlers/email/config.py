@@ -144,5 +144,5 @@ async def handle_update_config(
         logger.exception(f"Failed to update config: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to update configuration",
         }

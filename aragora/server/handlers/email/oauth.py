@@ -68,7 +68,7 @@ async def handle_gmail_oauth_url(
         logger.exception(f"Failed to get OAuth URL: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to get OAuth URL",
         }
 
 
@@ -113,7 +113,7 @@ async def handle_gmail_oauth_callback(
         logger.exception(f"OAuth callback failed: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "OAuth callback failed",
         }
 
 
@@ -167,5 +167,5 @@ async def handle_gmail_status(
         logger.exception(f"Failed to check Gmail status: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to check Gmail status",
         }

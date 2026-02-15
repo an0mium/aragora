@@ -116,7 +116,7 @@ async def handle_categorize_email(
         logger.exception(f"Failed to categorize email: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -191,7 +191,7 @@ async def handle_categorize_batch(
         logger.exception(f"Failed to categorize batch: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -243,7 +243,8 @@ async def handle_feedback_batch(
                 )
                 results.append({"email_id": email_id, "action": action, "recorded": True})
             except Exception as e:
-                errors.append({"email_id": email_id, "error": str(e)})
+                logger.warning("Feedback recording failed for email %s: %s", email_id, e)
+                errors.append({"email_id": email_id, "error": "Internal server error"})
 
         return {
             "success": True,
@@ -257,7 +258,7 @@ async def handle_feedback_batch(
         logger.exception(f"Failed to record batch feedback: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -308,5 +309,5 @@ async def handle_apply_category_label(
         logger.exception(f"Failed to apply category label: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }

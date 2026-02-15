@@ -243,7 +243,8 @@ class ProbesHandler(BaseHandler):
                         raw_output = target_agent.generate(prompt)
                 return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
             except Exception as e:
-                return f"[Agent Error: {str(e)}]"
+                logger.warning("Agent probe execution error: %s", e)
+                return "[Agent Error]"
 
         # Run probes asynchronously
         async def run_probes() -> Any:

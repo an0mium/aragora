@@ -324,7 +324,7 @@ class TestWorkflowTemplatesHandlerResponses:
         assert result is not None
         body, status, _ = parse_result(result)
         assert status == 400
-        assert "Invalid JSON" in body.get("error", "")
+        assert "invalid" in body.get("error", "").lower()
 
     def test_run_template_not_found(self, handler, mock_handler_post):
         """Run template returns 404 when template does not exist."""
@@ -702,7 +702,7 @@ class TestWorkflowPatternTemplatesHandler:
             result = handler._instantiate_pattern("hive-mind", post_h)
             body, status, _ = parse_result(result)
             assert status == 500
-            assert "Failed to instantiate" in body.get("error", "")
+            assert body.get("error")  # Sanitized error message present
 
 
 # =============================================================================
@@ -1040,7 +1040,7 @@ class TestSMEWorkflowsHandler:
             result = handler._create_sme_workflow("invoice", post_h)
             body, status, _ = parse_result(result)
             assert status == 500
-            assert "Failed to create workflow" in body.get("error", "")
+            assert "failed" in body.get("error", "").lower()
 
 
 # =============================================================================

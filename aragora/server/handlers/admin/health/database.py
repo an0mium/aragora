@@ -61,7 +61,7 @@ def database_schema_health(handler: _HealthHandlerProtocol) -> HandlerResult:
         return json_response(
             {
                 "status": "error",
-                "error": str(e),
+                "error": "Database health check failed",
             },
             status=500,
         )

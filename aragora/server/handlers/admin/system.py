@@ -606,7 +606,8 @@ class SystemHandler(BaseHandler):
                     )
                     oauth_status["class"] = oauth_handler_class.__name__
                 except Exception as e:
-                    oauth_status["error"] = str(e)[:100]
+                    logger.warning("OAuth handler init failed: %s", e)
+                    oauth_status["error"] = "OAuth handler initialization failed"
 
             return json_response(
                 {

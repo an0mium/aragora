@@ -905,7 +905,7 @@ class AuditSessionsHandler(SecureHandler):
             _cancellation_tokens.pop(session_id, None)
             if session_id in _sessions:
                 _sessions[session_id]["status"] = "failed"
-                _sessions[session_id]["error"] = str(e)
+                _sessions[session_id]["error"] = "Audit session failed"
                 _sessions[session_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     async def _emit_event(self, session_id: str, event: dict[str, Any]):

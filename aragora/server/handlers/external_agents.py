@@ -310,11 +310,12 @@ class ExternalAgentsHandler(BaseHandler):
                     health = _call_run_coro(adapter.health_check())
                     results.append(health.to_dict())
                 except Exception as e:
+                    logger.warning("Health check failed for adapter %s: %s", spec.name, e)
                     results.append(
                         {
                             "adapter_name": spec.name,
                             "healthy": False,
-                            "error": str(e),
+                            "error": "Health check failed",
                         }
                     )
 

@@ -295,7 +295,7 @@ class AuditTrailHandler(BaseHandler):
                 {
                     "trail_id": trail_id,
                     "valid": False,
-                    "error": str(e),
+                    "error": "Audit trail verification failed",
                 }
             )
 
@@ -409,7 +409,7 @@ class AuditTrailHandler(BaseHandler):
                 {
                     "receipt_id": receipt_id,
                     "valid": False,
-                    "error": str(e),
+                    "error": "Receipt verification failed",
                 }
             )
 

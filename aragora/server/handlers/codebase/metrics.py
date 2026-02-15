@@ -188,7 +188,7 @@ async def handle_analyze_metrics(
         logger.exception(f"Failed to start metrics analysis: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -230,7 +230,7 @@ async def handle_get_metrics(
         logger.exception(f"Failed to get metrics: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -270,7 +270,7 @@ async def handle_get_hotspots(
         logger.exception(f"Failed to get hotspots: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -319,7 +319,7 @@ async def handle_get_duplicates(
         logger.exception(f"Failed to get duplicates: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -385,7 +385,7 @@ async def handle_get_file_metrics(
         logger.exception(f"Failed to get file metrics: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -438,7 +438,7 @@ async def handle_list_analyses(
         logger.exception(f"Failed to list analyses: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 

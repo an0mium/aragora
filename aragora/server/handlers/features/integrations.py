@@ -669,13 +669,13 @@ class IntegrationsHandler(SecureHandler):
 
         except Exception as e:
             config.errors_24h += 1
-            config.last_error = str(e)
+            config.last_error = "Internal server error"
             await store.save(config)
             logger.error(f"Integration test failed for {integration_type}: {e}")
             return json_response(
                 {
                     "success": False,
-                    "error": str(e),
+                    "error": "Internal server error",
                 }
             )
 
@@ -767,14 +767,14 @@ class IntegrationsHandler(SecureHandler):
 
         except Exception as e:
             config.errors_24h += 1
-            config.last_error = f"Sync failed: {str(e)}"
+            config.last_error = "Sync failed"
             config.status = "degraded"  # type: ignore[misc]
             await store.save(config)
             logger.error(f"Integration sync failed for {integration_type}: {e}")
             return json_response(
                 {
                     "success": False,
-                    "error": str(e),
+                    "error": "Internal server error",
                     **sync_result,
                 }
             )

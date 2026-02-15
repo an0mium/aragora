@@ -494,18 +494,18 @@ class SSOHandler(SecureHandler):
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid SSO callback data: {e}")
-            error_msg = str(e)
-            if "DOMAIN_NOT_ALLOWED" in error_msg:
+            error_detail = str(e)
+            if "DOMAIN_NOT_ALLOWED" in error_detail:
                 return self._format_response(
                     handler,
                     error_response(
-                        error_msg,
+                        "Domain not allowed for SSO login",
                         403,
                         code="SSO_DOMAIN_NOT_ALLOWED",
                         suggestion="Contact your administrator to add your domain",
                     ),
                 )
-            if "INVALID_STATE" in error_msg:
+            if "INVALID_STATE" in error_detail:
                 return self._format_response(
                     handler,
                     error_response(
@@ -525,18 +525,18 @@ class SSOHandler(SecureHandler):
             logger.exception(f"Unexpected SSO callback error: {e}")
 
             # Handle specific errors
-            error_msg = str(e)
-            if "DOMAIN_NOT_ALLOWED" in error_msg:
+            error_detail = str(e)
+            if "DOMAIN_NOT_ALLOWED" in error_detail:
                 return self._format_response(
                     handler,
                     error_response(
-                        error_msg,
+                        "Domain not allowed for SSO login",
                         403,
                         code="SSO_DOMAIN_NOT_ALLOWED",
                         suggestion="Contact your administrator to add your domain",
                     ),
                 )
-            elif "INVALID_STATE" in error_msg:
+            elif "INVALID_STATE" in error_detail:
                 return self._format_response(
                     handler,
                     error_response(

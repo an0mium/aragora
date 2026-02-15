@@ -225,7 +225,7 @@ async def run_quick_scan(
     except Exception as e:
         logger.exception(f"[QuickScan] Scan {scan_id} failed: {e}")
         result["status"] = "failed"
-        result["error"] = str(e)
+        result["error"] = "Scan failed"
         result["completed_at"] = datetime.now(timezone.utc).isoformat()
 
     _quick_scan_results[scan_id] = result
@@ -396,7 +396,7 @@ class QuickScanHandler:
         except Exception as e:
             logger.exception(f"Quick scan failed: {e}")
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Quick scan failed"},
                 status=500,
             )
 
@@ -431,7 +431,7 @@ class QuickScanHandler:
         except Exception as e:
             logger.exception(f"Failed to get scan result: {e}")
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve scan result"},
                 status=500,
             )
 
@@ -456,7 +456,7 @@ class QuickScanHandler:
         except Exception as e:
             logger.exception(f"Failed to list scans: {e}")
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to list scans"},
                 status=500,
             )
 

@@ -478,8 +478,8 @@ class RoutingRulesHandler(SecureHandler):
             else:
                 # GET requests and evaluate (read-only operations)
                 self.check_permission(auth_context, "policies.read")
-        except ForbiddenError as e:
-            return {"status": "error", "error": str(e), "code": 403}
+        except ForbiddenError:
+            return {"status": "error", "error": "Permission denied", "code": 403}
 
         # Store auth context for audit logging
         self._auth_context = auth_context

@@ -507,7 +507,7 @@ async def process_file(
 
     except Exception as e:
         logger.error(f"Error processing {filename}: {e}")
-        result["error"] = str(e)
+        result["error"] = "Internal server error"
 
     return result
 
@@ -762,7 +762,8 @@ async def _parse_data_file(
                 "preview": str(data)[:500],
             }
         except json.JSONDecodeError as e:
-            return {"parsed": False, "error": str(e)}
+            logger.warning("JSON parse failed: %s", e)
+            return {"parsed": False, "error": "Internal server error"}
 
     elif ext == ".csv":
         try:
@@ -775,7 +776,8 @@ async def _parse_data_file(
                 "record_count": len(rows),
             }
         except Exception as e:
-            return {"parsed": False, "error": str(e)}
+            logger.warning("CSV parse failed: %s", e)
+            return {"parsed": False, "error": "Internal server error"}
 
     elif ext in (".yaml", ".yml"):
         try:
@@ -1028,7 +1030,7 @@ async def smart_upload(
     except Exception as e:
         logger.error("Smart upload failed for %s: %s", filename, e)
         result.status = "failed"
-        result.error = str(e)
+        result.error = "Internal server error"
 
     return result
 

@@ -446,7 +446,7 @@ class TeamsWorkspaceHandler(SecureHandler):
         except Exception as e:
             logger.warning(f"Teams connection test failed for {tenant_id}: {e}")
             connection_status = "error"
-            error_message = str(e)
+            error_message = "Connection test failed"
 
         result = {
             "status": connection_status,

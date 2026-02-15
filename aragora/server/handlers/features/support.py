@@ -762,7 +762,7 @@ class SupportHandler(SecureHandler):
 
             except Exception as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
-                metrics["platforms"][platform] = {"error": str(e)}
+                metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         return self._json_response(200, metrics)
 

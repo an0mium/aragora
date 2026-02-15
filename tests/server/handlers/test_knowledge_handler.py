@@ -1001,7 +1001,7 @@ class TestKnowledgeMoundExport:
         assert result.status_code == 500
         body = json.loads(result.body)
         assert "error" in body
-        assert "GraphML failed" in body["error"]
+        assert "export failed" in body["error"].lower()
 
     def test_export_d3_depth_clamping(self, mound_handler, mock_http_handler):
         """Test D3 export clamps depth parameter to valid range."""

@@ -573,7 +573,7 @@ class TelegramCommandsMixin:
             record_debate_failed("telegram")
             await self._send_message_async(
                 chat_id,
-                f"Debate failed: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
             )
 
     def _command_gauntlet(
@@ -729,7 +729,7 @@ class TelegramCommandsMixin:
             record_gauntlet_failed("telegram")
             await self._send_message_async(
                 chat_id,
-                f"Gauntlet failed: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
             )
 
     def _command_search(self, query: str) -> str:
@@ -785,7 +785,7 @@ class TelegramCommandsMixin:
             return "Search service temporarily unavailable."
         except Exception as e:
             logger.exception(f"Unexpected search error: {e}")
-            return f"Search failed: {str(e)[:100]}"
+            return "Sorry, an error occurred while processing your request."
 
     def _command_recent(self) -> str:
         """Handle /recent command - show recent debates."""
@@ -821,7 +821,7 @@ class TelegramCommandsMixin:
             return "Recent debates service temporarily unavailable."
         except Exception as e:
             logger.exception(f"Unexpected recent debates error: {e}")
-            return f"Failed to get recent debates: {str(e)[:100]}"
+            return "Sorry, an error occurred while processing your request."
 
     def _command_receipt(self, args: str) -> str:
         """Handle /receipt command - view decision receipt."""
@@ -870,7 +870,7 @@ class TelegramCommandsMixin:
 
         except Exception as e:
             logger.exception(f"Unexpected receipt error: {e}")
-            return f"Failed to get receipt: {str(e)[:100]}"
+            return "Sorry, an error occurred while processing your request."
 
     def _format_receipt(self, receipt_data: dict) -> str:
         """Format a receipt for Telegram display."""

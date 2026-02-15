@@ -279,7 +279,7 @@ class TestHandleAuthErrors:
                 ):
                     result = await handler.handle_post("/api/v1/dashboard/export", {}, mock_http)
                     data = _parse_body(result)
-                    assert "Write denied" in data.get("error", "")
+                    assert "denied" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_handle_post_rate_limited(self, handler):

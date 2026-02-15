@@ -285,7 +285,8 @@ def _check_requirement(requirement: str) -> tuple[bool, str | None]:
     try:
         return check_func()
     except Exception as e:
-        return False, str(e)
+        logger.warning("Requirement check failed: %s", e)
+        return False, "Check failed"
 
 
 # Individual requirement checks

@@ -930,7 +930,7 @@ class AdvertisingHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Error fetching {platform} performance: {e}")
-            return {"platform": platform, "error": str(e)}
+            return {"platform": platform, "error": "Failed to fetch platform performance"}
 
         return {"platform": platform}
 

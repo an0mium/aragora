@@ -367,7 +367,7 @@ class DRHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"DR drill failed: {e}")
             drill_results["success"] = False
-            drill_results["error"] = str(e)
+            drill_results["error"] = "DR drill failed"
 
         end_time = datetime.now(timezone.utc)
         drill_results["completed_at"] = end_time.isoformat()

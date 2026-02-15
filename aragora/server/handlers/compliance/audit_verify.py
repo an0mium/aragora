@@ -244,7 +244,7 @@ class AuditVerifyMixin:
                 "type": "audit_trail",
                 "id": trail_id,
                 "valid": False,
-                "error": str(e),
+                "error": "Trail verification failed",
                 "checked": datetime.now(timezone.utc).isoformat(),
             }
 
@@ -319,7 +319,7 @@ class AuditVerifyMixin:
                 "to": date_range.get("to"),
                 "valid": False,
                 "events_checked": 0,
-                "errors": [str(e)],
+                "errors": ["Date range verification failed"],
             }
 
     async def _fetch_audit_events(

@@ -115,7 +115,7 @@ async def _execute_workflow_async(
                 {
                     "status": "failed",
                     "completed_at": datetime.now(timezone.utc).isoformat(),
-                    "error": str(e),
+                    "error": "Workflow execution failed",
                 }
             )
             store.save_execution(execution)
@@ -384,7 +384,7 @@ class WorkflowTemplatesHandler(BaseHandler):
                 {
                     "status": "failed",
                     "template_id": template_id,
-                    "error": str(e),
+                    "error": "Template execution failed",
                 },
                 status=500,
             )

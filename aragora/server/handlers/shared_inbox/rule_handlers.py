@@ -287,7 +287,7 @@ async def handle_create_routing_rule(
         logger.exception(f"Failed to create routing rule: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -383,7 +383,7 @@ async def handle_list_routing_rules(
         logger.exception(f"Failed to list routing rules: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -614,7 +614,7 @@ async def handle_update_routing_rule(
         logger.exception(f"Failed to update routing rule: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -669,7 +669,7 @@ async def handle_delete_routing_rule(
         logger.exception(f"Failed to delete routing rule: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -732,7 +732,7 @@ async def handle_test_routing_rule(
         logger.exception(f"Failed to test routing rule: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 

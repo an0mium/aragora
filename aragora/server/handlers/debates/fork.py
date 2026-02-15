@@ -140,14 +140,13 @@ class ForkOperationsMixin:
                     PivotClaim,
                 )
             except ImportError as e:
-                import_error_msg = str(e)
                 module_name = getattr(e, "name", None)
                 logger.error("Failed to import counterfactual module: %s", e, exc_info=True)
-                if "counterfactual" in str(module_name or import_error_msg).lower():
+                if "counterfactual" in str(module_name or e).lower():
                     return error_response("Counterfactual forking feature not available", 503)
                 else:
                     return error_response(
-                        f"Internal error loading fork feature: {import_error_msg}", 500
+                        "Internal error loading fork feature", 500
                     )
 
             # Create a pivot claim from the context
@@ -275,14 +274,13 @@ class ForkOperationsMixin:
                     )
             return error_response("Position tracking not configured", 503)
         except ImportError as e:
-            import_error_msg = str(e)
             module_name = getattr(e, "name", None)
             logger.error("Failed to import PositionTracker module: %s", e, exc_info=True)
-            if "truth_grounding" in str(module_name or import_error_msg).lower():
+            if "truth_grounding" in str(module_name or e).lower():
                 return error_response("Position tracking feature not available", 503)
             else:
                 return error_response(
-                    f"Internal error loading position tracker: {import_error_msg}", 500
+                    "Internal error loading position tracker", 500
                 )
 
     @api_endpoint(

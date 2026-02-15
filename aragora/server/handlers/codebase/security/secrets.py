@@ -117,7 +117,7 @@ async def handle_scan_secrets(
                 logger.exception(f"Secrets scan {scan_id} failed: {e}")
                 with secrets_scan_lock:
                     scan_result.status = "failed"
-                    scan_result.error = str(e)
+                    scan_result.error = "Secrets scan failed"
                     scan_result.completed_at = datetime.now(timezone.utc)
 
             finally:

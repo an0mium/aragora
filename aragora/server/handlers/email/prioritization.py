@@ -109,7 +109,7 @@ async def handle_prioritize_email(
         logger.exception(f"Failed to prioritize email: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to prioritize email",
         }
 
 
@@ -180,7 +180,7 @@ async def handle_rank_inbox(
         logger.exception(f"Failed to rank inbox: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to rank inbox",
         }
 
 
@@ -251,5 +251,5 @@ async def handle_email_feedback(
         logger.exception(f"Failed to record feedback: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to record feedback",
         }

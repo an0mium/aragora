@@ -392,7 +392,8 @@ class CrossPollinationKMSyncHandler(BaseHandler):
             except ImportError:
                 results["ranking"] = {"status": "unavailable", "error": "adapter not installed"}
             except Exception as e:
-                results["ranking"] = {"status": "error", "error": str(e)}
+                logger.warning("Ranking adapter sync failed: %s", e)
+                results["ranking"] = {"status": "error", "error": "Ranking sync failed"}
 
             # Sync RlmAdapter
             try:
@@ -417,7 +418,8 @@ class CrossPollinationKMSyncHandler(BaseHandler):
             except ImportError:
                 results["rlm"] = {"status": "unavailable", "error": "adapter not installed"}
             except Exception as e:
-                results["rlm"] = {"status": "error", "error": str(e)}
+                logger.warning("RLM adapter sync failed: %s", e)
+                results["rlm"] = {"status": "error", "error": "RLM sync failed"}
 
             # Flush event batches
             batch_flushed = manager.flush_all_batches()

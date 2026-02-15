@@ -588,7 +588,7 @@ class NotificationsHandler(SecureHandler):
                     loop.close()
         except Exception as e:
             logger.warning("Failed to get recipients for org %s: %s", org_id, e)
-            return json_response({"recipients": [], "error": str(e)})
+            return json_response({"recipients": [], "error": "Internal server error"})
 
         logger.debug("Getting email recipients for org: %s", org_id)
 
@@ -991,7 +991,8 @@ class NotificationsHandler(SecureHandler):
                             "recipient": email.recipients[0].email,
                         }
                     except Exception as e:
-                        results["email"] = {"success": False, "error": str(e)}
+                        logger.warning("Test email send failed: %s", e)
+                        results["email"] = {"success": False, "error": "Internal server error"}
                 else:
                     results["email"] = {"success": False, "error": "No recipients configured"}
             else:
@@ -1030,7 +1031,8 @@ class NotificationsHandler(SecureHandler):
                             loop.close()
                     results["telegram"] = {"success": success}
                 except Exception as e:
-                    results["telegram"] = {"success": False, "error": str(e)}
+                    logger.warning("Test telegram send failed: %s", e)
+                    results["telegram"] = {"success": False, "error": "Internal server error"}
             else:
                 results["telegram"] = {"success": False, "error": "Telegram not configured"}
 
@@ -1095,7 +1097,8 @@ class NotificationsHandler(SecureHandler):
                         "total": len(email.recipients),
                     }
                 except Exception as e:
-                    results["email"] = {"success": False, "error": str(e)}
+                    logger.warning("Email send failed: %s", e)
+                    results["email"] = {"success": False, "error": "Internal server error"}
             else:
                 results["email"] = {
                     "success": False,
@@ -1132,7 +1135,8 @@ class NotificationsHandler(SecureHandler):
                             loop.close()
                     results["telegram"] = {"success": success}
                 except Exception as e:
-                    results["telegram"] = {"success": False, "error": str(e)}
+                    logger.warning("Telegram send failed: %s", e)
+                    results["telegram"] = {"success": False, "error": "Internal server error"}
             else:
                 results["telegram"] = {"success": False, "error": "Telegram not configured"}
 

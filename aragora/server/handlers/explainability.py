@@ -857,7 +857,7 @@ h3 {{ color: #666; }}
                     BatchDebateResult(
                         debate_id=debate_id,
                         status="error",
-                        error=str(e)[:200],
+                        error="Processing failed",
                         processing_time_ms=(time.time() - start_time) * 1000,
                     )
                 )

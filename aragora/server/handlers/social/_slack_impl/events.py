@@ -87,15 +87,15 @@ class EventsMixin(MessagingMixin):
 
         except json.JSONDecodeError as e:
             logger.warning(f"Invalid JSON in Slack event: {e}")
-            self._audit_event_error(team_id, event_type or "unknown", str(e))
+            self._audit_event_error(team_id, event_type or "unknown", "Invalid JSON")
             return json_response({"ok": True})  # Always 200 for events
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid event data: {e}")
-            self._audit_event_error(team_id, event_type or inner_type or "unknown", str(e))
+            self._audit_event_error(team_id, event_type or inner_type or "unknown", "Invalid event data")
             return json_response({"ok": True})  # Always 200 for events
         except Exception as e:
             logger.exception(f"Unexpected events handler error: {e}")
-            self._audit_event_error(team_id, event_type or inner_type or "unknown", str(e))
+            self._audit_event_error(team_id, event_type or inner_type or "unknown", "Internal error")
             return json_response({"ok": True})  # Always 200 for events
 
     def _audit_event_error(self, workspace_id: str, event_type: str, error: str) -> None:
@@ -297,7 +297,7 @@ class EventsMixin(MessagingMixin):
             await self._post_message_async(channel, "Debate service temporarily unavailable")
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid debate request data: {e}")
-            await self._post_message_async(channel, f"Invalid request: {str(e)[:100]}")
+            await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
         except Exception as e:
             logger.exception(f"Unexpected DM debate creation error: {e}")
-            await self._post_message_async(channel, f"Debate failed: {str(e)[:100]}")
+            await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")

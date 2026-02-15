@@ -49,7 +49,7 @@ async def handle_get_context(
         logger.exception(f"Failed to get context: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to get context",
         }
 
 
@@ -118,5 +118,5 @@ async def handle_get_email_context_boost(
         logger.exception(f"Failed to get context boost: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Failed to get context boost",
         }

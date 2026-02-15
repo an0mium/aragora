@@ -995,7 +995,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
 
         except Exception as e:
             result["status"] = "failed"
-            result["error"] = str(e)
+            result["error"] = "Audit failed"
             logger.error(f"[{audit_id}] Audit failed: {e}")
 
         # Update stored result

@@ -186,8 +186,8 @@ class SecureEndpointMixin:
                 try:
                     self.check_permission(auth_context, perm, resource_id)
                     return auth_context, None  # Success on first match
-                except _ForbiddenError as e:
-                    errors.append(str(e))
+                except _ForbiddenError:
+                    errors.append("Permission denied")
 
             # All permissions denied
             return None, _get_error_response()(

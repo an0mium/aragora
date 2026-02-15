@@ -233,7 +233,7 @@ class GDPRMixin:
         except Exception as e:
             logger.exception(f"RTBF request failed for user {user_id}: {e}")
             result["status"] = "failed"
-            result["error"] = str(e)
+            result["error"] = "RTBF request processing failed"
             return json_response(result, status=500)
 
     async def _revoke_all_consents(self, user_id: str) -> int:
@@ -368,7 +368,7 @@ class GDPRMixin:
                 "scheduled_for": scheduled_for.isoformat(),
                 "reason": reason,
                 "status": "scheduled_fallback",
-                "error": str(e),
+                "error": "Scheduler unavailable, using fallback",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
 

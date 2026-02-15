@@ -197,7 +197,7 @@ class SLOHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Failed to get SLO status: {e}")
             return error_response(
-                f"Failed to get SLO status: {str(e)}", 500, code="SLO_STATUS_ERROR"
+                "Internal server error", 500, code="SLO_STATUS_ERROR"
             )
 
     def _handle_slo_detail(self, slo_name: str) -> HandlerResult:
@@ -230,7 +230,7 @@ class SLOHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Failed to get SLO detail for {slo_name}: {e}")
             return error_response(
-                f"Failed to get SLO detail: {str(e)}", 500, code="SLO_DETAIL_ERROR"
+                "Internal server error", 500, code="SLO_DETAIL_ERROR"
             )
 
     def _handle_error_budget(self) -> HandlerResult:
@@ -271,7 +271,7 @@ class SLOHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Failed to get error budget: {e}")
             return error_response(
-                f"Failed to get error budget: {str(e)}", 500, code="ERROR_BUDGET_ERROR"
+                "Internal server error", 500, code="ERROR_BUDGET_ERROR"
             )
 
     def _handle_violations(self) -> HandlerResult:
@@ -306,7 +306,7 @@ class SLOHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Failed to get violations: {e}")
             return error_response(
-                f"Failed to get violations: {str(e)}", 500, code="VIOLATIONS_ERROR"
+                "Internal server error", 500, code="VIOLATIONS_ERROR"
             )
 
     def _handle_targets(self) -> HandlerResult:

@@ -272,11 +272,12 @@ class ReceiptDeliveryHandler(SecureHandler):
                     )
                     created_subscriptions.append(subscription.to_dict())
                 except Exception as e:
+                    logger.warning("Subscription creation failed for %s/%s: %s", channel_type, channel_id, e)
                     errors.append(
                         {
                             "channel_type": channel_type,
                             "channel_id": channel_id,
-                            "error": str(e),
+                            "error": "Internal server error",
                         }
                     )
 
@@ -460,7 +461,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "status": "failed",
                 "timestamp": time.time(),
                 "is_test": True,
-                "error": str(e),
+                "error": "Internal server error",
             }
             self._get_delivery_history_store().append(history_entry)
 
@@ -469,7 +470,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                     "test_successful": False,
                     "channel_type": channel_type,
                     "channel_id": channel_id,
-                    "error": str(e),
+                    "error": "Internal server error",
                 }
             )
 
@@ -547,7 +548,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             }
         except Exception as e:
             logger.warning("%s receipt delivery failed: %s", "Slack", e)
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Internal server error"}
 
     def _send_test_to_teams(
         self, channel_id: str, workspace_id: str | None, message: str
@@ -597,7 +598,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             return {"success": True, "message_id": result.message_id}
         except Exception as e:
             logger.warning("%s receipt delivery failed: %s", "Teams", e)
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Internal server error"}
 
     def _send_test_to_email(self, email_address: str, message: str) -> dict[str, Any]:
         """Send test message via email."""
@@ -626,7 +627,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             return {"success": True, "email_sent_to": email_address}
         except Exception as e:
             logger.warning("%s receipt delivery failed: %s", "Email", e)
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Internal server error"}
 
     def _send_test_to_webhook(self, webhook_url: str, message: str, org_id: str) -> dict[str, Any]:
         """Send test message to webhook."""
@@ -657,7 +658,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             return {"success": False, "error": f"HTTP {resp.status_code}"}
         except Exception as e:
             logger.warning("%s receipt delivery failed: %s", "Webhook", e)
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Internal server error"}
 
     @handle_errors("get delivery stats")
     @require_permission("sme:receipts:deliver")

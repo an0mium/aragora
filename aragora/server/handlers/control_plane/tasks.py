@@ -1048,5 +1048,5 @@ class TaskHandlerMixin:
             return error_response("Deliberation request timed out", 408)
         except Exception as e:
             logger.exception(f"Deliberation failed: {e}")
-            record_deliberation_error(request.request_id, str(e))
+            record_deliberation_error(request.request_id, "Deliberation failed")
             return error_response("Deliberation failed", 500)

@@ -576,7 +576,7 @@ class GmailIngestHandler(SecureHandler):
                     status="failed",
                     progress=0,
                     messages_synced=0,
-                    error=str(e),
+                    error="Sync failed",
                     failed_at=datetime.now(timezone.utc).isoformat(),
                 )
                 loop.run_until_complete(save_sync_job(failed_job))
@@ -584,7 +584,7 @@ class GmailIngestHandler(SecureHandler):
                 # Emit sync error event
                 from aragora.server.stream.inbox_sync import emit_sync_error
 
-                loop.run_until_complete(emit_sync_error(user_id, str(e)))
+                loop.run_until_complete(emit_sync_error(user_id, "Sync failed"))
             finally:
                 loop.close()
 

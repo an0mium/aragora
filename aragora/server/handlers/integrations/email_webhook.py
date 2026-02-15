@@ -81,8 +81,8 @@ class EmailWebhookHandler:
 
         except Exception as e:
             self._error_count += 1
-            self._last_error = str(e)
-            logger.exception("SendGrid webhook error")
+            self._last_error = "Internal server error"
+            logger.exception("SendGrid webhook error: %s", e)
             return error_response("Internal server error", status=500)
 
     async def _handle_sendgrid_inbound(self, request: web.Request) -> HandlerResult:
@@ -150,7 +150,7 @@ class EmailWebhookHandler:
             return json_response(
                 {
                     "status": "error",
-                    "error": str(e),
+                    "error": "Internal server error",
                 },
                 status=202,
             )  # Still return 2xx to prevent retries
@@ -268,8 +268,8 @@ class EmailWebhookHandler:
 
         except Exception as e:
             self._error_count += 1
-            self._last_error = str(e)
-            logger.exception("Mailgun webhook error")
+            self._last_error = "Internal server error"
+            logger.exception("Mailgun webhook error: %s", e)
             return error_response("Internal server error", status=500)
 
     async def handle_ses(self, request: web.Request) -> HandlerResult:
@@ -303,8 +303,8 @@ class EmailWebhookHandler:
             return error_response("Invalid JSON", status=400)
         except Exception as e:
             self._error_count += 1
-            self._last_error = str(e)
-            logger.exception("SES webhook error")
+            self._last_error = "Internal server error"
+            logger.exception("SES webhook error: %s", e)
             return error_response("Internal server error", status=500)
 
     async def _confirm_sns_subscription(self, message: dict[str, Any]) -> HandlerResult:

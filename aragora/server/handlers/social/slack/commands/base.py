@@ -100,13 +100,13 @@ class CommandsMixin:
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in status command: {e}")
             return slack_response(
-                f"Error getting status: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
         except Exception as e:
             logger.exception(f"Unexpected status command error: {e}")
             return slack_response(
-                f"Error getting status: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
 
@@ -179,13 +179,13 @@ class CommandsMixin:
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in agents command: {e}")
             return slack_response(
-                f"Error listing agents: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
         except Exception as e:
             logger.exception(f"Unexpected agents command error: {e}")
             return slack_response(
-                f"Error listing agents: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
 
@@ -247,7 +247,7 @@ class CommandsMixin:
         except Exception as e:
             logger.exception(f"Leaderboard command error: {e}")
             return slack_response(
-                f"Error getting leaderboard: {str(e)[:100]}",
+                "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
 

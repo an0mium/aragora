@@ -733,7 +733,7 @@ class EcommerceHandler(SecureHandler):
 
             except Exception as e:
                 logger.error(f"Error fetching {platform} inventory: {e}")
-                inventory[platform] = [{"error": str(e)}]
+                inventory[platform] = [{"error": "Failed to fetch inventory"}]
 
         return self._json_response(
             200,
@@ -848,7 +848,7 @@ class EcommerceHandler(SecureHandler):
                     f"Error syncing inventory to {platform} "
                     f"(SKU: {sku}, quantity: {quantity}): {type(e).__name__}: {e}"
                 )
-                results[platform] = {"error": str(e)}
+                results[platform] = {"error": "Inventory sync failed"}
 
         return self._json_response(
             200,
@@ -1084,7 +1084,7 @@ class EcommerceHandler(SecureHandler):
 
             except Exception as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
-                metrics["platforms"][platform] = {"error": str(e)}
+                metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
         if metrics["totals"]["total_orders"] > 0:
             metrics["totals"]["average_order_value"] = round(

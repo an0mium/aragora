@@ -490,7 +490,7 @@ class FolderUploadHandler(BaseHandler):
                             job.errors.append(
                                 {
                                     "file": file_info.path,
-                                    "error": str(e),
+                                    "error": "File upload failed",
                                 }
                             )
                             job.updated_at = datetime.now(timezone.utc)
@@ -499,7 +499,7 @@ class FolderUploadHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Folder upload job {folder_id} failed: {e}")
-            self._update_job_error(folder_id, str(e))
+            self._update_job_error(folder_id, "Folder upload failed")
             self._update_job_status(folder_id, FolderUploadStatus.FAILED)
 
     def _update_job_status(self, folder_id: str, status: FolderUploadStatus) -> None:

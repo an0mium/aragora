@@ -503,7 +503,7 @@ class PrivacyHandler(SecureHandler):
             logger.error(f"Account deletion failed: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Account deletion failed",
                 "deletion_id": deletion_id,
                 "data_deleted": data_deleted,
             }

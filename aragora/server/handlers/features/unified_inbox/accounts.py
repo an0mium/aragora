@@ -213,7 +213,8 @@ async def connect_gmail(
         logger.warning("[UnifiedInbox] GmailSyncService not available, using mock mode")
         return {"success": True}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.warning("Gmail connection failed: %s", e)
+        return {"success": False, "error": "Gmail connection failed"}
 
 
 async def connect_outlook(
@@ -325,7 +326,8 @@ async def connect_outlook(
         logger.warning("[UnifiedInbox] OutlookSyncService not available, using mock mode")
         return {"success": True}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        logger.warning("Outlook connection failed: %s", e)
+        return {"success": False, "error": "Outlook connection failed"}
 
 
 async def disconnect_account(

@@ -57,14 +57,14 @@ def handle_store_check_errors(
         logger.warning(f"{store_name} database error: {type(e).__name__}: {e}")
         return {
             "healthy": False,
-            "error": f"{type(e).__name__}: {str(e)[:100]}",
+            "error": "Health check failed",
             "error_type": "database",
         }, False
     except (KeyError, TypeError, AttributeError) as e:
         logger.debug(f"{store_name} data access error: {type(e).__name__}: {e}")
         return {
             "healthy": False,
-            "error": f"{type(e).__name__}: {str(e)[:100]}",
+            "error": "Health check failed",
             "error_type": "data_access",
         }, False
     except ImportError:
@@ -73,9 +73,10 @@ def handle_store_check_errors(
             "status": "module_not_available",
         }, True
     except Exception as e:
+        logger.warning("%s unexpected error: %s", store_name, e)
         return {
             "healthy": False,
-            "error": f"{type(e).__name__}: {str(e)[:100]}",
+            "error": "Health check failed",
         }, False
 
 
