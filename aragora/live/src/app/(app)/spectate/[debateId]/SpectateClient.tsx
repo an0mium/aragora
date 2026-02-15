@@ -289,48 +289,89 @@ export default function SpectateClient() {
             </div>
           )}
 
-          {/* Event Feed */}
+          {/* View Mode Tabs */}
           <div className="border border-acid-green/30 bg-surface/50">
-            {/* Feed Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-acid-green/20 bg-surface/80">
-              <span className="text-xs font-mono text-acid-green">
-                EVENT FEED ({filteredEvents.length} events)
-              </span>
-              <span className="text-xs font-mono text-text-muted">
-                {autoScroll ? 'Auto-scrolling' : 'Scroll paused'}
-              </span>
-            </div>
+            <div className="flex items-center border-b border-acid-green/20 bg-surface/80">
+              {/* Tab buttons */}
+              <div className="flex">
+                {([
+                  { key: 'feed', label: 'FEED' },
+                  { key: 'timeline', label: 'TIMELINE' },
+                  { key: 'summary', label: 'SUMMARY' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setViewMode(tab.key)}
+                    className={`px-4 py-2 text-xs font-mono transition-colors border-b-2 ${
+                      viewMode === tab.key
+                        ? 'text-acid-green border-acid-green bg-acid-green/5'
+                        : 'text-text-muted border-transparent hover:text-text hover:bg-surface/50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-            {/* Event List */}
-            <div
-              ref={eventListRef}
-              className="h-[500px] overflow-y-auto p-4 space-y-2 font-mono text-sm"
-              onScroll={(e) => {
-                const target = e.target as HTMLDivElement;
-                const atBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
-                if (!atBottom && autoScroll) {
-                  setAutoScroll(false);
-                }
-              }}
-            >
-              {filteredEvents.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center text-text-muted">
-                    <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
-                    <p>Waiting for events...</p>
-                  </div>
+              {/* Feed meta (only visible in feed mode) */}
+              {viewMode === 'feed' && (
+                <div className="ml-auto px-4 flex items-center gap-3">
+                  <span className="text-xs font-mono text-acid-green">
+                    {filteredEvents.length} events
+                  </span>
+                  <span className="text-xs font-mono text-text-muted">
+                    {autoScroll ? 'Auto-scrolling' : 'Scroll paused'}
+                  </span>
                 </div>
-              ) : (
-                filteredEvents.map((event, index) => (
-                  <EventLine
-                    key={`${event.timestamp}-${index}`}
-                    event={event}
-                    showTimestamp={showTimestamps}
-                    formatTimestamp={formatTimestamp}
-                  />
-                ))
               )}
             </div>
+
+            {/* Feed View */}
+            {viewMode === 'feed' && (
+              <div
+                ref={eventListRef}
+                className="h-[500px] overflow-y-auto p-4 space-y-2 font-mono text-sm"
+                onScroll={(e) => {
+                  const target = e.target as HTMLDivElement;
+                  const atBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
+                  if (!atBottom && autoScroll) {
+                    setAutoScroll(false);
+                  }
+                }}
+              >
+                {filteredEvents.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-text-muted">
+                      <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+                      <p>Waiting for events...</p>
+                    </div>
+                  </div>
+                ) : (
+                  filteredEvents.map((event, index) => (
+                    <EventLine
+                      key={`${event.timestamp}-${index}`}
+                      event={event}
+                      showTimestamp={showTimestamps}
+                      formatTimestamp={formatTimestamp}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Timeline View */}
+            {viewMode === 'timeline' && (
+              <div className="h-[500px] overflow-y-auto">
+                <TimelineView />
+              </div>
+            )}
+
+            {/* Summary View */}
+            {viewMode === 'summary' && (
+              <div className="h-[500px] overflow-y-auto">
+                <SummaryView />
+              </div>
+            )}
           </div>
 
           {/* Legend */}
