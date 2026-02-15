@@ -417,7 +417,7 @@ export default function Home() {
                     [dismiss]
                   </button>
                 </div>
-                <DebateResultPreview result={pendingDebateResult as DebateResponse} />
+                <DebateResultPreview result={pendingDebateResult as unknown as DebateResponse} />
               </div>
             )}
             <PanelErrorBoundary panelName="Recent Debates">

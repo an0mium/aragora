@@ -6,6 +6,7 @@ handlers_initialized checks from Gap 1 and handler registry.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -38,6 +39,12 @@ def mock_handler():
     return handler
 
 
+def _parse_probe_result(result):
+    """Parse a HandlerResult dataclass into (status_code, body_dict)."""
+    body = json.loads(result.body.decode("utf-8"))
+    return result.status_code, body
+
+
 class TestReadinessProbeStartupCheck:
     """Test startup_complete check in readiness_probe_fast."""
 
@@ -48,15 +55,14 @@ class TestReadinessProbeStartupCheck:
         with patch("aragora.server.unified_server._server_ready", False), \
              patch.dict("os.environ", {}, clear=True):
             result = readiness_probe_fast(mock_handler)
-            assert result["status"] == 503
-            body = result["body"]
+            status, body = _parse_probe_result(result)
+            assert status == 503
             assert body["checks"]["startup_complete"] is False
 
     def test_returns_200_after_startup(self, mock_handler):
         """readiness_probe_fast should return 200 when server is ready."""
         from aragora.server.handlers.admin.health.kubernetes import readiness_probe_fast
 
-        # Also need route index to have entries
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {"/health": ("_h", None)}
 
@@ -67,8 +73,8 @@ class TestReadinessProbeStartupCheck:
              ), \
              patch.dict("os.environ", {}, clear=True):
             result = readiness_probe_fast(mock_handler)
-            assert result["status"] == 200
-            body = result["body"]
+            status, body = _parse_probe_result(result)
+            assert status == 200
             assert body["checks"]["startup_complete"] is True
 
     def test_graceful_import_failure(self, mock_handler):
@@ -83,9 +89,8 @@ class TestReadinessProbeStartupCheck:
                  "aragora.server.handler_registry.core.get_route_index",
                  return_value=route_index_mock,
              ):
-            # Even if unified_server import works, verify the check is included
             result = readiness_probe_fast(mock_handler)
-            body = result["body"]
+            _, body = _parse_probe_result(result)
             assert "startup_complete" in body["checks"]
 
 
@@ -106,8 +111,8 @@ class TestReadinessProbeHandlerCheck:
              ), \
              patch.dict("os.environ", {}, clear=True):
             result = readiness_probe_fast(mock_handler)
-            assert result["status"] == 503
-            body = result["body"]
+            status, body = _parse_probe_result(result)
+            assert status == 503
             assert body["checks"]["handlers_initialized"] is False
 
     def test_returns_200_when_routes_populated(self, mock_handler):
@@ -127,8 +132,8 @@ class TestReadinessProbeHandlerCheck:
              ), \
              patch.dict("os.environ", {}, clear=True):
             result = readiness_probe_fast(mock_handler)
-            assert result["status"] == 200
-            body = result["body"]
+            status, body = _parse_probe_result(result)
+            assert status == 200
             assert body["checks"]["handlers_initialized"] is True
 
     def test_both_checks_present_in_response(self, mock_handler):
@@ -145,6 +150,6 @@ class TestReadinessProbeHandlerCheck:
              ), \
              patch.dict("os.environ", {}, clear=True):
             result = readiness_probe_fast(mock_handler)
-            body = result["body"]
+            _, body = _parse_probe_result(result)
             assert "startup_complete" in body["checks"]
             assert "handlers_initialized" in body["checks"]

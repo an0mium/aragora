@@ -1,16 +1,289 @@
 # Changelog
 
 
-## [Unreleased]
+## [Unreleased] - since v2.7.4
 
-### CI/CD Fixes
-- Security scanner: `# nosec` inline suppression for false positives, `calculate_summary()` excludes suppressed findings
-- Gauntlet workflow: `paths-ignore` skips docs-only PRs; 1 critical + 3 high routes to NEEDS_REVIEW instead of auto-REJECT
-- Redis Sentinel: created `deploy/redis/` config files (master, replica, sentinel); sentinel mounts now writable
-- Security scanner CI step fails directly instead of two-step continue-on-error pattern
-- Removed double failure masking (`continue-on-error` + `|| true`) in test analysis CI job
-- Fixed gauntlet orchestrator test failures (15 tests) by adding pipeline-mode phase methods
-- Fixed ruff E741 lint violations in `aragora/agents/devops/agent.py`
+### Added
+- **RLM deep integration:** Three-tier Recursive Language Model integration across debate, memory, and knowledge subsystems (182 new tests)
+- **Business decision templates:** Pre-built deliberation templates for hiring, vendor selection, budget allocation, and strategy decisions
+- **Budget-aware team selection:** Arena team selector now factors per-debate cost estimates into agent selection, with configurable budget caps
+- **CLI `--template` and `--mode` flags:** The `decide` command supports `--template` for pre-built decision workflows and `--mode` for operational presets
+- **CLI `--spectate` and `--preset` arguments:** Real-time debate observation and quick-start configuration from the command line
+- **Cross-debate knowledge manager:** Injects prior claims and institutional knowledge from previous debates into new sessions
+- **EU AI Act compliance REST API:** Expose Article 12/13/14 compliance artifacts via HTTP endpoints with SDK support in Python and TypeScript
+- **Cross-pollination audit and compliance drift monitor:** Detect compliance drift across workspaces with automated cross-pollination auditing
+- **SME enhancement sprint:** Cross-pollination templates, SME-specific KPIs, integration health monitoring, and improved dashboard experience
+- **Expanded workflow engine:** Decision template support with 7-node DAG for SME workflows, webhook dispatch bridge, and fallback strategies
+- **40+ new handler endpoints:** Comprehensive server-side coverage for analytics, billing, orchestration, skills, feedback, and pipeline lifecycle
+- **Auto-explain and budget runway:** Automatic explanation generation for debate outcomes, cost estimation improvements, and budget runway tracking
+- **Notification system expansion:** Budget alerts, cost anomaly notifications, circuit breaker state notifications, and per-debate budget coordination
+- **Email triage rules engine:** Configurable email triage with priority classification and routing rules
+- **Pipeline lifecycle events:** Execution start/complete/fail events for decision pipeline stages with feedback handlers
+- **Event schema expansion:** New event types for cross-subscriber coordination and startup health checks
+- **Selection feedback loop:** `SelectionFeedbackLoop` wired into `TeamSelector` scoring and Arena cost tracking with health registry integration
+- **Agent feedback handler:** Dedicated handler for agent performance feedback with debate integration tests
+- **Memory tier events:** Event emission on memory tier transitions with workflow fallback strategies
+- **Autotuner wiring:** Budget-aware autotuner connected to argument graph endpoint and Knowledge Mound workflow storage
+- **Circuit breaker expansion:** 120 new tests covering circuit breaker patterns across debate, pipeline, and handler subsystems
+- **Progressive navigation:** New UI navigation mode with landing page call-to-action for improved onboarding
+- **Financial and legal vertical demos:** Example scripts demonstrating vertical-specific debate configurations for finance and legal use cases
+- **Privacy anonymization protocol flag:** Debate presets now support `enable_anonymization` for PII-safe debates
+- **Billing CLI operations:** New CLI commands for billing management with demo mode improvements
+- **Transcription handler coverage:** Full test coverage for audio transcription endpoints
+
+### Changed
+- **SDK voice namespace:** Removed stale voice namespace and re-wired into sync/async clients with proper gateway methods
+- **SDK parity:** Added missing methods for analytics, skills, voice, `getAgentCosts`, and `getCostAnomalies` to `AragoraClient`
+- **TypeScript SDK namespaces:** Expanded belief, pulse, and OpenAPI namespaces for TypeScript SDK
+- **Analytics dashboard:** Extended billing routes and cost breakdown endpoints
+- **Handler path parsing:** Corrected `extract_path_param` segment indexes across 6 handlers; fixed gastown dashboard versioned path stripping
+- **Repository DELETE path:** Fixed path parsing for repository deletion endpoints (+ 222 handler tests)
+- **Narrowed exception handlers:** Replaced broad `except Exception` with specific types across debate, memory, knowledge, events, and workflow modules
+- **IterableTTLCache:** Added `__len__` and `clear()` methods for proper cache lifecycle management
+- **OpenAPI spec:** Regenerated with 369 missing TypeScript SDK endpoint stubs re-added; eliminated SDK contract drift (py=0, ts=0)
+- **Skip baseline:** Reduced from ~190 to current level through systematic removal of vestigial skip guards across JWT, Z3, WhatsApp, evolution, and relationship tests
+
+### Fixed
+- **Prometheus metric re-registration:** Prevent duplicate metric registration errors on server restart
+- **Revoked token detection:** Optimized `_decrypt_token` to short-circuit on revoked tokens in storage layer
+- **Persistence timestamps:** Fixed timezone-aware datetime handling to prevent comparison errors in receipt verification
+- **Cost anomaly budget enforcement:** Budget limits now properly enforced on cost anomaly detection
+- **Trace context type checks:** Hardened type validation for distributed trace context propagation
+- **Compliance monitor cleanup:** Fixed consensus stress test improvements and monitor lifecycle
+- **Cost/breakdown stub:** Re-added missing response stub for analytics dashboard cost breakdown endpoint
+- **Webhook delivery isolation:** Fixed test isolation for webhook delivery and secrets rotation
+- **Operator compilation:** Added generated DeepCopy methods for CRD types and missing `resource` import for Go compilation
+- **Frontend API proxy:** Added Cloudflare Pages Function proxy for `/api/*` routes
+- **EC2 deployment:** Fixed deployment to target ALL EC2 instances, not just the first per environment
+- **aragora-debate packaging:** Packaging hygiene fixes for sdist readiness
+- **Memory store:** Fixed prior claims context test cleanup and memory store lifecycle
+- **Gauntlet determinism:** Cancellation and timeout tests now deterministic instead of timing-dependent
+
+### Security
+- **RBAC enforcement:** Added permission decorators to 8 previously unprotected handler endpoints (4+4 batches)
+- **RBAC mutation handlers:** Enforcement added to 5 mutation handlers with 8 read-only endpoints allowlisted
+- **Backend Dockerfile hardening:** Non-root user, minimal layers, and security-focused self-hosted configuration
+- **Trivy scan:** Made config scan non-blocking on all branches to prevent false-positive CI failures
+
+### Infrastructure
+- **SSM-based health check:** Deployment health checks migrated from HTTP polling to AWS SSM commands
+- **PyPI publishing:** Switched from OIDC trusted publishing to API token authentication
+- **OpenAPI regeneration pipeline:** Automated spec + types regeneration integrated into CI
+- **Ruff formatting:** Applied formatting across 232 files with 18 violations fixed; removed unused imports and variables
+- **SDK contract drift:** Eliminated drift to py=0, ts=0, missing=1 baseline
+
+### Tests
+- **179 handler tests:** New coverage for workflow_templates, marketplace, and moderation handlers
+- **135 handler subsystem tests:** Coverage for interface, registry, and metrics subsystems
+- **132+ handler infrastructure tests:** Generic rate limiter cleanup and infrastructure test expansion
+- **120 circuit breaker tests:** Expanded coverage across debate and pipeline subsystems
+- **222 handler tests:** Added alongside repository DELETE path fix
+- **E2E smoke test:** Gauntlet receipt channel routing end-to-end validation
+- **Centralized RBAC bypass:** Unified E2E conftest auth bypass, simplifying receipt, MFA, and tournament test setup
+- **Test isolation improvements:** Fixed rate limiter pollution, encryption singleton cross-contamination, env variable leakage, and SyncStore stale DB issues across dozens of test files
+
+---
+
+## [v2.7.4] - 2026-02-14
+
+### Added
+- **LiftMode deployment configuration:** Production deployment support for LiftMode infrastructure
+- **185 Python SDK endpoint methods:** Closed coverage gaps across stable endpoint surface
+- **SDK namespace expansion:** Python SDK devops, routing, oauth_wizard, rbac, and repository namespaces; TypeScript parity across 9 handler namespaces plus admin, agents, and receipts
+- **A/B debate quality benchmark pipeline:** Evaluation framework for comparing debate quality across configurations
+
+### Changed
+- **Exception handler narrowing:** Replaced 70+ broad `except Exception` catches with specific types across security, CLI, metrics, verticals, knowledge, debate, config, skills, documents, rules, and nomic modules
+- **OpenAPI spec:** Added 119 missing handler routes (drift reduced from 120 to 1); corrected HTTP methods across 56 TypeScript SDK namespaces
+- **SDK pruning:** Removed 1,888 lines of stale SDK methods; pruned stale TypeScript namespace methods
+- **Timezone-aware datetimes:** Sync models now use timezone-aware datetimes to prevent comparison errors
+
+### Fixed
+- **Session store hardening:** Token index fixes, config validator improvements, SAML auth edge cases, and admin handler robustness
+- **RLM dependency:** Replaced git URL dependency with PyPI version; removed non-PyPI rlm from extras
+- **Gauntlet datetime mismatch:** Fixed timezone mismatch in gauntlet timestamp comparisons
+- **Empty bearer token validation:** Reject empty bearer tokens instead of passing them through
+- **CrewAI/Asana logger conflicts:** Renamed `process` and `name` extra keys to avoid Python `LogRecord` attribute conflicts
+- **RLM empty source_nodes:** Guard against empty `source_nodes` in `_compress_level` to prevent crashes
+- **success_response deprecation:** Now correctly emits `DeprecationWarning` as documented
+- **Docker:** Restored `node:20-alpine` base for Next.js >= 20.9.0 requirement; fixed package-lock.json copy issues
+- **CI stability:** Added `ARAGORA_OFFLINE` env to prevent network calls in tests; increased debate shard timeout to 35 minutes; widened test reruns for flaky isolation issues
+
+### Security
+- **Pentest findings:** Addressed remaining findings H-2, M-1 through M-4 from security assessment
+- **Test auth hook:** Tightened to only bypass auth on fallback paths, preventing accidental auth bypass in production code paths
+
+---
+
+## [v2.7.3] - 2026-02-13
+
+### Fixed
+- **Session store token index:** Fixed token indexing in session store for correct lookup behavior
+- **Security nosec annotations:** Added targeted `# nosec` annotations for verified false positives
+- **Version alignment:** Bumped version to 2.7.3 across all package sources
+
+---
+
+## [v2.7.2] - 2026-02-13
+
+### Added
+- **OpenClaw next-steps scanner:** Automated scanner that identifies actionable next steps from PR reviews, with TypeScript SDK namespace expansion
+- **SDK 100% parity:** Closed remaining SDK parity gaps between Python and TypeScript clients
+- **GitHub issue templates:** Standardized bug report and feature request templates
+- **Nightly CI:** Added nightly CI workflow for extended test suite execution
+- **Zero-config guarantee specification:** Documented the "just works" promise for default configurations
+
+### Changed
+- **CLI lazy imports:** Inlined testfixer parser to eliminate 2.3-second import cascade; lazy imports for CLI parser modules
+- **RBAC default-deny:** Middleware now defaults to deny instead of allow for unrecognized routes
+- **Cloudflare Pages:** Replaced Vercel config with Cloudflare Pages headers and redirects
+
+### Fixed
+- **Auth and permission checks:** Added to plans and consensus handlers that were previously unprotected
+- **SDK parity checker:** Improved wildcard prefix matching for more accurate parity reporting
+- **Grafana dashboards:** Corrected volume path in production Docker Compose
+- **Frontend Dockerfile:** Resolved local SDK path reference in Docker build context
+- **Test collection:** Added `__init__.py` to 54 test subdirectories to prevent pytest collection errors
+- **PyPI publishing:** Stabilized between API token and trusted publishing approaches
+- **SDK integrations:** Added `get_slack_status` and fixed v1 API paths in integrations namespace
+
+---
+
+## [v2.7.1] - 2026-02-13
+
+### Added
+- **SARIF export for PR review runner:** OpenClaw review runner now exports findings in SARIF 2.1.0 format for GitHub integration
+- **SDK namespace expansion:** Added autonomous, computer_use, workflow, gmail, learning, shared_inbox, audit, graph debates, workspace, and security debate methods across Python and TypeScript SDKs
+- **Docker zero-install quickstart:** Step-by-step guide for running Aragora with zero local dependencies
+- **A/B debate quality benchmark:** Evaluation pipeline for comparing debate configurations
+
+### Changed
+- **SDK pruning:** Removed stale SDK methods and test files that duplicated the main test suite; pruned stale TypeScript integrations namespace methods
+- **OpenAPI cleanup:** Removed 86 orphaned routes from OpenAPI spec
+
+### Fixed
+- **Consensus quorum:** Fixed quorum calculation in synthesis `final_answer` and receipt handler improvements
+- **Password validation:** Simplified validation logic and fixed stream server test subscriptions
+- **Finetuning adapter:** Ensured adapter save directory exists before writing configuration
+- **Demo Dockerfile:** Removed reference to nonexistent `setup.cfg` in COPY instruction
+- **Silent exceptions:** Added logging for previously silent exceptions in executor and server modules
+
+### Security
+- **XSS in password reset:** Fixed cross-site scripting vulnerability in password reset email templates
+- **Insecure password blocking:** Production environments now reject commonly-used insecure passwords
+- **Lockout warning:** Account lockout warnings only shown in production mode
+
+---
+
+## [v2.7.0] - 2026-02-13
+
+This is a major release consolidating 4+ months of development across the entire platform.
+
+### Added
+- **External agent gateway:** Secure orchestration gateway for external AI agents with SSRF safeguards, CSRF middleware, and expanded CORS configuration
+- **OpenClaw gateway:** Standardized HTTP client pooling, deployment configs, full test suite, and Phase 3 production hardening with device runtime
+- **ERC-8004 blockchain integration:** Agent identity and reputation registries on-chain, with control plane integration and Proof of Calibration
+- **OAuth account linking:** Microsoft, Apple, and OIDC provider account linking support
+- **Supermemory:** Cross-session external memory connector and Knowledge Mound adapter
+- **Decision integrity pipeline:** Full pipeline from `DecisionMemo` through `PatchPlan` to PR generation with unified routing, evidence context, and knowledge connectors
+- **Computer use execution mode:** `computer_use` execution mode for workflow approval overrides
+- **Agent learning modules:** Curriculum learning, power sampling, and continual learning with Nested Learning paradigm
+- **n8n/Linear/Obsidian integrations:** MCP server tools for external tool integration
+- **Workspace invitations:** Email-based invitation management for workspace collaboration
+- **Bot handler enhancements:** Search, recent, and receipt commands for Telegram and WhatsApp; attachment forwarding to DecisionRouter
+- **Spectate Mode UI:** Real-time debate observation components
+- **Moderation Dashboard:** Content safety monitoring interface
+- **Argument Cartography:** Visualization components for argument mapping and logic flows
+- **Sandbox Code Execution UI:** Interface for Docker-based safe code execution
+- **Marketplace page:** UI component for skill and template marketplace browsing
+- **Context budgeter:** Token estimation, truncation, and scaling for prompt construction
+- **FastAPI v2 migration:** Receipts, gauntlet, and agents endpoints migrated to FastAPI v2
+- **Tiered handler loading:** Selective handler loading for lightweight startup profiles
+- **Leader election tests:** Distributed coordination testing with RBAC hardening and CNPG backups
+- **Redis cluster support:** Rate limiting infrastructure with Redis cluster backend
+- **LangExtract KM adapter:** Knowledge Mound adapter for LangChain extraction results (350 LOC, 35 tests)
+- **Self-improvement pipeline:** Gold path from design through implementation to verification
+- **Server `--offline` flag:** Sets `ARAGORA_OFFLINE` + `DEMO_MODE` + SQLite backend for air-gapped operation
+- **Vertical weight profiles:** 7 domain-specific profiles (healthcare HIPAA/clinical, financial audit/risk, legal contract/due diligence, compliance SOX)
+- **Vertical rubrics:** Domain-specific rubric sets for healthcare, financial, and legal verticals
+- **Skill malware scanner:** AST-based static analysis with CLI (`aragora skills scan`), severity levels (SAFE/SUSPICIOUS/DANGEROUS)
+- **Verified-only marketplace:** Publisher enforcement requiring security scan before marketplace listing
+- **Review-to-receipt bridge:** `DecisionReceipt.from_review_result()` for audit trail generation from code reviews
+- **SARIF and Gauntlet CLI flags:** `--sarif` for SARIF 2.1.0 export, `--gauntlet` for adversarial stress-testing on `aragora review`
+- **Autonomous PR code review runner:** OpenClaw-powered automated PR review with multi-agent code analysis
+- **Full-stack demo compose:** Docker Compose with frontend and PR reviewer setup
+- **One-click demo deployment:** Self-contained Docker Compose for instant evaluation
+- **Alertmanager wiring:** Queue SLO alerts routed to alertmanager
+- **12+ Python SDK namespaces:** Added orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, explainability, and more
+- **TypeScript SDK pagination:** Pagination support and error handling improvements
+- **API stability tracking:** Stability manifest covering 80.6% of endpoints (829/1029)
+- **Grafana reference dashboards:** 3 dashboards covering business metrics, SLO, and infrastructure
+- **E2E server smoke tests:** Real HTTP endpoint testing with comprehensive validation
+
+### Changed
+- **Arena config objects:** Individual supermemory/knowledge/evolution/ML params deprecated in favor of `SupermemoryConfig`, `KnowledgeConfig`, `EvolutionConfig`, `MLConfig` config groups
+- **Arena `create()` classmethod:** New factory method with deprecation warnings for legacy parameter style
+- **Debate defaults centralized:** All debate entrypoints share unified default configuration
+- **Exception handler hygiene:** Eliminated ALL bare `except Exception: pass` handlers across the entire codebase; replaced with specific exception types and proper logging
+- **Connector timeout guards:** 50+ `while True` loops bounded with `for _page in range(_MAX_PAGES)` across 31 connector files
+- **SDK pruning:** Removed 2,952+ lines of stale SDK methods across 8 namespaces; pruned methods without backend route coverage
+- **942 unused imports removed:** Codebase-wide cleanup via automated analysis
+- **Nomic Loop depth limits:** `max_depth=3` enforced on task decomposer to prevent runaway recursion
+- **Handler store migration:** 9 handler stores migrated to `LazyStoreFactory`/`LazyStore` pattern
+- **V1 API sunset preparation:** Deprecation enforcer middleware, versioned router, and migration guide
+- **Fast-first speed policy:** New debate speed policy prioritizing time-to-first-result
+- **Knowledge Mound adapter enforcement:** `adapter_name` enforced via `__init_subclass__` (Phase 2)
+- **Nomic stores async IO:** Migrated to async file I/O for bead and convoy stores
+- **OpenAPI spec:** Expanded to 2,234 operations across 1,867 paths with 97+ SDK-covered endpoints in stability manifest
+- **Skip baseline reduction:** From 425 to under 200 through systematic skip guard removal and xfail conversion
+- **File decomposition:** Split type_protocols, notifications/service, integration_store, and usage_metering into focused modules
+
+### Fixed
+- **Login form rendering:** Render directly at `/login` instead of redirecting
+- **Prometheus metrics:** Safe registration preventing duplicates across all metrics modules
+- **Redis ConnectionError:** Caught `redis.exceptions.ConnectionError` in all fallback handlers and config validator
+- **Circular imports:** TYPE_CHECKING guards added for control_plane/testfixer and SDK deprecation chains
+- **Flaky leader election:** Singleton `_regional_leader_election` reset fixture prevents cross-test pollution
+- **CLI review bug:** Local `import json` inside `elif` branch no longer shadows module-level import in SARIF export
+- **Skill registry:** `replace=True` now correctly clears old `_validation_warnings`
+- **OAuth token leak:** Fixed token exposure in URL parameters
+- **Frontend login:** Proper OAuth error handling and login form UX improvements
+- **Cloudflare Pages:** Added `/docs` redirect and sitemap.xml for SEO
+- **Version alignment:** All package versions synchronized across Python, TypeScript, and docs-site packages
+
+### Security
+- **RBAC fail-closed guards:** Added to 17+ handler modules including bots, connectors, Slack user management, workflows, and codebase security
+- **JWT fail-closed validation:** Strengthened validation behavior in authentication module
+- **CSRF middleware:** Added with expanded CORS configuration
+- **CSP headers:** Enhanced Content Security Policy with security audit scripts
+- **OpenClaw audit findings:** Closed all 13 findings (F01-F11) including auth, key management, and rate limiting
+- **3 MEDIUM findings fixed:** F05, F06, F08 from security assessment
+- **API key rotation:** Rotation mechanism with RBAC CI verification
+- **Hardened auth defaults:** Environment variable defaults, token validation dev mode fallbacks, and traceback suppression
+- **Path validation and SSRF:** Hardened path validation and SSRF checks across gateway endpoints
+- **Approval enforcement:** Unified with audit trail tracking
+
+### Infrastructure
+- **Kubernetes operator:** Go operator with CRD types, DeepCopy methods, and dependency management
+- **Docker Compose stacks:** Full-stack demo, self-hosted production, and one-click evaluation configurations
+- **Lightsail SSH deployment:** AWS Lightsail deployment workflow for production
+- **Helm security scan:** Added dependency build before Trivy scan
+- **CI security pipeline:** 6-job workflow (CodeQL, Bandit, Scanner, dependency audit, RBAC, secrets)
+- **Randomized test ordering:** CI runs with 3 seeds (12345, 54321, 99999) to detect order-dependent failures
+- **Offline smoke CI:** Test suite runs in offline mode to verify air-gapped operation
+- **Agent registry sync:** CI gate for agent count consistency
+- **K8s consolidation:** `deploy/k8s/` merged into `deploy/kubernetes/`
+- **Direnv setup:** `.envrc` for automatic secret loading with documented `.env` safety model
+- **PyPI readiness:** `aragora-debate` v0.2.0 built, twine-checked, with publishing workflow
+
+### Tests
+- **136,000+ tests** across 3,000+ test files (up from 129,000+)
+- **1,500+ control plane tests** passing
+- **4,300+ Knowledge Mound tests** passing
+- **1,000+ Pulse tests** passing
+- **Skip baseline reduced:** From 425 to under 200 through systematic analysis
+- **Dead code deletion:** 17 modules (9,673 lines) + 10 orchestrator shims (638 lines) removed
+- **Wired-in modules:** 10 previously test-only modules now exported from package `__init__.py`
 
 ### aragora-debate v0.2.0
 - Evidence quality analysis (regex-based citation, data, reasoning detection)
@@ -20,38 +293,9 @@
 - Cross-proposal analysis (shared evidence, contradictions, evidence gaps)
 - Event/callback system (sync+async `EventEmitter`, 10 event types)
 - Mistral and Gemini provider agents (optional deps)
+- Reference Claude and OpenAI agents with integration guide
+- High-level `Debate` API and `MockAgent` for testing
 - CLI `--trickster` and `--convergence` flags
-
-### Features
-- SDK `from_env()` factory for `AragoraClient` and `AragoraAsyncClient`
-- Token rotation CLI (`aragora security rotate-token/list-tokens/verify-token`)
-- OpenClaw standalone gateway body size and header count limits
-- OTLP protocol/headers configuration and connectivity health checks
-- Self-hosted production stack with installer script
-- API v1 to v2 migration guide with sunset timeline
-- aragora-debate CI test gate and PyPI publishing workflow
-- 34 new RBAC route permissions (auditing, belief, billing, consensus, etc.)
-
-### Security
-- Webhook verification defaults to production (fail-closed) when `ARAGORA_ENV` unset
-- Telegram connector rejects webhooks without `TELEGRAM_WEBHOOK_SECRET` in production
-- JWT insecure mode warnings in startup validation
-- OAuth rate limiting with exponential backoff and per-endpoint limits
-
-### Bug Fixes
-- OAuth rate limiter fixture uses `reset_oauth_limiter()` (API changed from `_buckets`)
-- Convergence cache patch target fixed (`convergence.cache.MAX_SIMILARITY_CACHES`)
-- Impersonation test fixture disables persistence (prevents flaky failures)
-- Token rotation `stores_override` uses `is not None` (allows empty list)
-- Live UI: removed unused auth destructuring from 8 components
-
-### Infrastructure
-- Arena refactoring: extracted factory and init helpers
-- Deprecation enforcer middleware enhanced
-- TypeScript SDK migrated to ESLint 9 flat config
-- EU AI Act compliance artifacts (Articles 12, 13, 14 with SHA-256 integrity)
-- Contract parity tests (TypeScript OpenClaw SDK 22/22 endpoints)
-- Blockchain 501 stubs upgraded to full implementation (8 endpoints, 45 tests)
 
 ---
 
