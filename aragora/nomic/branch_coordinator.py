@@ -128,9 +128,7 @@ class BranchCoordinator:
         self.config = config or BranchCoordinatorConfig()
         self.on_conflict = on_conflict
         self._active_branches: list[str] = []
-        self._worktree_dir = (
-            self.config.worktree_base_dir or self.repo_path / ".worktrees"
-        )
+        self._worktree_dir = self.config.worktree_base_dir or self.repo_path / ".worktrees"
         # Map branch name -> worktree path
         self._worktree_paths: dict[str, Path] = {}
         # Map branch name -> WorktreeInfo metadata
@@ -140,6 +138,7 @@ class BranchCoordinator:
         if self.config.enable_semantic_conflicts and semantic_conflict_detector is None:
             try:
                 from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+
                 self.semantic_conflict_detector = SemanticConflictDetector(self.repo_path)
             except ImportError:
                 logger.debug("SemanticConflictDetector not available")
@@ -148,7 +147,9 @@ class BranchCoordinator:
         """Enter async context manager."""
         return self
 
-    async def __aexit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any) -> None:
+    async def __aexit__(
+        self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> None:
         """Exit async context manager, cleaning up all worktrees."""
         self.cleanup_all_worktrees()
 
@@ -164,7 +165,10 @@ class BranchCoordinator:
         )
 
     def _worktree_git(
-        self, worktree_path: Path, *args: str, check: bool = True,
+        self,
+        worktree_path: Path,
+        *args: str,
+        check: bool = True,
     ) -> subprocess.CompletedProcess:
         """Run a git command in a worktree directory."""
         cmd = ["git"] + list(args)
@@ -222,10 +226,10 @@ class BranchCoordinator:
         for line in result.stdout.split("\n"):
             line = line.strip()
             if line.startswith("worktree "):
-                current_path = Path(line[len("worktree "):])
+                current_path = Path(line[len("worktree ") :])
                 current_branch = None
             elif line.startswith("branch refs/heads/"):
-                current_branch = line[len("branch refs/heads/"):]
+                current_branch = line[len("branch refs/heads/") :]
             elif line == "" and current_path is not None and current_branch is not None:
                 tracked = self._active_worktrees.get(current_branch)
                 if tracked:
@@ -340,14 +344,21 @@ class BranchCoordinator:
             else:
                 # Add worktree for existing branch
                 self._run_git(
-                    "worktree", "add", str(worktree_path), branch_name,
+                    "worktree",
+                    "add",
+                    str(worktree_path),
+                    branch_name,
                     check=False,
                 )
         else:
             # Create new branch with worktree in one command
             self._run_git(
-                "worktree", "add", "-b", branch_name,
-                str(worktree_path), base,
+                "worktree",
+                "add",
+                "-b",
+                branch_name,
+                str(worktree_path),
+                base,
             )
             logger.info(f"Created worktree branch: {branch_name} at {worktree_path}")
 
@@ -603,7 +614,8 @@ class BranchCoordinator:
         if self.semantic_conflict_detector and branches:
             try:
                 semantic_conflicts = self.semantic_conflict_detector.detect(
-                    branches, self.config.base_branch,
+                    branches,
+                    self.config.base_branch,
                 )
                 for sc in semantic_conflicts:
                     if sc.confidence > 0.7:
@@ -686,9 +698,7 @@ class BranchCoordinator:
                 # No checkout needed -- worktree is already on the branch
                 worktree_path = self.get_worktree_path(assignment.branch_name)
                 if worktree_path:
-                    logger.info(
-                        f"Running assignment in worktree: {worktree_path}"
-                    )
+                    logger.info(f"Running assignment in worktree: {worktree_path}")
             else:
                 # Legacy: checkout the branch in main repo
                 self._run_git("checkout", assignment.branch_name)

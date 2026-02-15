@@ -304,7 +304,15 @@ async def handle_upload_invoice(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error processing invoice")
         return error_response("Invoice processing failed", status=500)
@@ -390,7 +398,15 @@ async def handle_create_invoice(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error creating invoice")
         return error_response("Invoice creation failed", status=500)
@@ -473,7 +489,15 @@ async def handle_list_invoices(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error listing invoices")
         return error_response("Failed to list invoices", status=500)
@@ -506,7 +530,15 @@ async def handle_get_invoice(
         cb.record_success()
         return success_response({"invoice": invoice.to_dict()})
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error getting invoice")
         return error_response("Failed to retrieve invoice", status=500)
@@ -555,7 +587,15 @@ async def handle_approve_invoice(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error approving invoice")
         return error_response("Invoice approval failed", status=500)
@@ -599,7 +639,15 @@ async def handle_reject_invoice(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error rejecting invoice")
         return error_response("Invoice rejection failed", status=500)
@@ -634,7 +682,15 @@ async def handle_get_pending_approvals(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error getting pending approvals")
         return error_response("Failed to retrieve pending approvals", status=500)
@@ -679,7 +735,15 @@ async def handle_match_to_po(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error matching invoice to PO")
         return error_response("Invoice matching failed", status=500)
@@ -724,7 +788,15 @@ async def handle_get_anomalies(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error detecting anomalies")
         return error_response("Anomaly detection failed", status=500)
@@ -853,7 +925,15 @@ async def handle_get_scheduled_payments(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error getting scheduled payments")
         return error_response("Failed to retrieve scheduled payments", status=500)
@@ -937,7 +1017,15 @@ async def handle_create_purchase_order(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error creating purchase order")
         return error_response("Purchase order creation failed", status=500)
@@ -972,7 +1060,15 @@ async def handle_get_invoice_stats(
         cb.record_success()
         return success_response({"stats": stats})
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error getting invoice stats")
         return error_response("Failed to retrieve invoice statistics", status=500)
@@ -1008,7 +1104,15 @@ async def handle_get_overdue_invoices(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (
+        ImportError,
+        KeyError,
+        ValueError,
+        TypeError,
+        OSError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         cb.record_failure()
         logger.exception("Error getting overdue invoices")
         return error_response("Failed to retrieve overdue invoices", status=500)

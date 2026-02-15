@@ -1377,7 +1377,9 @@ class ReceiptsHandler(BaseHandler):
                     signed_count += 1
                 except (ValueError, TypeError, OSError) as e:
                     logger.warning("Failed to sign receipt %s: %s", receipt_id, e)
-                    results.append({"receipt_id": receipt_id, "status": "error", "error": "Signing failed"})
+                    results.append(
+                        {"receipt_id": receipt_id, "status": "error", "error": "Signing failed"}
+                    )
                     failed_count += 1
 
         except ImportError:
