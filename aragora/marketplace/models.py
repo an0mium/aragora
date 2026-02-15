@@ -208,7 +208,7 @@ BUILTIN_AGENT_TEMPLATES: list[AgentTemplate] = [
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.DEBATE,
-            tags=["debate", "critical-thinking", "counterargument"],
+            tags=["debate", "critical-thinking", "counterargument", "featured"],
         ),
         agent_type="claude",
         system_prompt="""You are a Devil's Advocate. Your role is to:
@@ -230,7 +230,7 @@ Always be respectful but persistent in your challenges.""",
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.CODING,
-            tags=["code-review", "best-practices", "security"],
+            tags=["code-review", "best-practices", "security", "featured"],
         ),
         agent_type="claude",
         system_prompt="""You are an expert Code Reviewer. Your role is to:
@@ -252,7 +252,7 @@ Provide specific, actionable feedback with examples.""",
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.RESEARCH,
-            tags=["research", "analysis", "synthesis"],
+            tags=["research", "analysis", "synthesis", "featured"],
         ),
         agent_type="claude",
         system_prompt="""You are a Research Analyst. Your role is to:
@@ -277,7 +277,7 @@ BUILTIN_DEBATE_TEMPLATES: list[DebateTemplate] = [
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.DEBATE,
-            tags=["formal", "competitive", "structured"],
+            tags=["formal", "competitive", "structured", "featured"],
         ),
         task_template="Resolved: {motion}",
         agent_roles=[
@@ -302,7 +302,7 @@ BUILTIN_DEBATE_TEMPLATES: list[DebateTemplate] = [
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.BRAINSTORM,
-            tags=["creative", "collaborative", "ideation"],
+            tags=["creative", "collaborative", "ideation", "featured"],
         ),
         task_template="Generate solutions for: {problem}",
         agent_roles=[
@@ -326,7 +326,7 @@ BUILTIN_DEBATE_TEMPLATES: list[DebateTemplate] = [
             version="1.0.0",
             author="aragora",
             category=TemplateCategory.REVIEW,
-            tags=["code", "review", "quality"],
+            tags=["code", "review", "quality", "featured"],
         ),
         task_template="Review this code:\n```\n{code}\n```",
         agent_roles=[

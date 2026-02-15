@@ -167,6 +167,68 @@ class TemplateRegistry:
             count += self.load_from_yaml(yaml_file)
         return count
 
+    def recommend(
+        self,
+        question: str,
+        domain: str | None = None,
+        limit: int = 3,
+    ) -> builtins.list[DeliberationTemplate]:
+        """Recommend templates for a given question.
+
+        Scores each template by keyword overlap with name, description,
+        tags, and example_topics. If domain is provided, templates whose
+        category matches the domain receive a score boost.
+
+        Args:
+            question: The user's question or topic
+            domain: Optional domain hint (maps to TemplateCategory values)
+            limit: Maximum results to return
+
+        Returns:
+            Top templates sorted by relevance score
+        """
+        self._ensure_initialized()
+        if not question:
+            return []
+
+        # Extract keywords from question
+        keywords = set(question.lower().split())
+        # Remove very short/common words
+        keywords = {w for w in keywords if len(w) > 2}
+
+        scored: builtins.list[tuple[float, DeliberationTemplate]] = []
+        for template in self._templates.values():
+            score = 0.0
+
+            # Score against name words
+            name_words = set(template.name.lower().replace("_", " ").split())
+            score += len(keywords & name_words) * 3.0
+
+            # Score against description words
+            desc_words = set(template.description.lower().split())
+            score += len(keywords & desc_words) * 2.0
+
+            # Score against tags
+            tag_words = {t.lower() for t in template.tags}
+            score += len(keywords & tag_words) * 2.5
+
+            # Score against example_topics
+            if template.example_topics:
+                topics_text = " ".join(template.example_topics).lower()
+                topics_words = set(topics_text.split())
+                score += len(keywords & topics_words) * 1.5
+
+            # Domain boost
+            if domain and template.category.value == domain:
+                score += 5.0
+
+            if score > 0:
+                scored.append((score, template))
+
+        # Sort by score descending, then by name for stability
+        scored.sort(key=lambda x: (-x[0], x[1].name))
+        return [t for _, t in scored[:limit]]
+
     def _ensure_initialized(self) -> None:
         """Ensure built-in templates are loaded."""
         if not self._initialized:

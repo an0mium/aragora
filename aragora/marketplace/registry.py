@@ -351,6 +351,49 @@ class TemplateRegistry:
             )
             conn.commit()
 
+    def featured(self, limit: int = 6) -> list[AgentTemplate | DebateTemplate | WorkflowTemplate]:
+        """Return featured templates (those tagged 'featured').
+
+        Args:
+            limit: Maximum number of featured templates to return
+
+        Returns:
+            List of featured templates sorted by stars descending
+        """
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM templates
+                WHERE tags LIKE ?
+                ORDER BY stars DESC, downloads DESC
+                LIMIT ?
+            """,
+                ('%"featured"%', limit),
+            ).fetchall()
+
+        return [self._row_to_template(row) for row in rows]
+
+    def popular(self, limit: int = 10) -> list[AgentTemplate | DebateTemplate | WorkflowTemplate]:
+        """Return templates sorted by downloads (most popular first).
+
+        Args:
+            limit: Maximum number of templates to return
+
+        Returns:
+            List of templates sorted by download count descending
+        """
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM templates
+                ORDER BY downloads DESC, stars DESC
+                LIMIT ?
+            """,
+                (limit,),
+            ).fetchall()
+
+        return [self._row_to_template(row) for row in rows]
+
     def delete(self, template_id: str) -> bool:
         """Delete a template (non-builtins only)."""
         with self._get_conn() as conn:

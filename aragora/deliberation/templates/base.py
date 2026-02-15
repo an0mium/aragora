@@ -100,6 +100,9 @@ class DeliberationTemplate:
     # Tags for filtering and discovery
     tags: list[str] = field(default_factory=list)
 
+    # Example topics/questions that fit this template
+    example_topics: list[str] = field(default_factory=list)
+
     # Version for template evolution
     version: str = "1.0.0"
 
@@ -129,6 +132,7 @@ class DeliberationTemplate:
             "timeout_seconds": self.timeout_seconds,
             "personas": self.personas,
             "tags": self.tags,
+            "example_topics": self.example_topics,
             "version": self.version,
         }
 
@@ -178,6 +182,7 @@ class DeliberationTemplate:
             timeout_seconds=data.get("timeout_seconds", 300.0),
             personas=data.get("personas", []),
             tags=data.get("tags", []),
+            example_topics=data.get("example_topics", []),
             version=data.get("version", "1.0.0"),
             system_prompt_additions=data.get("system_prompt_additions"),
             metadata=data.get("metadata", {}),
