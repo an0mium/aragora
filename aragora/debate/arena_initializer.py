@@ -107,6 +107,7 @@ class CoreComponents:
     ml_delegation_strategy: Any = None
     ml_quality_gate: Any = None
     ml_consensus_estimator: Any = None
+    autotune_config: Any = None
 
 
 @dataclass

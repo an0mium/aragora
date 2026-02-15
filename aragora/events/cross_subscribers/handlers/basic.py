@@ -572,10 +572,10 @@ class BasicHandlersMixin:
         )
 
         try:
-            from aragora.memory.supermemory import get_supermemory
+            from aragora.knowledge.mound import get_knowledge_mound
 
-            sm = get_supermemory()
-            if sm is None:
+            mound = get_knowledge_mound()
+            if mound is None:
                 return
 
             outcome = {
@@ -596,17 +596,17 @@ class BasicHandlersMixin:
             if not success and outcome["error"]:
                 content += f". Error: {outcome['error'][:200]}"
 
-            sm.store(
+            mound.ingest(
                 content=content,
                 source=f"workflow:{workflow_id}",
+                node_type="workflow_outcome",
                 metadata=outcome,
-                tags=["workflow_outcome", f"workflow:{definition_id}"],
             )
-            logger.debug("Workflow outcome stored in supermemory: %s", workflow_id)
+            logger.debug("Workflow outcome stored in KM: %s", workflow_id)
         except ImportError:
-            pass  # Supermemory not available
+            pass  # Knowledge Mound not available
         except Exception as e:
-            logger.debug(f"Supermemory workflow storage failed: {e}")
+            logger.debug(f"KM workflow storage failed: {e}")
 
     def _handle_tier_demotion_to_revalidation(self, event: StreamEvent) -> None:
         """Memory tier demotion → Re-validation trigger.

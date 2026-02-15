@@ -243,7 +243,7 @@ class TestMain:
             list_demos=False, server=False, topic=None, name="auth",
         )
         main(args)
-        mock_run_demo.assert_called_once_with("auth")
+        mock_run_demo.assert_called_once_with("auth", receipt_path=None)
 
     @patch("aragora.cli.demo.run_demo")
     def test_defaults_to_microservices(self, mock_run_demo):
@@ -251,7 +251,7 @@ class TestMain:
             list_demos=False, server=False, topic=None, name=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO)
+        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO, receipt_path=None)
 
 
 # ---------------------------------------------------------------------------

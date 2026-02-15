@@ -33,6 +33,38 @@ logger = get_structured_logger(__name__)
 _KNOWLEDGE_MOUND_UNSET = object()
 
 
+def _create_autotuner(autotune_config: Any) -> Any:
+    """Create an Autotuner from an autotune config value.
+
+    Args:
+        autotune_config: An AutotuneConfig, a dict of config kwargs, or a truthy
+            value to use defaults. None means no autotuner.
+
+    Returns:
+        Autotuner instance or None if not configured.
+    """
+    if autotune_config is None:
+        return None
+
+    try:
+        from aragora.runtime.autotune import AutotuneConfig, Autotuner
+
+        if isinstance(autotune_config, AutotuneConfig):
+            autotuner = Autotuner(config=autotune_config)
+        elif isinstance(autotune_config, dict):
+            autotuner = Autotuner(config=AutotuneConfig(**autotune_config))
+        else:
+            # Treat truthy value as "use defaults"
+            autotuner = Autotuner()
+
+        autotuner.start()
+        logger.debug("Created Autotuner from autotune_config")
+        return autotuner
+    except (ImportError, TypeError, ValueError) as e:
+        logger.debug("Autotuner creation failed: %s", e)
+        return None
+
+
 def apply_core_components(arena: Arena, core: Any) -> None:
     """Unpack CoreComponents dataclass to Arena instance attributes.
 
@@ -76,6 +108,8 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     arena.org_id = core.org_id
     arena.user_id = core.user_id
     arena.extensions = core.extensions
+    # Create Autotuner if autotune_config provided on the ArenaConfig
+    autotuner = _create_autotuner(getattr(core, "autotune_config", None))
     # Try DI container first, fall back to direct instantiation
     arena._budget_coordinator = try_resolve(BudgetCoordinatorProtocol)  # type: ignore[type-abstract]
     if arena._budget_coordinator is None:
@@ -83,12 +117,15 @@ def apply_core_components(arena: Arena, core: Any) -> None:
             org_id=arena.org_id,
             user_id=arena.user_id,
             extensions=arena.extensions,
+            autotuner=autotuner,
         )
     else:
         # Configure resolved coordinator with org/user context
         arena._budget_coordinator.org_id = arena.org_id
         arena._budget_coordinator.user_id = arena.user_id
         arena._budget_coordinator.extensions = arena.extensions
+        if autotuner is not None:
+            arena._budget_coordinator.autotuner = autotuner
     arena.cartographer = core.cartographer
     arena.event_bridge = core.event_bridge
     # ML Integration

@@ -159,6 +159,116 @@ class AnalysisOperationsMixin:
 
     @api_endpoint(
         method="GET",
+        path="/api/v1/debates/{debate_id}/argument-graph",
+        summary="Get argument graph",
+        description="Reconstruct the full argument graph for a debate. Supports JSON and Mermaid output formats.",
+        tags=["Debates", "Analysis"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "schema": {"type": "string"}, "required": True},
+            {
+                "name": "format",
+                "in": "query",
+                "schema": {"type": "string", "enum": ["json", "mermaid"]},
+                "required": False,
+            },
+        ],
+        responses={
+            "200": {"description": "Argument graph returned"},
+            "401": {"description": "Unauthorized"},
+            "404": {"description": "Debate not found"},
+            "503": {"description": "Module not available"},
+        },
+    )
+    @require_permission("analysis:read")
+    def _get_argument_graph(
+        self: _DebatesHandlerProtocol,
+        debate_id: str,
+        output_format: str = "json",
+    ) -> HandlerResult:
+        """Get the full argument graph for a debate.
+
+        Reconstructs the graph from stored debate messages via ArgumentCartographer.
+        Supports JSON (default) and Mermaid diagram output.
+        """
+        import json as json_mod
+
+        from aragora.exceptions import (
+            DatabaseError,
+            RecordNotFoundError,
+            StorageError,
+        )
+
+        try:
+            from aragora.debate.traces import DebateTrace
+            from aragora.visualization.mapper import ArgumentCartographer
+        except ImportError:
+            return error_response("Graph analysis module not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        if not nomic_dir:
+            return error_response("Nomic directory not configured", 503)
+
+        try:
+            trace_path = nomic_dir / "traces" / f"{debate_id}.json"
+            if not trace_path.exists():
+                return error_response("Debate not found", 404)
+
+            trace = DebateTrace.load(trace_path)
+            result = trace.to_debate_result()
+
+            cartographer = ArgumentCartographer()
+            cartographer.set_debate_context(debate_id, result.task or "")
+
+            for msg in result.messages:
+                cartographer.update_from_message(
+                    agent=msg.agent,
+                    content=msg.content,
+                    role=msg.role,
+                    round_num=msg.round,
+                )
+
+            for critique in result.critiques:
+                cartographer.update_from_critique(
+                    critic_agent=critique.agent,
+                    target_agent=critique.target or "",
+                    severity=critique.severity,
+                    round_num=getattr(critique, "round", 1),
+                    critique_text=critique.reasoning,
+                )
+
+            if output_format == "mermaid":
+                mermaid_code = cartographer.export_mermaid()
+                return json_response({
+                    "debate_id": debate_id,
+                    "format": "mermaid",
+                    "graph": mermaid_code,
+                })
+
+            # Default: JSON graph
+            graph_json = json_mod.loads(cartographer.export_json())
+            return json_response({
+                "debate_id": debate_id,
+                "format": "json",
+                "graph": graph_json,
+            })
+
+        except RecordNotFoundError:
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
+            logger.error(
+                "Failed to get argument graph for %s: %s: %s",
+                debate_id,
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
+            return error_response("Database error retrieving argument graph", 500)
+        except ValueError as e:
+            logger.warning("Invalid argument graph request for %s: %s", debate_id, e)
+            return error_response(f"Invalid request: {e}", 400)
+
+    @api_endpoint(
+        method="GET",
         path="/api/v1/debates/{debate_id}/graph/stats",
         summary="Get argument graph statistics",
         description="Get argument graph statistics including node counts, edge counts, depth, and complexity.",
