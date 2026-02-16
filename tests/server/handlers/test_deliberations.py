@@ -201,7 +201,7 @@ class TestDeliberationsHandler:
             handler,
             "_fetch_active_from_store",
             new_callable=AsyncMock,
-            side_effect=RuntimeError("DB error"),
+            side_effect=ValueError("DB error"),
         ):
             result, status = await handler._get_active_deliberations(request)
 

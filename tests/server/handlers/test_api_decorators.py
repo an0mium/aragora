@@ -1185,7 +1185,7 @@ class TestRequireQuotaHandlerExtraction:
 
         user_store = MagicMock()
         user_store.get_organization_by_id.return_value = org
-        user_store.increment_usage.side_effect = Exception("DB connection failed")
+        user_store.increment_usage.side_effect = RuntimeError("DB connection failed")
         user_ctx = MockUserAuthContext(org_id="org-123")
 
         class MyClass:

@@ -1501,7 +1501,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in disagreement stats."""
         handler = create_analytics_handler()
         mock_storage = MagicMock()
-        mock_storage.list_debates.side_effect = ValueError("Database error")
+        mock_storage.list_debates.side_effect = RuntimeError("Database error")
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_disagreement_stats()
@@ -1535,7 +1535,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in consensus quality."""
         handler = create_analytics_handler()
         mock_storage = MagicMock()
-        mock_storage.list_debates.side_effect = ValueError("Query failed")
+        mock_storage.list_debates.side_effect = RuntimeError("Query failed")
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_consensus_quality()
@@ -1546,7 +1546,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in ranking stats."""
         handler = create_analytics_handler()
         mock_elo = MagicMock()
-        mock_elo.get_leaderboard.side_effect = ValueError("ELO system error")
+        mock_elo.get_leaderboard.side_effect = RuntimeError("ELO system error")
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler._get_ranking_stats()
@@ -1558,7 +1558,7 @@ class TestEdgeCases:
         handler = create_analytics_handler()
         mock_path = MagicMock()
         # Make path operations fail
-        mock_path.__truediv__ = MagicMock(side_effect=ValueError("Path error"))
+        mock_path.__truediv__ = MagicMock(side_effect=RuntimeError("Path error"))
 
         with patch.object(handler, "get_nomic_dir", return_value=mock_path):
             result = handler._get_memory_stats()

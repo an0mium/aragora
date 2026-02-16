@@ -473,9 +473,12 @@ class TestRefundHandler:
             }
         )
 
-        with patch(
-            "aragora.server.handlers.payments.get_stripe_connector",
-            return_value=mock_stripe_connector,
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch("aragora.server.handlers.payments.audit_data"),
         ):
             response = await handle_refund(request)
 
@@ -3003,9 +3006,13 @@ class TestRefundValidationEdgeCases:
             }
         )
 
-        with patch(
-            "aragora.server.handlers.payments.get_stripe_connector",
-            return_value=mock_stripe_connector,
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch("aragora.server.handlers.payments.audit_data"),
+            patch("aragora.server.handlers.payments.audit_security"),
         ):
             response = await handle_refund(request)
 
@@ -3043,9 +3050,12 @@ class TestRefundValidationEdgeCases:
             }
         )
 
-        with patch(
-            "aragora.server.handlers.payments.get_stripe_connector",
-            return_value=mock_stripe_connector,
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch("aragora.server.handlers.payments.audit_data"),
         ):
             response = await handle_refund(request)
 

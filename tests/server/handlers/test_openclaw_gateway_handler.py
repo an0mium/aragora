@@ -1712,7 +1712,7 @@ class TestErrorHandling:
         """Test metrics endpoint handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_metrics.side_effect = RuntimeError("DB error")
+        mock_store.get_metrics.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(handler._handle_metrics, MockRequestHandler())
@@ -1723,7 +1723,7 @@ class TestErrorHandling:
         """Test audit endpoint handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_audit_log.side_effect = RuntimeError("DB error")
+        mock_store.get_audit_log.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(handler._handle_audit, {}, MockRequestHandler())
