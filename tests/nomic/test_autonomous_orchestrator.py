@@ -834,7 +834,7 @@ class TestAutonomousOrchestratorExtended:
         assert orchestrator.aragora_path.exists()
         assert orchestrator.track_configs == DEFAULT_TRACK_CONFIGS
         assert orchestrator.max_parallel_tasks == 4
-        assert orchestrator.require_human_approval is False
+        assert orchestrator.require_human_approval is True
 
     def test_orchestrator_custom_config(self, mock_workflow_engine, mock_task_decomposer):
         """Should accept custom configuration."""
