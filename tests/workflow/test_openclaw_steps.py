@@ -617,7 +617,7 @@ class TestOpenClawActionStepExecute:
             result = await step.execute(mock_context)
 
         assert result["success"] is False
-        assert "connection lost" in result["error"]
+        assert result["error"] == "OpenClaw action failed"
         assert "skipped" not in result
 
     @pytest.mark.asyncio

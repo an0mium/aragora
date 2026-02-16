@@ -225,7 +225,7 @@ class TestGetPrunableItems:
     async def test_get_items_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockPruningHandler()
-        test_handler.mound.get_prunable_items = AsyncMock(side_effect=Exception("Items error"))
+        test_handler.mound.get_prunable_items = AsyncMock(side_effect=ValueError("Items error"))
 
         result = await test_handler.get_prunable_items(workspace_id="workspace-123")
 
@@ -322,7 +322,7 @@ class TestExecutePrune:
     async def test_execute_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockPruningHandler()
-        test_handler.mound.prune_items = AsyncMock(side_effect=Exception("Prune error"))
+        test_handler.mound.prune_items = AsyncMock(side_effect=ValueError("Prune error"))
 
         with patch(
             "aragora.knowledge.mound.ops.pruning.PruningAction",
@@ -511,7 +511,7 @@ class TestGetPruneHistory:
     async def test_get_history_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockPruningHandler()
-        test_handler.mound.get_prune_history = AsyncMock(side_effect=Exception("History error"))
+        test_handler.mound.get_prune_history = AsyncMock(side_effect=ValueError("History error"))
 
         result = await test_handler.get_prune_history(workspace_id="workspace-123")
 
@@ -599,7 +599,7 @@ class TestRestorePrunedItem:
     async def test_restore_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockPruningHandler()
-        test_handler.mound.restore_pruned_item = AsyncMock(side_effect=Exception("Restore error"))
+        test_handler.mound.restore_pruned_item = AsyncMock(side_effect=ValueError("Restore error"))
 
         result = await test_handler.restore_pruned_item(
             workspace_id="workspace-123",
@@ -699,7 +699,7 @@ class TestApplyConfidenceDecay:
     async def test_decay_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockPruningHandler()
-        test_handler.mound.apply_confidence_decay = AsyncMock(side_effect=Exception("Decay error"))
+        test_handler.mound.apply_confidence_decay = AsyncMock(side_effect=ValueError("Decay error"))
 
         result = await test_handler.apply_confidence_decay(
             workspace_id="workspace-123",

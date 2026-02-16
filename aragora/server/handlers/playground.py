@@ -498,13 +498,13 @@ class PlaygroundHandler(BaseHandler):
             return self._run_debate_with_package(topic, rounds, agent_count)
         except ImportError:
             logger.info("aragora-debate not installed, using inline mock debate")
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("aragora-debate failed, falling back to inline mock")
 
         # Fallback: inline mock debate (no external dependencies)
         try:
             return json_response(_run_inline_mock_debate(topic, rounds, agent_count))
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
 

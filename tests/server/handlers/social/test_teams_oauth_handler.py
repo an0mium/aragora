@@ -541,7 +541,7 @@ class TestTeamsOAuthState:
             with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_SECRET", "secret"):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                        side_effect=Exception("Error")
+                        side_effect=ConnectionError("Error")
                     )
                     await oauth_handler.dispatch(
                         "GET",
