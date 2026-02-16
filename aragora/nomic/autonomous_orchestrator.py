@@ -515,6 +515,7 @@ class AutonomousOrchestrator:
         workspace_manager: Any | None = None,
         agent_fabric: Any | None = None,
         use_harness: bool = False,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -544,6 +545,7 @@ class AutonomousOrchestrator:
             workspace_manager: Optional WorkspaceManager for convoy/bead tracking
             agent_fabric: Optional AgentFabric for enhanced scheduling,
                 budget tracking, and inter-agent messaging
+            event_emitter: Optional event emitter for IMPROVEMENT_CYCLE_* events
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -562,6 +564,7 @@ class AutonomousOrchestrator:
         self.use_decision_plan = use_decision_plan
         self.enable_convoy_tracking = enable_convoy_tracking
         self.workspace_manager = workspace_manager
+        self.event_emitter = event_emitter
 
         self.hierarchy = hierarchy or HierarchyConfig()
         self.hierarchical_coordinator = hierarchical_coordinator
@@ -629,6 +632,10 @@ class AutonomousOrchestrator:
         )
 
         self._checkpoint("started", {"goal": goal, "tracks": tracks})
+        self._emit_improvement_event("IMPROVEMENT_CYCLE_START", {
+            "goal": goal[:200],
+            "tracks": tracks or [],
+        })
 
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:
@@ -691,6 +698,14 @@ class AutonomousOrchestrator:
                 await self._complete_convoy(failed == 0)
 
             self._checkpoint("completed", {"result": result.summary})
+            self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {
+                "goal": goal[:200],
+                "completed": completed,
+                "failed": failed,
+                "skipped": skipped,
+                "duration_seconds": duration,
+                "success": failed == 0,
+            })
             logger.info(
                 "orchestration_completed",
                 orchestration_id=self._orchestration_id,
@@ -704,6 +719,11 @@ class AutonomousOrchestrator:
         except (RuntimeError, OSError, ValueError) as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.warning("orchestration_failed", orchestration_id=self._orchestration_id, error_type=type(e).__name__)
+            self._emit_improvement_event("IMPROVEMENT_CYCLE_FAILED", {
+                "goal": goal[:200],
+                "error": type(e).__name__,
+                "duration_seconds": duration,
+            })
 
             # Fail the convoy on exception
             if self.enable_convoy_tracking and self._convoy_id:
@@ -989,6 +1009,11 @@ class AutonomousOrchestrator:
                 assignment.status = "completed"
                 assignment.result = {"workflow_result": result.final_output}
                 await self._update_bead_status(subtask.id, "done")
+                self._emit_improvement_event("IMPROVEMENT_CYCLE_VERIFIED", {
+                    "subtask_id": subtask.id,
+                    "track": assignment.track.value,
+                    "agent": assignment.agent_type,
+                })
 
                 # Record agent success in ELO + KM for learning
                 await self._record_agent_outcome(
@@ -1392,6 +1417,26 @@ class AutonomousOrchestrator:
                     **data,
                 },
             )
+
+    def _emit_improvement_event(self, event_name: str, data: dict[str, Any]) -> None:
+        """Emit IMPROVEMENT_CYCLE_* events for real-time monitoring."""
+        if not self.event_emitter:
+            return
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is not None:
+                self.event_emitter.emit(StreamEvent(
+                    type=event_type,
+                    data={
+                        "orchestration_id": self._orchestration_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        **data,
+                    },
+                ))
+        except (ImportError, AttributeError, TypeError):
+            pass
 
     def _generate_summary(self, assignments: list[AgentAssignment]) -> str:
         """Generate a summary of the orchestration."""
