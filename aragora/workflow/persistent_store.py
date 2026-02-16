@@ -115,16 +115,18 @@ class PersistentWorkflowStore:
     but persists data to disk.
     """
 
-    def __init__(self, db_path: Path | None = None):
+    def __init__(self, db_path: Path | None = None, event_emitter: Any | None = None):
         """
         Initialize the persistent store.
 
         Args:
             db_path: Path to SQLite database file. If None, uses default.
+            event_emitter: Optional event emitter for WORKFLOW_CREATED/UPDATED/DELETED events.
 
         Raises:
             DistributedStateError: In production if PostgreSQL is not available
         """
+        self._event_emitter = event_emitter
         # SECURITY: Check production guards for SQLite usage
         try:
             from aragora.storage.production_guards import (
@@ -166,6 +168,19 @@ class PersistentWorkflowStore:
         conn = sqlite3.connect(str(self._db_path))
         conn.row_factory = sqlite3.Row
         return conn
+
+    def _emit_workflow_event(self, event_name: str, data: dict[str, Any]) -> None:
+        """Emit workflow lifecycle events for real-time monitoring."""
+        if not self._event_emitter:
+            return
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is not None:
+                self._event_emitter.emit(StreamEvent(type=event_type, data=data))
+        except (ImportError, AttributeError, TypeError):
+            pass
 
     # =========================================================================
     # Workflow CRUD
@@ -257,6 +272,13 @@ class PersistentWorkflowStore:
 
             conn.commit()
             logger.debug(f"Saved workflow {workflow.id}")
+
+            event_name = "WORKFLOW_UPDATED" if exists else "WORKFLOW_CREATED"
+            self._emit_workflow_event(event_name, {
+                "workflow_id": workflow.id,
+                "name": workflow.name,
+                "version": workflow.version,
+            })
 
         finally:
             conn.close()
@@ -383,6 +405,10 @@ class PersistentWorkflowStore:
 
             if deleted:
                 logger.info(f"Deleted workflow {workflow_id}")
+                self._emit_workflow_event("WORKFLOW_DELETED", {
+                    "workflow_id": workflow_id,
+                    "tenant_id": tenant_id,
+                })
 
             return deleted
 

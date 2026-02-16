@@ -460,6 +460,17 @@ class WorkflowEngine:
             else:
                 self._emit_event(context, StreamEventType.WORKFLOW_FAILED, event_payload)
 
+            # Emit aggregate metrics for performance monitoring
+            self._emit_event(context, StreamEventType.WORKFLOW_METRICS, {
+                **self._base_event_payload(context),
+                "total_duration_ms": total_duration,
+                "steps_executed": len(self._results),
+                "steps_succeeded": sum(1 for r in self._results if r.success),
+                "steps_failed": sum(1 for r in self._results if not r.success),
+                "checkpoints_created": checkpoints_created,
+                "success": success,
+            })
+
             return WorkflowResult(
                 workflow_id=workflow_id,
                 definition_id=definition.id,

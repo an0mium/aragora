@@ -627,7 +627,10 @@ class TestNLIContradictionDetection:
         SentenceTransformerBackend.clear_cache()
         SentenceTransformerBackend._nli_model_cache = None
         SentenceTransformerBackend._nli_model_name_cache = None
-        return SentenceTransformerBackend(use_nli=True)
+        backend = SentenceTransformerBackend(use_nli=True)
+        if getattr(backend, "nli_model", None) is None:
+            pytest.skip("NLI model not available (rate-limited or offline)")
+        return backend
 
     @pytest.mark.slow
     def test_nli_detects_accept_reject(self, nli_backend):

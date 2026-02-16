@@ -101,15 +101,18 @@ class AdapterCircuitBreaker:
         self,
         adapter_name: str,
         config: AdapterCircuitBreakerConfig | None = None,
+        event_emitter: Any | None = None,
     ):
         """Initialize adapter circuit breaker.
 
         Args:
             adapter_name: Name of the adapter (continuum, consensus, etc.)
             config: Circuit breaker configuration
+            event_emitter: Optional event emitter for KM_CIRCUIT_BREAKER_STATE events
         """
         self.adapter_name = adapter_name
         self.config = config or AdapterCircuitBreakerConfig()
+        self._event_emitter = event_emitter
         self._state = AdapterCircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
@@ -284,7 +287,7 @@ class AdapterCircuitBreaker:
             logger.debug(f"Failed to record circuit breaker metric: {e}")
 
     def _record_state_change(self) -> None:
-        """Record Prometheus metrics for state changes."""
+        """Record Prometheus metrics and emit events for state changes."""
         try:
             # Map state to health status for logging
             state_map = {
@@ -298,6 +301,24 @@ class AdapterCircuitBreaker:
             )
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Failed to record state change metric: {e}")
+
+        # Emit KM_CIRCUIT_BREAKER_STATE event
+        if self._event_emitter:
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                self._event_emitter.emit(StreamEvent(
+                    type=StreamEventType.KM_CIRCUIT_BREAKER_STATE,
+                    data={
+                        "adapter": self.adapter_name,
+                        "state": self._state.value,
+                        "failure_count": self._failure_count,
+                        "total_failures": self._total_failures,
+                        "total_circuit_opens": self._total_circuit_opens,
+                    },
+                ))
+            except (ImportError, AttributeError, TypeError):
+                pass
 
     @asynccontextmanager
     async def protected_call(self) -> AsyncIterator[None]:

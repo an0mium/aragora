@@ -49,7 +49,7 @@ def _make_ctx(
     proposals: dict[str, str] | None = None,
 ) -> MagicMock:
     """Build a minimal DebateContext-like MagicMock."""
-    ctx = MagicMock(spec_set=False)
+    ctx = MagicMock()
     ctx.env = MagicMock()
     ctx.env.task = task
     ctx.env.context = context
@@ -338,7 +338,7 @@ class TestKnowledgeInjectionInContextInitializer:
 
         ctx = _make_ctx(context="Original context")
 
-        # Mock the injector: patch the import inside _inject_debate_knowledge
+        # Mock the injector at its source module (local import in _inject_debate_knowledge)
         mock_knowledge = MagicMock()
         mock_knowledge.debate_id = "past-debate-1"
         mock_knowledge.task = "Past task"
@@ -347,7 +347,7 @@ class TestKnowledgeInjectionInContextInitializer:
         mock_knowledge.relevance_score = 0.8
 
         with patch(
-            "aragora.debate.phases.context_init.DebateKnowledgeInjector"
+            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
         ) as MockInjector:
             injector_instance = MockInjector.return_value
             injector_instance.query_relevant_knowledge = AsyncMock(
@@ -421,7 +421,7 @@ class TestKnowledgeInjectionInContextInitializer:
         ctx = _make_ctx(context="Original context")
 
         with patch(
-            "aragora.debate.phases.context_init.DebateKnowledgeInjector"
+            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
         ) as MockInjector:
             injector_instance = MockInjector.return_value
             injector_instance.query_relevant_knowledge = AsyncMock(return_value=[])
@@ -452,7 +452,7 @@ class TestKnowledgeInjectionInContextInitializer:
         mock_knowledge.relevance_score = 0.9
 
         with patch(
-            "aragora.debate.phases.context_init.DebateKnowledgeInjector"
+            "aragora.debate.knowledge_injection.DebateKnowledgeInjector"
         ) as MockInjector:
             injector_instance = MockInjector.return_value
             injector_instance.query_relevant_knowledge = AsyncMock(
@@ -470,7 +470,8 @@ class TestKnowledgeInjectionInContextInitializer:
 
     @pytest.mark.asyncio
     async def test_handles_import_error_gracefully(self):
-        """If DebateKnowledgeInjector cannot be imported, no crash."""
+        """If aragora.debate.knowledge_injection cannot be imported, no crash."""
+        import sys
         from aragora.debate.phases.context_init import ContextInitializer
 
         protocol = DebateProtocol(enable_knowledge_injection=True)
@@ -483,14 +484,25 @@ class TestKnowledgeInjectionInContextInitializer:
 
         ctx = _make_ctx(context="Original")
 
-        with patch(
-            "aragora.debate.phases.context_init.DebateKnowledgeInjector",
-            side_effect=ImportError("not found"),
-        ):
-            # Should not raise
-            await initializer._inject_debate_knowledge(ctx)
+        # Temporarily remove the module from sys.modules to simulate ImportError
+        saved = sys.modules.pop("aragora.debate.knowledge_injection", None)
+        _orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
-        # Context should be unchanged since the import fails before querying
+        def _failing_import(name, *args, **kwargs):
+            if name == "aragora.debate.knowledge_injection":
+                raise ImportError("simulated import failure")
+            return _orig_import(name, *args, **kwargs)
+
+        try:
+            with patch("builtins.__import__", side_effect=_failing_import):
+                # Should not raise -- _inject_debate_knowledge catches ImportError
+                await initializer._inject_debate_knowledge(ctx)
+        finally:
+            # Restore the module
+            if saved is not None:
+                sys.modules["aragora.debate.knowledge_injection"] = saved
+
+        # Context should be unchanged since the import fails
         assert ctx.env.context == "Original"
 
 
@@ -860,13 +872,13 @@ class TestImprovementQueueToMetaPlanner:
         )
         planner2 = MetaPlanner(config=config2)
 
-        # Patch Arena import to return mock
+        # Patch Arena import at the source (local import in prioritize_work)
         with patch(
-            "aragora.nomic.meta_planner.Arena"
+            "aragora.debate.orchestrator.Arena"
         ) as MockArena, patch(
-            "aragora.nomic.meta_planner.Environment"
+            "aragora.core.Environment"
         ), patch(
-            "aragora.nomic.meta_planner.DebateProtocol"
+            "aragora.debate.protocol.DebateProtocol"
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
@@ -909,11 +921,11 @@ class TestImprovementQueueToMetaPlanner:
         planner = MetaPlanner(config=config)
 
         with patch(
-            "aragora.nomic.meta_planner.Arena"
+            "aragora.debate.orchestrator.Arena"
         ) as MockArena, patch(
-            "aragora.nomic.meta_planner.Environment"
+            "aragora.core.Environment"
         ), patch(
-            "aragora.nomic.meta_planner.DebateProtocol"
+            "aragora.debate.protocol.DebateProtocol"
         ):
             mock_arena_instance = MockArena.return_value
             mock_result = MagicMock()
