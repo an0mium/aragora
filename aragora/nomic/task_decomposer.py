@@ -118,6 +118,11 @@ class DecomposerConfig:
     # Debate-based decomposition settings
     debate_rounds: int = 2  # Rounds for goal decomposition debate
     debate_timeout: int = 120  # Timeout in seconds for debate
+    # Trickster: detect hollow consensus in decomposition debates
+    enable_trickster: bool = True
+    trickster_sensitivity: float = 0.7
+    # Convergence detection for semantic consensus
+    enable_convergence: bool = True
 
 
 # Keywords that indicate different complexity areas
@@ -964,11 +969,15 @@ class TaskDecomposer:
         if agents is None:
             agents = await self._get_default_agents()
 
-        # Configure debate protocol for decomposition
+        # Configure debate protocol for decomposition with Trickster
+        # and convergence detection for higher-quality consensus
         protocol = DebateProtocol(
             rounds=self.config.debate_rounds,
             consensus="majority",
             timeout_seconds=self.config.debate_timeout,
+            enable_trickster=self.config.enable_trickster,
+            trickster_sensitivity=self.config.trickster_sensitivity,
+            convergence_detection=self.config.enable_convergence,
         )
 
         # Create environment
@@ -1141,6 +1150,9 @@ class TaskDecomposer:
                 rounds=self.config.debate_rounds,
                 consensus="majority",
                 timeout_seconds=self.config.debate_timeout,
+                enable_trickster=self.config.enable_trickster,
+                trickster_sensitivity=self.config.trickster_sensitivity,
+                convergence_detection=self.config.enable_convergence,
             )
 
             arena = Arena(fallback_env, fallback_agents, fallback_protocol)
