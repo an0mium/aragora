@@ -206,6 +206,9 @@ def init_phases(arena: Arena) -> None:
         supermemory_adapter=getattr(arena, "supermemory_adapter", None),
     )
 
+    # Warm introspection cache for O(1) per-agent lookups during prompt building
+    arena.prompt_builder.warm_introspection_cache(arena.agents)
+
     # Initialize MemoryManager for centralized memory operations
     arena.memory_manager = MemoryManager(
         continuum_memory=arena.continuum_memory,
@@ -461,6 +464,13 @@ def init_phases(arena: Arena) -> None:
         # Selection Feedback Loop (performance → selection)
         selection_feedback_loop=getattr(arena, "selection_feedback_loop", None),
         enable_performance_feedback=getattr(arena, "enable_performance_feedback", True),
+        # Subsystems with FeedbackPhase params previously not wired
+        pulse_manager=arena.pulse_manager,
+        insight_store=arena.insight_store,
+        training_exporter=getattr(arena.extensions, "training_exporter", None),
+        argument_cartographer=getattr(arena, "cartographer", None),
+        genesis_ledger=getattr(arena, "genesis_ledger", None),
+        cost_tracker=getattr(arena, "cost_tracker", None),
     )
 
 

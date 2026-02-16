@@ -440,6 +440,9 @@ class FeedbackPhase:
         # 34. Export argument map (mermaid + JSON) for debate visualization
         self._export_argument_map(ctx)
 
+        # 35. Auto-generate DecisionMemo for completed debates
+        self._generate_decision_memo(ctx)
+
     def _update_introspection_feedback(self, ctx: DebateContext) -> None:
         """Update agent introspection data based on debate performance.
 
@@ -569,6 +572,55 @@ class FeedbackPhase:
                     pass
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug("[argument_map] Export failed: %s", e)
+
+    def _generate_decision_memo(self, ctx: DebateContext) -> None:
+        """Auto-generate DecisionMemo for completed debates.
+
+        Creates a structured summary of debate conclusions for
+        stakeholder communication and the decision-to-PR pipeline.
+        """
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            from aragora.pipeline.pr_generator import DecisionMemo
+
+            debate_id = getattr(result, "id", None) or getattr(ctx, "debate_id", "unknown")
+            task = getattr(ctx.env, "task", "") if ctx.env else ""
+
+            proposals = getattr(result, "proposals", {})
+            key_decisions = []
+            if isinstance(proposals, dict):
+                for agent, proposal in list(proposals.items())[:3]:
+                    key_decisions.append(f"[{agent}] {str(proposal)[:200]}")
+
+            dissenting = []
+            for critique in getattr(result, "critiques", [])[:3]:
+                dissenting.append(getattr(critique, "text", str(critique))[:150])
+
+            memo = DecisionMemo(
+                debate_id=debate_id,
+                title=task[:100] if task else "Untitled debate",
+                summary=getattr(result, "final_answer", "") or "",
+                key_decisions=key_decisions,
+                rationale=getattr(result, "rationale", "") or "",
+                supporting_evidence=[],
+                dissenting_views=dissenting,
+                open_questions=[],
+                consensus_confidence=getattr(result, "confidence", 0.0),
+                rounds_used=getattr(result, "rounds_used", 0),
+                agent_count=len(getattr(ctx, "agents", []) or []),
+            )
+
+            result.decision_memo = memo
+            logger.info(
+                "[pipeline] Generated DecisionMemo for debate %s (%.0f%% confidence)",
+                debate_id,
+                memo.consensus_confidence * 100,
+            )
+        except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[pipeline] DecisionMemo generation failed: %s", e)
 
     async def _maybe_trigger_workflow(self, ctx: DebateContext) -> None:
         """Trigger post-debate workflow for high-quality debates.
