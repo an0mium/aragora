@@ -14,16 +14,15 @@ class TestLocalLLMDetection:
         """detect_local_agents() should return a list."""
         from aragora.agents.registry import AgentRegistry
 
-        # Mock the detector to avoid actual network calls
-        with patch("aragora.agents.registry.LocalLLMDetector") as mock_detector:
-            mock_instance = MagicMock()
-            mock_detector.return_value = mock_instance
+        # Mock the module-level _LocalLLMDetector (the cached import)
+        mock_instance = MagicMock()
+        mock_status = MagicMock()
+        mock_status.servers = []
+        mock_instance.detect_all = AsyncMock(return_value=mock_status)
 
-            # Create a mock status with empty servers
-            mock_status = MagicMock()
-            mock_status.servers = []
-            mock_instance.detect_all = AsyncMock(return_value=mock_status)
+        mock_detector_cls = MagicMock(return_value=mock_instance)
 
+        with patch("aragora.agents.registry._LocalLLMDetector", mock_detector_cls):
             result = AgentRegistry.detect_local_agents()
             assert isinstance(result, list)
 
@@ -31,19 +30,20 @@ class TestLocalLLMDetection:
         """get_local_status() should return a dict with expected keys."""
         from aragora.agents.registry import AgentRegistry
 
-        with patch("aragora.agents.registry.LocalLLMDetector") as mock_detector:
-            mock_instance = MagicMock()
-            mock_detector.return_value = mock_instance
+        # Mock the module-level _LocalLLMDetector (the cached import)
+        mock_instance = MagicMock()
+        mock_status = MagicMock()
+        mock_status.servers = []
+        mock_status.any_available = False
+        mock_status.total_models = 0
+        mock_status.recommended_server = None
+        mock_status.recommended_model = None
+        mock_status.get_available_agents.return_value = []
+        mock_instance.detect_all = AsyncMock(return_value=mock_status)
 
-            mock_status = MagicMock()
-            mock_status.servers = []
-            mock_status.any_available = False
-            mock_status.total_models = 0
-            mock_status.recommended_server = None
-            mock_status.recommended_model = None
-            mock_status.get_available_agents.return_value = []
-            mock_instance.detect_all = AsyncMock(return_value=mock_status)
+        mock_detector_cls = MagicMock(return_value=mock_instance)
 
+        with patch("aragora.agents.registry._LocalLLMDetector", mock_detector_cls):
             result = AgentRegistry.get_local_status()
 
             assert isinstance(result, dict)
@@ -59,9 +59,10 @@ class TestLocalFallbackChain:
         """get_local_fallback_providers() returns empty when no servers available."""
         from aragora.agents.fallback import get_local_fallback_providers
 
-        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
-            mock_registry.detect_local_agents.return_value = []
+        mock_registry = MagicMock()
+        mock_registry.detect_local_agents.return_value = []
 
+        with patch("aragora.agents.fallback._AgentRegistry", mock_registry):
             result = get_local_fallback_providers()
             assert result == []
 

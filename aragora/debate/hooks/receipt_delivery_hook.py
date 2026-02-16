@@ -203,6 +203,31 @@ class ReceiptDeliveryHook:
                 "org_id": self.org_id,
             }
 
+            # Generate explainability data
+            try:
+                from aragora.explainability.builder import ExplanationBuilder
+
+                builder = ExplanationBuilder()
+                decision = await builder.build(result, ctx)
+                receipt_data["explainability"] = {
+                    "summary": builder.generate_summary(decision),
+                    "evidence_chain": [e.to_dict() for e in decision.get_top_evidence(5)],
+                    "vote_pivots": [v.to_dict() for v in decision.get_pivotal_votes()],
+                    "confidence_attribution": [
+                        c.to_dict() for c in decision.get_major_confidence_factors()
+                    ],
+                    "counterfactuals": [
+                        c.to_dict() for c in decision.get_high_sensitivity_counterfactuals()
+                    ],
+                    "scores": {
+                        "evidence_quality": decision.evidence_quality_score,
+                        "agent_agreement": decision.agent_agreement_score,
+                        "belief_stability": decision.belief_stability_score,
+                    },
+                }
+            except (ImportError, RuntimeError, ValueError, TypeError) as e:
+                logger.debug(f"Explainability not available: {e}")
+
             # Generate content hash for integrity
             import json
 
