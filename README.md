@@ -91,6 +91,20 @@ aragora ask "Design a rate limiter for 1M req/sec" --agents anthropic-api,openai
 aragora serve
 ```
 
+### Self-Improving Pipeline
+
+Aragora can improve itself -- decompose a vague goal, assign subtasks to isolated worktrees, execute with gauntlet validation, and merge passing branches:
+
+```bash
+# Preview what the pipeline will do
+aragora self-improve "Maximize utility for SME businesses" --dry-run
+
+# Run with human approval gates and budget cap
+aragora self-improve "Harden security" --require-approval --budget-limit 20 --receipt
+```
+
+Each subtask gets an isolated git worktree, cross-agent code review, sandbox validation, and a cryptographic decision receipt before merge.
+
 ### Add to Your CI Pipeline (1 minute)
 
 ```yaml
@@ -207,9 +221,9 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full deployment options (Docker
 
 | Package | Install | Purpose | PyPI |
 |---|---|---|---|
-| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) | [v2.6.3](https://pypi.org/project/aragora/) |
+| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) | [v2.7.4](https://pypi.org/project/aragora/) |
 | `aragora-debate` | `pip install aragora-debate` | Standalone debate engine (no server needed) | [v0.2.0](https://pypi.org/project/aragora-debate/) |
-| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora | [v2.6.3](https://pypi.org/project/aragora-sdk/) |
+| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora | [v2.7.4](https://pypi.org/project/aragora-sdk/) |
 | `@aragora/sdk` | `npm install @aragora/sdk` | TypeScript/Node.js client SDK | — |
 
 ---
