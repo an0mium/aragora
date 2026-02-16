@@ -71,7 +71,7 @@ from aragora_debate.cross_analysis import CrossProposalAnalyzer, CrossProposalAn
 from aragora_debate._mock import MockAgent
 from aragora_debate.styled_mock import StyledMockAgent
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # Optional provider agents (require extra dependencies)
 try:
