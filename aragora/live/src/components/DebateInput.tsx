@@ -601,30 +601,6 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
           </div>
         </div>
 
-        {/* Category chips - positioned close to input */}
-        <div className="flex items-center gap-2 flex-wrap mt-1">
-          {[
-            { label: 'Technical', icon: '</>', question: 'What are the tradeoffs between microservices and monoliths for a startup?' },
-            { label: 'Business', icon: '$', question: 'What factors should drive a build vs. buy decision for core infrastructure?' },
-            { label: 'Philosophy', icon: '?', question: 'Can AI systems develop genuine understanding, or only simulate it?' },
-            { label: 'Ethics', icon: '!', question: 'Should autonomous AI agents have the right to refuse unethical requests?' },
-            { label: 'Creative', icon: '*', question: 'What makes a story truly compelling to readers across cultures?' },
-            { label: 'Life', icon: '♡', question: 'What does it mean to live a meaningful life in the age of AI?' },
-          ].map((cat) => (
-            <button
-              key={cat.label}
-              type="button"
-              onClick={() => setQuestion(cat.question)}
-              className="px-1.5 py-0.5 text-[9px] font-mono border border-acid-green/20
-                         text-text-muted/50 hover:text-acid-green hover:border-acid-green/40
-                         transition-colors rounded"
-            >
-              <span className="text-acid-green/40 mr-0.5">[{cat.icon}]</span>
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
         {/* Agent Routing Hints */}
         {detectedDomain !== 'general' && recommendations.length > 0 && (
           <div className="flex items-center gap-2 p-2 bg-surface/50 border border-acid-cyan/30 rounded">
