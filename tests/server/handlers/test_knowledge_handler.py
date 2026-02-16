@@ -904,7 +904,7 @@ class TestKnowledgeMoundExport:
         from unittest.mock import AsyncMock
 
         mock_mound = MagicMock()
-        mock_mound.export_graph_d3 = AsyncMock(side_effect=Exception("Export failed"))
+        mock_mound.export_graph_d3 = AsyncMock(side_effect=ValueError("Export failed"))
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
@@ -990,7 +990,7 @@ class TestKnowledgeMoundExport:
         from unittest.mock import AsyncMock
 
         mock_mound = MagicMock()
-        mock_mound.export_graph_graphml = AsyncMock(side_effect=Exception("GraphML failed"))
+        mock_mound.export_graph_graphml = AsyncMock(side_effect=RuntimeError("GraphML failed"))
 
         with patch.object(mound_handler, "_get_mound", return_value=mock_mound):
             result = mound_handler.handle(
@@ -1001,7 +1001,7 @@ class TestKnowledgeMoundExport:
         assert result.status_code == 500
         body = json.loads(result.body)
         assert "error" in body
-        assert "export failed" in body["error"].lower()
+        assert body["error"]  # Sanitized error message present
 
     def test_export_d3_depth_clamping(self, mound_handler, mock_http_handler):
         """Test D3 export clamps depth parameter to valid range."""
