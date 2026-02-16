@@ -446,6 +446,67 @@ class FeedbackPhase:
         # 35. Auto-generate DecisionMemo for completed debates
         self._generate_decision_memo(ctx)
 
+        # 36. Record convergence speed metrics for future round optimization
+        self._record_convergence_history(ctx)
+
+    def _record_convergence_history(self, ctx: DebateContext) -> None:
+        """Record convergence speed metrics for the completed debate.
+
+        Stores the number of rounds, convergence status, and final
+        similarity so that future debates on similar topics can
+        estimate optimal round counts via the convergence history store.
+        """
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            from aragora.debate.convergence.history import get_convergence_history_store
+
+            store = get_convergence_history_store()
+            if store is None:
+                return
+
+            topic = ctx.env.task
+            total_rounds = getattr(result, "rounds_used", 0) or 0
+            final_similarity = getattr(ctx, "convergence_similarity", 0.0) or 0.0
+            converged_early = getattr(ctx, "converged_early", False)
+
+            # Determine convergence round
+            convergence_round = 0
+            if converged_early and total_rounds > 0:
+                convergence_round = total_rounds
+            elif getattr(ctx, "convergence_status", "") == "converged":
+                convergence_round = total_rounds
+
+            # Collect per-round similarity if available
+            per_round_similarity: list[float] = getattr(
+                ctx, "_per_round_similarity", []
+            ) or []
+
+            store.store(
+                topic=topic,
+                convergence_round=convergence_round,
+                total_rounds=total_rounds,
+                final_similarity=final_similarity,
+                per_round_similarity=per_round_similarity,
+                debate_id=ctx.debate_id,
+            )
+
+            logger.info(
+                "[convergence_history] Recorded metrics: rounds=%d/%d, "
+                "similarity=%.2f, converged=%s",
+                convergence_round,
+                total_rounds,
+                final_similarity,
+                converged_early or ctx.convergence_status == "converged",
+            )
+
+        except ImportError:
+            pass  # Convergence history store not available
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[convergence_history] Failed to record metrics: %s", e)
+
     def _update_introspection_feedback(self, ctx: DebateContext) -> None:
         """Update agent introspection data based on debate performance.
 
@@ -503,6 +564,21 @@ class FeedbackPhase:
                 "rounds": getattr(result, "rounds_completed", 0),
             }
 
+            # Add debate-level metrics for tuning
+            protocol = getattr(ctx, "protocol", None)
+            max_rounds = getattr(protocol, "rounds", 3) or 3
+            rounds_completed = getattr(result, "rounds_completed", max_rounds)
+            cycle_results["debate_efficiency"] = (
+                rounds_completed / max_rounds if max_rounds > 0 else 1.0
+            )
+
+            agents = getattr(ctx, "agents", []) or []
+            unique_models = (
+                len(set(getattr(a, "model", str(a)) for a in agents)) if agents else 1
+            )
+            cycle_results["agent_diversity_score"] = unique_models / max(len(agents), 1)
+            cycle_results["avg_confidence"] = getattr(result, "confidence", 0.5)
+
             metrics = self.meta_learner.evaluate_learning_efficiency(
                 self.continuum_memory, cycle_results
             )
@@ -524,6 +600,14 @@ class FeedbackPhase:
                         "[meta_learning] Applied %d tuned params to ContinuumMemory",
                         len(tuned),
                     )
+
+            # Store debate tuning for team_selector
+            try:
+                arena = getattr(ctx, "arena", None)
+                if arena and hasattr(self.meta_learner, "get_debate_tuning"):
+                    arena._meta_tuning = self.meta_learner.get_debate_tuning()
+            except (AttributeError, TypeError):
+                pass
         except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.debug("[meta_learning] Evaluation failed: %s", e)
 

@@ -471,6 +471,7 @@ def init_phases(arena: Arena) -> None:
         argument_cartographer=getattr(arena, "cartographer", None),
         genesis_ledger=getattr(arena, "genesis_ledger", None),
         cost_tracker=getattr(arena.extensions, "cost_tracker", None),
+        meta_learner=getattr(arena, "meta_learner", None),
     )
 
 
@@ -575,6 +576,54 @@ def create_phase_executor(arena: Arena) -> PhaseExecutor:
         "analytics": arena.analytics_phase,
         "feedback": arena.feedback_phase,
     }
+
+    # Optional: Dialectical Synthesis phase (between consensus and analytics)
+    if getattr(arena.protocol, "enable_synthesis", False):
+        try:
+            from aragora.debate.phases.synthesis_phase import (
+                DialecticalSynthesizer,
+                SynthesisConfig,
+            )
+
+            synth_config = SynthesisConfig(
+                synthesis_confidence_threshold=getattr(
+                    arena.protocol, "synthesis_confidence_threshold", 0.5
+                ),
+            )
+            synthesizer = DialecticalSynthesizer(config=synth_config)
+
+            class SynthesisPhaseWrapper:
+                name = "synthesis"
+
+                def __init__(self, synth):
+                    self._synth = synth
+
+                async def execute(self, context):
+                    result = await self._synth.synthesize(context)
+                    if result and context.result:
+                        context.result.synthesis = result.synthesis
+                        context.result.synthesis_confidence = result.confidence
+                        context.result.synthesis_provenance = {
+                            "thesis_agent": result.thesis.agent,
+                            "antithesis_agent": result.antithesis.agent,
+                            "synthesizer": result.synthesizer_agent,
+                            "elements_from_thesis": result.elements_from_thesis,
+                            "elements_from_antithesis": result.elements_from_antithesis,
+                            "novel_elements": result.novel_elements,
+                        }
+                    return result
+
+            # Insert synthesis between consensus and analytics
+            ordered = {}
+            for key, phase in phases_dict.items():
+                ordered[key] = phase
+                if key == "consensus":
+                    ordered["synthesis"] = SynthesisPhaseWrapper(synthesizer)
+            phases_dict = ordered
+
+            logger.info("dialectical_synthesis_phase enabled in pipeline")
+        except ImportError as e:
+            logger.debug("Synthesis phase not available: %s", e)
 
     # Create checkpoint callbacks
     pre_phase_callback, post_phase_callback = _create_checkpoint_callbacks(arena)

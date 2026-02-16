@@ -478,6 +478,9 @@ class Arena(ArenaDelegatesMixin):
         auto_execution_mode: str = "workflow",
         auto_approval_mode: str = "risk_based",
         auto_max_risk: str = "low",
+        # Meta-Learning
+        meta_learner: Any = None,
+        enable_meta_learning: bool = False,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
         self.mode_sequence = mode_sequence
@@ -743,6 +746,19 @@ class Arena(ArenaDelegatesMixin):
             rlm_summary_level=cfg.rlm_summary_level,
             rlm_compression_round_threshold=cfg.rlm_compression_round_threshold,
         )
+
+        # Meta-Learning: lazy-init MetaLearner when enabled
+        if meta_learner is not None:
+            self.meta_learner = meta_learner
+        elif enable_meta_learning:
+            try:
+                from aragora.learning.meta import MetaLearner as _MetaLearner
+
+                self.meta_learner = _MetaLearner()
+            except ImportError:
+                self.meta_learner = None
+        else:
+            self.meta_learner = None
 
         # Run remaining subsystem initialization sequence
         _init_run_init_subsystems(self)

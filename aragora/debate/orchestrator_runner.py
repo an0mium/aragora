@@ -678,13 +678,15 @@ async def handle_debate_completion(
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Post-debate workflow fallback setup failed: {e}")
 
-    # Run post-debate coordinator pipeline (opt-in via post_debate_config)
+    # Run post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
+    from aragora.debate.post_debate_coordinator import DEFAULT_POST_DEBATE_CONFIG
     post_debate_config = getattr(arena, "post_debate_config", None)
-    if post_debate_config is not None and ctx.result:
+    effective_config = post_debate_config if post_debate_config is not None else DEFAULT_POST_DEBATE_CONFIG
+    if not getattr(arena, "disable_post_debate_pipeline", False) and ctx.result:
         try:
             from aragora.debate.post_debate_coordinator import PostDebateCoordinator
 
-            coordinator = PostDebateCoordinator(config=post_debate_config)
+            coordinator = PostDebateCoordinator(config=effective_config)
             task = getattr(ctx.env, "task", "") if ctx.env else ""
             confidence = getattr(ctx.result, "confidence", 0.0)
             post_result = coordinator.run(

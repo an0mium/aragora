@@ -515,8 +515,9 @@ class ArenaConfig:
         self.enable_privacy_anonymization = enable_privacy_anonymization
         self.anonymization_method = anonymization_method
 
-        # Post-debate coordinator pipeline (opt-in structured pipeline)
+        # Post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
         self.post_debate_config = kwargs.pop("post_debate_config", None)
+        self.disable_post_debate_pipeline = kwargs.pop("disable_post_debate_pipeline", False)
 
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)
@@ -778,6 +779,7 @@ class ArenaConfig:
             "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
             # Post-debate coordinator pipeline
             "post_debate_config": self.post_debate_config,
+            "disable_post_debate_pipeline": self.disable_post_debate_pipeline,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,

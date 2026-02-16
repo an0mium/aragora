@@ -62,6 +62,20 @@ _PRESETS: dict[str, dict[str, Any]] = {
         # Advanced debate features
         "enable_debate_forking": True,
         "enable_unified_voting": True,
+        # Knowledge flywheel (Receipt -> KM -> Next Debate)
+        "enable_adaptive_consensus": True,
+        "enable_synthesis": True,
+        "enable_knowledge_injection": True,
+        "enable_meta_learning": True,
+        # Post-debate pipeline (converted to PostDebateConfig in get_preset)
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_create_plan": True,
+            "auto_notify": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+            "auto_queue_improvement": True,
+        },
     },
     "minimal": {
         # Cheap & fast
@@ -77,6 +91,13 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_compliance_artifacts": True,
         "enable_position_ledger": True,
         "enable_telemetry": True,
+        # Post-debate pipeline (converted to PostDebateConfig in get_preset)
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_create_plan": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+        },
     },
     "healthcare": {
         # HIPAA compliance
@@ -183,7 +204,16 @@ def get_preset(name: str) -> dict[str, Any]:
     if name not in _PRESETS:
         available = ", ".join(sorted(_PRESETS))
         raise KeyError(f"Unknown preset '{name}'. Available: {available}")
-    return dict(_PRESETS[name])
+    result = dict(_PRESETS[name])
+    # Convert post-debate preset shorthand to actual config
+    pdc_preset = result.pop("_post_debate_preset", None)
+    if pdc_preset:
+        try:
+            from aragora.debate.post_debate_coordinator import PostDebateConfig
+            result["post_debate_config"] = PostDebateConfig(**pdc_preset)
+        except ImportError:
+            pass
+    return result
 
 
 def list_presets() -> list[str]:

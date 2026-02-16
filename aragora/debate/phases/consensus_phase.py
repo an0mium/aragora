@@ -244,6 +244,22 @@ class ConsensusPhase:
 
         self._vote_bonus_calculator = VoteBonusCalculator(protocol=self.protocol)
 
+        # Adaptive consensus threshold (opt-in via protocol flag)
+        self._adaptive_consensus = None
+        if getattr(self.protocol, "enable_adaptive_consensus", False):
+            try:
+                from aragora.debate.adaptive_consensus import (
+                    AdaptiveConsensus,
+                    AdaptiveConsensusConfig,
+                )
+
+                ac_config = AdaptiveConsensusConfig(
+                    base_threshold=getattr(self.protocol, "consensus_threshold", 0.6),
+                )
+                self._adaptive_consensus = AdaptiveConsensus(ac_config)
+            except ImportError:
+                logger.debug("AdaptiveConsensus not available")
+
     # Default timeout for consensus phase (can be overridden via protocol)
     # Judge mode needs more time due to LLM generation latency
     DEFAULT_CONSENSUS_TIMEOUT = AGENT_TIMEOUT_SECONDS + 60  # Agent timeout + margin
@@ -544,6 +560,29 @@ class ConsensusPhase:
         """Handle 'majority' consensus mode - weighted voting."""
         result = ctx.result
         proposals = ctx.proposals
+
+        # Compute adaptive threshold when enabled and no explicit override
+        if threshold_override is None and self._adaptive_consensus is not None:
+            try:
+                agents = ctx.agents or []
+                threshold_override, explanation = (
+                    self._adaptive_consensus.compute_threshold_with_explanation(
+                        agents,
+                        elo_system=self.elo_system,
+                        calibration_tracker=self.calibration_tracker,
+                    )
+                )
+                # Store explanation in result for audit trail
+                if ctx.result:
+                    ctx.result.adaptive_threshold_explanation = explanation
+                logger.info(
+                    "adaptive_consensus_threshold=%.4f for %d agents",
+                    threshold_override,
+                    len(agents),
+                )
+            except (TypeError, ValueError, AttributeError) as e:
+                logger.debug("Adaptive consensus computation failed: %s", e)
+                threshold_override = None
 
         # Cast votes from all agents
         votes = await self._collect_votes(ctx)

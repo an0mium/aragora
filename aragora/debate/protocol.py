@@ -537,6 +537,20 @@ class DebateProtocol:
     enable_privacy_anonymization: bool = False
     privacy_anonymization_method: str = "redact"  # "redact", "hash", "pseudonymize"
 
+    # Adaptive consensus: Adjusts consensus threshold based on voter calibration quality
+    # Well-calibrated voters (low Brier) → lower threshold; poorly-calibrated → higher
+    enable_adaptive_consensus: bool = False  # Opt-in: requires calibration data
+
+    # Dialectical synthesis: Hegelian thesis/antithesis/synthesis after consensus
+    # Generates a combined position from opposing proposals instead of just voting
+    enable_synthesis: bool = False  # Opt-in: adds synthesis phase after consensus
+    synthesis_confidence_threshold: float = 0.5  # Min confidence for synthesis result
+
+    # Knowledge injection flywheel: Injects past debate receipts from KM into context
+    # Completes the loop: Debate → Receipt → KM (persist) → KM (query) → Next Debate
+    enable_knowledge_injection: bool = False  # Opt-in: requires Knowledge Mound
+    knowledge_injection_max_receipts: int = 3  # Max past receipts to inject
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 
@@ -591,6 +605,26 @@ class DebateProtocol:
             plan_budget_limit_usd=budget_limit_usd,
             **kwargs,
         )
+
+    @classmethod
+    def with_full_flywheel(cls, **kwargs: Any) -> DebateProtocol:
+        """Create a protocol with all knowledge flywheel features enabled.
+
+        Enables adaptive consensus, dialectical synthesis, and knowledge
+        injection — the three feedback loops that make debates self-improving.
+
+        Returns:
+            DebateProtocol with all flywheel features enabled.
+        """
+        defaults = {
+            "enable_adaptive_consensus": True,
+            "enable_synthesis": True,
+            "enable_knowledge_injection": True,
+            "enable_trickster": True,
+            "auto_create_plan": True,
+        }
+        defaults.update(kwargs)
+        return cls(**defaults)
 
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:

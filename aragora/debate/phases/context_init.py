@@ -269,6 +269,9 @@ class ContextInitializer:
         # 9b. Inject Supermemory external context (cross-session learnings)
         await self._inject_supermemory_context(ctx)
 
+        # 9c. Inject past debate knowledge from KM flywheel
+        await self._inject_debate_knowledge(ctx)
+
         # 10. Inject learned patterns from InsightStore (async)
         await self._inject_insight_patterns(ctx)
 
@@ -534,6 +537,51 @@ class ContextInitializer:
             )
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[supermemory] Context injection error: {e}")
+
+    async def _inject_debate_knowledge(self, ctx: DebateContext) -> None:
+        """Inject past debate knowledge from KM via the knowledge injection flywheel.
+
+        Uses DebateKnowledgeInjector to query for relevant past decision receipts
+        and inject them into the environment context, completing the
+        Receipt -> KM -> Next Debate feedback loop.
+        """
+        if not getattr(self.protocol, "enable_knowledge_injection", False):
+            return
+
+        if not self.knowledge_mound:
+            return
+
+        try:
+            from aragora.debate.knowledge_injection import (
+                DebateKnowledgeInjector,
+                KnowledgeInjectionConfig,
+            )
+        except ImportError:
+            return
+
+        try:
+            config = KnowledgeInjectionConfig(
+                max_relevant_receipts=getattr(
+                    self.protocol, "knowledge_injection_max_receipts", 3
+                ),
+            )
+            injector = DebateKnowledgeInjector(config=config)
+            task = ctx.env.task if ctx.env else ""
+            domain = getattr(ctx, "domain", None)
+
+            knowledge = await injector.query_relevant_knowledge(task, domain)
+            if not knowledge:
+                return
+
+            formatted = injector.format_for_injection(knowledge)
+            if formatted:
+                ctx.env.context = (ctx.env.context or "") + "\n\n" + formatted
+                logger.info(
+                    "[knowledge_injection] Injected %d past debate receipts into context",
+                    len(knowledge),
+                )
+        except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
+            logger.debug("[knowledge_injection] Failed: %s", e)
 
     def _get_cached_knowledge(self, query_hash: str) -> str | None:
         """Get cached knowledge context if still valid.
