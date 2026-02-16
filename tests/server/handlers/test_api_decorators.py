@@ -751,7 +751,7 @@ class TestRequireQuota:
         org = MockOrganization(id="org-123")
 
         user_store = MagicMock()
-        user_store.get_organization_by_id = MagicMock(side_effect=Exception("Database error"))
+        user_store.get_organization_by_id = MagicMock(side_effect=OSError("Database error"))
         user_ctx = MockUserAuthContext(org_id="org-123")
 
         class Handler:
