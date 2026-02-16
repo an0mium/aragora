@@ -200,7 +200,7 @@ def sign_payload(secret: str, body: bytes) -> str:
     try:
         signature = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
         return f"sha256={signature}"
-    except Exception as e:
+    except (ValueError, TypeError, UnicodeEncodeError) as e:
         logger.debug(f"Failed to sign payload: {e}")
         return ""
 

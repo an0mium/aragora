@@ -429,7 +429,7 @@ class DiscordWebhookManager:
                         f"Discord broadcast to {name} connection error: {type(e).__name__}: {e}"
                     )
                     results[name] = False
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:
                     logger.error(
                         f"Discord broadcast to {name} unexpected error: {type(e).__name__}: {e}"
                     )
