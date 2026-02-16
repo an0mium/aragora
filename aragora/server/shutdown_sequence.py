@@ -135,7 +135,7 @@ class ShutdownSequence:
             logger.debug(f"Shutdown phase cancelled: {phase.name}")
             return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual phase failures
             # Broad catch intentional: shutdown must continue despite individual phase failures
             self._failed.append(phase.name)
             if phase.critical:
@@ -718,7 +718,7 @@ class ShutdownPhaseBuilder:
                 try:
                     server._http_server.shutdown()
                     logger.info("HTTP server shutdown complete")
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.debug(f"HTTP server shutdown error (expected if not running): {e}")
 
         sequence.add_phase(
@@ -736,7 +736,7 @@ class ShutdownPhaseBuilder:
                 try:
                     server._uvicorn_server.should_exit = True
                     logger.info("Uvicorn server signaled for shutdown")
-                except Exception as e:
+                except (OSError, RuntimeError, AttributeError) as e:
                     logger.debug(f"Uvicorn shutdown error: {e}")
 
         sequence.add_phase(

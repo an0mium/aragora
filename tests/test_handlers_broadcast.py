@@ -768,7 +768,7 @@ class TestBroadcastGeneration:
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
         with patch(
-            "aragora.debate.traces.DebateTrace.load", side_effect=Exception("Invalid trace")
+            "aragora.debate.traces.DebateTrace.load", side_effect=ValueError("Invalid trace")
         ):
             result = unwrapped(handler, "test", mock_handler)
 
