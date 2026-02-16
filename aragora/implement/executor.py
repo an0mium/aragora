@@ -1078,6 +1078,9 @@ Follow existing code style and tests.""",
                 error=stderr.decode()[:500] if not success and stderr else None,
             )
         except asyncio.TimeoutError:
+            # Kill the orphaned subprocess to prevent zombies
+            proc.kill()
+            await proc.wait()
             duration = time.time() - start_time
             return TaskResult(
                 task_id=task.id,

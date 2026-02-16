@@ -251,6 +251,7 @@ class VerificationStep(BaseStep):
                             results["tests_failed"] = int(m.group(1))
 
             except subprocess.TimeoutExpired:
+                # subprocess.run() already kills the child on timeout
                 results["success"] = False
                 results["errors"].append("Test suite timed out after 300s")
             except (OSError, FileNotFoundError) as e:

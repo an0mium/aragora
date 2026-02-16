@@ -857,8 +857,8 @@ class TestKnowledgeChatErrorHandlingE2E:
         """Test that search gracefully handles bridge errors."""
         from aragora.server.handlers.knowledge_chat import handle_knowledge_search
 
-        # Make bridge raise an error
-        mock_bridge.search_knowledge = AsyncMock(side_effect=Exception("Connection failed"))
+        # Make bridge raise an error (use RuntimeError since handler catches specific types)
+        mock_bridge.search_knowledge = AsyncMock(side_effect=RuntimeError("Connection failed"))
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
@@ -877,8 +877,8 @@ class TestKnowledgeChatErrorHandlingE2E:
         """Test that store gracefully handles bridge errors."""
         from aragora.server.handlers.knowledge_chat import handle_store_chat_knowledge
 
-        # Make bridge raise an error
-        mock_bridge.store_chat_as_knowledge = AsyncMock(side_effect=Exception("Storage failed"))
+        # Make bridge raise an error (use RuntimeError since handler catches specific types)
+        mock_bridge.store_chat_as_knowledge = AsyncMock(side_effect=RuntimeError("Storage failed"))
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
@@ -900,9 +900,9 @@ class TestKnowledgeChatErrorHandlingE2E:
         """Test that inject gracefully handles bridge errors."""
         from aragora.server.handlers.knowledge_chat import handle_knowledge_inject
 
-        # Make bridge raise an error
+        # Make bridge raise an error (use RuntimeError since handler catches specific types)
         mock_bridge.inject_knowledge_for_conversation = AsyncMock(
-            side_effect=Exception("Injection failed")
+            side_effect=RuntimeError("Injection failed")
         )
 
         with patch(
@@ -924,9 +924,9 @@ class TestKnowledgeChatErrorHandlingE2E:
             handle_channel_knowledge_summary,
         )
 
-        # Make bridge raise an error
+        # Make bridge raise an error (use RuntimeError since handler catches specific types)
         mock_bridge.get_channel_knowledge_summary = AsyncMock(
-            side_effect=Exception("Summary failed")
+            side_effect=RuntimeError("Summary failed")
         )
 
         with patch(

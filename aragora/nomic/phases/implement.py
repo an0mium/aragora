@@ -670,6 +670,9 @@ CRITICAL SAFETY RULES:
             )
 
         except asyncio.TimeoutError:
+            # Kill the orphaned subprocess to prevent zombies
+            proc.kill()
+            await proc.wait()
             phase_duration = (datetime.now() - phase_start).total_seconds()
             self._stream_emit(
                 "on_phase_end",

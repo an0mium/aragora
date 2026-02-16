@@ -21,13 +21,26 @@ Key features:
 
 from .checkpoint import clear_progress, load_progress, save_progress
 from .executor import HybridExecutor
-from .fabric_integration import (
-    FabricImplementationConfig,
-    FabricImplementationRunner,
-    register_implementation_executor,
-)
 from .planner import create_single_task_plan, generate_implement_plan
 from .types import ImplementPlan, ImplementProgress, ImplementTask, TaskResult
+
+# Fabric integration is loaded lazily to break a circular import:
+#   implement/__init__ → fabric_integration → pipeline → decision_integrity → implement
+_LAZY_IMPORTS = {
+    "FabricImplementationConfig": ".fabric_integration",
+    "FabricImplementationRunner": ".fabric_integration",
+    "register_implementation_executor": ".fabric_integration",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        import importlib
+
+        module = importlib.import_module(_LAZY_IMPORTS[name], __name__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Types
