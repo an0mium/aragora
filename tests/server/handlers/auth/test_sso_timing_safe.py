@@ -498,14 +498,27 @@ class TestStateStoreValidationMocking:
 
         mock_provider.authenticate = spy_authenticate
 
+        mock_user_store = MagicMock()
+        mock_existing_user = MagicMock()
+        mock_existing_user.id = "user_123"
+        mock_existing_user.email = "test@example.com"
+        mock_existing_user.name = "Test User"
+        mock_existing_user.role = "member"
+        mock_user_store.get_user_by_email.return_value = mock_existing_user
+        mock_user_store.get_user_by_id.return_value = mock_existing_user
+
         with patch.object(sso_handlers, "_get_sso_provider") as mock_get:
             mock_get.return_value = mock_provider
             with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
                 mock_store.return_value = memory_state_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "jwt"
+                    with patch(
+                        "aragora.storage.user_store.singleton.get_user_store"
+                    ) as mock_get_store:
+                        mock_get_store.return_value = mock_user_store
 
-                    await handle_sso_callback({"code": "auth_code", "state": state})
+                        await handle_sso_callback({"code": "auth_code", "state": state})
 
         # State validation should happen before provider authentication
         assert validation_order == ["state_validation", "provider_auth"]

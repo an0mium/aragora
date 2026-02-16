@@ -192,62 +192,55 @@ class UnifiedHandler(  # type: ignore[misc]
     control_plane_stream: Optional["ControlPlaneStreamServer"] = None
     nomic_loop_stream: Optional["NomicLoopStreamServer"] = None
     canvas_stream: Optional["CanvasStreamServer"] = None
-    tracing: TracingMiddleware = TracingMiddleware(service_name="aragora-api")
-    rbac: RBACMiddleware = RBACMiddleware(
-        RBACMiddlewareConfig(
-            route_permissions=DEFAULT_ROUTE_PERMISSIONS,
-            bypass_paths={
-                # Health checks (required by load balancers/orchestrators)
-                "/health",
-                "/healthz",
-                "/ready",
-                "/readyz",
-                # Observability
-                "/metrics",
-                # API documentation
-                "/api/docs",
-                "/api/docs/",
-                "/api/redoc",
-                "/api/redoc/",
-                "/openapi.json",
-                "/api/openapi",
-                "/api/openapi.json",
-                "/api/openapi.yaml",
-                "/api/postman.json",
-                "/api/v1/docs",
-                "/api/v1/docs/",
-                "/api/v1/openapi",
-                "/api/v1/openapi.json",
-                # GraphQL endpoints (GraphiQL playground in dev mode)
-                "/graphql",
-                "/graphiql",
-                "/api/graphql",
-                "/api/v1/graphql",
-                "/graphql/schema",
-                "/api/graphql/schema",
-                "/api/v1/graphql/schema",
-                # Auth endpoints (must be accessible before authentication)
-                "/api/v1/auth/register",
-                "/api/v1/auth/login",
-                "/api/v1/auth/refresh",
-                "/api/v1/auth/signup",
-                "/api/v1/auth/verify-email",
-                "/api/v1/auth/resend-verification",
-                "/api/v1/auth/accept-invite",
-                "/api/v1/auth/check-invite",
-                # OAuth endpoints (callbacks must be public)
-                "/api/v1/auth/oauth/",
-                "/api/auth/oauth/",
-                # SSO endpoints
-                "/api/v1/auth/sso/",
-                "/auth/sso/",
-                # Explicit public endpoints
-                "/api/public/",
-            },
-            bypass_methods={"OPTIONS"},
-            default_authenticated=True,  # SECURITY: Require auth by default for unmatched routes
-        )
-    )
+    # Middleware lazily initialized on first access to avoid startup overhead.
+    _tracing: TracingMiddleware | None = None
+    _rbac: RBACMiddleware | None = None
+
+    @classmethod
+    def _get_tracing(cls) -> TracingMiddleware:
+        if cls._tracing is None:
+            cls._tracing = TracingMiddleware(service_name="aragora-api")
+        return cls._tracing
+
+    @classmethod
+    def _get_rbac(cls) -> RBACMiddleware:
+        if cls._rbac is None:
+            cls._rbac = RBACMiddleware(
+                RBACMiddlewareConfig(
+                    route_permissions=DEFAULT_ROUTE_PERMISSIONS,
+                    bypass_paths={
+                        "/health", "/healthz", "/ready", "/readyz",
+                        "/metrics",
+                        "/api/docs", "/api/docs/", "/api/redoc", "/api/redoc/",
+                        "/openapi.json", "/api/openapi", "/api/openapi.json",
+                        "/api/openapi.yaml", "/api/postman.json",
+                        "/api/v1/docs", "/api/v1/docs/",
+                        "/api/v1/openapi", "/api/v1/openapi.json",
+                        "/graphql", "/graphiql", "/api/graphql", "/api/v1/graphql",
+                        "/graphql/schema", "/api/graphql/schema", "/api/v1/graphql/schema",
+                        "/api/v1/auth/register", "/api/v1/auth/login",
+                        "/api/v1/auth/refresh", "/api/v1/auth/signup",
+                        "/api/v1/auth/verify-email", "/api/v1/auth/resend-verification",
+                        "/api/v1/auth/accept-invite", "/api/v1/auth/check-invite",
+                        "/api/v1/auth/oauth/", "/api/auth/oauth/",
+                        "/api/v1/auth/sso/", "/auth/sso/",
+                        "/api/public/",
+                    },
+                    bypass_methods={"OPTIONS"},
+                    default_authenticated=True,
+                )
+            )
+        return cls._rbac
+
+    @property
+    def tracing(self) -> TracingMiddleware:
+        """Lazy-init tracing middleware on first access."""
+        return self._get_tracing()
+
+    @property
+    def rbac(self) -> RBACMiddleware:
+        """Lazy-init RBAC middleware on first access."""
+        return self._get_rbac()
     nomic_state_file: Path | None = None
     persistence: Optional["SupabaseClient"] = None
     insight_store: Optional["InsightStore"] = None

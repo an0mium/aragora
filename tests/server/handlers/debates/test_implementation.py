@@ -224,7 +224,7 @@ class TestPersistReceipt:
     def test_exception_returns_none(self):
         """Store exception is caught and returns None."""
         mock_receipt = MagicMock()
-        mock_receipt.to_dict.side_effect = RuntimeError("boom")
+        mock_receipt.to_dict.side_effect = TypeError("boom")
 
         result = _persist_receipt(mock_receipt, "debate-001")
         assert result is None
@@ -273,7 +273,7 @@ class TestPersistPlan:
         with (
             patch(
                 "aragora.pipeline.executor.store_plan",
-                side_effect=RuntimeError("store failed"),
+                side_effect=OSError("store failed"),
             ),
             patch("aragora.pipeline.decision_plan.DecisionPlanFactory"),
         ):
@@ -337,7 +337,7 @@ class TestCheckExecutionBudget:
     def test_tracker_exception_allows(self):
         """Exception in budget check defaults to allowing."""
         tracker = MagicMock()
-        tracker.check_debate_budget.side_effect = RuntimeError("db error")
+        tracker.check_debate_budget.side_effect = ValueError("db error")
 
         allowed, msg = _check_execution_budget("debate-001", {"cost_tracker": tracker})
         assert allowed is True

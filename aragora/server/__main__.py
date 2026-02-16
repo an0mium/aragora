@@ -167,6 +167,8 @@ Production deployment with multiple workers:
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
         os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
         os.environ.setdefault("ARAGORA_ENV", "development")
+        # Reduce handler surface area — skip enterprise/experimental tiers
+        os.environ.setdefault("ARAGORA_HANDLER_TIERS", "core,extended")
         _logger.info(
             "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
         )
@@ -174,6 +176,8 @@ Production deployment with multiple workers:
         # No API keys found — auto-enable demo mode for zero-config startup
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
         os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        # Reduce handler surface area — skip enterprise/experimental tiers
+        os.environ.setdefault("ARAGORA_HANDLER_TIERS", "core,extended")
         _logger.info(
             "[server] No API keys detected. Starting in DEMO mode with mock agents. "
             "Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI debates."

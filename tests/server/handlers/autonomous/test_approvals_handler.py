@@ -793,7 +793,7 @@ class TestErrorHandling:
     async def test_get_request_internal_error(self, mock_auth_context):
         """Should return 500 on internal error."""
         mock_flow = MockApprovalFlow()
-        mock_flow._load_request = MagicMock(side_effect=ValueError("Database error"))
+        mock_flow._load_request = MagicMock(side_effect=RuntimeError("Database error"))
 
         cb = MockCircuitBreaker(can_exec=True)
 
