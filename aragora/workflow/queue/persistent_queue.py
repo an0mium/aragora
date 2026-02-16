@@ -320,7 +320,7 @@ class PersistentTaskQueue(TaskQueue):
             )
             conn.commit()
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to update task status {task.id}: {e}")
 
     async def _execute_task(self, task: WorkflowTask) -> None:
@@ -396,7 +396,7 @@ class PersistentTaskQueue(TaskQueue):
             logger.info(f"Recovered {recovered} tasks from persistent storage")
             return recovered
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to recover tasks: {e}")
             return 0
 
@@ -444,7 +444,7 @@ class PersistentTaskQueue(TaskQueue):
             if row:
                 return self._row_to_task(row)
             return None
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to get task {task_id} from DB: {e}")
             return None
 
@@ -498,7 +498,7 @@ class PersistentTaskQueue(TaskQueue):
 
             return tasks, total
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to list tasks from DB: {e}")
             return [], 0
 
@@ -542,7 +542,7 @@ class PersistentTaskQueue(TaskQueue):
 
             return deleted
 
-        except Exception as e:
+        except (sqlite3.Error, OSError) as e:
             logger.error(f"Failed to delete completed tasks: {e}")
             return 0
 
@@ -561,7 +561,7 @@ class PersistentTaskQueue(TaskQueue):
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as exc:
+            except (sqlite3.Error, OSError) as exc:
                 logger.debug("Failed to close connection: %s", exc)
         self._connections.clear()
         self._conn_var.set(None)

@@ -217,7 +217,7 @@ async def build_decision_integrity_payload(
             auth_context=auth_context,
             context_envelope=context_envelope,
         )
-    except Exception as exc:
+    except (ValueError, TypeError, KeyError, RuntimeError, OSError) as exc:
         logger.debug("Decision integrity build failed: %s", exc)
         return None
 
@@ -315,7 +315,7 @@ async def build_decision_integrity_payload(
                 store_plan(plan)
                 payload["decision_plan"] = plan.to_dict()
                 payload["plan_id"] = plan.id
-            except Exception as exc:
+            except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as exc:
                 logger.debug("Decision plan creation failed: %s", exc)
 
     approval_request = None
@@ -369,7 +369,7 @@ async def build_decision_integrity_payload(
                         store_plan(plan)
                 except (ImportError, OSError, RuntimeError):
                     logger.debug("Failed to store approved plan", exc_info=True)
-            except Exception as exc:
+            except (ImportError, ValueError, TypeError, RuntimeError, OSError) as exc:
                 logger.debug("Approval request failed: %s", exc)
 
     execution_payload: dict[str, Any] | None = None
@@ -425,7 +425,7 @@ async def build_decision_integrity_payload(
                     "mode": engine,
                     "outcome": outcome.to_dict(),
                 }
-            except Exception as exc:
+            except (ImportError, ValueError, TypeError, RuntimeError, OSError) as exc:
                 execution_payload = {
                     "status": "failed",
                     "error": str(exc),

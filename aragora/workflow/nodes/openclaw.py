@@ -260,7 +260,7 @@ class OpenClawActionStep(BaseStep):
                 "error": "OpenClaw gateway module not available",
                 "action_type": action_type,
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
             logger.error(f"OpenClaw action failed: {e}")
             if cfg.on_failure == "skip":
                 return {
@@ -310,7 +310,7 @@ class OpenClawActionStep(BaseStep):
                 return m.group(0)
 
             return re.sub(r"\{([^}]+)\}", _replace_match, value)
-        except Exception as exc:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as exc:
             logger.debug("Template resolution failed for %r: %s", value, exc)
             return value
 

@@ -365,6 +365,7 @@ class TaskDecomposer:
         "sanitize", "encrypt", "decrypt", "hash", "compress", "paginate",
         "throttle", "debounce", "middleware", "decorator", "hook",
         "callback", "handler", "endpoint", "route", "model", "schema",
+        "coverage", "benchmark", "lint", "type-check", "typecheck",
         "migration", "fixture", "mock", "stub", "factory", "singleton",
     }
 
