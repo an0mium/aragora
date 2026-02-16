@@ -327,7 +327,12 @@ class BeadStore:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                await proc.wait()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=15)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    raise
                 logger.info(f"Initialized git repository in {self.bead_dir}")
             except Exception as e:
                 logger.warning(f"Could not initialize git: {e}")
@@ -656,55 +661,37 @@ class BeadStore:
             return None
 
         try:
+            async def _git(*args: str) -> tuple[int, str]:
+                """Run git command with timeout and zombie prevention."""
+                p = await asyncio.create_subprocess_exec(
+                    "git", *args,
+                    cwd=str(self.bead_dir),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    out, _ = await asyncio.wait_for(p.communicate(), timeout=15)
+                except asyncio.TimeoutError:
+                    p.kill()
+                    await p.wait()
+                    raise
+                return p.returncode or 0, out.decode().strip() if out else ""
+
             # Add files
-            proc = await asyncio.create_subprocess_exec(
-                "git",
-                "add",
-                "-A",
-                cwd=str(self.bead_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
+            await _git("add", "-A")
 
             # Check if there are changes to commit
-            proc = await asyncio.create_subprocess_exec(
-                "git",
-                "diff",
-                "--cached",
-                "--quiet",
-                cwd=str(self.bead_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            returncode = await proc.wait()
-            if returncode == 0:
+            rc, _ = await _git("diff", "--cached", "--quiet")
+            if rc == 0:
                 logger.debug("No changes to commit")
                 return None
 
             # Commit
-            proc = await asyncio.create_subprocess_exec(
-                "git",
-                "commit",
-                "-m",
-                message,
-                cwd=str(self.bead_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.wait()
+            await _git("commit", "-m", message)
 
             # Get commit hash
-            proc = await asyncio.create_subprocess_exec(
-                "git",
-                "rev-parse",
-                "HEAD",
-                cwd=str(self.bead_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await proc.communicate()
-            commit_hash = stdout.decode().strip()[:8]
+            _, out = await _git("rev-parse", "HEAD")
+            commit_hash = out[:8]
 
             logger.info(f"Committed beads: {commit_hash} - {message}")
             return commit_hash

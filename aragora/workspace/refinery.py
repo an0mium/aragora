@@ -384,7 +384,12 @@ class Refinery:
             stderr=asyncio.subprocess.PIPE,
             cwd=self.config.work_dir,
         )
-        stdout_bytes, stderr_bytes = await proc.communicate()
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return 1, "", "git command timed out"
         stdout = stdout_bytes.decode().strip() if stdout_bytes else ""
         stderr = stderr_bytes.decode().strip() if stderr_bytes else ""
         return proc.returncode or 0, stdout, stderr
@@ -402,7 +407,13 @@ class Refinery:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.config.work_dir,
             )
-            await proc.communicate()
+            try:
+                await asyncio.wait_for(proc.communicate(), timeout=300)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                logger.warning(f"Tests timed out for merge {request.request_id}")
+                return False
             success = proc.returncode == 0
             if not success:
                 logger.warning(f"Tests failed for merge {request.request_id}")
