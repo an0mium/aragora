@@ -87,7 +87,7 @@ class LeaderboardViewHandler(SecureHandler):
         """
         try:
             data[key] = fetch_fn()
-        except (TypeError, ValueError, KeyError, AttributeError, ImportError, OSError) as e:  # broad catch: last-resort handler
+        except (TypeError, ValueError, KeyError, AttributeError, ImportError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.error(
                 "Leaderboard section '%s' failed: %s: %s", key, type(e).__name__, e, exc_info=True
             )

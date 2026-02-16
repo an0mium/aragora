@@ -439,6 +439,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
           // Graph/Matrix specific options
           ...(debateMode === 'graph' && { branch_on_disagreement: true }),
           ...(debateMode === 'matrix' && { scenarios: 3 }),
+          ...(budgetLimit && parseFloat(budgetLimit) > 0 && { budget_limit_usd: parseFloat(budgetLimit) }),
         }),
       });
 
@@ -862,6 +863,29 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
                 </select>
                 <p className="text-[10px] text-text-muted mt-1">
                   8 rounds = full 9-phase format (context through adjudication)
+                </p>
+              </div>
+
+              {/* Budget Limit */}
+              <div>
+                <label htmlFor="debate-budget" className="block text-xs font-mono text-text-muted mb-1">
+                  BUDGET CAP (USD)
+                </label>
+                <input
+                  id="debate-budget"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  value={budgetLimit}
+                  onChange={(e) => setBudgetLimit(e.target.value)}
+                  placeholder="No limit"
+                  className="w-full bg-bg border border-acid-green/30 px-3 py-2
+                             font-mono text-sm text-text focus:border-acid-green
+                             focus:outline-none"
+                />
+                <p className="text-[10px] text-text-muted mt-1">
+                  Debate halts when cost reaches this limit
                 </p>
               </div>
             </div>

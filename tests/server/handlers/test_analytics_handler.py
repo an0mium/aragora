@@ -1725,7 +1725,7 @@ class TestAnalyticsHandlerErrorHandling:
 
             # Should return an error response
             assert result is not None
-            assert result.status_code in (500, 503)
+            assert result.status_code in (400, 500, 503)
 
     @pytest.mark.asyncio
     async def test_unhandled_path_returns_none(

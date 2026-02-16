@@ -144,17 +144,46 @@ Production deployment with multiple workers:
 
     _print_startup_banner(args, workers)
 
+    # Auto-detect available API keys and configure accordingly
+    import logging
+
+    _logger = logging.getLogger(__name__)
+    _api_keys = [
+        k
+        for k in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+        )
+        if os.environ.get(k, "").strip()
+    ]
+
     # Apply offline mode before starting any workers
     if args.offline:
-        import logging
-
         os.environ.setdefault("ARAGORA_OFFLINE", "true")
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
         os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
         os.environ.setdefault("ARAGORA_ENV", "development")
-        logging.getLogger(__name__).info(
+        _logger.info(
             "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
         )
+    elif not _api_keys:
+        # No API keys found — auto-enable demo mode for zero-config startup
+        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        _logger.info(
+            "[server] No API keys detected. Starting in DEMO mode with mock agents. "
+            "Set ANTHROPIC_API_KEY or OPENAI_API_KEY for real AI debates."
+        )
+    else:
+        _logger.info("[server] API keys detected: %s", ", ".join(_api_keys))
+
+    # Default to SQLite if no database URL configured
+    if not os.environ.get("DATABASE_URL") and not os.environ.get("ARAGORA_POSTGRES_DSN"):
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
 
     if workers == 1:
         # Single worker mode - run directly
