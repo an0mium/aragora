@@ -71,6 +71,15 @@ else
     echo "    OPENROUTER_API_KEY    — https://openrouter.ai/keys"
     echo "    SLACK_WEBHOOK_URL     — https://api.slack.com/messaging/webhooks"
     echo ""
+    echo "  Shopify (optional):"
+    echo "    SHOPIFY_SHOP_DOMAIN   — your-store.myshopify.com"
+    echo "    SHOPIFY_ACCESS_TOKEN  — Settings → Apps → Develop apps → Access token"
+    echo ""
+    echo "  Zendesk (optional):"
+    echo "    ZENDESK_SUBDOMAIN     — your-subdomain.zendesk.com"
+    echo "    ZENDESK_EMAIL         — admin email address"
+    echo "    ZENDESK_API_TOKEN     — Admin → Channels → API"
+    echo ""
     echo "  Gmail OAuth setup:"
     echo "    a) Google Cloud Console → APIs & Services → Credentials"
     echo "    b) Create OAuth 2.0 Client ID (type: Web application)"
@@ -92,23 +101,42 @@ else
     read -rp "OPENAI_API_KEY (optional, Enter to skip): " OPENAI_API_KEY
     read -rp "OPENROUTER_API_KEY (optional, Enter to skip): " OPENROUTER_API_KEY
     read -rp "SLACK_WEBHOOK_URL (optional, Enter to skip): " SLACK_WEBHOOK_URL
+    echo ""
+    read -rp "SHOPIFY_SHOP_DOMAIN (e.g., liftmode.myshopify.com, Enter to skip): " SHOPIFY_SHOP_DOMAIN
+    read -rp "SHOPIFY_ACCESS_TOKEN (Enter to skip): " SHOPIFY_ACCESS_TOKEN
+    echo ""
+    read -rp "ZENDESK_SUBDOMAIN (e.g., liftmode, Enter to skip): " ZENDESK_SUBDOMAIN
+    read -rp "ZENDESK_EMAIL (admin email, Enter to skip): " ZENDESK_EMAIL
+    read -rp "ZENDESK_API_TOKEN (Enter to skip): " ZENDESK_API_TOKEN
 
-    # Build JSON secret
+    # Build JSON secret — passes shell vars as args to avoid injection
     SECRET_JSON=$(python3 -c "
 import json, sys
-secret = {
-    'ANTHROPIC_API_KEY': '$ANTHROPIC_API_KEY',
-    'ARAGORA_API_TOKEN': '$ARAGORA_API_TOKEN',
-    'GMAIL_CLIENT_ID': '$GMAIL_CLIENT_ID',
-    'GMAIL_CLIENT_SECRET': '$GMAIL_CLIENT_SECRET',
-    'GOOGLE_CLIENT_ID': '$GMAIL_CLIENT_ID',
-    'GOOGLE_CLIENT_SECRET': '$GMAIL_CLIENT_SECRET',
-}
-if '$OPENAI_API_KEY': secret['OPENAI_API_KEY'] = '$OPENAI_API_KEY'
-if '$OPENROUTER_API_KEY': secret['OPENROUTER_API_KEY'] = '$OPENROUTER_API_KEY'
-if '$SLACK_WEBHOOK_URL': secret['SLACK_WEBHOOK_URL'] = '$SLACK_WEBHOOK_URL'
+pairs = list(zip(sys.argv[1::2], sys.argv[2::2]))
+secret = {}
+for key, val in pairs:
+    if val:
+        secret[key] = val
+# Mirror Gmail creds as Google creds for OAuth
+if 'GMAIL_CLIENT_ID' in secret:
+    secret['GOOGLE_CLIENT_ID'] = secret['GMAIL_CLIENT_ID']
+if 'GMAIL_CLIENT_SECRET' in secret:
+    secret['GOOGLE_CLIENT_SECRET'] = secret['GMAIL_CLIENT_SECRET']
 print(json.dumps(secret))
-")
+" \
+        ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" \
+        ARAGORA_API_TOKEN "$ARAGORA_API_TOKEN" \
+        GMAIL_CLIENT_ID "$GMAIL_CLIENT_ID" \
+        GMAIL_CLIENT_SECRET "$GMAIL_CLIENT_SECRET" \
+        OPENAI_API_KEY "$OPENAI_API_KEY" \
+        OPENROUTER_API_KEY "$OPENROUTER_API_KEY" \
+        SLACK_WEBHOOK_URL "$SLACK_WEBHOOK_URL" \
+        SHOPIFY_SHOP_DOMAIN "$SHOPIFY_SHOP_DOMAIN" \
+        SHOPIFY_ACCESS_TOKEN "$SHOPIFY_ACCESS_TOKEN" \
+        ZENDESK_SUBDOMAIN "$ZENDESK_SUBDOMAIN" \
+        ZENDESK_EMAIL "$ZENDESK_EMAIL" \
+        ZENDESK_API_TOKEN "$ZENDESK_API_TOKEN" \
+    )
 
     aws secretsmanager create-secret \
         --name "$SECRET_NAME" \
@@ -153,23 +181,40 @@ else
     echo "Services may still be starting. Wait a minute and retry."
 fi
 
+# ── Auto-connect Shopify + Zendesk ────────────────────────────────
+if [ -n "$SHOPIFY_SHOP_DOMAIN" ]; then
+    curl -sf -X POST http://localhost:8080/api/v1/ecommerce/connect \
+      -H "Authorization: Bearer $ARAGORA_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"platform\":\"shopify\",\"credentials\":{\"shop_url\":\"https://$SHOPIFY_SHOP_DOMAIN\",\"access_token\":\"$SHOPIFY_ACCESS_TOKEN\"}}" \
+    && info "Shopify connected" || warn "Shopify connection failed — connect manually later"
+fi
+
+if [ -n "$ZENDESK_SUBDOMAIN" ]; then
+    curl -sf -X POST http://localhost:8080/api/v1/support/connect \
+      -H "Authorization: Bearer $ARAGORA_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"platform\":\"zendesk\",\"credentials\":{\"subdomain\":\"$ZENDESK_SUBDOMAIN\",\"email\":\"$ZENDESK_EMAIL\",\"api_token\":\"$ZENDESK_API_TOKEN\"}}" \
+    && info "Zendesk connected" || warn "Zendesk connection failed — connect manually later"
+fi
+
 # ── Gmail OAuth ────────────────────────────────────────────────────────
 echo ""
 echo "=== Gmail OAuth Setup ==="
 echo ""
 echo "Open this URL in your browser to authorize Gmail access:"
 echo ""
-echo "  http://localhost:8080/api/v2/gmail/oauth/authorize"
+echo "  http://localhost:8080/api/v1/gmail/oauth/authorize"
 echo ""
 echo "After completing the consent flow, start initial sync:"
 echo ""
 echo "  curl -H 'Authorization: Bearer <your-token>' \\"
-echo "       -X POST http://localhost:8080/api/v2/gmail/sync/start"
+echo "       -X POST http://localhost:8080/api/v1/gmail/sync/start"
 echo ""
 echo "Check sync status:"
 echo ""
 echo "  curl -H 'Authorization: Bearer <your-token>' \\"
-echo "       http://localhost:8080/api/v2/gmail/sync/status"
+echo "       http://localhost:8080/api/v1/gmail/sync/status"
 echo ""
 
 # ── Install Daily Briefing (launchd) ──────────────────────────────────
@@ -241,6 +286,8 @@ echo ""
 echo "  API:      http://localhost:8080"
 echo "  Health:   http://localhost:8080/healthz"
 echo "  Priority: http://localhost:8080/api/v1/gmail/inbox/priority"
+echo "  Orders:   http://localhost:8080/api/v1/ecommerce/shopify/orders"
+echo "  Tickets:  http://localhost:8080/api/v1/support/zendesk/tickets"
 echo ""
 echo "  Secrets:  aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $AWS_REGION"
 echo ""

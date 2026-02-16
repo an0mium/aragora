@@ -520,7 +520,7 @@ class TestSecretVerification:
     def test_verify_secret_handles_exception(self, handler):
         """Test secret verification handles exceptions gracefully."""
         mock_http = MagicMock()
-        mock_http.headers.get.side_effect = Exception("Header access error")
+        mock_http.headers.get.side_effect = ValueError("Header access error")
 
         with patch(
             "aragora.server.handlers.social.telegram.TELEGRAM_WEBHOOK_SECRET",
@@ -574,7 +574,7 @@ class TestCommands:
     def test_command_status_error(self, handler):
         """Test /status command with error."""
         with patch("aragora.ranking.elo.EloSystem") as mock_elo:
-            mock_elo.return_value.get_all_ratings.side_effect = Exception("DB error")
+            mock_elo.return_value.get_all_ratings.side_effect = ValueError("DB error")
             response = handler._command_status()
 
         assert "Online" in response
@@ -606,7 +606,7 @@ class TestCommands:
     def test_command_agents_error(self, handler):
         """Test /agents command with error."""
         with patch("aragora.ranking.elo.EloSystem") as mock_elo:
-            mock_elo.return_value.get_all_ratings.side_effect = Exception("DB error")
+            mock_elo.return_value.get_all_ratings.side_effect = ValueError("DB error")
             response = handler._command_agents()
 
         assert "Could not fetch" in response
@@ -914,7 +914,7 @@ class TestVoteHandling:
         """Test vote handling gracefully handles storage errors."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task"):
             with patch("aragora.server.storage.get_debates_db") as mock_db:
-                mock_db.return_value.record_vote.side_effect = Exception("DB error")
+                mock_db.return_value.record_vote.side_effect = ValueError("DB error")
 
                 # Should not raise
                 result = handler._handle_vote(
@@ -973,7 +973,7 @@ class TestViewDetails:
         """Test view details handles storage errors gracefully."""
         with patch("aragora.server.handlers.social.telegram.create_tracked_task") as mock_task:
             with patch("aragora.server.storage.get_debates_db") as mock_db:
-                mock_db.return_value.get.side_effect = Exception("DB error")
+                mock_db.return_value.get.side_effect = ValueError("DB error")
 
                 # _handle_view_details now takes (callback_id, chat_id, user_id, username, debate_id)
                 result = handler._handle_view_details(
@@ -1445,7 +1445,7 @@ class TestDebateAsync:
     async def test_run_debate_async_exception(self, handler):
         """Test debate handles exceptions gracefully."""
         with patch("aragora.agents.get_agents_by_names") as mock_agents:
-            mock_agents.side_effect = Exception("Agent initialization failed")
+            mock_agents.side_effect = ValueError("Agent initialization failed")
 
             with patch.object(handler, "_send_message_async") as mock_send:
                 await handler._run_debate_async(123, 456, "user", "Test debate topic here")

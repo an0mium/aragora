@@ -563,7 +563,7 @@ class TestGetPatterns:
         orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
         try:
             mock_cls = _enable_evolution(mod)
-            mock_cls.side_effect = Exception("db connection failed")
+            mock_cls.side_effect = ValueError("db connection failed")
 
             with patch(
                 "aragora.server.handlers.evolution.handler.get_db_path",
@@ -742,7 +742,7 @@ class TestGetPromptVersion:
         orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
         try:
             mock_cls = _enable_evolution(mod)
-            mock_cls.side_effect = Exception("boom")
+            mock_cls.side_effect = ValueError("boom")
 
             with patch(
                 "aragora.server.handlers.evolution.handler.get_db_path",

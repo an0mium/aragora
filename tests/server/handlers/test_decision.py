@@ -645,7 +645,7 @@ class TestHelperFunctions:
     def test_falls_back_on_store_error(self, clear_fallback):
         """Falls back to in-memory on store error."""
         mock_store = MagicMock()
-        mock_store.save.side_effect = Exception("Store error")
+        mock_store.save.side_effect = ValueError("Store error")
 
         with patch(
             "aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store

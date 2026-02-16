@@ -60,6 +60,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _parse_budget_limit(value: Any) -> float | None:
+    """Parse budget_limit_usd from request body, clamping to safe range."""
+    if value is None:
+        return None
+    try:
+        limit = float(value)
+        if limit <= 0:
+            return None
+        return min(limit, 100.0)  # Cap at $100 for safety
+    except (ValueError, TypeError):
+        return None
+
+
 def _resolve_template(name: str):
     """Resolve a deliberation template by name.
 
@@ -147,6 +160,7 @@ class DebateRequest:
     vertical_id: str | None = None
     context: str | None = None  # Optional context for the debate
     template_name: str | None = None  # Optional deliberation template name
+    budget_limit_usd: float | None = None  # Per-debate budget cap
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -239,6 +253,7 @@ class DebateRequest:
             vertical_id=vertical_id,
             context=data.get("context"),
             template_name=template_name,
+            budget_limit_usd=_parse_budget_limit(data.get("budget_limit_usd")),
         )
 
 

@@ -783,7 +783,7 @@ class TestSkillsHandlerErrorCases:
 
                     # Mock request that raises on json()
                     mock_request = MagicMock()
-                    mock_request.get.side_effect = Exception("Invalid JSON")
+                    mock_request.get.side_effect = ValueError("Invalid JSON")
 
                     result = await handler.handle_post("/api/skills/invoke", mock_request)
 

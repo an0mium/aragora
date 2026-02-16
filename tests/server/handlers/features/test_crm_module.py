@@ -1194,7 +1194,7 @@ class TestErrorHandling:
         _platform_credentials["hubspot"] = {"credentials": {"access_token": "test"}}
 
         with patch.object(crm_handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
-            mock_body.side_effect = Exception("Parse error")
+            mock_body.side_effect = ValueError("Parse error")
 
             result = await crm_handler._create_company(mock_request, "hubspot")
 
@@ -1206,7 +1206,7 @@ class TestErrorHandling:
         _platform_credentials["hubspot"] = {"credentials": {"access_token": "test"}}
 
         with patch.object(crm_handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
-            mock_body.side_effect = Exception("Parse error")
+            mock_body.side_effect = ValueError("Parse error")
 
             result = await crm_handler._create_deal(mock_request, "hubspot")
 

@@ -885,7 +885,7 @@ class TestTokenRefreshFlow:
         mock_user_store.users["user-123"] = user
 
         mock_validate.return_value = MagicMock(user_id="user-123")
-        mock_revoke.side_effect = Exception("Database unavailable")
+        mock_revoke.side_effect = ValueError("Database unavailable")
 
         handler = make_mock_handler({"refresh_token": "valid_token"})
 

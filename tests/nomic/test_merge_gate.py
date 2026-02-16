@@ -399,7 +399,6 @@ class TestMergeWithGatePostMergeFailure:
         assert result.reverted is False
         assert result.error == "Post-merge tests failed"
 
-    @pytest.mark.xfail(reason="auto_revert not yet wired for timeout path")
     @pytest.mark.asyncio
     async def test_post_merge_timeout(self, repo_with_branch):
         """Post-merge test timeout should be treated as failure."""

@@ -488,7 +488,7 @@ class TestErrorHandling:
         db_path.touch()
 
         mock_store = MagicMock()
-        mock_store.retrieve_patterns.side_effect = Exception("Database connection failed")
+        mock_store.retrieve_patterns.side_effect = ValueError("Database connection failed")
         mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
@@ -508,7 +508,7 @@ class TestErrorHandling:
         db_path.touch()
 
         mock_store = MagicMock()
-        mock_store.get_archive_stats.side_effect = Exception("IO Error")
+        mock_store.get_archive_stats.side_effect = ValueError("IO Error")
         mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
@@ -528,7 +528,7 @@ class TestErrorHandling:
         db_path.touch()
 
         mock_store = MagicMock()
-        mock_store.get_all_reputations.side_effect = Exception("Query failed")
+        mock_store.get_all_reputations.side_effect = ValueError("Query failed")
         mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})
@@ -548,7 +548,7 @@ class TestErrorHandling:
         db_path.touch()
 
         mock_store = MagicMock()
-        mock_store.get_reputation.side_effect = Exception("Timeout")
+        mock_store.get_reputation.side_effect = ValueError("Timeout")
         mock_get_store.return_value = mock_store
 
         handler = CritiqueHandler({"nomic_dir": tmp_path})

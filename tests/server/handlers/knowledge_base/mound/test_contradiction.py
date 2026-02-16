@@ -196,7 +196,7 @@ class TestDetectContradictions:
     @pytest.mark.asyncio
     async def test_detect_contradictions_error(self, handler, mock_mound):
         """Test detection error handling."""
-        mock_mound.detect_contradictions.side_effect = Exception("Database error")
+        mock_mound.detect_contradictions.side_effect = ValueError("Database error")
 
         result = await handler.detect_contradictions(workspace_id="ws-123")
 
@@ -277,7 +277,7 @@ class TestListContradictions:
     @pytest.mark.asyncio
     async def test_list_contradictions_error(self, handler, mock_mound):
         """Test listing error handling."""
-        mock_mound.get_unresolved_contradictions.side_effect = Exception("Error")
+        mock_mound.get_unresolved_contradictions.side_effect = ValueError("Error")
 
         result = await handler.list_contradictions()
 
@@ -413,7 +413,7 @@ class TestGetContradictionStats:
     @pytest.mark.asyncio
     async def test_get_stats_error(self, handler, mock_mound):
         """Test stats error handling."""
-        mock_mound.get_contradiction_stats.side_effect = Exception("Stats error")
+        mock_mound.get_contradiction_stats.side_effect = ValueError("Stats error")
 
         result = await handler.get_contradiction_stats()
 

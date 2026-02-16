@@ -1682,7 +1682,7 @@ class TestAnalyticsHandlerErrorHandling:
     ):
         """Test that storage exceptions are handled gracefully."""
         storage = MagicMock()
-        storage.list_debates.side_effect = Exception("Database connection failed")
+        storage.list_debates.side_effect = ValueError("Database connection failed")
         analytics_handler.ctx["storage"] = storage
 
         with (
@@ -1709,7 +1709,7 @@ class TestAnalyticsHandlerErrorHandling:
     ):
         """Test that ELO system exceptions are handled gracefully."""
         elo = MagicMock()
-        elo.get_leaderboard.side_effect = Exception("ELO system error")
+        elo.get_leaderboard.side_effect = ValueError("ELO system error")
         analytics_handler.ctx["elo_system"] = elo
 
         with (

@@ -249,7 +249,7 @@ class TestExtractFromDebate:
     @pytest.mark.asyncio
     async def test_extract_error(self, handler, mock_mound, sample_messages):
         """Test extraction error handling."""
-        mock_mound.extract_from_debate.side_effect = Exception("Extraction failed")
+        mock_mound.extract_from_debate.side_effect = ValueError("Extraction failed")
 
         result = await handler.extract_from_debate(
             debate_id="debate-123",
@@ -327,7 +327,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_error(self, handler, mock_mound):
         """Test promotion error handling."""
-        mock_mound.promote_extracted_knowledge.side_effect = Exception("Database error")
+        mock_mound.promote_extracted_knowledge.side_effect = ValueError("Database error")
 
         result = await handler.promote_extracted_knowledge(workspace_id="ws-123")
 
@@ -376,7 +376,7 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_get_stats_error(self, handler, mock_mound):
         """Test stats error handling."""
-        mock_mound.get_extraction_stats.side_effect = Exception("Stats error")
+        mock_mound.get_extraction_stats.side_effect = ValueError("Stats error")
 
         result = await handler.get_extraction_stats()
 

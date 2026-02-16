@@ -782,7 +782,7 @@ class TestTelegramMessageSending:
 
         with patch("aragora.server.handlers.bots.telegram.TELEGRAM_BOT_TOKEN", "test_token"):
             with patch("httpx.Client") as mock_client:
-                mock_client.return_value.__enter__.return_value.post.side_effect = Exception(
+                mock_client.return_value.__enter__.return_value.post.side_effect = ValueError(
                     "Network error"
                 )
 

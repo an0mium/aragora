@@ -515,7 +515,7 @@ class TestThreatIntelErrorHandling:
     async def test_check_url_service_error(self, threat_handler, mock_request, mock_threat_service):
         """Test error handling when service raises exception."""
         mock_request.json.return_value = {"url": "https://example.com"}
-        mock_threat_service.check_url.side_effect = Exception("Service error")
+        mock_threat_service.check_url.side_effect = ValueError("Service error")
 
         result = await threat_handler.check_url(mock_request)
 
@@ -525,7 +525,7 @@ class TestThreatIntelErrorHandling:
     async def test_check_ip_service_error(self, threat_handler, mock_request, mock_threat_service):
         """Test error handling when IP service raises exception."""
         mock_request.match_info = {"ip_address": "1.2.3.4"}
-        mock_threat_service.check_ip.side_effect = Exception("Service error")
+        mock_threat_service.check_ip.side_effect = ValueError("Service error")
 
         result = await threat_handler.check_ip(mock_request)
 
@@ -537,7 +537,7 @@ class TestThreatIntelErrorHandling:
     ):
         """Test error handling when hash service raises exception."""
         mock_request.match_info = {"hash_value": "abc123"}
-        mock_threat_service.check_file_hash.side_effect = Exception("Service error")
+        mock_threat_service.check_file_hash.side_effect = ValueError("Service error")
 
         result = await threat_handler.check_hash(mock_request)
 
@@ -549,7 +549,7 @@ class TestThreatIntelErrorHandling:
     ):
         """Test error handling when email scan raises exception."""
         mock_request.json.return_value = {"body": "Test email"}
-        mock_threat_service.check_email_content.side_effect = Exception("Service error")
+        mock_threat_service.check_email_content.side_effect = ValueError("Service error")
 
         result = await threat_handler.scan_email_content(mock_request)
 

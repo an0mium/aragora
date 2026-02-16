@@ -444,7 +444,7 @@ class TestMoundStats:
 
     def test_get_stats_error(self, handler, mock_mound):
         """Test stats error handling."""
-        mock_mound.get_stats.side_effect = Exception("Stats error")
+        mock_mound.get_stats.side_effect = ValueError("Stats error")
 
         result = handler._handle_mound_stats({})
 

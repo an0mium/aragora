@@ -125,7 +125,7 @@ class TestApprovalHandlerListPending:
             set_approval_flow,
         )
 
-        mock_approval_flow.list_pending.side_effect = Exception("Database error")
+        mock_approval_flow.list_pending.side_effect = ValueError("Database error")
         set_approval_flow(mock_approval_flow)
 
         with patch(
@@ -248,7 +248,7 @@ class TestTriggerHandlerListTriggers:
             set_scheduled_trigger,
         )
 
-        mock_scheduled_trigger.list_triggers.side_effect = Exception("Database error")
+        mock_scheduled_trigger.list_triggers.side_effect = ValueError("Database error")
         set_scheduled_trigger(mock_scheduled_trigger)
 
         response = await TriggerHandler.list_triggers(mock_request)
@@ -448,7 +448,7 @@ class TestAlertHandlerListActive:
             set_alert_analyzer,
         )
 
-        mock_alert_analyzer.get_active_alerts.side_effect = Exception("Database error")
+        mock_alert_analyzer.get_active_alerts.side_effect = ValueError("Database error")
         set_alert_analyzer(mock_alert_analyzer)
 
         response = await AlertHandler.list_active(mock_request)

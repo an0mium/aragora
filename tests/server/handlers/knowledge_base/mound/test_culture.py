@@ -191,7 +191,7 @@ class TestGetCulture:
 
     def test_get_culture_error(self, handler, mock_mound):
         """Test culture retrieval error handling."""
-        mock_mound.get_culture_profile.side_effect = Exception("Database error")
+        mock_mound.get_culture_profile.side_effect = ValueError("Database error")
 
         result = handler._handle_get_culture({})
 
@@ -280,7 +280,7 @@ class TestAddCultureDocument:
 
     def test_add_document_error(self, handler, mock_mound):
         """Test document addition error handling."""
-        mock_mound.add_node.side_effect = Exception("Storage error")
+        mock_mound.add_node.side_effect = ValueError("Storage error")
 
         body = json.dumps({"content": "Test content"}).encode()
         http_handler = MockHandler(body=body)
@@ -352,7 +352,7 @@ class TestPromoteToCulture:
 
     def test_promote_error(self, handler, mock_mound):
         """Test promotion error handling."""
-        mock_mound.update.side_effect = Exception("Update failed")
+        mock_mound.update.side_effect = ValueError("Update failed")
 
         body = json.dumps({"node_id": "node-123"}).encode()
         http_handler = MockHandler(body=body)

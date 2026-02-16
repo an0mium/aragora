@@ -974,7 +974,7 @@ class TestAdvertisingHandlerErrors:
         mock_request.method = "POST"
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
-            mock_body.side_effect = Exception("Invalid JSON")
+            mock_body.side_effect = ValueError("Invalid JSON")
             with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
                 mock_auth.return_value = MagicMock(user_id="test")
                 with patch.object(handler, "check_permission"):

@@ -189,7 +189,7 @@ class TestApplyConfidenceDecay:
     @pytest.mark.asyncio
     async def test_apply_decay_error(self, handler, mock_mound):
         """Test decay error handling."""
-        mock_mound.apply_confidence_decay.side_effect = Exception("Decay error")
+        mock_mound.apply_confidence_decay.side_effect = ValueError("Decay error")
 
         result = await handler.apply_confidence_decay_endpoint(workspace_id="ws-123")
 
@@ -291,7 +291,7 @@ class TestRecordConfidenceEvent:
     @pytest.mark.asyncio
     async def test_record_event_error(self, handler, mock_mound):
         """Test recording error handling."""
-        mock_mound.record_confidence_event.side_effect = Exception("Database error")
+        mock_mound.record_confidence_event.side_effect = ValueError("Database error")
 
         result = await handler.record_confidence_event(
             item_id="item-123",
@@ -370,7 +370,7 @@ class TestGetConfidenceHistory:
     @pytest.mark.asyncio
     async def test_get_history_error(self, handler, mock_mound):
         """Test history error handling."""
-        mock_mound.get_confidence_history.side_effect = Exception("Error")
+        mock_mound.get_confidence_history.side_effect = ValueError("Error")
 
         result = await handler.get_confidence_history()
 
@@ -416,7 +416,7 @@ class TestGetDecayStats:
     @pytest.mark.asyncio
     async def test_get_stats_error(self, handler, mock_mound):
         """Test stats error handling."""
-        mock_mound.get_decay_stats.side_effect = Exception("Stats error")
+        mock_mound.get_decay_stats.side_effect = ValueError("Stats error")
 
         result = await handler.get_decay_stats()
 

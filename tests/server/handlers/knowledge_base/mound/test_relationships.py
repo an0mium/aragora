@@ -419,7 +419,7 @@ class TestCreateRelationship:
 
     def test_create_relationship_error(self, handler, mock_mound):
         """Test relationship creation error handling."""
-        mock_mound.add_relationship.side_effect = Exception("Database error")
+        mock_mound.add_relationship.side_effect = ValueError("Database error")
 
         body = json.dumps(
             {

@@ -386,7 +386,7 @@ class TestHandleQueryExecutionFailure:
 
     def test_query_execution_error_returns_500(self, handler, mock_query_engine):
         """Test query execution error returns 500."""
-        mock_query_engine.query.side_effect = Exception("Database connection failed")
+        mock_query_engine.query.side_effect = ValueError("Database connection failed")
 
         body = json.dumps({"question": "What is this?"}).encode()
         http_handler = MockHTTPHandler(body=body)

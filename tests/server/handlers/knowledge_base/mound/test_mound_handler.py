@@ -2010,7 +2010,7 @@ class TestErrorHandling:
                 return self._user, None
 
         handler = NodeHandler(mock_mound, mock_user)
-        mock_mound.query_semantic.side_effect = Exception("Database connection failed")
+        mock_mound.query_semantic.side_effect = ValueError("Database connection failed")
 
         body = json.dumps({"query": "test"}).encode()
         http_handler = MockHandler(body=body)

@@ -240,7 +240,7 @@ class TestSummaryMetrics:
     def test_get_summary_metrics_sql_error(self, handler, mock_storage):
         """SQL summary handles errors gracefully."""
         storage, cursor = mock_storage
-        cursor.fetchone.side_effect = Exception("Database error")
+        cursor.fetchone.side_effect = ValueError("Database error")
 
         result = handler._get_summary_metrics_sql(storage, None)
 

@@ -584,7 +584,7 @@ class TestGetGovernanceStats:
     @pytest.mark.asyncio
     async def test_get_stats_error(self, handler, mock_mound):
         """Test stats error handling."""
-        mock_mound.get_governance_stats.side_effect = Exception("Error")
+        mock_mound.get_governance_stats.side_effect = ValueError("Error")
 
         result = await handler.get_governance_stats()
 

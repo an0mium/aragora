@@ -1280,7 +1280,7 @@ class TestPersonaErrorHandling:
     def test_get_performance_exception(self, persona_handler, mock_http_handler):
         """Test error handling when performance summary raises exception."""
         mock_manager = MagicMock()
-        mock_manager.get_performance_summary.side_effect = Exception("DB crash")
+        mock_manager.get_performance_summary.side_effect = ValueError("DB crash")
         persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
 
         with patch(
@@ -1308,7 +1308,7 @@ class TestPersonaErrorHandling:
     def test_get_persona_exception(self, persona_handler, mock_http_handler):
         """Test error handling when get_persona raises exception."""
         mock_manager = MagicMock()
-        mock_manager.get_persona.side_effect = Exception("lookup failed")
+        mock_manager.get_persona.side_effect = ValueError("lookup failed")
         persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
 
         with patch(
@@ -1322,7 +1322,7 @@ class TestPersonaErrorHandling:
     def test_create_persona_exception(self, persona_handler, mock_http_handler):
         """Test error handling when create_persona raises exception."""
         mock_manager = MagicMock()
-        mock_manager.create_persona.side_effect = Exception("DB write failed")
+        mock_manager.create_persona.side_effect = ValueError("DB write failed")
         persona_handler.get_persona_manager = MagicMock(return_value=mock_manager)
         persona_handler.read_json_body_validated = MagicMock(
             return_value=(
@@ -1379,7 +1379,7 @@ class TestPersonaErrorHandling:
     def test_grounded_persona_exception(self, persona_handler, mock_http_handler):
         """Test error handling when PersonaSynthesizer raises exception."""
         mock_synthesizer = MagicMock()
-        mock_synthesizer.get_grounded_persona.side_effect = Exception("Synthesis error")
+        mock_synthesizer.get_grounded_persona.side_effect = ValueError("Synthesis error")
 
         with patch(
             "aragora.server.handlers.persona._persona_limiter.is_allowed",
@@ -1399,7 +1399,7 @@ class TestPersonaErrorHandling:
     def test_identity_prompt_exception(self, persona_handler, mock_http_handler):
         """Test error handling when identity prompt synthesis raises exception."""
         mock_synthesizer = MagicMock()
-        mock_synthesizer.synthesize_identity_prompt.side_effect = Exception("Prompt error")
+        mock_synthesizer.synthesize_identity_prompt.side_effect = ValueError("Prompt error")
 
         with patch(
             "aragora.server.handlers.persona._persona_limiter.is_allowed",

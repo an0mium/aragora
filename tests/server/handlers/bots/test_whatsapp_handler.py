@@ -1136,7 +1136,7 @@ class TestWhatsAppErrorHandling:
             "X-Hub-Signature-256": "",
         }
         # Cause exception during body read
-        mock_request.rfile.read.side_effect = Exception("Read error")
+        mock_request.rfile.read.side_effect = ValueError("Read error")
 
         with patch(
             "aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", TEST_WHATSAPP_SECRET

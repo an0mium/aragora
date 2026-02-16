@@ -1788,7 +1788,7 @@ class TestAgentsTrends:
     ):
         """Handler gracefully handles exceptions when getting ELO history."""
         handler.ctx["elo_system"] = mock_elo_system
-        mock_elo_system.get_elo_history.side_effect = Exception("DB failure")
+        mock_elo_system.get_elo_history.side_effect = ValueError("DB failure")
 
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
@@ -2448,7 +2448,7 @@ class TestEdgeCases:
     ):
         """Handler handles errors in head-to-head computation."""
         handler.ctx["elo_system"] = mock_elo_system
-        mock_elo_system.get_head_to_head.side_effect = Exception("Database error")
+        mock_elo_system.get_head_to_head.side_effect = ValueError("Database error")
 
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):
             result = await handler.handle(
@@ -2506,7 +2506,7 @@ class TestEdgeCases:
     async def test_user_store_raises_exception(self, handler, mock_http_handler, mock_auth_context):
         """Handler handles user store exceptions gracefully."""
         mock_user_store = MagicMock()
-        mock_user_store.get_active_user_counts.side_effect = Exception("Database error")
+        mock_user_store.get_active_user_counts.side_effect = ValueError("Database error")
         handler.ctx["user_store"] = mock_user_store
 
         with _make_authenticated_call(handler, mock_http_handler, mock_auth_context):

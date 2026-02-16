@@ -485,7 +485,7 @@ class TestListEnvelopes:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test list envelopes when authentication fails."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth failed")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth failed")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -589,7 +589,7 @@ class TestCreateEnvelope:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test create envelope when auth fails."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -857,7 +857,7 @@ class TestGetEnvelope:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test get envelope auth failure."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -941,7 +941,7 @@ class TestVoidEnvelope:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test void envelope auth failure."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1053,7 +1053,7 @@ class TestResendEnvelope:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test resend auth failure."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1133,7 +1133,7 @@ class TestDownloadDocument:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test download auth failure."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1207,7 +1207,7 @@ class TestDownloadCertificate:
         self, handler_with_ctx, mock_request, mock_unauthenticated_connector
     ):
         """Test certificate download auth failure."""
-        mock_unauthenticated_connector.authenticate_jwt.side_effect = Exception("Auth fail")
+        mock_unauthenticated_connector.authenticate_jwt.side_effect = ValueError("Auth fail")
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1369,7 +1369,7 @@ class TestDocuSignWebhook:
     async def test_webhook_malformed_returns_200(self, handler_with_ctx, mock_request):
         """Test webhook returns 200 even on error to prevent retries."""
         with patch.object(handler_with_ctx, "_get_json_body", new_callable=AsyncMock) as mock_body:
-            mock_body.side_effect = Exception("parse error")
+            mock_body.side_effect = ValueError("parse error")
             result = await handler_with_ctx._handle_docusign_webhook(mock_request, "test_tenant")
             assert result.status_code == 200
             body = json.loads(result.body)

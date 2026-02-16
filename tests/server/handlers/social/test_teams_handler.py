@@ -726,7 +726,7 @@ class TestErrorHandling:
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
         with patch("aragora.server.handlers.social.teams.get_teams_connector") as mock_connector:
-            mock_connector.side_effect = Exception("Test error")
+            mock_connector.side_effect = ValueError("Test error")
             result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None

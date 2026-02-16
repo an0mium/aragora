@@ -89,7 +89,17 @@ def fetch_priority_inbox() -> dict:
     return aragora_get("/api/v1/gmail/inbox/priority")
 
 
-def build_briefing(inbox: dict) -> list[dict]:
+def fetch_shopify_orders() -> dict:
+    """Fetch recent Shopify orders."""
+    return aragora_get("/api/v1/ecommerce/shopify/orders")
+
+
+def fetch_zendesk_tickets() -> dict:
+    """Fetch open Zendesk tickets."""
+    return aragora_get("/api/v1/support/zendesk/tickets")
+
+
+def build_briefing(inbox: dict, orders: dict | None = None, tickets: dict | None = None) -> list[dict]:
     """Build Slack Block Kit message from inbox data."""
     now = datetime.now(timezone.utc).strftime("%A, %B %d %Y")
     emails = inbox.get("emails", inbox.get("messages", []))
@@ -155,6 +165,49 @@ def build_briefing(inbox: dict) -> list[dict]:
             },
         })
 
+    # ── Orders section ──────────────────────────────────────────────
+    if orders:
+        order_list = orders.get("orders", [])
+        unfulfilled = [o for o in order_list if o.get("fulfillment_status") != "fulfilled"]
+        total_revenue = sum(float(o.get("total_price", 0)) for o in order_list)
+        returns = [o for o in order_list if o.get("financial_status") in ("refunded", "partially_refunded")]
+
+        blocks.append({"type": "divider"})
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*Shopify Orders*\n"
+                    f"*{len(order_list)}* new orders | "
+                    f"*${total_revenue:,.2f}* revenue | "
+                    f"*{len(unfulfilled)}* unfulfilled"
+                    + (f" | *{len(returns)}* returns" if returns else "")
+                ),
+            },
+        })
+
+    # ── Tickets section ──────────────────────────────────────────────
+    if tickets:
+        ticket_list = tickets.get("tickets", [])
+        urgent = [t for t in ticket_list if t.get("priority") in ("urgent", "high")]
+        unassigned = [t for t in ticket_list if not t.get("assignee_id")]
+        avg_wait = tickets.get("avg_response_time_hours")
+
+        blocks.append({"type": "divider"})
+        text_parts = [
+            f"*Zendesk Tickets*\n"
+            f"*{len(ticket_list)}* open tickets | "
+            f"*{len(urgent)}* urgent | "
+            f"*{len(unassigned)}* unassigned"
+        ]
+        if avg_wait is not None:
+            text_parts.append(f" | avg response *{avg_wait:.1f}h*")
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "".join(text_parts)},
+        })
+
     blocks.append({"type": "divider"})
     blocks.append({
         "type": "actions",
@@ -216,17 +269,20 @@ def main() -> int:
         return 0 if post_to_slack(blocks, "Test briefing") else 1
 
     inbox = fetch_priority_inbox()
-    if not inbox:
-        logger.warning("No inbox data — Aragora may not be running or Gmail not synced")
+    orders = fetch_shopify_orders()
+    tickets = fetch_zendesk_tickets()
+
+    if not inbox and not orders and not tickets:
+        logger.warning("No data — Aragora may not be running or connectors not synced")
         blocks = [{
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "Could not fetch inbox data. Check that Aragora is running and Gmail is synced.",
+                "text": "Could not fetch data. Check that Aragora is running and connectors are synced.",
             },
         }]
     else:
-        blocks = build_briefing(inbox)
+        blocks = build_briefing(inbox, orders=orders or None, tickets=tickets or None)
 
     if args.dry_run:
         print(json.dumps(blocks, indent=2))

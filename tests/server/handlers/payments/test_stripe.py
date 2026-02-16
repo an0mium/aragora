@@ -682,7 +682,7 @@ class TestStripeWebhook:
         request.transport = None
 
         mock_connector = AsyncMock()
-        mock_connector.construct_webhook_event.side_effect = Exception("Invalid signature")
+        mock_connector.construct_webhook_event.side_effect = ValueError("Invalid signature")
 
         with patch("aragora.server.handlers.payments.stripe._pkg") as mock_pkg:
             mock_pkg.return_value._check_rate_limit.return_value = None

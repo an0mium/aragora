@@ -1226,7 +1226,7 @@ class TestErrorHandling:
         fresh_store = MockFactStore()
         fresh_engine = MockQueryEngine()
         fresh_handler = FactsHandler(fact_store=fresh_store, query_engine=fresh_engine)
-        fresh_store.list_facts.side_effect = Exception("Database error")
+        fresh_store.list_facts.side_effect = ValueError("Database error")
 
         result = fresh_handler._handle_list_facts({})
 
@@ -1234,7 +1234,7 @@ class TestErrorHandling:
 
     def test_get_fact_handles_store_error(self, handler, mock_store):
         """Should return 500 when store raises exception."""
-        mock_store.get_fact.side_effect = Exception("Database error")
+        mock_store.get_fact.side_effect = ValueError("Database error")
 
         result = handler._handle_get_fact("fact-001")
 
@@ -1242,7 +1242,7 @@ class TestErrorHandling:
 
     def test_create_fact_handles_store_error(self, handler, mock_store):
         """Should return 500 when store raises exception."""
-        mock_store.add_fact.side_effect = Exception("Database error")
+        mock_store.add_fact.side_effect = ValueError("Database error")
 
         http_handler = create_mock_http_handler(
             method="POST",

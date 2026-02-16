@@ -248,7 +248,7 @@ class TestRevalidateNode:
 
     def test_revalidate_error(self, handler, mock_mound):
         """Test revalidation error handling."""
-        mock_mound.mark_validated.side_effect = Exception("Validation failed")
+        mock_mound.mark_validated.side_effect = ValueError("Validation failed")
 
         http_handler = MockHandler(body=b"")
 

@@ -181,7 +181,7 @@ class TestKnowledgeSearch:
     @pytest.mark.asyncio
     async def test_search_error_handling(self, mock_bridge):
         """Test search error handling returns sanitized error."""
-        mock_bridge.search_knowledge.side_effect = Exception("Search failed")
+        mock_bridge.search_knowledge.side_effect = ValueError("Search failed")
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
@@ -244,7 +244,7 @@ class TestKnowledgeInject:
     @pytest.mark.asyncio
     async def test_inject_error_handling(self, mock_bridge, sample_messages):
         """Test injection error handling."""
-        mock_bridge.inject_knowledge_for_conversation.side_effect = Exception("Injection failed")
+        mock_bridge.inject_knowledge_for_conversation.side_effect = ValueError("Injection failed")
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
@@ -321,7 +321,7 @@ class TestStoreKnowledge:
     @pytest.mark.asyncio
     async def test_store_error_handling(self, mock_bridge, sample_messages):
         """Test storage error handling."""
-        mock_bridge.store_chat_as_knowledge.side_effect = Exception("Storage error")
+        mock_bridge.store_chat_as_knowledge.side_effect = ValueError("Storage error")
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
@@ -387,7 +387,7 @@ class TestChannelSummary:
     @pytest.mark.asyncio
     async def test_summary_error_handling(self, mock_bridge):
         """Test summary error handling."""
-        mock_bridge.get_channel_knowledge_summary.side_effect = Exception("Summary failed")
+        mock_bridge.get_channel_knowledge_summary.side_effect = ValueError("Summary failed")
 
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",

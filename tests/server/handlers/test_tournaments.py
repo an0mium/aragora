@@ -979,7 +979,7 @@ class TestErrorHandling:
         from pathlib import Path
 
         # Make manager raise exception (simulating corrupted DB)
-        mock_manager_class.side_effect = Exception("Database corrupted")
+        mock_manager_class.side_effect = ValueError("Database corrupted")
 
         mock_db_file = MagicMock()
         mock_db_file.stem = "corrupted"

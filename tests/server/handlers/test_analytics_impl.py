@@ -1501,7 +1501,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in disagreement stats."""
         handler = create_analytics_handler()
         mock_storage = MagicMock()
-        mock_storage.list_debates.side_effect = Exception("Database error")
+        mock_storage.list_debates.side_effect = ValueError("Database error")
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_disagreement_stats()
@@ -1535,7 +1535,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in consensus quality."""
         handler = create_analytics_handler()
         mock_storage = MagicMock()
-        mock_storage.list_debates.side_effect = Exception("Query failed")
+        mock_storage.list_debates.side_effect = ValueError("Query failed")
 
         with patch.object(handler, "get_storage", return_value=mock_storage):
             result = handler._get_consensus_quality()
@@ -1546,7 +1546,7 @@ class TestEdgeCases:
         """Should handle exceptions gracefully in ranking stats."""
         handler = create_analytics_handler()
         mock_elo = MagicMock()
-        mock_elo.get_leaderboard.side_effect = Exception("ELO system error")
+        mock_elo.get_leaderboard.side_effect = ValueError("ELO system error")
 
         with patch.object(handler, "get_elo_system", return_value=mock_elo):
             result = handler._get_ranking_stats()

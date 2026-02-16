@@ -1411,7 +1411,7 @@ class TestKnowledgeHandlerErrorHandling:
     def test_handle_fact_store_initialization_failure(self, knowledge_handler, mock_http_handler):
         """Test graceful handling when fact store fails to initialize."""
         with patch.object(knowledge_handler, "_get_fact_store") as mock_store:
-            mock_store.side_effect = Exception("Database connection failed")
+            mock_store.side_effect = ValueError("Database connection failed")
 
             result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
 
@@ -1425,7 +1425,7 @@ class TestKnowledgeHandlerErrorHandling:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (MockAuthUser(), None)
             with patch.object(knowledge_handler, "_get_query_engine") as mock_engine:
-                mock_engine.side_effect = Exception("Query engine unavailable")
+                mock_engine.side_effect = ValueError("Query engine unavailable")
 
                 result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 
@@ -1472,7 +1472,7 @@ class TestKnowledgeHandlerErrorHandling:
             mock_auth.return_value = (MockAuthUser(), None)
             with patch.object(knowledge_handler, "_get_fact_store") as mock_store:
                 mock_store_instance = MagicMock()
-                mock_store_instance.delete_fact.side_effect = Exception("Deletion failed")
+                mock_store_instance.delete_fact.side_effect = ValueError("Deletion failed")
                 mock_store.return_value = mock_store_instance
 
                 result = knowledge_handler.handle("/api/v1/knowledge/facts/some-id", {}, handler)

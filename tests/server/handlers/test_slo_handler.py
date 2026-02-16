@@ -509,7 +509,7 @@ class TestErrorHandling:
     ):
         """Test error handling in error budget endpoint."""
         mock_limiter.is_allowed.return_value = True
-        mock_get_status.side_effect = Exception("Unexpected error")
+        mock_get_status.side_effect = ValueError("Unexpected error")
 
         result = slo_handler.handle("/api/slos/error-budget", {}, mock_handler)
 
@@ -523,7 +523,7 @@ class TestErrorHandling:
     ):
         """Test error handling in SLO detail endpoint."""
         mock_limiter.is_allowed.return_value = True
-        mock_check.side_effect = Exception("SLO check failed")
+        mock_check.side_effect = ValueError("SLO check failed")
 
         result = slo_handler.handle("/api/slos/availability", {}, mock_handler)
 
@@ -538,7 +538,7 @@ class TestErrorHandling:
     ):
         """Test error handling in violations endpoint."""
         mock_limiter.is_allowed.return_value = True
-        mock_get_status.side_effect = Exception("Violation check failed")
+        mock_get_status.side_effect = ValueError("Violation check failed")
 
         result = slo_handler.handle("/api/slos/violations", {}, mock_handler)
 
@@ -552,7 +552,7 @@ class TestErrorHandling:
     ):
         """Test error handling in targets endpoint."""
         mock_limiter.is_allowed.return_value = True
-        mock_get_targets.side_effect = Exception("Targets fetch failed")
+        mock_get_targets.side_effect = ValueError("Targets fetch failed")
 
         result = slo_handler.handle("/api/slos/targets", {}, mock_handler)
 
@@ -1108,7 +1108,7 @@ class TestLatencySLOExceptions:
     def test_latency_slo_exception(self, mock_limiter, mock_check, slo_handler, mock_handler):
         """Test error handling when latency SLO check fails."""
         mock_limiter.is_allowed.return_value = True
-        mock_check.side_effect = Exception("Latency check failed")
+        mock_check.side_effect = ValueError("Latency check failed")
 
         result = slo_handler.handle("/api/slos/latency", {}, mock_handler)
 
@@ -1121,7 +1121,7 @@ class TestLatencySLOExceptions:
     ):
         """Test error handling when debate success SLO check fails."""
         mock_limiter.is_allowed.return_value = True
-        mock_check.side_effect = Exception("Debate success check failed")
+        mock_check.side_effect = ValueError("Debate success check failed")
 
         result = slo_handler.handle("/api/slos/debate-success", {}, mock_handler)
 

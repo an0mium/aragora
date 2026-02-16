@@ -1291,7 +1291,7 @@ class TestGDPRErrorHandling:
         self, gdpr_handler, mock_deletion_coordinator, mock_legal_hold_manager
     ):
         """Coordinated deletion handles coordinator errors."""
-        mock_deletion_coordinator.execute_coordinated_deletion.side_effect = Exception(
+        mock_deletion_coordinator.execute_coordinated_deletion.side_effect = ValueError(
             "Coordinator failure"
         )
 

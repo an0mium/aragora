@@ -821,7 +821,7 @@ class TestPartnerErrorHandling:
 
         with patch("aragora.billing.partner.get_partner_api") as mock_get:
             mock_api = MagicMock()
-            mock_api.get_partner_stats.side_effect = Exception("Database error")
+            mock_api.get_partner_stats.side_effect = ValueError("Database error")
             mock_get.return_value = mock_api
 
             result = partner_handler._get_partner_profile(handler, user=MagicMock())

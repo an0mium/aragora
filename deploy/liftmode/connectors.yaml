@@ -15,15 +15,22 @@ connectors:
 
   # ── Phase 2 (future) ──────────────────────────────────────────────
   shopify:
-    enabled: false
-    # store_url: "liftmode.myshopify.com"
-    # api_key: "${SHOPIFY_API_KEY}"
-    # sync: orders, products, inventory
+    enabled: true
+    store_url: "${SHOPIFY_SHOP_DOMAIN}"
+    sync:
+      - orders
+      - products
+      - inventory
+    sync_interval_minutes: 10
 
   zendesk:
-    enabled: false
-    # subdomain: "liftmode"
-    # sync: tickets, users, satisfaction
+    enabled: true
+    subdomain: "${ZENDESK_SUBDOMAIN}"
+    sync:
+      - tickets
+      - users
+      - satisfaction
+    sync_interval_minutes: 5
 
   shipstation:
     enabled: false
