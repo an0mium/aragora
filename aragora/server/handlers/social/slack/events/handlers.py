@@ -144,7 +144,7 @@ class EventsMixin:
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting Slack message: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Unexpected error posting Slack message: {e}")
             return None
 

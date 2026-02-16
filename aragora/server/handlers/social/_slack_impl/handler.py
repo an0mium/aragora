@@ -194,7 +194,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             if not result.verified and result.error:
                 logger.warning(f"Slack signature verification failed: {result.error}")
             return result.verified
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.exception(f"Unexpected signature verification error: {e}")
             return False
 

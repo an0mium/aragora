@@ -38,7 +38,7 @@ def _dispatch_chat_event(event_type: str, data: dict[str, Any]) -> None:
         logger.debug(f"Dispatched chat event: {event_type}")
     except ImportError:
         logger.debug("Event dispatcher not available")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to dispatch chat event {event_type}: {e}")
 
 

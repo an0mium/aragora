@@ -236,7 +236,7 @@ class TestGetStatus:
     def test_get_status_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.get_slo_status_json",
-            side_effect=RuntimeError("DB down"),
+            side_effect=ValueError("DB down"),
         ):
             result = handler._handle_slo_status()
             assert result.status_code == 500
@@ -292,7 +292,7 @@ class TestGetSLODetail:
     def test_get_detail_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.check_availability_slo",
-            side_effect=RuntimeError("Service error"),
+            side_effect=ValueError("Service error"),
         ):
             result = handler._handle_slo_detail("availability")
             assert result.status_code == 500
@@ -324,7 +324,7 @@ class TestGetErrorBudget:
     def test_error_budget_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.get_slo_status",
-            side_effect=RuntimeError("Failed"),
+            side_effect=ValueError("Failed"),
         ):
             result = handler._handle_error_budget()
             assert result.status_code == 500
@@ -376,7 +376,7 @@ class TestGetViolations:
     def test_violations_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.get_slo_status",
-            side_effect=RuntimeError("Failed"),
+            side_effect=ValueError("Failed"),
         ):
             result = handler._handle_violations()
             assert result.status_code == 500
@@ -412,7 +412,7 @@ class TestGetTargets:
     def test_targets_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.get_slo_targets",
-            side_effect=RuntimeError("Failed"),
+            side_effect=ValueError("Failed"),
         ):
             result = handler._handle_targets()
             assert result.status_code == 500
@@ -508,7 +508,7 @@ class TestSLOSubRoutes:
     def test_sub_route_exception(self, handler):
         with patch(
             "aragora.server.handlers.slo.check_availability_slo",
-            side_effect=RuntimeError("Service error"),
+            side_effect=ValueError("Service error"),
         ):
             result = handler._handle_slo_sub_route("availability", "error-budget")
             assert result.status_code == 500
@@ -642,7 +642,7 @@ class TestHandleRouting:
         mock_handler = _make_mock_handler()
         with patch(
             "aragora.server.handlers.slo.get_slo_status_json",
-            side_effect=RuntimeError("Unexpected"),
+            side_effect=ValueError("Unexpected"),
         ):
             result = handler.handle("/api/slos/status", {}, mock_handler)
             assert result.status_code == 500

@@ -298,6 +298,6 @@ class EventsMixin(MessagingMixin):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid debate request data: {e}")
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected DM debate creation error: {e}")
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")

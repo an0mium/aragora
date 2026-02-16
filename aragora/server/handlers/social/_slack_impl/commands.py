@@ -1180,7 +1180,7 @@ class CommandsMixin(BlocksMixin):
             )
         except ImportError:
             logger.debug("Debate origin tracking not available")
-        except Exception as e:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"Failed to register debate origin: {e}")
 
         try:

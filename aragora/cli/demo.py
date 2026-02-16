@@ -196,6 +196,62 @@ def _build_receipt_data(result: DebateResult, elapsed: float) -> dict[str, Any]:
     }
 
 
+def _print_receipt_summary(
+    result: DebateResult, elapsed: float, receipt_file: str
+) -> None:
+    """Print a compact decision receipt summary."""
+    print()
+    print("=" * 64)
+    print("  DECISION RECEIPT")
+    print("=" * 64)
+
+    receipt_id = ""
+    artifact_hash = ""
+    if result.receipt:
+        receipt_id = result.receipt.receipt_id
+        artifact_hash = result.receipt.signature or ""
+
+    verdict_str = "CONSENSUS" if result.consensus_reached else "NO CONSENSUS"
+    method = ""
+    if result.receipt and result.receipt.consensus:
+        method = f" ({result.receipt.consensus.method.value})"
+    elif result.verdict:
+        method = f" ({result.verdict.value.replace('_', ' ')})"
+
+    supporting = 0
+    dissenting = 0
+    if result.receipt and result.receipt.consensus:
+        supporting = len(result.receipt.consensus.supporting_agents)
+        dissenting = len(result.receipt.consensus.dissenting_agents)
+    total = supporting + dissenting
+
+    print()
+    if receipt_id:
+        short_id = receipt_id[:12] + "..." if len(receipt_id) > 12 else receipt_id
+        print(f"  Receipt ID:   {short_id}")
+    print(f"  Question:     {result.task}")
+    print(f"  Verdict:      {verdict_str}{method}")
+    print(f"  Confidence:   {result.confidence:.0%}")
+    print()
+
+    if result.final_answer:
+        print("  Winning Position:")
+        for line in _wrap(f'"{result.final_answer}"', width=56):
+            print(f"    {line}")
+        print()
+
+    if total:
+        print(f"  Agents:       {total} participated, {supporting} agreed")
+    print(f"  Rounds:       {result.rounds_used}")
+    if artifact_hash:
+        short_hash = artifact_hash[:12] + "..." if len(artifact_hash) > 12 else artifact_hash
+        print(f"  Hash:         sha256:{short_hash}")
+    print()
+    print(f"  Full receipt saved to: ./{receipt_file}")
+    print("=" * 64)
+    print()
+
+
 def _save_demo_receipt(
     result: DebateResult,
     elapsed: float,
@@ -399,6 +455,11 @@ async def _run_demo_debate(topic: str) -> tuple[DebateResult, float]:
                     break
 
     _print_result(result, elapsed)
+
+    # Auto-save receipt JSON to CWD
+    receipt_file = _save_demo_receipt(result, elapsed, "aragora-demo-receipt.json")
+    _print_receipt_summary(result, elapsed, receipt_file)
+
     return result, elapsed
 
 

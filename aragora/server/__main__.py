@@ -41,6 +41,43 @@ def _configure_logging() -> None:
     )
 
 
+def _print_startup_banner(args, workers: int) -> None:
+    """Print a startup banner with connection info."""
+    offline = getattr(args, "offline", False)
+    host = args.host
+    http_port = args.http_port
+    ws_port = args.port
+    db_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite" if offline else "auto")
+    env = os.environ.get("ARAGORA_ENV", "development")
+    mode = f"{env} (offline)" if offline else env
+
+    print()
+    print("=" * 64)
+    print("  ARAGORA SERVER")
+    print("=" * 64)
+    print()
+    if workers > 1:
+        print(f"  HTTP API:     http://{host}:{http_port}-{http_port + workers - 1}")
+        print(f"  WebSocket:    ws://{host}:{ws_port}-{ws_port + workers - 1}/ws")
+        print(f"  Workers:      {workers}")
+    else:
+        print(f"  HTTP API:     http://{host}:{http_port}")
+        print(f"  WebSocket:    ws://{host}:{ws_port}/ws")
+    print(f"  Health:       http://{host}:{http_port}/healthz")
+    print(f"  Mode:         {mode}")
+    print(f"  Database:     {db_backend}")
+    if offline:
+        print()
+        print("  No API keys needed in offline mode.")
+    print()
+    print("  Dashboard:    cd aragora/live && npm run dev")
+    print("  Docs:         https://docs.aragora.ai")
+    print()
+    print("  Press Ctrl+C to stop.")
+    print("=" * 64)
+    print()
+
+
 def _run_worker(http_port: int, ws_port: int, host: str, static_dir, nomic_dir):
     """Run a single server worker process."""
     # Configure logging for this worker process
