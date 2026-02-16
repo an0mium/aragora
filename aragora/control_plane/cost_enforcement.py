@@ -401,7 +401,7 @@ class CostEnforcer:
         for callback in self._throttle_callbacks:
             try:
                 callback(identifier, level)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.error(f"Throttle callback error: {e}")
 
     def _notify_block(self, identifier: str, reason: str) -> None:
@@ -418,7 +418,7 @@ class CostEnforcer:
         for callback in self._block_callbacks:
             try:
                 callback(identifier, reason)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.error(f"Block callback error: {e}")
 
     def get_budget_status(

@@ -258,7 +258,7 @@ class TeamSelector:
                             )
                         except (KeyError, AttributeError, TypeError) as e:
                             logger.debug(f"Calibration lookup failed for {name}: {e}")
-            except Exception as e:
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
                 logger.debug(f"Batch calibration lookup failed: {e}")
 
         # 3.5. Pre-fetch Agent CVs in batch for performance
@@ -267,7 +267,7 @@ class TeamSelector:
             try:
                 agent_names = [a.name for a in domain_filtered if a.name in available_names]
                 agent_cvs = self._get_agent_cvs_batch(agent_names)
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.debug(f"Batch CV lookup failed: {e}")
 
         # 3.6. Filter unreliable agents if configured
@@ -631,7 +631,7 @@ class TeamSelector:
                 f"monitors={self.agent_hierarchy.get_monitors(debate_id)} "
                 f"workers={self.agent_hierarchy.get_workers(debate_id)}"
             )
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to assign hierarchy roles: {e}")
 
     def _get_agent_elo(self, agent: Agent) -> float:
@@ -820,7 +820,7 @@ class TeamSelector:
                         self.knowledge_mound.recommend_agents(task_type)
                     )
                     self._culture_recommendations_cache[cache_key] = recommendations or []
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.debug(f"Culture recommendation failed for {task_type}: {e}")
                 self._culture_recommendations_cache[cache_key] = []
 
@@ -855,7 +855,7 @@ class TeamSelector:
             try:
                 recommendations = await self.knowledge_mound.recommend_agents(task_type)
                 self._culture_recommendations_cache[cache_key] = recommendations or []
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.debug(f"Culture recommendation failed for {task_type}: {e}")
                 self._culture_recommendations_cache[cache_key] = []
 
@@ -909,7 +909,7 @@ class TeamSelector:
             self._km_expertise_cache[cache_key] = (current_time, experts)
             logger.debug(f"km_expertise_lookup domain={domain} experts={len(experts)}")
             return experts
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
             logger.debug(f"KM expertise lookup failed for {domain}: {e}")
             return []
 
@@ -1117,7 +1117,7 @@ class TeamSelector:
             # No affinity found for this agent
             logger.debug(f"pattern_no_affinity agent={agent.name} pattern={pattern}")
             return 0.0
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"pattern_score_error agent={agent.name} error={e}")
             return 0.0
 
@@ -1206,7 +1206,7 @@ class TeamSelector:
                     f"cv_batch_fetch cached={len(result) - len(new_cvs)} "
                     f"fetched={len(new_cvs)} total={len(result)}"
                 )
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"CV batch fetch failed: {e}")
 
         return result

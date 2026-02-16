@@ -243,7 +243,7 @@ class DebateSession:
         for handler in self._event_handlers:
             try:
                 handler(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.warning(f"Session event handler failed: {e}")
 
     def _transition_state(self, new_state: DebateSessionState) -> None:
@@ -421,7 +421,7 @@ class DebateSession:
                     data={"checkpoint_id": checkpoint_id},
                 )
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, ConnectionError) as e:
                 logger.warning(f"Failed to create checkpoint on pause: {e}")
 
         self._transition_state(DebateSessionState.PAUSED)

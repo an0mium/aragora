@@ -296,7 +296,7 @@ async def initialize_debate_context(
             logger.warning(f"Question classification timed out: {e}")
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Question classification failed with data error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, ImportError) as e:
             logger.exception(f"Unexpected question classification error: {e}")
 
     # Apply performance-based agent selection if enabled
@@ -385,7 +385,7 @@ async def setup_debate_infrastructure(
         pass  # Compliance module not available
     except RuntimeError:
         raise  # Re-raise compliance block
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError, OSError) as e:
         logger.debug(f"Pre-debate compliance check failed (non-critical): {e}")
 
     # Initialize per-debate budget tracking in extensions
@@ -458,7 +458,7 @@ async def execute_debate_phases(
         span.set_attribute("debate.status", "aborted")
         raise
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
         state.debate_status = "error"
         span.set_attribute("debate.status", "error")
         span.record_exception(e)
@@ -588,7 +588,7 @@ async def handle_debate_completion(
                 dlq = IngestionDeadLetterQueue()
                 result_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
                 dlq.enqueue(state.debate_id, result_dict, str(_last_error))
-            except Exception as dlq_err:
+            except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
                 logger.debug(f"DLQ enqueue failed: {dlq_err}")
 
     # Auto-attach compliance artifacts for regulated domains
@@ -621,7 +621,7 @@ async def handle_debate_completion(
                 )
         except ImportError:
             logger.debug("Compliance module not available for auto-attach")
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.debug(f"Compliance auto-attach failed (non-critical): {e}")
 
     # Complete GUPP hook tracking for crash recovery
@@ -664,14 +664,14 @@ async def handle_debate_completion(
                 async def _run_fallback_workflow() -> None:
                     try:
                         await workflow.execute({"debate_result": ctx.result})
-                    except Exception as wf_err:
+                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as wf_err:
                         logger.debug(f"Post-debate workflow fallback failed: {wf_err}")
 
                 _asyncio.create_task(_run_fallback_workflow())
                 logger.info(
                     f"[workflow-fallback] Triggered post-debate workflow for debate {state.debate_id}"
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Post-debate workflow fallback setup failed: {e}")
 
     # Queue for Supabase background sync
@@ -705,7 +705,7 @@ async def cleanup_debate_resources(
             deleted = await arena.cleanup_checkpoints(state.debate_id, keep_latest=keep_count)
             if deleted > 0:
                 logger.debug(f"[checkpoint] Cleaned up {deleted} checkpoints for completed debate")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.debug(f"[checkpoint] Cleanup failed (non-critical): {e}")
 
     # Cleanup debate-scoped embedding cache to free memory
