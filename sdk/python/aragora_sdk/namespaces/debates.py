@@ -443,6 +443,34 @@ class DebatesAPI:
             "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
         )
 
+    # ========== Cost Estimation ==========
+
+    def estimate_cost(
+        self,
+        num_agents: int = 3,
+        num_rounds: int = 9,
+        model_types: _List[str] | None = None,
+    ) -> dict[str, Any]:
+        """Estimate the cost of a debate before creation.
+
+        Args:
+            num_agents: Number of participating agents (1-8, default 3)
+            num_rounds: Number of debate rounds (1-12, default 9)
+            model_types: List of model names to use (optional)
+
+        Returns:
+            Cost estimation with total, per-model breakdown, and assumptions
+        """
+        params: dict[str, Any] = {
+            "num_agents": num_agents,
+            "num_rounds": num_rounds,
+        }
+        if model_types:
+            params["model_types"] = ",".join(model_types)
+        return self._client.request(
+            "GET", "/api/v1/debates/estimate-cost", params=params
+        )
+
     # ========== Quick Debate ==========
 
     def quick_debate(self, task: str, **kwargs: Any) -> dict[str, Any]:

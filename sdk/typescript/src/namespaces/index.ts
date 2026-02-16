@@ -1685,3 +1685,19 @@ export {
   type SelectTeamRequest as SelectionTeamRequest,
   type SelectTeamResult as SelectionTeamResult,
 } from './selection';
+
+// Features (Feature Flags)
+export { FeaturesAPI } from './features';
+
+// Index (Vector Indexing & Semantic Search)
+export {
+  IndexAPI,
+  type IndexStatus as VectorIndexStatus,
+  type EmbedOptions as IndexEmbedOptions,
+  type EmbedBatchOptions as IndexEmbedBatchOptions,
+  type SearchOptions as IndexSearchOptions,
+  type SearchIndexOptions,
+  type CreateIndexOptions,
+  type IndexDocument,
+  type UpdateDocumentOptions,
+} from './vector-index';
