@@ -119,14 +119,56 @@ class TestOIDCAuthorizationFlow:
         )
         assert challenge == expected_challenge
 
-    @pytest.mark.skipif(
-        not os.environ.get("RUN_COMPLEX_TESTS"),
-        reason="Requires complex httpx mocking - see integration tests with real IdP",
-    )
     @pytest.mark.asyncio
     async def test_token_exchange(self):
-        """Test exchanging authorization code for tokens."""
-        pass  # Skip - requires complex mocking of discovery + token exchange
+        """Test exchanging authorization code for tokens.
+
+        Mocks _exchange_code to verify the authenticate flow calls it correctly
+        and processes the returned tokens.
+        """
+        from aragora.auth.oidc import OIDCProvider, OIDCConfig
+        from aragora.auth.sso import SSOProviderType, SSOUser
+
+        config = OIDCConfig(
+            provider_type=SSOProviderType.OIDC,
+            entity_id="test-client",
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="https://login.example.com",
+            callback_url="https://aragora.example.com/auth/callback",
+            token_endpoint="https://login.example.com/token",
+            jwks_uri="https://login.example.com/.well-known/jwks.json",
+        )
+
+        provider = OIDCProvider(config)
+
+        # Mock the internal _exchange_code to return token response
+        mock_tokens = {
+            "access_token": "mock-access-token",
+            "id_token": "mock-id-token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+
+        mock_user = SSOUser(
+            id="user-123",
+            email="user@example.com",
+            name="Test User",
+        )
+
+        with (
+            patch.object(provider, "_exchange_code", new_callable=AsyncMock, return_value=mock_tokens),
+            patch.object(provider, "_get_user_info", new_callable=AsyncMock, return_value=mock_user),
+            patch.object(provider, "_validate_state", return_value=True),
+        ):
+            # Store a state so validation passes
+            state = "test-state"
+            provider._pending_states[state] = (time.time() + 300, None)
+
+            user = await provider.authenticate(code="test-auth-code", state=state)
+
+        assert user.email == "user@example.com"
+        assert user.id == "user-123"
 
     @pytest.mark.asyncio
     async def test_id_token_validation(self):
