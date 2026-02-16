@@ -312,6 +312,28 @@ class TaskDecomposer:
         clause_count = len(re.split(r",\s+and\s+|\band\b|;\s*", task)) - 1
         clause_score = min(clause_count, 2)
 
+        # Vagueness bonus: goals that lack specifics are high-level strategic
+        # objectives that inherently require decomposition.  A goal with no file
+        # mentions, no technical keywords, and no concept terms is almost
+        # certainly a broad directive like "maximize utility for SMEs".
+        vagueness_bonus = 0.0
+        if file_score == 0 and keyword_score < 1 and concept_score == 0:
+            # Check for strategic/broad language that signals high-level goals
+            strategic_terms = {
+                "maximize", "minimise", "minimize", "optimise", "optimize",
+                "ensure", "improve", "enhance", "increase", "reduce",
+                "accelerate", "streamline", "transform", "scale", "grow",
+                "utility", "value", "experience", "strategy", "vision",
+                "roadmap", "impact", "outcome", "business", "customer",
+                "user", "market", "revenue", "adoption", "engagement",
+            }
+            strategic_matches = sum(
+                1 for term in strategic_terms if term in task_lower
+            )
+            if strategic_matches >= 1:
+                # At least one strategic term + no specifics = vague high-level goal
+                vagueness_bonus = 3.0 + min(strategic_matches - 1, 2) * 0.5
+
         # Combine scores with weights
         total = (
             file_score * self.config.file_complexity_weight * 10 / 3
@@ -319,6 +341,7 @@ class TaskDecomposer:
             + length_score * self.config.length_complexity_weight * 10 / 3
             + concept_score * 0.8
             + clause_score * 0.5
+            + vagueness_bonus
         )
 
         # Add bonus for debate context if available
@@ -657,34 +680,51 @@ class TaskDecomposer:
             )
 
             goal_lower = goal.lower()
-            for track, config in DEFAULT_TRACK_CONFIGS.items():
-                # Match track by name or keywords in the goal
-                track_keywords = {
-                    Track.SME: ["sme", "small business", "dashboard", "user experience", "utility"],
-                    Track.DEVELOPER: ["sdk", "api", "developer", "documentation", "package"],
-                    Track.SELF_HOSTED: ["deploy", "docker", "self-hosted", "ops", "backup"],
-                    Track.QA: ["test", "quality", "coverage", "ci", "reliability"],
-                    Track.CORE: ["debate", "agent", "consensus", "engine", "core"],
-                    Track.SECURITY: ["security", "auth", "vulnerability", "harden", "owasp"],
-                }
-                keywords = track_keywords.get(track, [])
-                if any(kw in goal_lower for kw in keywords):
-                    folders_str = ", ".join(config.folders[:3])
-                    subtasks.append(
-                        SubTask(
-                            id=f"subtask_{len(subtasks) + 1}",
-                            title=f"Improve {config.name} Track",
-                            description=(
-                                f"Enhance capabilities in the {config.name} track. "
-                                f"Key folders: {folders_str}. "
-                                f"Preferred agents: {', '.join(config.agent_types)}."
-                            ),
-                            dependencies=[],
-                            estimated_complexity="medium",
-                            file_scope=config.folders[:3],
-                        )
+            track_keywords = {
+                Track.SME: ["sme", "small business", "dashboard", "user experience", "utility"],
+                Track.DEVELOPER: ["sdk", "api", "developer", "documentation", "package"],
+                Track.SELF_HOSTED: ["deploy", "docker", "self-hosted", "ops", "backup"],
+                Track.QA: ["test", "quality", "coverage", "ci", "reliability"],
+                Track.CORE: ["debate", "agent", "consensus", "engine", "core"],
+                Track.SECURITY: ["security", "auth", "vulnerability", "harden", "owasp"],
+            }
+            # Count how many tracks match explicitly
+            matched_tracks = [
+                track
+                for track in DEFAULT_TRACK_CONFIGS
+                if any(kw in goal_lower for kw in track_keywords.get(track, []))
+            ]
+            # If 0-1 tracks match, the goal is so broad it affects all tracks.
+            # Strategic terms like "maximize", "improve", "optimize" are
+            # inherently cross-cutting — include all tracks.
+            broad_terms = {"maximize", "minimise", "minimize", "improve", "enhance",
+                           "optimize", "optimise", "scale", "transform", "grow",
+                           "utility", "value", "business"}
+            is_broad = any(t in goal_lower for t in broad_terms)
+            if len(matched_tracks) <= 1 and is_broad:
+                # Broad goal — include top 4 tracks by relevance
+                tracks_to_expand = list(DEFAULT_TRACK_CONFIGS.keys())[:4]
+            else:
+                tracks_to_expand = matched_tracks
+
+            for track in tracks_to_expand:
+                config = DEFAULT_TRACK_CONFIGS[track]
+                folders_str = ", ".join(config.folders[:3])
+                subtasks.append(
+                    SubTask(
+                        id=f"subtask_{len(subtasks) + 1}",
+                        title=f"Improve {config.name} Track",
+                        description=(
+                            f"Enhance capabilities in the {config.name} track. "
+                            f"Key folders: {folders_str}. "
+                            f"Preferred agents: {', '.join(config.agent_types)}."
+                        ),
+                        dependencies=[],
+                        estimated_complexity="medium",
+                        file_scope=config.folders[:3],
                     )
-                    matched_sources.append(f"track:{track.value}")
+                )
+                matched_sources.append(f"track:{track.value}")
         except ImportError:
             logger.debug("Track configs not available for expansion")
 

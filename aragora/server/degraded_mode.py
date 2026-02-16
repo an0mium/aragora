@@ -397,7 +397,7 @@ async def attempt_recovery() -> bool:
             if callback():
                 clear_degraded()
                 return True
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Recovery callback failed: {e}")
 
     return False

@@ -290,13 +290,13 @@ class WorkflowEngine:
         if context.event_callback:
             try:
                 context.event_callback(event_name, payload)
-            except Exception as exc:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
                 logger.debug(f"Workflow event callback failed: {exc}")
 
         if self._config.trace_callback:
             try:
                 self._config.trace_callback(event_name, payload)
-            except Exception as exc:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
                 logger.debug(f"Workflow trace callback failed: {exc}")
 
         # Bridge to webhook event dispatcher for external delivery
@@ -325,7 +325,7 @@ class WorkflowEngine:
             from aragora.events.dispatcher import dispatch_event
 
             dispatch_event(event_name, payload)
-        except (ImportError, Exception) as exc:
+        except (ImportError, RuntimeError, OSError) as exc:
             logger.debug(f"Workflow event dispatch skipped: {exc}")
 
     # =========================================================================
@@ -418,7 +418,7 @@ class WorkflowEngine:
                 error = f"Workflow timed out after {self._config.total_timeout_seconds}s"
                 final_output = None
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
                 logger.exception(
                     "workflow_failed",
                     workflow_id=workflow_id,
@@ -545,7 +545,7 @@ class WorkflowEngine:
             error = "Workflow timed out"
             final_output = None
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
             logger.exception(f"Workflow resume failed: {e}")
             success = False
             error = "Workflow resume failed"
@@ -813,7 +813,7 @@ class WorkflowEngine:
                             max_retries=step_def.retries,
                         )
 
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
                     last_error = "Step execution failed"
                     retry_count += 1
                     if retry_count <= step_def.retries:
@@ -921,7 +921,7 @@ class WorkflowEngine:
             step = step_class(name=step_def.name, config=step_def.config)  # type: ignore[call-arg]
             self._step_instances[cache_key] = step
             return step
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError, ImportError) as e:
             logger.error(f"Failed to create step instance: {e}")
             return None
 
@@ -1009,7 +1009,7 @@ class WorkflowEngine:
         try:
             await self._checkpoint_store.save(checkpoint)
             logger.debug(f"Persisted checkpoint {checkpoint_id} at step {current_step}")
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to persist checkpoint {checkpoint_id}: {e}")
 
         # Also cache in memory for fast access during execution
@@ -1041,7 +1041,7 @@ class WorkflowEngine:
             if checkpoint:
                 self._checkpoints_cache.put(checkpoint_id, checkpoint)
             return checkpoint
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
@@ -1049,7 +1049,7 @@ class WorkflowEngine:
         """Get the most recent checkpoint for a workflow."""
         try:
             return await self._checkpoint_store.load_latest(workflow_id)
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
@@ -1057,7 +1057,7 @@ class WorkflowEngine:
         """List all checkpoint IDs for a workflow."""
         try:
             return await self._checkpoint_store.list_checkpoints(workflow_id)
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to list checkpoints for {workflow_id}: {e}")
             return []
 
@@ -1068,7 +1068,7 @@ class WorkflowEngine:
             self._checkpoints_cache.remove(checkpoint_id)
             # Remove from persistent storage
             return await self._checkpoint_store.delete(checkpoint_id)
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 

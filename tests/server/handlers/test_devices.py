@@ -897,7 +897,7 @@ class TestErrorHandling:
             with patch.object(device_handler, "check_permission"):
                 with patch("aragora.connectors.devices.registry.get_registry") as mock_registry:
                     mock_registry.return_value.get_health = AsyncMock(
-                        side_effect=ValueError("Unexpected error")
+                        side_effect=OSError("Unexpected error")
                     )
 
                     result = await device_handler.handle(
