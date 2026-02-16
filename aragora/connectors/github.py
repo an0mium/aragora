@@ -143,7 +143,13 @@ class GitHubConnector(BaseConnector):
                 return stdout.decode("utf-8")
             self.record_circuit_breaker_failure()
             return None
-        except (asyncio.TimeoutError, OSError, UnicodeDecodeError) as e:
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            self.record_circuit_breaker_failure()
+            logger.warning(f"[github] gh command timed out (args={args[:2]}...)")
+            return None
+        except (OSError, UnicodeDecodeError) as e:
             self.record_circuit_breaker_failure()
             logger.warning(f"[github] gh command failed (args={args[:2]}...): {e}")
             return None
