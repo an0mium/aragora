@@ -276,7 +276,7 @@ class TestPartialFailures:
         data = json.loads(result.body)
 
         assert "rankings" in data["errors"]["messages"]
-        assert "Database connection failed" in data["errors"]["messages"]["rankings"]
+        assert "Data fetch failed" in data["errors"]["messages"]["rankings"]
 
 
 class TestFetchRankings:

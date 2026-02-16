@@ -513,6 +513,7 @@ class AutonomousOrchestrator:
         use_decision_plan: bool = False,
         enable_convoy_tracking: bool = False,
         workspace_manager: Any | None = None,
+        agent_fabric: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -540,10 +541,13 @@ class AutonomousOrchestrator:
             enable_convoy_tracking: Track orchestration lifecycle with
                 Convoy/Bead persistence for crash recovery
             workspace_manager: Optional WorkspaceManager for convoy/bead tracking
+            agent_fabric: Optional AgentFabric for enhanced scheduling,
+                budget tracking, and inter-agent messaging
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
         self.branch_coordinator = branch_coordinator
+        self.agent_fabric = agent_fabric
         self.workflow_engine = workflow_engine or get_workflow_engine()
         self.task_decomposer = task_decomposer or TaskDecomposer(
             config=DecomposerConfig(complexity_threshold=4)
@@ -950,6 +954,9 @@ class AutonomousOrchestrator:
         # Update bead status to RUNNING
         await self._update_bead_status(subtask.id, "running")
 
+        # Register agent with Fabric for lifecycle + budget tracking
+        fabric_agent_id = await self._fabric_register_agent(assignment)
+
         try:
             # Build workflow for this subtask
             workflow = self._build_subtask_workflow(assignment)
@@ -1041,6 +1048,11 @@ class AutonomousOrchestrator:
                 self._active_assignments.remove(assignment)
             except ValueError:
                 pass  # Already removed (e.g., during retry)
+
+            # Notify Fabric of task completion for cleanup
+            await self._fabric_complete_task(
+                assignment, success=assignment.status == "completed"
+            )
 
     async def _record_agent_outcome(
         self,
@@ -1849,6 +1861,115 @@ class AutonomousOrchestrator:
     def get_completed_assignments(self) -> list[AgentAssignment]:
         """Get completed assignments."""
         return self._completed_assignments.copy()
+
+    # =========================================================================
+    # Agent Fabric integration
+    # =========================================================================
+
+    async def _fabric_register_agent(self, assignment: AgentAssignment) -> str | None:
+        """Register an agent with the Fabric for lifecycle management.
+
+        Returns the Fabric agent_id if registered, None otherwise.
+        """
+        if not self.agent_fabric:
+            return None
+
+        try:
+            from aragora.fabric.models import AgentConfig as FabricAgentConfig
+
+            config = FabricAgentConfig(
+                id=f"{assignment.agent_type}-{assignment.subtask.id[:8]}",
+                model=assignment.agent_type,
+                tools=["code", "test", "lint"],
+                max_concurrent_tasks=1,
+            )
+            handle = await self.agent_fabric.spawn(config)
+            fabric_id = handle.agent_id if hasattr(handle, "agent_id") else str(handle)
+            logger.debug(
+                "[fabric] Spawned agent %s for subtask %s",
+                fabric_id,
+                assignment.subtask.id,
+            )
+            return fabric_id
+        except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[fabric] Agent registration failed: %s", e)
+            return None
+
+    async def _fabric_track_usage(
+        self,
+        assignment: AgentAssignment,
+        cost_usd: float = 0.0,
+        tokens: int = 0,
+    ) -> None:
+        """Track usage in Fabric's BudgetManager for cost enforcement."""
+        if not self.agent_fabric:
+            return
+
+        try:
+            from aragora.fabric.models import Usage
+
+            agent_id = f"{assignment.agent_type}-{assignment.subtask.id[:8]}"
+            usage = Usage(
+                agent_id=agent_id,
+                tokens_used=tokens,
+                cost_usd=cost_usd,
+                operation=f"subtask:{assignment.subtask.id}",
+            )
+            await self.agent_fabric.track_usage(usage)
+        except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[fabric] Usage tracking failed: %s", e)
+
+    async def _fabric_complete_task(
+        self,
+        assignment: AgentAssignment,
+        success: bool,
+    ) -> None:
+        """Notify Fabric that a task completed (for scheduler cleanup)."""
+        if not self.agent_fabric:
+            return
+
+        try:
+            task_id = f"task-{assignment.subtask.id}"
+            error = None if success else "Task failed"
+            await self.agent_fabric.complete_task(task_id, result=None, error=error)
+            # Terminate the agent after task completion
+            agent_id = f"{assignment.agent_type}-{assignment.subtask.id[:8]}"
+            await self.agent_fabric.terminate(agent_id, graceful=True)
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[fabric] Task completion notification failed: %s", e)
+
+    async def _fabric_notify_agents(
+        self,
+        message: str,
+        exclude_agent: str | None = None,
+    ) -> None:
+        """Broadcast a message to all active agents via Fabric's NudgeRouter."""
+        if not self.agent_fabric:
+            return
+
+        try:
+            from aragora.fabric.nudge import NudgeRouter
+
+            router = getattr(self.agent_fabric, "_nudge_router", None)
+            if router:
+                await router.broadcast(
+                    sender="orchestrator",
+                    content=message,
+                    exclude=[exclude_agent] if exclude_agent else None,
+                )
+        except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[fabric] Agent notification failed: %s", e)
+
+    async def get_fabric_stats(self) -> dict[str, Any] | None:
+        """Get Fabric orchestration statistics for dashboard display."""
+        if not self.agent_fabric:
+            return None
+
+        try:
+            return await self.agent_fabric.get_fabric_stats()
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[fabric] Stats retrieval failed: %s", e)
+            return None
 
 
 # Singleton instance

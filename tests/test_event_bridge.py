@@ -377,8 +377,8 @@ class TestEmitMoment:
         moment.moment_type = "insight"
         moment.agent_name = "agent1"
 
-        with patch("aragora.server.stream.StreamEvent") as MockStreamEvent:
-            with patch("aragora.server.stream.StreamEventType") as MockStreamEventType:
+        with patch("aragora.events.types.StreamEvent") as MockStreamEvent:
+            with patch("aragora.events.types.StreamEventType") as MockStreamEventType:
                 MockStreamEventType.MOMENT_DETECTED = "MOMENT_DETECTED"
 
                 bridge.emit_moment(moment)

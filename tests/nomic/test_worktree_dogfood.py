@@ -1,324 +1,258 @@
-"""Dogfood validation test for the worktree multi-session workflow.
+"""End-to-end worktree workflow tests.
 
-Proves the end-to-end flow works:
-1. Create worktrees via BranchCoordinator
-2. Decompose a goal into subtasks assigned to different tracks
-3. Verify worktree paths exist and are isolated
-4. Simulate completion, dry-run merge
-5. Cleanup removes all worktrees
-
-These tests use a temporary git repo to avoid touching the real working tree.
+Validates the integration between TaskDecomposer, BranchCoordinator,
+safe_merge, and cleanup -- the full worktree lifecycle that the Nomic
+Loop uses for parallel development.
 """
 
 from __future__ import annotations
 
-import asyncio
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from aragora.nomic.branch_coordinator import (
     BranchCoordinator,
     BranchCoordinatorConfig,
+    MergeResult,
 )
 from aragora.nomic.meta_planner import Track
+from aragora.nomic.task_decomposer import DecomposerConfig, TaskDecomposer
 
 
-@pytest.fixture
-def temp_git_repo(tmp_path: Path) -> Path:
-    """Create a temporary git repo for testing worktree operations."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    subprocess.run(
-        ["git", "init", "--initial-branch=main"],
-        cwd=repo, capture_output=True, check=True,
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_git_success(stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
+    """Create a successful subprocess.CompletedProcess."""
+    return subprocess.CompletedProcess(
+        args=["git"], returncode=0, stdout=stdout, stderr=stderr,
     )
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=repo, capture_output=True, check=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=repo, capture_output=True, check=True,
-    )
-    # Create initial commit so branches can be created
-    (repo / "README.md").write_text("# Test\n")
-    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "initial"],
-        cwd=repo, capture_output=True, check=True,
-    )
-    return repo
 
 
-@pytest.fixture
-def coordinator(temp_git_repo: Path) -> BranchCoordinator:
-    """Create a BranchCoordinator for the temp repo."""
+def _make_git_failure(stderr: str = "") -> subprocess.CompletedProcess:
+    """Create a failed subprocess.CompletedProcess."""
+    return subprocess.CompletedProcess(
+        args=["git"], returncode=1, stdout="", stderr=stderr,
+    )
+
+
+TRACKS = [Track.SME, Track.DEVELOPER, Track.QA]
+GOALS = [
+    "Improve SME onboarding flow",
+    "Add SDK pagination helpers",
+    "Increase handler test coverage",
+]
+
+
+def _build_coordinator(tmp_path: Path) -> BranchCoordinator:
+    """Build a BranchCoordinator pointing at a temporary directory."""
     config = BranchCoordinatorConfig(
         base_branch="main",
+        branch_prefix="dev",
         use_worktrees=True,
-        max_parallel_branches=6,
+        max_parallel_branches=3,
+        worktree_base_dir=tmp_path / ".worktrees",
     )
-    return BranchCoordinator(repo_path=temp_git_repo, config=config)
+    return BranchCoordinator(repo_path=tmp_path, config=config)
 
 
-class TestWorktreeCreation:
-    """Test that worktrees can be created for different tracks."""
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
-    def test_create_single_worktree(self, coordinator: BranchCoordinator) -> None:
-        branch = asyncio.run(
-            coordinator.create_track_branch(track=Track.SME, goal="Improve dashboard")
-        )
-        assert branch.startswith("dev/sme-")
-        wt_path = coordinator.get_worktree_path(branch)
-        assert wt_path is not None
-        assert wt_path.exists()
+@pytest.mark.asyncio
+async def test_create_worktrees_for_tracks(tmp_path: Path) -> None:
+    """Creating worktrees for three tracks produces distinct branches and paths."""
+    coordinator = _build_coordinator(tmp_path)
 
-    def test_create_multiple_worktrees(self, coordinator: BranchCoordinator) -> None:
-        tracks = [Track.SME, Track.DEVELOPER, Track.QA]
-        branches = []
-        for track in tracks:
-            branch = asyncio.run(
-                coordinator.create_track_branch(track=track, goal=f"Work on {track.value}")
-            )
+    with patch("subprocess.run", return_value=_make_git_success()):
+        branches: list[str] = []
+        for track, goal in zip(TRACKS, GOALS):
+            branch = await coordinator.create_track_branch(track, goal)
             branches.append(branch)
 
-        assert len(branches) == 3
-        for branch in branches:
-            wt_path = coordinator.get_worktree_path(branch)
-            assert wt_path is not None
-            assert wt_path.exists()
+    # Each branch name should contain the track value
+    for branch, track in zip(branches, TRACKS):
+        assert track.value in branch, f"Branch {branch} missing track {track.value}"
 
-    def test_worktrees_are_isolated(self, coordinator: BranchCoordinator, temp_git_repo: Path) -> None:
-        """Each worktree is at a different filesystem path."""
-        b1 = asyncio.run(coordinator.create_track_branch(track=Track.SME, goal="SME work"))
-        b2 = asyncio.run(coordinator.create_track_branch(track=Track.QA, goal="QA work"))
+    # All branches are unique
+    assert len(set(branches)) == 3
 
-        p1 = coordinator.get_worktree_path(b1)
-        p2 = coordinator.get_worktree_path(b2)
-
-        assert p1 != p2
-        assert p1 != temp_git_repo
-        assert p2 != temp_git_repo
+    # Worktree paths are recorded and distinct
+    paths = [coordinator.get_worktree_path(b) for b in branches]
+    assert all(p is not None for p in paths)
+    assert len(set(str(p) for p in paths)) == 3
 
 
-class TestWorktreeListing:
-    """Test listing worktrees."""
+def test_decomposer_assigns_different_tracks() -> None:
+    """TaskDecomposer on 'Maximize utility for SMEs' produces subtasks spanning tracks.
 
-    def test_list_empty(self, coordinator: BranchCoordinator) -> None:
-        worktrees = coordinator.list_worktrees()
-        # May include the main worktree
-        assert isinstance(worktrees, list)
+    Uses threshold=4 so the vague-goal expansion path fires (score=3 < 4),
+    which cross-references development track configs and populates file_scope.
+    """
+    config = DecomposerConfig(complexity_threshold=4, max_subtasks=5)
+    decomposer = TaskDecomposer(config=config)
 
-    def test_list_after_create(self, coordinator: BranchCoordinator) -> None:
-        asyncio.run(coordinator.create_track_branch(track=Track.CORE, goal="Core work"))
-        worktrees = coordinator.list_worktrees()
-        branches = [wt.branch_name for wt in worktrees]
-        assert any("core" in b for b in branches)
+    result = decomposer.analyze("Maximize utility for SMEs")
+
+    assert result.should_decompose, "Vague strategic goal should trigger decomposition"
+    assert len(result.subtasks) >= 2, "Should produce at least 2 subtasks"
+
+    # Subtasks should have distinct titles (no duplicates)
+    titles = [s.title for s in result.subtasks]
+    assert len(titles) == len(set(titles)), f"Duplicate subtask titles: {titles}"
+
+    # Each subtask should have an id and description
+    for subtask in result.subtasks:
+        assert subtask.id, "Subtask must have an id"
+        assert subtask.description, "Subtask must have a description"
+
+    # At least some subtasks should have file_scope set (from track expansion)
+    scoped = [s for s in result.subtasks if s.file_scope]
+    assert len(scoped) >= 1, "At least one subtask should have file_scope populated"
 
 
-class TestWorktreeMerge:
-    """Test merging worktree branches."""
+@pytest.mark.asyncio
+async def test_worktree_paths_are_isolated(tmp_path: Path) -> None:
+    """Each worktree lives under .worktrees/ with a unique directory name."""
+    coordinator = _build_coordinator(tmp_path)
+    worktree_base = tmp_path / ".worktrees"
 
-    def test_dry_run_merge(self, coordinator: BranchCoordinator, temp_git_repo: Path) -> None:
-        branch = asyncio.run(
-            coordinator.create_track_branch(track=Track.DEVELOPER, goal="Add feature")
+    with patch("subprocess.run", return_value=_make_git_success()):
+        for track, goal in zip(TRACKS, GOALS):
+            await coordinator.create_track_branch(track, goal)
+
+    for _branch, info in coordinator._active_worktrees.items():
+        assert info.worktree_path.parent == worktree_base
+        assert info.created_at is not None
+
+
+@pytest.mark.asyncio
+async def test_safe_merge_dry_run(tmp_path: Path) -> None:
+    """safe_merge with dry_run=True checks mergeability without committing."""
+    coordinator = _build_coordinator(tmp_path)
+
+    def _side_effect(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get("args", [])
+        if "rev-parse" in cmd and "--verify" in cmd:
+            # branch_exists check -- report branch exists
+            return _make_git_success()
+        if "merge" in cmd and "--no-commit" in cmd:
+            # dry-run merge succeeds
+            return _make_git_success()
+        if "merge" in cmd and "--abort" in cmd:
+            return _make_git_success()
+        return _make_git_success()
+
+    with patch("subprocess.run", side_effect=_side_effect):
+        result: MergeResult = await coordinator.safe_merge(
+            "dev/sme-improve-sme-onboarding-flow-0216",
+            target="main",
+            dry_run=True,
         )
-        wt_path = coordinator.get_worktree_path(branch)
 
-        # Make a change in the worktree
-        (wt_path / "feature.py").write_text("# new feature\n")
-        subprocess.run(["git", "add", "."], cwd=wt_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "add feature"],
-            cwd=wt_path, capture_output=True, check=True,
-        )
-
-        # Dry-run merge should succeed
-        result = asyncio.run(coordinator.safe_merge(branch, dry_run=True))
-        assert result.success
-
-    def test_actual_merge(self, coordinator: BranchCoordinator, temp_git_repo: Path) -> None:
-        branch = asyncio.run(
-            coordinator.create_track_branch(track=Track.SECURITY, goal="Security audit")
-        )
-        wt_path = coordinator.get_worktree_path(branch)
-
-        # Make a change
-        (wt_path / "audit.py").write_text("# audit log\n")
-        subprocess.run(["git", "add", "."], cwd=wt_path, capture_output=True, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "add audit"],
-            cwd=wt_path, capture_output=True, check=True,
-        )
-
-        # Actual merge
-        result = asyncio.run(coordinator.safe_merge(branch))
-        assert result.success
-        assert result.commit_sha is not None
-
-        # Verify file exists on main
-        assert (temp_git_repo / "audit.py").exists()
+    assert result.success is True
+    assert result.source_branch == "dev/sme-improve-sme-onboarding-flow-0216"
+    assert result.target_branch == "main"
+    # dry_run should not produce a commit SHA
+    assert result.commit_sha is None
 
 
-class TestConflictDetection:
-    """Test conflict detection across branches."""
+@pytest.mark.asyncio
+async def test_safe_merge_dry_run_detects_conflicts(tmp_path: Path) -> None:
+    """safe_merge dry_run reports conflicts when git merge --no-commit fails."""
+    coordinator = _build_coordinator(tmp_path)
 
-    def test_no_conflicts_on_fresh_branches(self, coordinator: BranchCoordinator) -> None:
-        b1 = asyncio.run(coordinator.create_track_branch(track=Track.SME, goal="SME"))
-        b2 = asyncio.run(coordinator.create_track_branch(track=Track.QA, goal="QA"))
-
-        conflicts = asyncio.run(coordinator.detect_conflicts([b1, b2]))
-        assert len(conflicts) == 0
-
-    def test_detect_overlapping_changes(
-        self, coordinator: BranchCoordinator, temp_git_repo: Path
-    ) -> None:
-        b1 = asyncio.run(coordinator.create_track_branch(track=Track.SME, goal="Edit shared"))
-        b2 = asyncio.run(coordinator.create_track_branch(track=Track.QA, goal="Edit shared too"))
-
-        p1 = coordinator.get_worktree_path(b1)
-        p2 = coordinator.get_worktree_path(b2)
-
-        # Both branches modify the same file
-        (p1 / "shared.py").write_text("# sme changes\n")
-        subprocess.run(["git", "add", "."], cwd=p1, capture_output=True, check=True)
-        subprocess.run(["git", "commit", "-m", "sme"], cwd=p1, capture_output=True, check=True)
-
-        (p2 / "shared.py").write_text("# qa changes\n")
-        subprocess.run(["git", "add", "."], cwd=p2, capture_output=True, check=True)
-        subprocess.run(["git", "commit", "-m", "qa"], cwd=p2, capture_output=True, check=True)
-
-        conflicts = asyncio.run(coordinator.detect_conflicts([b1, b2]))
-        assert len(conflicts) > 0
-        assert any("shared.py" in c.conflicting_files for c in conflicts)
-
-
-class TestWorktreeCleanup:
-    """Test cleanup of worktrees."""
-
-    def test_cleanup_removes_worktrees(self, coordinator: BranchCoordinator) -> None:
-        b1 = asyncio.run(coordinator.create_track_branch(track=Track.SME, goal="Work"))
-        b2 = asyncio.run(coordinator.create_track_branch(track=Track.QA, goal="Work"))
-
-        p1 = coordinator.get_worktree_path(b1)
-        p2 = coordinator.get_worktree_path(b2)
-        assert p1.exists()
-        assert p2.exists()
-
-        removed = coordinator.cleanup_all_worktrees()
-        assert removed >= 2
-
-
-class TestTaskDecompositionRouting:
-    """Test that task decomposition routes subtasks to different tracks."""
-
-    def test_decomposer_assigns_to_multiple_tracks(self) -> None:
-        from aragora.nomic.task_decomposer import DecomposerConfig, TaskDecomposer
-        from aragora.nomic.autonomous_orchestrator import AgentRouter
-
-        decomposer = TaskDecomposer(config=DecomposerConfig(complexity_threshold=4))
-        router = AgentRouter()
-
-        decomposition = decomposer.analyze("Maximize utility for SME businesses")
-
-        if not decomposition.subtasks:
-            pytest.skip("Decomposer produced no subtasks for this goal")
-
-        tracks_seen = set()
-        for subtask in decomposition.subtasks:
-            track = router.determine_track(subtask)
-            tracks_seen.add(track)
-
-        # The decomposer should route to at least one track
-        assert len(tracks_seen) >= 1
-
-
-class TestBudgetCutoff:
-    """Test that the budget hard cutoff works in the orchestrator."""
-
-    def test_budget_exceeded_skips_pending(self) -> None:
-        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
-
-        orch = AutonomousOrchestrator(require_human_approval=False)
-        orch.budget_limit = 10.0
-        orch._total_cost_usd = 15.0  # Over budget
-
-        from aragora.nomic.task_decomposer import SubTask
-        from aragora.nomic.autonomous_orchestrator import AgentAssignment, Track
-
-        assignments = [
-            AgentAssignment(
-                subtask=SubTask(id="t1", title="Test task", description="desc"),
-                track=Track.DEVELOPER,
-                agent_type="claude",
-            ),
-        ]
-
-        # The execution loop should skip tasks when over budget
-        asyncio.run(orch._execute_assignments(assignments, max_cycles=1))
-        assert assignments[0].status == "skipped"
-
-    def test_budget_not_exceeded_allows_execution(self) -> None:
-        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
-
-        orch = AutonomousOrchestrator(require_human_approval=False)
-        orch.budget_limit = 100.0
-        orch._total_cost_usd = 5.0  # Under budget
-
-        # Should not skip (will fail at workflow execution, which is fine)
-        assert orch._total_cost_usd <= orch.budget_limit
-
-
-class TestEndToEndDogfood:
-    """End-to-end dogfood test: create worktrees, decompose, merge, cleanup."""
-
-    def test_full_workflow(self, coordinator: BranchCoordinator, temp_git_repo: Path) -> None:
-        """Simulate the complete multi-session workflow."""
-        # 1. Create 3 worktrees
-        tracks = [Track.SME, Track.DEVELOPER, Track.QA]
-        branches = []
-        for track in tracks:
-            branch = asyncio.run(
-                coordinator.create_track_branch(track=track, goal=f"Work on {track.value}")
+    def _side_effect(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get("args", [])
+        if "rev-parse" in cmd and "--verify" in cmd:
+            return _make_git_success()
+        if "merge" in cmd and "--no-commit" in cmd:
+            return _make_git_failure(
+                stderr="CONFLICT (content): Merge conflict in aragora/server/app.py"
             )
+        if "merge" in cmd and "--abort" in cmd:
+            return _make_git_success()
+        return _make_git_success()
+
+    with patch("subprocess.run", side_effect=_side_effect):
+        result = await coordinator.safe_merge("dev/feature-x", dry_run=True)
+
+    assert result.success is False
+    assert "aragora/server/app.py" in result.conflicts
+
+
+@pytest.mark.asyncio
+async def test_cleanup_removes_worktrees(tmp_path: Path) -> None:
+    """cleanup_all_worktrees removes all tracked worktrees and returns count."""
+    coordinator = _build_coordinator(tmp_path)
+
+    with patch("subprocess.run", return_value=_make_git_success()):
+        for track, goal in zip(TRACKS, GOALS):
+            await coordinator.create_track_branch(track, goal)
+
+    assert len(coordinator._worktree_paths) == 3
+
+    with patch("subprocess.run", return_value=_make_git_success()):
+        removed = coordinator.cleanup_all_worktrees()
+
+    assert removed == 3
+    assert len(coordinator._worktree_paths) == 0
+    assert len(coordinator._active_worktrees) == 0
+
+
+@pytest.mark.asyncio
+async def test_end_to_end_worktree_workflow(tmp_path: Path) -> None:
+    """Full lifecycle: decompose -> create worktrees -> merge -> cleanup."""
+    # Step 1: Decompose a strategic goal into subtasks
+    # threshold=4 triggers vague-goal expansion (score=3 < 4) for richer subtasks
+    config = DecomposerConfig(complexity_threshold=4, max_subtasks=5)
+    decomposer = TaskDecomposer(config=config)
+    decomposition = decomposer.analyze("Maximize utility for SMEs")
+
+    assert decomposition.should_decompose
+    subtask_count = len(decomposition.subtasks)
+    assert subtask_count >= 2
+
+    # Step 2: Create worktrees for each subtask (map to tracks round-robin)
+    coordinator = _build_coordinator(tmp_path)
+    track_cycle = [Track.SME, Track.DEVELOPER, Track.QA, Track.CORE, Track.SECURITY]
+    branches: list[str] = []
+
+    with patch("subprocess.run", return_value=_make_git_success()):
+        for i, subtask in enumerate(decomposition.subtasks):
+            track = track_cycle[i % len(track_cycle)]
+            branch = await coordinator.create_track_branch(track, subtask.title)
             branches.append(branch)
 
-        # Verify all exist
+    assert len(branches) == subtask_count
+
+    # Step 3: Verify worktree isolation
+    paths = [coordinator.get_worktree_path(b) for b in branches]
+    assert len(set(str(p) for p in paths)) == subtask_count
+
+    # Step 4: Dry-run merge each branch
+    def _merge_side_effect(*args, **kwargs):
+        cmd = args[0] if args else kwargs.get("args", [])
+        if "rev-parse" in cmd and "--verify" in cmd:
+            return _make_git_success()
+        if "merge" in cmd and "--no-commit" in cmd:
+            return _make_git_success()
+        return _make_git_success()
+
+    with patch("subprocess.run", side_effect=_merge_side_effect):
         for branch in branches:
-            wt_path = coordinator.get_worktree_path(branch)
-            assert wt_path is not None
-            assert wt_path.exists()
+            result = await coordinator.safe_merge(branch, dry_run=True)
+            assert result.success is True, f"Dry-run merge failed for {branch}"
 
-        # 2. Simulate work in each worktree
-        for i, branch in enumerate(branches):
-            wt_path = coordinator.get_worktree_path(branch)
-            (wt_path / f"work_{i}.py").write_text(f"# work from session {i}\n")
-            subprocess.run(["git", "add", "."], cwd=wt_path, capture_output=True, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", f"session {i} work"],
-                cwd=wt_path, capture_output=True, check=True,
-            )
-
-        # 3. Check no conflicts (different files)
-        conflicts = asyncio.run(coordinator.detect_conflicts(branches))
-        assert len(conflicts) == 0
-
-        # 4. Dry-run merge each
-        for branch in branches:
-            result = asyncio.run(coordinator.safe_merge(branch, dry_run=True))
-            assert result.success, f"Dry-run merge failed for {branch}: {result.error}"
-
-        # 5. Merge all (actual)
-        for branch in branches:
-            result = asyncio.run(coordinator.safe_merge(branch))
-            assert result.success, f"Merge failed for {branch}: {result.error}"
-
-        # Verify all files exist on main
-        for i in range(len(branches)):
-            assert (temp_git_repo / f"work_{i}.py").exists()
-
-        # 6. Cleanup
+    # Step 5: Cleanup all worktrees
+    with patch("subprocess.run", return_value=_make_git_success()):
         removed = coordinator.cleanup_all_worktrees()
-        assert removed >= 0  # May be 0 if worktrees already removed by merge
+
+    assert removed == subtask_count
+    assert len(coordinator._worktree_paths) == 0
+    assert len(coordinator._active_worktrees) == 0

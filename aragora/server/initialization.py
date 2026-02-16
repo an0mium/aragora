@@ -760,7 +760,76 @@ async def initialize_subsystems_async(
     registry = get_registry()
     await registry.initialize_all_async(nomic_dir, enable_persistence)
     registry.log_availability()
+
+    # Auto-seed demo data when DEMO_MODE is active and no data exists
+    await _maybe_seed_demo_data(registry, nomic_dir)
+
     return registry
+
+
+async def _maybe_seed_demo_data(
+    registry: SubsystemRegistry,
+    nomic_dir: Path | None = None,
+) -> None:
+    """Auto-seed demo data on first server start in DEMO_MODE.
+
+    Only seeds if:
+    1. ARAGORA_DEMO_MODE is truthy
+    2. The ELO leaderboard is empty (indicates first run)
+    3. ARAGORA_SKIP_SEED is NOT set (escape hatch)
+
+    This replaces the need to manually run `python scripts/seed_demo.py`.
+    """
+    import os
+
+    demo_mode = os.environ.get("ARAGORA_DEMO_MODE", "").lower() in ("true", "1", "yes")
+    skip_seed = os.environ.get("ARAGORA_SKIP_SEED", "").lower() in ("true", "1", "yes")
+
+    if not demo_mode or skip_seed:
+        return
+
+    # Check if data already exists (any ELO entries = already seeded)
+    if registry.elo_system is not None:
+        try:
+            leaderboard = registry.elo_system.get_leaderboard(limit=1)
+            if leaderboard:
+                return  # Already has data
+        except (TypeError, ValueError, AttributeError, RuntimeError):
+            pass
+
+    logger.info("[init] DEMO_MODE active with empty database — auto-seeding demo data")
+
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, _seed_demo_data_sync, nomic_dir)
+        logger.info("[init] Demo data seeded successfully")
+    except (ImportError, RuntimeError, OSError) as e:
+        logger.warning("[init] Auto-seed failed (non-fatal): %s", e)
+
+
+def _seed_demo_data_sync(nomic_dir: Path | None = None) -> None:
+    """Synchronous demo data seeding (runs in executor thread)."""
+    import importlib
+    import sys
+    from pathlib import Path as _Path
+
+    # Add scripts directory to path for import
+    scripts_dir = _Path(__file__).parent.parent.parent / "scripts"
+    if scripts_dir.exists() and str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    try:
+        seed_mod = importlib.import_module("seed_demo")
+        if hasattr(seed_mod, "seed_all"):
+            seed_mod.seed_all()
+        elif hasattr(seed_mod, "main"):
+            seed_mod.main()
+        else:
+            logger.debug("[init] seed_demo module found but no seed_all/main function")
+    except ImportError:
+        logger.debug("[init] seed_demo script not importable")
+    except (RuntimeError, OSError, ValueError) as e:
+        logger.warning("[init] Demo seeding error: %s", e)
 
 
 # =============================================================================

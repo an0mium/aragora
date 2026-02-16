@@ -226,10 +226,14 @@ def health_check(handler) -> HandlerResult:
     except (ImportError, AttributeError):
         version = "unknown"
 
+    # Check demo mode
+    demo_mode = _os.environ.get("ARAGORA_DEMO_MODE", "").lower() in ("true", "1", "yes")
+
     health = {
         "status": "healthy" if all_healthy else "degraded",
         "version": version,
         "uptime_seconds": uptime_seconds,
+        "demo_mode": demo_mode,
         "checks": checks,
         "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "response_time_ms": response_time_ms,

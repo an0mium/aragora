@@ -161,7 +161,7 @@ class SynthesisGenerator:
                         timeout=30.0,
                     )
                 logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
-            except (RuntimeError, OSError, ConnectionError, TimeoutError, ImportError) as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001 - phase isolation: must not crash, fall through to proposal combination
                 logger.warning(f"synthesis_sonnet_failed error={e}, using proposal combination")
                 synthesis_source = "combined"
 

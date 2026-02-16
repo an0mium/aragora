@@ -130,11 +130,11 @@ class TestInitInsightStore:
 
     @patch("aragora.server.initialization.INSIGHTS_AVAILABLE", True)
     @patch("aragora.server.initialization.InsightStore")
-    def test_returns_none_when_db_missing(self, mock_store_class):
-        """Should return None when database file doesn't exist."""
+    def test_returns_none_when_store_init_fails(self, mock_store_class):
+        """Should return None when InsightStore initialization raises."""
+        mock_store_class.side_effect = OSError("Disk full")
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
-            # Don't create the insights db file
             result = init_insight_store(nomic_dir)
             assert result is None
 

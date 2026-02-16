@@ -152,6 +152,8 @@ class FeedbackPhase:
         auto_post_receipt: bool = False,  # Post receipt summary to originating channel
         cost_tracker: Any | None = None,  # CostTracker for populating cost data in receipt
         receipt_base_url: str = "/api/v2/receipts",  # Base URL for receipt links
+        # Genesis Ledger for cryptographic debate provenance
+        genesis_ledger: Any | None = None,  # GenesisLedger for immutable event recording
     ):
         """
         Initialize the feedback phase.
@@ -239,6 +241,9 @@ class FeedbackPhase:
         self.cost_tracker = cost_tracker
         self.receipt_base_url = receipt_base_url
 
+        # Genesis Ledger
+        self.genesis_ledger = genesis_ledger
+
         # Callbacks
         self._emit_moment_event = emit_moment_event
         self._store_debate_outcome_as_memory = store_debate_outcome_as_memory
@@ -268,6 +273,7 @@ class FeedbackPhase:
             population_manager=population_manager,
             prompt_evolver=prompt_evolver,
             event_emitter=event_emitter,
+            elo_system=elo_system,
             loop_id=loop_id,
             auto_evolve=auto_evolve,
             breeding_threshold=breeding_threshold,
@@ -353,8 +359,14 @@ class FeedbackPhase:
         # 13. Update genome fitness for Genesis evolution (delegated to EvolutionFeedback)
         self._evolution_feedback.update_genome_fitness(ctx)
 
+        # 13b. Record debate and fitness in GenesisLedger (cryptographic provenance)
+        self._record_genesis_ledger_events(ctx)
+
         # 14. Maybe trigger population evolution (delegated to EvolutionFeedback)
         await self._evolution_feedback.maybe_evolve_population(ctx)
+
+        # 14b. Promote evolved specialists to SpecialistRegistry for team selection
+        self._promote_evolved_specialists(ctx)
 
         # 15. Record pulse outcome if debate was on a trending topic
         self._record_pulse_outcome(ctx)
@@ -2000,6 +2012,136 @@ class FeedbackPhase:
     def _record_evolution_patterns(self, ctx: DebateContext) -> None:
         """Record evolution patterns. Delegates to EvolutionFeedback."""
         self._evolution_feedback.record_evolution_patterns(ctx)
+
+    # =========================================================================
+    # Genesis Ledger + Specialist promotion
+    # =========================================================================
+
+    def _record_genesis_ledger_events(self, ctx: DebateContext) -> None:
+        """Record debate events in the GenesisLedger for cryptographic provenance.
+
+        Records: debate start/end, consensus outcome, and fitness updates
+        in the immutable event chain. This creates an auditable trail of
+        how agents evolved and which debates influenced their evolution.
+        """
+        if not self.genesis_ledger:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            # Record debate completion with consensus info
+            agent_names = [a.name for a in ctx.agents] if ctx.agents else []
+            self.genesis_ledger.record_debate_start(
+                debate_id=ctx.debate_id,
+                task=getattr(ctx.env, "task", ""),
+                agents=agent_names,
+            )
+
+            # Record consensus if reached
+            if result.consensus_reached:
+                consensus_proof = getattr(result, "consensus_proof", None)
+                if consensus_proof:
+                    self.genesis_ledger.record_consensus(
+                        debate_id=ctx.debate_id,
+                        proof=consensus_proof,
+                    )
+
+            # Record fitness updates for agents with genomes
+            for agent in ctx.agents:
+                genome_id = getattr(agent, "genome_id", None)
+                if not genome_id:
+                    continue
+                # Look up current fitness from population manager
+                if self.population_manager:
+                    try:
+                        pop = self.population_manager.get_or_create_population(
+                            [agent.name]
+                        )
+                        genome = pop.get_by_id(genome_id) if pop else None
+                        if genome:
+                            self.genesis_ledger.record_fitness_update(
+                                genome_id=genome_id,
+                                old_fitness=genome.fitness_score,
+                                new_fitness=genome.fitness_score,
+                                reason=f"debate:{ctx.debate_id}",
+                            )
+                    except (TypeError, ValueError, AttributeError, KeyError):
+                        pass
+
+            logger.debug(
+                "[genesis_ledger] Recorded provenance for debate %s (%d agents)",
+                ctx.debate_id,
+                len(agent_names),
+            )
+
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+            logger.debug("[genesis_ledger] Event recording failed: %s", e)
+
+    def _promote_evolved_specialists(self, ctx: DebateContext) -> None:
+        """Promote evolved agent genomes to SpecialistRegistry for team selection.
+
+        After population evolution, genomes with high domain fitness should be
+        registered as specialists so TeamSelector gives them bonus scores in
+        their strong domains. This creates the loop:
+
+            Debate performance → Genome fitness → Population evolution →
+            Specialist promotion → TeamSelector bonus → Better team composition
+        """
+        if not self.population_manager:
+            return
+
+        try:
+            from aragora.ranking.specialist_registry import get_specialist_registry
+
+            registry = get_specialist_registry()
+        except ImportError:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        domain = ctx.domain or "general"
+
+        for agent in ctx.agents:
+            genome_id = getattr(agent, "genome_id", None)
+            if not genome_id:
+                continue
+
+            try:
+                # Get genome's domain expertise
+                pop = self.population_manager.get_or_create_population(
+                    [agent.name]
+                )
+                genome = pop.get_by_id(genome_id) if pop else None
+                if not genome:
+                    continue
+
+                # Use genome expertise to check/promote specialist status
+                expertise = getattr(genome, "expertise", {}) or {}
+                top_domains = sorted(
+                    expertise.items(), key=lambda x: x[1], reverse=True
+                )[:3]
+
+                for dom, score in top_domains:
+                    if score >= 0.7:
+                        # Synthesize an ELO-like score from expertise for specialist check
+                        synthetic_elo = 1500.0 + (score * 300)
+                        registry.check_and_promote(
+                            agent_name=agent.name,
+                            domain=dom,
+                            current_elo=synthetic_elo,
+                        )
+
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+                logger.debug(
+                    "[specialist] Promotion check failed for %s: %s",
+                    agent.name,
+                    e,
+                )
 
     # =========================================================================
     # Backward-compatible delegate methods

@@ -98,6 +98,7 @@ export default function AdminOverviewPage() {
   const [apiCallsChartData, setApiCallsChartData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -109,6 +110,10 @@ export default function AdminOverviewPage() {
       if (healthRes.ok) {
         const healthData = await healthRes.json();
         setHealth(healthData);
+        // Detect demo mode from health response or environment flag
+        if (healthData.demo_mode || healthData.mode === 'demo') {
+          setIsDemoMode(true);
+        }
       }
 
       // Fetch admin stats
@@ -252,6 +257,18 @@ export default function AdminOverviewPage() {
           </Link>
         ))}
       </div>
+
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="mb-4 p-3 rounded border border-acid-yellow/30 bg-acid-yellow/5">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm text-acid-yellow">DEMO MODE</span>
+            <span className="font-mono text-xs text-text-muted">
+              Running with mock agents and sample data. Set API keys for real AI debates.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

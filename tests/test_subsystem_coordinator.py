@@ -47,7 +47,7 @@ def mock_calibration_tracker():
 def mock_consensus_memory():
     """Create a mock consensus memory."""
     memory = Mock()
-    memory.store_outcome = Mock()
+    memory.store_consensus = Mock()
     return memory
 
 
@@ -55,11 +55,13 @@ def mock_consensus_memory():
 def mock_continuum_memory():
     """Create a mock continuum memory."""
     memory = Mock()
-    memory.retrieve.return_value = [
-        {"summary": "Past debate learned X"},
-        {"summary": "Another debate learned Y"},
-    ]
-    memory.store_debate_outcome = Mock()
+    mem1 = Mock()
+    mem1.content = "Past debate learned X"
+    mem1.metadata = {"summary": "Past debate learned X"}
+    mem2 = Mock()
+    mem2.content = "Another debate learned Y"
+    mem2.metadata = {"summary": "Another debate learned Y"}
+    memory.retrieve.return_value = [mem1, mem2]
     return memory
 
 
@@ -69,6 +71,14 @@ def mock_context():
     ctx = Mock()
     ctx.debate_id = "test-debate-123"
     ctx.task = "Discuss the best programming language"
+    env = Mock()
+    env.task = "Discuss the best programming language"
+    ctx.env = env
+    agent1 = Mock()
+    agent1.name = "claude"
+    agent2 = Mock()
+    agent2.name = "gpt4"
+    ctx.agents = [agent1, agent2]
     return ctx
 
 
@@ -254,10 +264,10 @@ class TestLifecycleHooks:
 
         coordinator.on_debate_complete(mock_context, mock_result)
 
-        mock_consensus_memory.store_outcome.assert_called_once()
-        call_args = mock_consensus_memory.store_outcome.call_args
-        assert call_args.kwargs["debate_id"] == mock_context.debate_id
-        assert call_args.kwargs["consensus"] == mock_result.consensus
+        mock_consensus_memory.store_consensus.assert_called_once()
+        call_args = mock_consensus_memory.store_consensus.call_args
+        assert call_args.kwargs["topic"] == mock_context.env.task
+        assert call_args.kwargs["conclusion"] == mock_result.consensus
 
     def test_on_debate_complete_updates_continuum_memory(
         self, mock_context, mock_result, mock_continuum_memory
@@ -267,13 +277,13 @@ class TestLifecycleHooks:
 
         coordinator.on_debate_complete(mock_context, mock_result)
 
-        mock_continuum_memory.store_debate_outcome.assert_called_once()
+        mock_continuum_memory.add.assert_called_once()
 
     def test_on_debate_complete_handles_errors_gracefully(
         self, mock_context, mock_result, mock_consensus_memory
     ):
         """Test on_debate_complete handles subsystem errors gracefully."""
-        mock_consensus_memory.store_outcome.side_effect = Exception("Database error")
+        mock_consensus_memory.store_consensus.side_effect = Exception("Database error")
         coordinator = SubsystemCoordinator(consensus_memory=mock_consensus_memory)
 
         # Should not raise
@@ -291,15 +301,17 @@ class TestQueryMethods:
     def test_get_historical_dissent(self, mock_consensus_memory):
         """Test get_historical_dissent returns dissenting views."""
         dissent_retriever = Mock()
-        dissent_retriever.retrieve.return_value = [
-            {"agent": "grok", "position": "Rust is better", "outcome": "minority"},
-        ]
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "relevant_dissents": [
+                {"agent": "grok", "position": "Rust is better", "outcome": "minority"},
+            ]
+        }
         coordinator = SubsystemCoordinator(dissent_retriever=dissent_retriever)
 
         result = coordinator.get_historical_dissent("Best programming language")
 
         assert len(result) == 1
-        dissent_retriever.retrieve.assert_called_once_with("Best programming language", limit=3)
+        dissent_retriever.retrieve_for_new_debate.assert_called_once_with("Best programming language")
 
     def test_get_historical_dissent_without_retriever(self):
         """Test get_historical_dissent returns empty when no retriever."""
@@ -311,11 +323,15 @@ class TestQueryMethods:
 
     def test_get_agent_calibration_weight(self, mock_calibration_tracker):
         """Test get_agent_calibration_weight returns correct weight."""
+        summary = Mock()
+        summary.total_predictions = 10
+        summary.brier_score = 0.15  # Good calibration -> quality = 1.0 - 0.15 = 0.85
+        mock_calibration_tracker.get_calibration_summary.return_value = summary
         coordinator = SubsystemCoordinator(calibration_tracker=mock_calibration_tracker)
 
         weight = coordinator.get_agent_calibration_weight("claude")
 
-        # calibration_score 0.85 -> weight 0.5 + 0.85 = 1.35
+        # brier_score 0.15 -> quality 0.85 -> weight 0.5 + 0.85 = 1.35
         assert weight == 1.35
 
     def test_get_agent_calibration_weight_default(self):
@@ -375,8 +391,8 @@ class TestDiagnostics:
         assert status["capabilities"]["position_tracking"] is False
 
     def test_get_status_empty(self):
-        """Test get_status with no subsystems."""
-        coordinator = SubsystemCoordinator()
+        """Test get_status with no subsystems explicitly provided."""
+        coordinator = SubsystemCoordinator(enable_sdpo=False)
 
         status = coordinator.get_status()
 

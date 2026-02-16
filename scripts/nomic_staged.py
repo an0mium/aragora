@@ -613,11 +613,98 @@ async def _persist_cycle_outcome(improvement: str, summary: str) -> None:
     logger.info(f"cycle_persisted cycle_id={record.cycle_id}")
 
 
+def _collect_metrics_baseline() -> dict | None:
+    """Collect baseline metrics before implementation using MetricsCollector."""
+    try:
+        from aragora.nomic.metrics_collector import MetricsCollector
+
+        collector = MetricsCollector(aragora_path=ARAGORA_PATH)
+        baseline = collector.collect_baseline()
+        print(f"  ✓ Baseline metrics: {baseline.tests_passed} tests passing, "
+              f"{baseline.lint_errors} lint errors")
+        return baseline.to_dict() if hasattr(baseline, "to_dict") else {
+            "tests_passed": baseline.tests_passed,
+            "tests_failed": baseline.tests_failed,
+            "lint_errors": baseline.lint_errors,
+        }
+    except (ImportError, RuntimeError, OSError) as e:
+        logger.debug("MetricsCollector not available: %s", e)
+        return None
+
+
+def _collect_metrics_after(baseline_data: dict | None) -> dict | None:
+    """Collect after-implementation metrics and compute delta."""
+    if baseline_data is None:
+        return None
+
+    try:
+        from aragora.nomic.metrics_collector import MetricsCollector
+
+        collector = MetricsCollector(aragora_path=ARAGORA_PATH)
+        after = collector.collect_after()
+        delta = collector.compare()
+
+        improvement = getattr(delta, "improvement_score", 0.0)
+        print(f"  ✓ After metrics: {after.tests_passed} tests passing, "
+              f"{after.lint_errors} lint errors")
+        print(f"  ✓ Improvement score: {improvement:.2f}")
+
+        return {
+            "after": {
+                "tests_passed": after.tests_passed,
+                "tests_failed": after.tests_failed,
+                "lint_errors": after.lint_errors,
+            },
+            "improvement_score": improvement,
+        }
+    except (ImportError, RuntimeError, OSError) as e:
+        logger.debug("MetricsCollector comparison failed: %s", e)
+        return None
+
+
+def _run_gauntlet_and_bridge() -> list[dict]:
+    """Run Gauntlet stress-test and convert findings to improvement goals.
+
+    Closes the loop: gauntlet findings → ImprovementGoal → next Nomic cycle.
+    """
+    try:
+        from aragora.gauntlet.improvement_bridge import findings_to_goals
+
+        # Try to load most recent gauntlet results
+        gauntlet_path = DATA_DIR / "gauntlet_result.json"
+        if not gauntlet_path.exists():
+            return []
+
+        import json as _json
+        gauntlet_data = _json.loads(gauntlet_path.read_text())
+        goals = findings_to_goals(gauntlet_data, max_goals=5, min_severity="medium")
+
+        if goals:
+            # Save goals for next cycle
+            goals_data = [g.to_dict() for g in goals]
+            goals_path = DATA_DIR / "improvement_goals.json"
+            goals_path.write_text(_json.dumps(goals_data, indent=2))
+            print(f"\n  ✓ Generated {len(goals)} improvement goals from Gauntlet findings")
+            for g in goals[:3]:
+                print(f"    • [{g.severity}] {g.description[:80]}")
+            return goals_data
+
+        return []
+
+    except (ImportError, RuntimeError, OSError, ValueError) as e:
+        logger.debug("Gauntlet improvement bridge not available: %s", e)
+        return []
+
+
 async def run_all():
     """Run all phases sequentially: debate → design → implement → verify → commit."""
     print("\n" + "=" * 70)
     print("ARAGORA NOMIC LOOP - FULL CYCLE")
     print("=" * 70)
+
+    # Collect baseline metrics before implementation
+    print("\nCollecting baseline metrics...")
+    baseline = _collect_metrics_baseline()
 
     await phase_debate()
     await phase_design()
@@ -626,8 +713,23 @@ async def run_all():
     # If implementation succeeded, continue to verify + commit
     impl_status = impl_data.get("status", "")
     if impl_status == "implemented":
+        # Collect after-metrics and compute improvement
+        print("\nCollecting post-implementation metrics...")
+        metrics_result = _collect_metrics_after(baseline)
+
         await phase_verify()
         await phase_commit()
+
+        # Run gauntlet→improvement bridge to seed next cycle
+        print("\nChecking for Gauntlet findings to seed next cycle...")
+        _run_gauntlet_and_bridge()
+
+        # Save metrics delta to cycle data
+        if metrics_result:
+            ensure_nomic_dir()
+            cycle_metrics_path = DATA_DIR / "cycle_metrics.json"
+            cycle_metrics_path.write_text(json.dumps(metrics_result, indent=2))
+
     elif impl_status == "failed":
         print("\n" + "=" * 70)
         print("IMPLEMENTATION FAILED — skipping verify + commit")
