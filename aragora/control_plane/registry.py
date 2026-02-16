@@ -285,7 +285,7 @@ class AgentRegistry:
         except ImportError:
             logger.warning("redis package not installed, using in-memory fallback")
             self._redis = None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             _registry_redis_cb.record_failure(e)
             logger.warning(f"Redis not available, using in-memory fallback: {e}")
             self._redis = None
@@ -863,7 +863,7 @@ class AgentRegistry:
                 await self._cleanup_stale_agents()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
                 logger.error(f"Error in cleanup loop: {e}")
 
     async def _cleanup_stale_agents(self) -> int:

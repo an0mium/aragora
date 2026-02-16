@@ -276,7 +276,7 @@ class AgentFactory:
                 success=True,
             )
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, RuntimeError, AttributeError, OSError) as e:
             logger.error(
                 "agent_factory_creation_failed",
                 extra={

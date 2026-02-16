@@ -343,7 +343,7 @@ class ThreeTierWatchdog:
                 loop = task.get_loop()
                 if loop.is_closed():
                     continue
-            except Exception as e:
+            except (RuntimeError, AttributeError) as e:
                 logger.debug(
                     f"Failed to get task loop during watchdog stop: {type(e).__name__}: {e}"
                 )
@@ -376,7 +376,7 @@ class ThreeTierWatchdog:
                 self._stats["tier_checks"][tier.value] += 1
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                 logger.error(f"Watchdog tier {tier.value} check failed: {e}")
 
             await asyncio.sleep(config.check_interval_seconds)
@@ -593,7 +593,7 @@ class ThreeTierWatchdog:
                 result = handler(issue)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
                 logger.warning(f"Issue handler failed: {e}")
 
         # Auto-escalate if configured
@@ -650,7 +650,7 @@ class ThreeTierWatchdog:
                 result = handler(issue)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
                 logger.warning(f"Escalation handler failed: {e}")
 
         return EscalationResult(
