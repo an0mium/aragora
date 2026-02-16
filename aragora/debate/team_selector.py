@@ -1540,6 +1540,21 @@ class TeamSelector:
         if agent.name in self._domain_non_preferred:
             score -= self.config.domain_soft_penalty
 
+        # Meta-tuning diversity weight adjustment
+        # When MetaLearner provides diversity tuning, adjust the domain capability
+        # score contribution based on diversity_weight to encourage model heterogeneity.
+        meta_tuning = None
+        if context is not None:
+            arena = getattr(context, "arena", None)
+            if arena is not None:
+                meta_tuning = getattr(arena, "_meta_tuning", None)
+        if meta_tuning and domain:
+            diversity_weight = meta_tuning.get("diversity_weight", 0.5)
+            # Apply a small bonus/penalty proportional to how far diversity_weight
+            # deviates from the 0.5 default, scaled by domain capability weight
+            diversity_adjustment = (diversity_weight - 0.5) * self.config.domain_capability_weight
+            score += diversity_adjustment
+
         return score
 
     def score_agent(

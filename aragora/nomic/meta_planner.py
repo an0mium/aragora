@@ -84,6 +84,8 @@ class PlanningContext:
     # CI feedback
     ci_failures: list[str] = field(default_factory=list)
     ci_flaky_tests: list[str] = field(default_factory=list)
+    # Debate-sourced improvement suggestions
+    recent_improvements: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -153,6 +155,20 @@ class MetaPlanner:
         # Cross-cycle learning: Query past similar cycles
         if self.config.enable_cross_cycle_learning:
             context = await self._enrich_context_with_history(objective, available_tracks, context)
+
+        # Inject debate-sourced improvement suggestions
+        try:
+            from aragora.nomic.improvement_queue import get_improvement_queue
+            queue = get_improvement_queue()
+            suggestions = queue.peek(10)
+            if suggestions:
+                context.recent_improvements = [
+                    {"task": s.task, "category": s.category, "confidence": s.confidence}
+                    for s in suggestions
+                ]
+                logger.info("meta_planner_injected_improvements count=%d", len(suggestions))
+        except ImportError:
+            pass
 
         try:
             from aragora.debate.orchestrator import Arena, DebateProtocol

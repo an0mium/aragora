@@ -75,6 +75,11 @@ class HyperparameterState(SerializableMixin):
     # Learning rates
     meta_learning_rate: float = 0.01  # Rate at which hyperparams change
 
+    # Debate-level tuning
+    debate_round_adjustment: float = 0.0
+    consensus_threshold_adjustment: float = 0.0
+    agent_diversity_weight: float = 0.5
+
     # to_dict() and from_dict() inherited from SerializableMixin
 
 
@@ -132,6 +137,7 @@ class MetaLearner(SQLiteStore):
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self.state = self._load_state()
         self.metrics_history: list[LearningMetrics] = []
+        self._last_cycle_results: dict[str, Any] = {}
 
     def _load_state(self) -> HyperparameterState:
         """Load the most recent hyperparameter state.
@@ -193,6 +199,14 @@ class MetaLearner(SQLiteStore):
             "surprise_weight_agent": self.state.surprise_weight_agent,
             "consolidation_threshold": self.state.consolidation_threshold,
             "promotion_cooldown_hours": self.state.promotion_cooldown_hours,
+        }
+
+    def get_debate_tuning(self) -> dict[str, Any]:
+        """Get debate-level tuning parameters."""
+        return {
+            "round_adjustment": self.state.debate_round_adjustment,
+            "consensus_threshold_adjustment": self.state.consensus_threshold_adjustment,
+            "diversity_weight": self.state.agent_diversity_weight,
         }
 
     def evaluate_learning_efficiency(
@@ -283,6 +297,9 @@ class MetaLearner(SQLiteStore):
             logger.warning(f"Failed to query learning metrics from DB: {e}")
             # Continue with default values in metrics
 
+        # Store cycle results for use in adjust_hyperparameters
+        self._last_cycle_results = cycle_results
+
         # Extract from cycle results
         metrics.cycles_evaluated = cycle_results.get("cycle", 0)
         metrics.consensus_rate = cycle_results.get("consensus_rate", 0.5)
@@ -368,6 +385,26 @@ class MetaLearner(SQLiteStore):
             # Good calibration - increase agent weight
             self.state.surprise_weight_agent *= 1 + lr * 0.5
             adjustments["surprise_weights"] = "increased agent weight (good calibration)"
+
+        # Rule 5: Debate efficiency adjustment
+        debate_efficiency = self._last_cycle_results.get("debate_efficiency", None)
+        if debate_efficiency is not None:
+            if debate_efficiency < 0.5:
+                # Inefficient debate - suggest more rounds
+                self.state.debate_round_adjustment += lr
+                adjustments["debate_rounds"] = "increased (low efficiency)"
+            elif debate_efficiency > 0.8:
+                # Very efficient - suggest fewer rounds
+                self.state.debate_round_adjustment -= lr * 0.5
+                adjustments["debate_rounds"] = "decreased (high efficiency)"
+
+        # Rule 6: Consensus confidence adjustment
+        avg_confidence = self._last_cycle_results.get("avg_confidence", None)
+        if avg_confidence is not None and metrics.consensus_rate < 0.5:
+            if avg_confidence > 0.8:
+                # High confidence but low consensus - overconfident
+                self.state.consensus_threshold_adjustment += lr
+                adjustments["consensus_threshold"] = "tightened (overconfident)"
 
         # Normalize surprise weights to sum to 1.0
         total_weight = (
