@@ -694,7 +694,7 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
             logger.debug(f"Redis connection failed, using SQLite only: {type(e).__name__}: {e}")
             self._redis = None
             self._redis_checked = True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
             logger.debug(f"Redis not available, using SQLite only: {type(e).__name__}: {e}")
             self._redis = None
             self._redis_checked = True
