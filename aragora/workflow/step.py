@@ -101,7 +101,7 @@ class WorkflowContext:
             return
         try:
             self.event_callback(event_type, payload)
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
             logger.debug("Workflow event callback failed: %s", exc)
 
 
@@ -304,7 +304,7 @@ class AgentStep(BaseStep):
                     "samples": len(result.all_samples),
                 },
             }
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.debug("Power sampling unavailable; falling back to single sample: %s", exc)
             response = await agent.generate(prompt)
             return {"response": response, "agent_type": agent_type}
@@ -356,12 +356,12 @@ class AgentStep(BaseStep):
                             "confidence": result.confidence,
                             "samples": len(result.all_samples),
                         }
-                    except Exception as exc:
+                    except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                         logger.debug("Agent pool power sampling failed for %s: %s", agent_type, exc)
 
                 try:
                     response = await agent.generate(prompt)
-                except Exception as exc:
+                except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as exc:
                     logger.debug("Agent pool generation failed for %s: %s", agent_type, exc)
                     return None
 

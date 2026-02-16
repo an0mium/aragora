@@ -337,7 +337,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 limit_exceeded_type = ResourceType.API_CALLS
             final_output = None
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
             logger.exception(f"Workflow execution failed: {e}")
             success = False
             error = "Workflow execution failed"
@@ -572,7 +572,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 last_error = f"Timed out after {step_def.timeout_seconds}s"
                 retry_count += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError) as e:
                 logger.warning("Workflow step failed: %s", e)
                 last_error = "Step execution failed"
                 retry_count += 1
@@ -759,7 +759,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             }
             try:
                 self._metrics_callback(metrics)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
                 logger.warning(f"Metrics callback failed: {e}")
 
     def estimate_cost(self, definition: WorkflowDefinition) -> dict[str, float]:

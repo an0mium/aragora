@@ -123,7 +123,7 @@ class DataLoader(Generic[K, V]):
                 if not future.done():
                     future.set_result(value)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Must propagate any batch load error to all waiting futures
             logger.exception("DataLoader batch load failed: %s", e)
             # Resolve all futures with error
             for _, future in batch:
@@ -258,7 +258,7 @@ async def _batch_load_agents(
                 results.append(AgentData.default(name))
         return results
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
         logger.exception("Failed to batch load agents: %s", e)
         # Return defaults for all on error
         return [AgentData.default(name) for name in agent_names]
