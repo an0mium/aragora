@@ -252,7 +252,12 @@ Be specific enough that an engineer could implement it.""",
 
 
 async def phase_implement():
-    """Phase 3: Implementation guidance."""
+    """Phase 3: Implementation — invoke HybridExecutor to generate code.
+
+    Parses the design output from phase_design into ImplementTask(s) and
+    executes them via HybridExecutor. If the executor is unavailable (e.g.
+    missing API keys), falls back to prompting the user.
+    """
     print("\n" + "=" * 70)
     print("PHASE 3: IMPLEMENTATION")
     print("=" * 70 + "\n")
@@ -262,27 +267,74 @@ async def phase_implement():
 
     print("Design to implement:")
     print("-" * 40)
-    print(design[:1000])
+    print(design[:2000])
     print("-" * 40)
 
-    print("\n\nIMPLEMENTATION OPTIONS:")
+    # Build an ImplementTask from the design
+    try:
+        from aragora.implement.executor import HybridExecutor
+        from aragora.implement.types import ImplementTask, TaskResult
+    except ImportError:
+        print("\n[WARN] HybridExecutor not available — falling back to manual mode")
+        return _phase_implement_manual(design)
+
+    # Parse design into a single task (the design text IS the task description)
+    task = ImplementTask(
+        id="nomic-staged-001",
+        description=design,
+        files=[],  # executor infers from design
+        complexity="complex",
+    )
+
+    print(f"\nExecuting implementation task via HybridExecutor...")
+    print(f"  Task: {task.id} ({task.complexity})")
+    print(f"  Working dir: {ARAGORA_PATH}")
+
+    executor = HybridExecutor(repo_path=str(ARAGORA_PATH))
+    result: TaskResult = await executor.execute_task(task)
+
+    data = {
+        "timestamp": datetime.now().isoformat(),
+        "design": design,
+        "status": "implemented" if result.success else "failed",
+        "task_result": result.to_dict(),
+    }
+    save_phase("implement", data)
+
+    if result.success:
+        print(f"\n[OK] Implementation completed in {result.duration_seconds:.1f}s")
+        if result.diff:
+            diff_lines = result.diff.strip().split("\n")
+            print(f"  {len(diff_lines)} lines of diff")
+            # Show first 30 lines of diff
+            for line in diff_lines[:30]:
+                print(f"  {line}")
+            if len(diff_lines) > 30:
+                print(f"  ... ({len(diff_lines) - 30} more lines)")
+        print("\nNext step: python scripts/nomic_staged.py verify")
+    else:
+        print(f"\n[FAIL] Implementation failed: {result.error}")
+        print("  You can implement manually and then run verify.")
+
+    return data
+
+
+def _phase_implement_manual(design: str) -> dict:
+    """Fallback: prompt the user to implement manually."""
+    print("\nIMPLEMENTATION OPTIONS:")
     print("1. Implement manually based on the design above")
-    print("2. Use Claude Code to implement: claude -p 'Implement this design in aragora: ...'")
+    print("2. Use Claude Code: claude -p 'Implement this design: ...'")
     print("3. Continue to verification (if already implemented)")
 
-    # Save implementation status
     data = {
         "timestamp": datetime.now().isoformat(),
         "design": design,
         "status": "ready_for_implementation",
-        "instructions": "Implement the design above, then run 'python scripts/nomic_staged.py verify'",
+        "instructions": "Implement the design, then run verify",
     }
-
     save_phase("implement", data)
-
     print("\nNext step: Implement the design, then run:")
     print("  python scripts/nomic_staged.py verify")
-
     return data
 
 
@@ -562,23 +614,34 @@ async def _persist_cycle_outcome(improvement: str, summary: str) -> None:
 
 
 async def run_all():
-    """Run all phases sequentially."""
+    """Run all phases sequentially: debate → design → implement → verify → commit."""
     print("\n" + "=" * 70)
     print("ARAGORA NOMIC LOOP - FULL CYCLE")
     print("=" * 70)
 
     await phase_debate()
     await phase_design()
-    await phase_implement()
+    impl_data = await phase_implement()
 
-    print("\n" + "=" * 70)
-    print("PAUSING FOR IMPLEMENTATION")
-    print("=" * 70)
-    print("\nThe debate and design phases are complete.")
-    print("Review the design in .nomic/design.json")
-    print("\nAfter implementing, run:")
-    print("  python scripts/nomic_staged.py verify")
-    print("  python scripts/nomic_staged.py commit")
+    # If implementation succeeded, continue to verify + commit
+    impl_status = impl_data.get("status", "")
+    if impl_status == "implemented":
+        await phase_verify()
+        await phase_commit()
+    elif impl_status == "failed":
+        print("\n" + "=" * 70)
+        print("IMPLEMENTATION FAILED — skipping verify + commit")
+        print("=" * 70)
+        print("Fix the issue and re-run: python scripts/nomic_staged.py implement")
+    else:
+        # Manual mode fallback
+        print("\n" + "=" * 70)
+        print("PAUSING FOR MANUAL IMPLEMENTATION")
+        print("=" * 70)
+        print("\nThe debate and design phases are complete.")
+        print("Implement manually, then run:")
+        print("  python scripts/nomic_staged.py verify")
+        print("  python scripts/nomic_staged.py commit")
 
 
 async def main():
@@ -589,10 +652,10 @@ async def main():
 Phases:
   debate     Multi-agent debate on what to improve
   design     Design the implementation
-  implement  Instructions for implementation
+  implement  Generate code via HybridExecutor (or manual fallback)
   verify     Verify changes work
   commit     Commit the changes
-  all        Run debate + design + implement (pauses before verify)
+  all        Run full cycle: debate → design → implement → verify → commit
         """,
     )
     parser.add_argument(
