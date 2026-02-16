@@ -242,7 +242,7 @@ class TestRecorderStart:
     async def test_recorder_error_non_fatal(self):
         """Should continue on recorder error."""
         recorder = MagicMock()
-        recorder.start.side_effect = Exception("Recorder error")
+        recorder.start.side_effect = RuntimeError("Recorder error")
         init = ContextInitializer(recorder=recorder)
         ctx = DebateContext(env=MockEnvironment())
 
@@ -299,7 +299,7 @@ class TestHistoricalContext:
     @pytest.mark.asyncio
     async def test_historical_context_error(self):
         """Should handle fetch error gracefully."""
-        fetch_mock = AsyncMock(side_effect=Exception("Fetch failed"))
+        fetch_mock = AsyncMock(side_effect=RuntimeError("Fetch failed"))
         init = ContextInitializer(
             debate_embeddings=MagicMock(),
             fetch_historical_context=fetch_mock,
@@ -341,6 +341,7 @@ class TestPatternInjection:
         insight_store.get_common_patterns = AsyncMock(
             return_value=[{"pattern": "Always verify inputs"}]
         )
+        insight_store.get_relevant_insights = AsyncMock(return_value=[])
         format_mock = MagicMock(return_value="## Learned Patterns\n- Verify inputs")
 
         init = ContextInitializer(
@@ -358,6 +359,7 @@ class TestPatternInjection:
         """Should handle no patterns gracefully."""
         insight_store = MagicMock()
         insight_store.get_common_patterns = AsyncMock(return_value=[])
+        insight_store.get_relevant_insights = AsyncMock(return_value=[])
 
         init = ContextInitializer(insight_store=insight_store)
         ctx = DebateContext(env=MockEnvironment())
@@ -371,7 +373,8 @@ class TestPatternInjection:
     async def test_inject_patterns_error(self):
         """Should handle pattern fetch error."""
         insight_store = MagicMock()
-        insight_store.get_common_patterns = AsyncMock(side_effect=Exception("Store error"))
+        insight_store.get_common_patterns = AsyncMock(side_effect=RuntimeError("Store error"))
+        insight_store.get_relevant_insights = AsyncMock(return_value=[])
 
         init = ContextInitializer(insight_store=insight_store)
         ctx = DebateContext(env=MockEnvironment())
@@ -431,7 +434,7 @@ class TestPreDebateResearch:
 
     @pytest.mark.asyncio
     async def test_perform_research_enabled(self):
-        """Should perform research when enabled."""
+        """Should perform research when enabled (runs as background task)."""
         protocol = MockProtocol(enable_research=True)
         research_mock = AsyncMock(return_value="## Research Findings\n- Finding 1")
 
@@ -442,6 +445,10 @@ class TestPreDebateResearch:
         ctx = DebateContext(env=MockEnvironment())
 
         await init.initialize(ctx)
+
+        # Research now runs as a background task; await it to get the result
+        if ctx.background_research_task is not None:
+            await ctx.background_research_task
 
         assert "Research Findings" in ctx.env.context
         assert ctx.research_context == "## Research Findings\n- Finding 1"
@@ -482,7 +489,7 @@ class TestPreDebateResearch:
     async def test_research_error(self):
         """Should handle research error gracefully."""
         protocol = MockProtocol(enable_research=True)
-        research_mock = AsyncMock(side_effect=Exception("Research failed"))
+        research_mock = AsyncMock(side_effect=RuntimeError("Research failed"))
 
         init = ContextInitializer(
             protocol=protocol,
@@ -492,6 +499,10 @@ class TestPreDebateResearch:
 
         # Should not raise
         await init.initialize(ctx)
+
+        # Await background task to ensure error is handled and not leaked
+        if ctx.background_research_task is not None:
+            await ctx.background_research_task
 
 
 # ============================================================================
@@ -620,6 +631,7 @@ class TestContextInitializerIntegration:
         recorder = MagicMock()
         insight_store = MagicMock()
         insight_store.get_common_patterns = AsyncMock(return_value=[])
+        insight_store.get_relevant_insights = AsyncMock(return_value=[])
         fetch_mock = AsyncMock(return_value="History")
         format_mock = MagicMock(return_value="")
         memory_mock = MagicMock(return_value="")

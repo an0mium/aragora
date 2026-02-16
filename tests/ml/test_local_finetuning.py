@@ -1264,7 +1264,7 @@ class TestLocalFineTuningIntegration:
         data = TrainingData()
 
         with patch.object(
-            tuner, "_load_base_model", side_effect=Exception("Cannot train on empty")
+            tuner, "_load_base_model", side_effect=RuntimeError("Cannot train on empty")
         ):
             result = tuner.train(data)
             assert result.success is False

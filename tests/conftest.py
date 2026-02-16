@@ -944,6 +944,7 @@ def mock_external_apis(request, monkeypatch):
 
         def __init__(self, api_key=None, **kwargs):
             self.api_key = api_key or "mock-openai-key"
+            self.base_url = kwargs.get("base_url", "https://api.openai.com/v1")
             self.chat = MockOpenAIChat(async_mode=False)
 
     class MockAsyncOpenAIClient:
