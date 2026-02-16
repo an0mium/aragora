@@ -233,7 +233,7 @@ def execute_regex_with_timeout(
         except concurrent.futures.TimeoutError:
             logger.warning(f"Regex execution timed out after {timeout}s")
             return None
-        except Exception as e:
+        except (re.error, ValueError, RuntimeError) as e:
             logger.warning(f"Regex execution failed: {e}")
             return None
 
