@@ -290,7 +290,7 @@ def execute_regex_finditer_with_timeout(
         except concurrent.futures.TimeoutError:
             logger.warning(f"Regex finditer timed out after {timeout}s")
             return []
-        except Exception as e:
+        except (re.error, ValueError, RuntimeError) as e:
             logger.warning(f"Regex finditer failed: {e}")
             return []
 
