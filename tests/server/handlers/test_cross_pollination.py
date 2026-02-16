@@ -107,7 +107,7 @@ class TestCrossPollinationStatsHandler:
 
         with patch(
             "aragora.events.cross_subscribers.get_cross_subscriber_manager",
-            side_effect=RuntimeError("Unexpected error"),
+            side_effect=KeyError("Unexpected error"),
         ):
             result = await handler.get.__wrapped__(handler)
 

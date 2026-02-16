@@ -1425,7 +1425,7 @@ class TestKnowledgeHandlerErrorHandling:
         with patch.object(knowledge_handler, "require_auth_or_error") as mock_auth:
             mock_auth.return_value = (MockAuthUser(), None)
             with patch.object(knowledge_handler, "_get_query_engine") as mock_engine:
-                mock_engine.side_effect = ValueError("Query engine unavailable")
+                mock_engine.side_effect = RuntimeError("Query engine unavailable")
 
                 result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 

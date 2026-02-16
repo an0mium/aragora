@@ -542,7 +542,7 @@ class TestErrorHandling:
         """handle_get_dashboard catches exceptions and returns error response."""
         with patch(
             "aragora.server.handlers.dashboard._get_cached_data",
-            side_effect=RuntimeError("Cache error"),
+            side_effect=TypeError("Cache error"),
         ):
             result = await handle_get_dashboard(auth_context, {})
             parsed = parse_result(result)
