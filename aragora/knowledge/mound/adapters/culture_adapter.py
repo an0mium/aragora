@@ -310,7 +310,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 # No running loop, create one
                 return asyncio.run(do_query())
 
-        except (OSError, ConnectionError, RuntimeError) as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Failed to load culture patterns: {e}")
             return []
 

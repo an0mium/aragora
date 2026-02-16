@@ -619,7 +619,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
                         )
                         update.applied = True
                         update.applied_at = datetime.now(timezone.utc)
-                except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+                except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
                     logger.warning(f"Failed to push priority update to OpenClaw: {e}")
 
             pushed_count += 1

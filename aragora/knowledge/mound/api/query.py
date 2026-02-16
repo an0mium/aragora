@@ -355,7 +355,10 @@ class QueryOperationsMixin(_QueryMixinBase):
                 query=query,
                 filters=filters,
                 execution_time_ms=execution_time,
-                sources_queried=[KnowledgeSource(s) for s in sources if s != "all"],
+                sources_queried=[
+                    KnowledgeSource(s) for s in sources
+                    if s != "all" and s in KnowledgeSource._value2member_map_
+                ],
             )
 
             # Cache result

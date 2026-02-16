@@ -550,6 +550,10 @@ class AuditTrail:
 
         await self._ensure_db()
 
+        # Re-check after _ensure_db — it may have disabled persistence on ImportError
+        if not self._enable_persistence:
+            return
+
         try:
             import aiosqlite
             import json
@@ -578,7 +582,10 @@ class AuditTrail:
                     ),
                 )
                 await db.commit()
-        except (ValueError, KeyError, TypeError) as e:
+        except ImportError:
+            logger.warning("aiosqlite not available, disabling persistence")
+            self._enable_persistence = False
+        except (ValueError, KeyError, TypeError, OSError) as e:
             logger.warning(f"Failed to persist audit entry: {e}")
 
     async def log(
@@ -805,6 +812,10 @@ class AuditTrail:
                         entries.append(entry)
 
             return entries
+        except ImportError:
+            logger.warning("aiosqlite not available, disabling persistence")
+            self._enable_persistence = False
+            return None
         except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Database query failed, falling back to in-memory: {e}")
             return None
