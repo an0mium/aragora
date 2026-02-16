@@ -2,6 +2,12 @@
 
 Get multi-agent AI code review on your pull requests. Multiple AI models independently review your code, debate their findings, and produce a consensus report -- so you see where models agree (high confidence) and where they disagree (needs your judgment).
 
+> **Want to try without API keys?** Run the full platform locally with Docker:
+> ```bash
+> docker compose -f deploy/demo/docker-compose.yml up --build
+> ```
+> Backend at `localhost:8080`, frontend at `localhost:3000`. See [Docker Quickstart](guides/QUICKSTART_DOCKER.md) for details.
+
 ---
 
 ## Prerequisites
