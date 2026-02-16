@@ -290,9 +290,11 @@ class TestDetectCapabilities:
 
     def test_none_encoding_treated_as_ascii(self):
         """If output.encoding is None, treat as ascii."""
+        # MockTTYOutput(encoding=None) makes the encoding property return None,
+        # which _detect_capabilities handles via `or "ascii"` fallback.
+        # Do NOT use `type(output).encoding = property(...)` as it pollutes
+        # the class and breaks subsequent tests that rely on encoding.
         output = MockTTYOutput(encoding=None)
-        # Override encoding property to return None
-        type(output).encoding = property(lambda self: None)
         with patch.dict(os.environ, {"TERM": "xterm"}, clear=False):
             os.environ.pop("NO_COLOR", None)
             stream = SpectatorStream(enabled=True, output=output, format="auto")

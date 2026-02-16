@@ -178,8 +178,8 @@ class ExplorationMemory:
                 from aragora.memory.tier_manager import MemoryTier as ContinuumTier
 
                 continuum_tier = ContinuumTier(tier.value)
-                continuum.add_or_update(
-                    key=f"exploration_insight:{insight.id}",
+                continuum.add(
+                    id=f"exploration_insight:{insight.id}",
                     content=f"{insight.title}: {insight.description}",
                     importance=importance,
                     tier=continuum_tier,

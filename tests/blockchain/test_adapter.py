@@ -66,6 +66,7 @@ class TestERC8004Adapter:
         """Test syncing only identities."""
         adapter._provider.get_config.return_value.has_identity_registry = True
         identity_contract = MagicMock()
+        identity_contract.get_total_supply.return_value = 1
         identity_contract.get_agent.return_value = MagicMock(
             token_id=1,
             owner="0x" + "1" * 40,

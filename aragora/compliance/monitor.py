@@ -149,9 +149,19 @@ class ComplianceMonitor:
     Runs background checks and integrates with alerting systems.
     """
 
-    def __init__(self, config: ComplianceMonitorConfig):
-        """Initialize the monitor."""
+    def __init__(
+        self,
+        config: ComplianceMonitorConfig,
+        event_emitter: Any | None = None,
+    ):
+        """Initialize the monitor.
+
+        Args:
+            config: Monitor configuration
+            event_emitter: Optional event emitter for COMPLIANCE_FINDING events
+        """
         self.config = config
+        self._event_emitter = event_emitter
         self._running = False
         self._task: asyncio.Task | None = None
         self._last_status: ComplianceStatus | None = None
@@ -459,6 +469,25 @@ class ComplianceMonitor:
                     data={"score": status.overall_score},
                 )
 
+    def _emit_compliance_event(self, alert_type: str, severity: str, data: dict[str, Any]) -> None:
+        """Emit a COMPLIANCE_FINDING event if an emitter is available."""
+        if not self._event_emitter:
+            return
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            self._event_emitter.emit(StreamEvent(
+                type=StreamEventType.COMPLIANCE_FINDING,
+                data={
+                    "alert_type": alert_type,
+                    "severity": severity,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    **data,
+                },
+            ))
+        except (ImportError, AttributeError, TypeError):
+            pass
+
     async def _send_alert(
         self,
         alert_type: str,
@@ -478,6 +507,13 @@ class ComplianceMonitor:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             **data,
         }
+
+        # Emit COMPLIANCE_FINDING event
+        self._emit_compliance_event(alert_type, severity, {
+            "title": title,
+            "message": message,
+            **data,
+        })
 
         # Invoke registered callbacks
         for callback in self._violation_callbacks:
