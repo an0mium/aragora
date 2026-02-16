@@ -513,13 +513,13 @@ class TestJobExecution:
 
         with patch("aragora.audit.get_document_auditor") as mock_get:
             mock_auditor = Mock()
-            mock_auditor.create_session = AsyncMock(side_effect=Exception("Audit failed"))
+            mock_auditor.create_session = AsyncMock(side_effect=RuntimeError("Audit failed"))
             mock_get.return_value = mock_auditor
 
             run = await scheduler._execute_job(job)
 
         assert run.status == "error"
-        assert "Audit failed" in run.error_message
+        assert "Audit job execution failed" in run.error_message
         assert job.error_count == 1
 
     @pytest.mark.asyncio
@@ -922,7 +922,7 @@ class TestEventSystem:
     async def test_emit_callback_error_handled(self, scheduler, schedule_config):
         """Test that callback errors don't break execution."""
         job = scheduler.add_schedule(schedule_config)
-        failing_callback = Mock(side_effect=Exception("Callback error"))
+        failing_callback = Mock(side_effect=RuntimeError("Callback error"))
         scheduler.on("job_started", failing_callback)
 
         with patch("aragora.audit.get_document_auditor") as mock_get:

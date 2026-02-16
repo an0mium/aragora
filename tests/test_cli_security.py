@@ -146,7 +146,7 @@ class TestCmdRotateKey:
 
     def test_general_error(self, capsys):
         args = argparse.Namespace(dry_run=True, stores="integration", force=False)
-        with patch("builtins.__import__", side_effect=Exception("unexpected")):
+        with patch("builtins.__import__", side_effect=RuntimeError("unexpected")):
             result = cmd_rotate_key(args)
         assert result == 1
 
@@ -185,12 +185,12 @@ class TestCmdHealth:
 
     def test_import_error(self, capsys):
         args = argparse.Namespace(detailed=False)
-        with patch("builtins.__import__", side_effect=ImportError("no crypto")):
+        with patch("builtins.__import__", side_effect=RuntimeError("no crypto")):
             result = cmd_health(args)
         assert result == 1
 
     def test_general_error(self, capsys):
         args = argparse.Namespace(detailed=False)
-        with patch("builtins.__import__", side_effect=Exception("unexpected")):
+        with patch("builtins.__import__", side_effect=RuntimeError("unexpected")):
             result = cmd_health(args)
         assert result == 1

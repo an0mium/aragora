@@ -139,7 +139,7 @@ class TestBrowserClickTool:
     async def test_click_failure(self):
         """Test click on non-existent element."""
         mock_connector = AsyncMock()
-        mock_connector.click.side_effect = Exception("Element not found")
+        mock_connector.click.side_effect = RuntimeError("Element not found")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -178,7 +178,7 @@ class TestBrowserFillTool:
     async def test_fill_failure(self):
         """Test fill on non-existent input."""
         mock_connector = AsyncMock()
-        mock_connector.fill.side_effect = Exception("Input not found")
+        mock_connector.fill.side_effect = RuntimeError("Input not found")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -233,7 +233,7 @@ class TestBrowserScreenshotTool:
     async def test_screenshot_failure(self):
         """Test screenshot failure."""
         mock_connector = AsyncMock()
-        mock_connector.screenshot.side_effect = Exception("No page loaded")
+        mock_connector.screenshot.side_effect = RuntimeError("No page loaded")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -268,7 +268,7 @@ class TestBrowserGetTextTool:
     async def test_get_text_failure(self):
         """Test text extraction failure."""
         mock_connector = AsyncMock()
-        mock_connector.get_text.side_effect = Exception("Selector not found")
+        mock_connector.get_text.side_effect = RuntimeError("Selector not found")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -309,7 +309,7 @@ class TestBrowserExtractTool:
     async def test_extract_failure(self):
         """Test extract with connector error."""
         mock_connector = AsyncMock()
-        mock_connector.extract_data.side_effect = Exception("Page not loaded")
+        mock_connector.extract_data.side_effect = RuntimeError("Page not loaded")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -378,7 +378,7 @@ class TestBrowserWaitForTool:
     async def test_wait_for_timeout(self):
         """Test wait for element timeout."""
         mock_connector = AsyncMock()
-        mock_connector.wait_for.side_effect = Exception("Timeout")
+        mock_connector.wait_for.side_effect = TimeoutError("Timeout")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",

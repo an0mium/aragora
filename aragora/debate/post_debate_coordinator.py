@@ -36,7 +36,10 @@ class PostDebateConfig:
     auto_create_plan: bool = True
     auto_notify: bool = True
     auto_execute_plan: bool = False
+    auto_create_pr: bool = False  # Create draft PR for code-related debates
+    pr_min_confidence: float = 0.8  # Higher confidence bar for PRs
     auto_build_integrity_package: bool = False
+    auto_persist_receipt: bool = True
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
 
@@ -54,7 +57,9 @@ class PostDebateResult:
     plan: dict[str, Any] | None = None
     notification_sent: bool = False
     execution_result: dict[str, Any] | None = None
+    pr_result: dict[str, Any] | None = None
     integrity_package: dict[str, Any] | None = None
+    receipt_persisted: bool = False
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -119,10 +124,24 @@ class PostDebateCoordinator:
         if self.config.auto_execute_plan and result.plan:
             result.execution_result = self._step_execute_plan(result.plan, result.explanation)
 
+        # Step 4.5: Create draft PR for code-related debates
+        if (
+            self.config.auto_create_pr
+            and result.plan
+            and confidence >= self.config.pr_min_confidence
+        ):
+            result.pr_result = self._step_create_pr(result.plan, task)
+
         # Step 5: Build decision integrity package
         if self.config.auto_build_integrity_package:
             result.integrity_package = self._step_build_integrity_package(
                 debate_id, debate_result
+            )
+
+        # Step 6: Persist receipt to Knowledge Mound (the flywheel)
+        if self.config.auto_persist_receipt:
+            result.receipt_persisted = self._step_persist_receipt(
+                debate_id, debate_result, task, confidence
             )
 
         return result
@@ -267,6 +286,30 @@ class PostDebateCoordinator:
             logger.warning("Plan execution failed: %s", e)
             return None
 
+    def _step_create_pr(
+        self,
+        plan_data: dict[str, Any],
+        task: str,
+    ) -> dict[str, Any] | None:
+        """Step 4.5: Create a draft PR for code-related debate outcomes."""
+        try:
+            from aragora.pipeline.executor import PlanExecutor
+
+            executor = PlanExecutor()
+            plan_obj = plan_data.get("plan")
+            if not plan_obj:
+                return None
+
+            result = executor.execute_to_github_pr(plan_obj, draft=True)
+            logger.info("Draft PR created for task: %s", task[:80])
+            return result
+        except ImportError:
+            logger.debug("PlanExecutor not available for PR creation")
+            return None
+        except (RuntimeError, ValueError, OSError, KeyError) as e:
+            logger.warning("PR creation failed: %s", e)
+            return None
+
     def _step_build_integrity_package(
         self,
         debate_id: str,
@@ -306,6 +349,54 @@ class PostDebateCoordinator:
         except Exception as e:
             logger.warning("Integrity package generation failed: %s", e)
             return None
+
+
+    def _step_persist_receipt(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+    ) -> bool:
+        """Step 6: Persist debate receipt to Knowledge Mound.
+
+        This creates the knowledge flywheel: each debate's outcome becomes
+        institutional memory that informs future debates on related topics.
+        """
+        try:
+            from aragora.knowledge.mound.adapters.receipt_adapter import (
+                get_receipt_adapter,
+            )
+
+            adapter = get_receipt_adapter()
+
+            receipt_data = {
+                "debate_id": debate_id,
+                "task": task,
+                "confidence": confidence,
+                "consensus_reached": bool(getattr(debate_result, "consensus", None)),
+                "final_answer": str(
+                    getattr(
+                        debate_result,
+                        "final_answer",
+                        getattr(debate_result, "consensus", ""),
+                    )
+                ),
+                "participants": [
+                    str(a)
+                    for a in (getattr(debate_result, "participants", []) or [])
+                ],
+            }
+
+            adapter.ingest(receipt_data)
+            logger.info("Receipt persisted to KM for %s", debate_id)
+            return True
+        except ImportError:
+            logger.debug("ReceiptAdapter not available, skipping KM persistence")
+            return False
+        except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+            logger.warning("Receipt KM persistence failed: %s", e)
+            return False
 
 
 __all__ = [

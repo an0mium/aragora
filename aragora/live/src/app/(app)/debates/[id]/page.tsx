@@ -8,9 +8,10 @@ import { useRightSidebar } from '@/context/RightSidebarContext';
 import { API_BASE_URL } from '@/config';
 import { DecisionPackageView } from '@/components/debates/DecisionPackageView';
 import { CostBreakdown } from '@/components/debates/CostBreakdown';
+import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
 import { logger } from '@/utils/logger';
 
-type Tab = 'overview' | 'arguments' | 'receipt' | 'export';
+type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
 
 interface DecisionPackage {
   id: string;
@@ -159,6 +160,7 @@ export default function DebateDetailPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'OVERVIEW' },
     { key: 'arguments', label: 'ARGUMENTS' },
+    { key: 'graph', label: 'GRAPH' },
     { key: 'receipt', label: 'RECEIPT' },
     { key: 'export', label: 'EXPORT' },
   ];
@@ -344,6 +346,10 @@ export default function DebateDetailPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'graph' && (
+            <ArgumentGraph debateId={id} />
           )}
 
           {activeTab === 'receipt' && (
