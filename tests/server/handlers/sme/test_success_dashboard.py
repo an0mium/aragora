@@ -255,6 +255,7 @@ class TestSuccessMetrics:
             "total_api_calls": 100,
         }
 
+        handler._get_debate_analytics = MagicMock(return_value=None)
         with patch.object(handler, "_get_cost_tracker", return_value=mock_tracker):
             with patch.object(handler, "_get_roi_calculator") as mock_calc:
                 mock_calc.return_value.hourly_rate = Decimal("50.00")
@@ -285,6 +286,7 @@ class TestSuccessMetrics:
             "total_api_calls": 0,
         }
 
+        handler._get_debate_analytics = MagicMock(return_value=None)
         with patch.object(handler, "_get_cost_tracker", return_value=mock_tracker):
             with patch.object(handler, "_get_roi_calculator") as mock_calc:
                 mock_calc.return_value.hourly_rate = Decimal("50.00")
