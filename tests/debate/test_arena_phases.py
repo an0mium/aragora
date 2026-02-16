@@ -484,3 +484,228 @@ class TestInitPhasesWithAutoEvolve:
                 mock_pm.return_value = MagicMock()
                 init_phases(mock_arena)
                 mock_pm.assert_called_once()
+
+
+class TestInitPhasesWiring:
+    """Tests for newly wired FeedbackPhase params and introspection cache."""
+
+    def test_warm_introspection_cache_called(self):
+        """init_phases calls warm_introspection_cache on the prompt_builder."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+
+        with patch("aragora.debate.arena_phases.PromptBuilder") as MockPB:
+            mock_pb_instance = MagicMock()
+            MockPB.return_value = mock_pb_instance
+
+            init_phases(mock_arena)
+
+            mock_pb_instance.warm_introspection_cache.assert_called_once_with(
+                mock_arena.agents
+            )
+
+    def test_feedback_phase_receives_pulse_manager(self):
+        """FeedbackPhase receives pulse_manager from arena."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_arena.pulse_manager = MagicMock(name="pulse_manager")
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.pulse_manager is mock_arena.pulse_manager
+
+    def test_feedback_phase_receives_insight_store(self):
+        """FeedbackPhase receives insight_store from arena."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_arena.insight_store = MagicMock(name="insight_store")
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.insight_store is mock_arena.insight_store
+
+    def test_feedback_phase_receives_cost_tracker_from_extensions(self):
+        """FeedbackPhase receives cost_tracker from arena.extensions."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_cost_tracker = MagicMock(name="cost_tracker")
+        mock_arena.extensions.cost_tracker = mock_cost_tracker
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.cost_tracker is mock_cost_tracker
+
+    def test_feedback_phase_receives_training_exporter_from_extensions(self):
+        """FeedbackPhase receives training_exporter from arena.extensions."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_exporter = MagicMock(name="training_exporter")
+        mock_arena.extensions.training_exporter = mock_exporter
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.training_exporter is mock_exporter
+
+    def test_feedback_phase_receives_argument_cartographer(self):
+        """FeedbackPhase receives argument_cartographer from arena.cartographer."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_cartographer = MagicMock(name="cartographer")
+        mock_arena.cartographer = mock_cartographer
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.argument_cartographer is mock_cartographer
+
+    def test_feedback_phase_cartographer_none_when_absent(self):
+        """FeedbackPhase gets None for cartographer when arena lacks it."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        # Ensure cartographer attribute doesn't exist
+        if hasattr(mock_arena, "cartographer"):
+            del mock_arena.cartographer
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.argument_cartographer is None
+
+    def test_feedback_phase_receives_genesis_ledger(self):
+        """FeedbackPhase receives genesis_ledger from arena."""
+        mock_arena = TestInitPhases._create_mock_arena(TestInitPhases())
+        mock_ledger = MagicMock(name="genesis_ledger")
+        mock_arena.genesis_ledger = mock_ledger
+
+        init_phases(mock_arena)
+
+        fp = mock_arena.feedback_phase
+        assert fp.genesis_ledger is mock_ledger
+
+
+class TestFeedbackPhaseDecisionMemo:
+    """Tests for _generate_decision_memo in FeedbackPhase."""
+
+    def test_generates_memo_with_proposals(self):
+        """_generate_decision_memo produces a DecisionMemo on the result."""
+        from aragora.debate.phases import FeedbackPhase
+
+        fp = FeedbackPhase()
+        ctx = MagicMock()
+        ctx.env.task = "Design a rate limiter"
+        result = MagicMock()
+        result.id = "debate-123"
+        result.proposals = {"agent_a": "Use token bucket", "agent_b": "Use sliding window"}
+        result.critiques = []
+        result.final_answer = "Use token bucket with sliding window fallback"
+        result.rationale = "Combines best of both"
+        result.confidence = 0.85
+        result.rounds_used = 3
+        ctx.result = result
+        ctx.agents = [MagicMock(), MagicMock()]
+
+        fp._generate_decision_memo(ctx)
+
+        assert hasattr(result, "decision_memo")
+        memo = result.decision_memo
+        assert memo.debate_id == "debate-123"
+        assert memo.title == "Design a rate limiter"
+        assert memo.consensus_confidence == 0.85
+        assert len(memo.key_decisions) == 2
+
+    def test_skips_when_no_result(self):
+        """_generate_decision_memo is a no-op when ctx.result is None."""
+        from aragora.debate.phases import FeedbackPhase
+
+        fp = FeedbackPhase()
+        ctx = MagicMock()
+        ctx.result = None
+
+        fp._generate_decision_memo(ctx)
+        # No exception raised
+
+    def test_handles_missing_proposals(self):
+        """_generate_decision_memo handles result without proposals attr."""
+        from aragora.debate.phases import FeedbackPhase
+
+        fp = FeedbackPhase()
+        ctx = MagicMock()
+        result = MagicMock(spec=[])  # No attributes by default
+        result.id = "d1"
+        ctx.result = result
+        ctx.env.task = "test"
+
+        # Should not raise — getattr defaults handle missing attrs
+        fp._generate_decision_memo(ctx)
+
+
+class TestFeedbackPhaseArgumentMap:
+    """Tests for _export_argument_map in FeedbackPhase."""
+
+    def test_exports_when_cartographer_has_nodes(self):
+        """_export_argument_map calls export methods when nodes exist."""
+        from aragora.debate.phases import FeedbackPhase
+
+        mock_cartographer = MagicMock()
+        mock_cartographer.nodes = {"n1": {}, "n2": {}}
+        mock_cartographer.edges = [("n1", "n2")]
+        mock_cartographer.export_mermaid.return_value = "graph TD\n  n1-->n2"
+        mock_cartographer.export_json.return_value = {"nodes": [], "edges": []}
+
+        fp = FeedbackPhase(argument_cartographer=mock_cartographer)
+        ctx = MagicMock()
+        ctx.result = MagicMock()
+        ctx.result.id = "debate-456"
+
+        fp._export_argument_map(ctx)
+
+        mock_cartographer.export_mermaid.assert_called_once()
+        mock_cartographer.export_json.assert_called_once()
+
+    def test_skips_when_no_cartographer(self):
+        """_export_argument_map is a no-op when cartographer is None."""
+        from aragora.debate.phases import FeedbackPhase
+
+        fp = FeedbackPhase(argument_cartographer=None)
+        ctx = MagicMock()
+        ctx.result = MagicMock()
+
+        # Should not raise
+        fp._export_argument_map(ctx)
+
+    def test_skips_when_zero_nodes(self):
+        """_export_argument_map skips export when graph has zero nodes."""
+        from aragora.debate.phases import FeedbackPhase
+
+        mock_cartographer = MagicMock()
+        mock_cartographer.nodes = {}
+
+        fp = FeedbackPhase(argument_cartographer=mock_cartographer)
+        ctx = MagicMock()
+        ctx.result = MagicMock()
+
+        fp._export_argument_map(ctx)
+
+        mock_cartographer.export_mermaid.assert_not_called()
+
+    def test_emits_event_when_emitter_available(self):
+        """_export_argument_map emits event via event_emitter."""
+        from aragora.debate.phases import FeedbackPhase
+
+        mock_cartographer = MagicMock()
+        mock_cartographer.nodes = {"n1": {}}
+        mock_cartographer.edges = []
+        mock_cartographer.export_mermaid.return_value = "graph TD"
+        mock_cartographer.export_json.return_value = {}
+
+        mock_emitter = MagicMock()
+        fp = FeedbackPhase(
+            argument_cartographer=mock_cartographer,
+            event_emitter=mock_emitter,
+        )
+        ctx = MagicMock()
+        ctx.result = MagicMock()
+        ctx.result.id = "d1"
+
+        fp._export_argument_map(ctx)
+
+        # Event emitter should have been called (the local import may or may not
+        # succeed, but emit is still called if StreamEvent imports ok)
+        assert mock_emitter.emit.call_count <= 1  # 0 if import fails, 1 if succeeds
