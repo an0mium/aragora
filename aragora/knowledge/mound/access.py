@@ -183,7 +183,7 @@ class KnowledgeMoundAccessControl:
             decision = checker.check_permission(ctx, permission)
             allowed = decision.allowed
             reason = decision.reason
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Permission check failed: %s", e)
             allowed = False
             reason = f"Permission check error: {e}"

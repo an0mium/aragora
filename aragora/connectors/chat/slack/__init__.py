@@ -429,9 +429,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                     f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
                 )
                 break
-            except Exception as e:
-                # Safety net after specific httpx/OS catches above.
-                # Kept broad because httpx internals may raise unexpected types.
+            except Exception as e:  # noqa: BLE001 - safety net after specific httpx/OS catches; httpx internals may raise unexpected types
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(

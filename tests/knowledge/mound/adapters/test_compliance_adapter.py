@@ -335,7 +335,7 @@ class TestSyncToKM:
         self, adapter: ComplianceAdapter, sample_check: CheckOutcome
     ) -> None:
         mound = MagicMock()
-        mound.store_item = AsyncMock(side_effect=Exception("DB down"))
+        mound.store_item = AsyncMock(side_effect=RuntimeError("DB down"))
 
         adapter.store_check(sample_check)
         result = await adapter.sync_to_km(mound)

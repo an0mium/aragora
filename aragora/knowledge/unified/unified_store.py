@@ -204,7 +204,7 @@ class KnowledgeMound:
                 try:
                     result = await self._query_source(source, query, filters, limit)
                     results.append(result)
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     results.append(e)
 
         # Combine results
@@ -318,7 +318,7 @@ class KnowledgeMound:
                 cross_references_created=refs_created,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to store knowledge item: %s", e)
             return StoreResult(
                 id=item_id,
@@ -380,7 +380,7 @@ class KnowledgeMound:
 
             return LinkResult(id=link_id, success=True)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to create link: %s", e)
             return LinkResult(id=link_id, success=False, message="Failed to create link")
 
@@ -538,7 +538,7 @@ class KnowledgeMound:
                     )
                 )
             return items
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Continuum query failed: {e}")
             return []
 
@@ -576,7 +576,7 @@ class KnowledgeMound:
                     )
                 )
             return items
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Consensus query failed: {e}")
             return []
 
@@ -620,7 +620,7 @@ class KnowledgeMound:
                     )
                 )
             return items
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Facts query failed: {e}")
             return []
 
@@ -665,7 +665,7 @@ class KnowledgeMound:
                     )
                 )
             return items
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Vector query failed: {e}")
             return []
 

@@ -451,7 +451,7 @@ class ContradictionDetector:
                     emb_a = await provider.embed(content_a)
                     emb_b = await provider.embed(content_b)
                     return self._cosine_similarity(emb_a, emb_b)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"Semantic similarity failed, using topic fallback: {e}")
 
         # Fallback to topic overlap

@@ -277,7 +277,7 @@ class KnowledgeMoundMigrator:
                     result.node_ids.append(node_id)
                     result.migrated_count += 1
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.error_count += 1
                     logger.warning("Failed to migrate entry %s: %s", entry.id, e)
                     result.errors.append(
@@ -290,7 +290,7 @@ class KnowledgeMoundMigrator:
             result.duration_seconds = time.time() - start_time
             result.completed_at = datetime.now()
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Migration failed: %s", e)
             result.errors.append({"error": "Migration failed", "fatal": True})
 
@@ -459,7 +459,7 @@ class KnowledgeMoundMigrator:
                                 if rel_result:
                                     result.relationship_ids.append(str(rel_result))
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.error_count += 1
                     logger.warning("Failed to migrate consensus %s: %s", record.id, e)
                     result.errors.append(
@@ -472,7 +472,7 @@ class KnowledgeMoundMigrator:
             result.duration_seconds = time.time() - start_time
             result.completed_at = datetime.now()
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Consensus migration failed: %s", e)
             result.errors.append({"error": "Consensus migration failed", "fatal": True})
 

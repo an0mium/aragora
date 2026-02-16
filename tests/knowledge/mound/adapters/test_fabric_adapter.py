@@ -362,7 +362,7 @@ class TestPoolSnapshotStorage:
     @pytest.mark.asyncio
     async def test_handles_ingest_error(self, adapter, pool_snapshot, mock_knowledge_mound):
         """Should handle ingest errors gracefully."""
-        mock_knowledge_mound.ingest.side_effect = Exception("Ingest failed")
+        mock_knowledge_mound.ingest.side_effect = RuntimeError("Ingest failed")
 
         result = await adapter.store_pool_snapshot(pool_snapshot)
 
@@ -1152,7 +1152,7 @@ class TestSyncFromFabric:
     @pytest.mark.asyncio
     async def test_handles_sync_errors(self, adapter_with_fabric, mock_fabric):
         """Should handle sync errors gracefully."""
-        mock_fabric.list_pools.side_effect = Exception("Connection failed")
+        mock_fabric.list_pools.side_effect = RuntimeError("Connection failed")
 
         result = await adapter_with_fabric.sync_from_fabric()
 
@@ -1304,7 +1304,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_ingest_exception(self, adapter, pool_snapshot, mock_knowledge_mound):
         """Should handle ingest exceptions gracefully."""
-        mock_knowledge_mound.ingest.side_effect = Exception("Ingest failed")
+        mock_knowledge_mound.ingest.side_effect = RuntimeError("Ingest failed")
 
         result = await adapter.store_pool_snapshot(pool_snapshot)
 
@@ -1313,7 +1313,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_query_exception(self, adapter, mock_knowledge_mound):
         """Should handle query exceptions gracefully."""
-        mock_knowledge_mound.query.side_effect = Exception("Query failed")
+        mock_knowledge_mound.query.side_effect = RuntimeError("Query failed")
 
         results = await adapter.get_pool_performance_history("pool_1")
 
@@ -1321,7 +1321,7 @@ class TestErrorHandling:
 
     def test_event_callback_exception_handled(self, adapter):
         """Should handle event callback exceptions."""
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter.set_event_callback(callback)
 
         # Should not raise
@@ -1330,7 +1330,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_forecast_exception(self, adapter, mock_knowledge_mound):
         """Should handle forecast query exceptions."""
-        mock_knowledge_mound.query.side_effect = Exception("Query failed")
+        mock_knowledge_mound.query.side_effect = RuntimeError("Query failed")
 
         result = await adapter.get_budget_forecast("entity_1")
 

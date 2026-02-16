@@ -155,7 +155,7 @@ class TestEventCallbackFunctionality:
         """Should handle callback errors gracefully."""
         from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
-        callback = MagicMock(side_effect=Exception("Callback error"))
+        callback = MagicMock(side_effect=RuntimeError("Callback error"))
         adapter = InsightsAdapter(event_callback=callback)
 
         # Should not raise

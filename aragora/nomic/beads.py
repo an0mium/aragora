@@ -334,7 +334,7 @@ class BeadStore:
                     await proc.wait()
                     raise
                 logger.info(f"Initialized git repository in {self.bead_dir}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Could not initialize git: {e}")
                 self.git_enabled = False
 
@@ -358,7 +358,7 @@ class BeadStore:
                         index[bead.id] = line_num
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid bead at line {line_num}: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load beads: {e}")
         return cache, index
 
@@ -389,7 +389,7 @@ class BeadStore:
                     self._index[bead_id] = len(self._index)
             # Atomic rename
             temp_file.rename(self.bead_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             raise e
@@ -696,7 +696,7 @@ class BeadStore:
             logger.info(f"Committed beads: {commit_hash} - {message}")
             return commit_hash
 
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Git commit failed: {e}")
             return None
 

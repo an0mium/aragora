@@ -226,7 +226,7 @@ class DatasetQueryEngine:
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Query processing error: %s", e)
             return self._error_result(ctx, "Query processing failed")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.exception("Unexpected query failure: %s", e)
             return self._error_result(ctx, "Unexpected query failure")
 
@@ -300,7 +300,7 @@ Include references to excerpt numbers [N] when citing information."""
         except (RuntimeError, TimeoutError, ConnectionError) as e:
             logger.warning(f"Agent generation failed: {e}")
             return self._synthesize_from_chunks(ctx)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.exception(f"Unexpected agent generation error: {e}")
             return self._synthesize_from_chunks(ctx)
 
@@ -417,7 +417,7 @@ Provide a single, definitive answer that:
         except (RuntimeError, TimeoutError, ConnectionError) as e:
             logger.warning(f"Agent {agent.name} failed: {e}")
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.exception(f"Unexpected error in agent {agent.name}: {e}")
             return None
 
@@ -495,7 +495,7 @@ Only include facts that are directly supported by the source material."""
 
         except (ValueError, RuntimeError, TimeoutError) as e:
             logger.warning(f"Fact extraction failed: {e}")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.exception(f"Unexpected fact extraction error: {e}")
 
         return facts
@@ -632,7 +632,7 @@ Then briefly explain your reasoning."""
 
             except (RuntimeError, TimeoutError, ConnectionError) as e:
                 logger.warning(f"Agent {agent.name} verification failed: {e}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.exception(f"Unexpected verification error for agent {agent.name}: {e}")
 
         # Calculate new status based on votes

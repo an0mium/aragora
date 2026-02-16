@@ -371,7 +371,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         if self._on_event:
             try:
                 self._on_event(event, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning(f"Event emission failed: {e}")
 
     def _generate_cycle_id(self, outcome: NomicCycleOutcome) -> str:
@@ -623,7 +623,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             error_msg = f"Failed to ingest cycle outcome: {e}"
             errors.append(error_msg)
             logger.exception(error_msg)
@@ -761,7 +761,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             similar_curricula.sort(key=lambda c: c["similarity"], reverse=True)
             return similar_curricula[:limit]
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to find similar curricula: {e}")
             return []
 
@@ -863,7 +863,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             similar_cycles.sort(key=lambda c: c.similarity, reverse=True)
             return similar_cycles[:limit]
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to find similar cycles: {e}")
             return []
 
@@ -902,7 +902,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
 
             return learnings
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to get learnings: {e}")
             return []
 
@@ -937,7 +937,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
 
             return recommendations
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to get recommendations: {e}")
             return []
 
@@ -991,7 +991,7 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
                 tracks_affected=metadata.get("tracks_affected", []),
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to get cycle outcome: {e}")
             return None
 

@@ -160,7 +160,7 @@ class ConfidenceEstimator:
                 value=vote.confidence,
                 reasoning=f"Based on voting confidence: {vote.reasoning}",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             # Fallback to default confidence
             logger.warning(f"Failed to get confidence from {agent.name}: {e}")
             return ConfidenceScore(agent.name, 0.5, "Default confidence")

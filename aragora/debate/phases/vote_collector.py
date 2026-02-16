@@ -234,7 +234,7 @@ class VoteCollector:
                 else:
                     vote_result = await self._vote_with_agent(agent, proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
                     f"vote_exception_permutation agent={agent.name} "
                     f"perm={permutation_idx} error={type(e).__name__}: {e}"
@@ -248,7 +248,7 @@ class VoteCollector:
                 agent, vote_result = await completed_task
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error(
                     f"task_exception phase=vote_permutation perm={permutation_idx} error={e}"
                 )
@@ -383,7 +383,7 @@ class VoteCollector:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
@@ -398,7 +398,7 @@ class VoteCollector:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.error(f"task_exception phase=vote error={e}")
                     continue
 
@@ -492,7 +492,7 @@ class VoteCollector:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
                     f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
                 )
@@ -508,7 +508,7 @@ class VoteCollector:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.error(f"task_exception phase=unanimous_vote error={e}")
                     voting_errors += 1
                     continue
@@ -579,7 +579,7 @@ class VoteCollector:
         if self.recorder:
             try:
                 self.recorder.record_vote(agent.name, vote.choice, vote.reasoning)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for vote: {e}")
 
         # Record position for truth-grounded personas
@@ -596,7 +596,7 @@ class VoteCollector:
                     round_num=result.rounds_used if result else 0,
                     confidence=vote.confidence,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Position tracking error for vote: {e}")
 
     def compute_vote_groups(self, votes: list[Vote]) -> tuple[dict[str, list[str]], dict[str, str]]:

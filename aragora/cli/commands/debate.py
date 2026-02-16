@@ -220,7 +220,7 @@ def _auto_select_agents_local(task: str, config: dict[str, Any] | None) -> str |
         from aragora.server.agent_selection import auto_select_agents
 
         return auto_select_agents(task, config or {})
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning("Auto-select failed: %s", e)
         return None
 
@@ -273,7 +273,7 @@ def _maybe_add_vertical_specialist_local(
             )
         agents.append(specialist)
         print(f"[verticals] Injected specialist: {resolved_vertical}")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning("Failed to create vertical specialist %s: %s", resolved_vertical, e)
 
     return agents
@@ -1028,7 +1028,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 )
                 _print_decision_integrity_summary(package)
             return
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             if requested_api or graph_mode or matrix_mode:
                 print(f"API run failed: {e}", file=sys.stderr)
                 raise SystemExit(1)

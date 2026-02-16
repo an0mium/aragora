@@ -53,7 +53,7 @@ class TestFixerWorker:
                 cancelled_exc = exc
                 self._running = False
                 break
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError, ConnectionError) as exc:  # noqa: BLE001 - worker isolation
                 logger.error(f"[{self.worker_id}] Worker error: {exc}", exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
@@ -95,7 +95,7 @@ class TestFixerWorker:
                 job.id, result={"duration_seconds": duration, **result.to_dict()}
             )
             logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
-        except Exception as exc:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as exc:
             logger.error(f"[{self.worker_id}] Job {job.id} failed: {exc}", exc_info=True)
             should_retry = job.attempts < job.max_attempts
             await self._store.fail(job.id, error=str(exc), should_retry=should_retry)

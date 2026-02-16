@@ -245,7 +245,7 @@ class AgentHierarchy:
                 for assignment_data in data.get("assignments", []):
                     assignment = RoleAssignment.from_dict(assignment_data)
                     self._assignments[assignment.agent_id] = assignment
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load hierarchy: {e}")
 
     async def _save_hierarchy(self) -> None:
@@ -260,7 +260,7 @@ class AgentHierarchy:
                     f,
                     indent=2,
                 )
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to save hierarchy: {e}")
 
     async def register_agent(

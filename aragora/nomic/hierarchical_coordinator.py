@@ -383,7 +383,7 @@ class HierarchicalCoordinator:
                 duration_seconds=time.time() - start_time,
                 error=f"Worker timed out after {self.config.worker_timeout_seconds}s",
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("Worker assignment %s failed: %s", assignment_id, e)
             return WorkerReport(
                 assignment_id=assignment_id,
@@ -454,7 +454,7 @@ class HierarchicalCoordinator:
         except ImportError:
             logger.debug("Arena not available for judging, using heuristic")
             return self._heuristic_judge(goal, reports)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("Arena judge failed: %s, using heuristic", e)
             return self._heuristic_judge(goal, reports)
 

@@ -230,7 +230,7 @@ class AgentRouter:
                 from aragora.ml.embeddings import get_embedding_service
 
                 self._embedding_service = get_embedding_service()
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Could not load embedding service: {e}")
                 self.config.use_embeddings = False
         return self._embedding_service

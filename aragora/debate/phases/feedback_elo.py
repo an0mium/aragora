@@ -58,7 +58,7 @@ class EloFeedback:
             # Emit MATCH_RECORDED event
             self._emit_match_recorded_event(ctx, participants)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             from aragora.agents.errors import _build_error_action
 
             _, msg, exc_info = _build_error_action(e, "elo")
@@ -162,7 +162,7 @@ class EloFeedback:
                 f"in debate {ctx.debate_id}"
             )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"[voting_accuracy] Recording failed: {e}")
 
     def apply_learning_bonuses(self, ctx: DebateContext) -> None:
@@ -198,10 +198,10 @@ class EloFeedback:
                             f"[learning] Applied learning bonus {bonus:.2f} "
                             f"to {agent.name} in domain {domain}"
                         )
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                     logger.debug(f"[learning] Bonus failed for {agent.name}: {e}")
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"[learning] Learning bonus application failed: {e}")
 
 

@@ -557,7 +557,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
                 print("\nRecommendations:")
                 for rec in report.recommendations[:5]:
                     print(f"  - {rec}")
-        except (OSError, RuntimeError, ValueError, KeyError) as e:
+        except (OSError, RuntimeError, TypeError, ValueError, KeyError) as e:
             logger.debug(f"Could not generate health report: {e}")
 
         return 0
@@ -565,7 +565,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Witness module not available: {e}")
         return 1
-    except (OSError, RuntimeError, ValueError, KeyError) as e:
+    except (OSError, RuntimeError, TypeError, ValueError, KeyError) as e:
         print(f"Error getting witness status: {e}")
         return 1
 

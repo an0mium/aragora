@@ -180,7 +180,7 @@ class AnalyticsPhase:
         if ctx.hook_manager:
             try:
                 await ctx.hook_manager.trigger("post_debate", ctx=ctx, result=result)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"POST_DEBATE hook failed: {e}")
 
     def _track_failed_patterns(self, result: DebateResult) -> None:
@@ -200,7 +200,7 @@ class AnalyticsPhase:
                         issue_text=content[:200],
                         issue_type=getattr(critique, "category", "general"),
                     )
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                     logger.debug(f"Failed to record pattern failure: {e}")
 
     def _record_metrics(self, ctx: DebateContext) -> None:
@@ -217,7 +217,7 @@ class AnalyticsPhase:
             )
         except ImportError:
             logger.debug("Metrics recording not available")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"Metrics recording failed: {e}")
 
     def _emit_consensus_event(self, result: DebateResult) -> None:
@@ -280,7 +280,7 @@ class AnalyticsPhase:
                         details=f"{insights.total_insights} insights extracted",
                         metric=stored_count,
                     )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"insight_extraction_failed error={e}")
 
     def _determine_winner(self, ctx: DebateContext) -> None:
@@ -292,7 +292,7 @@ class AnalyticsPhase:
             winner_agent = max(ctx.vote_tally.items(), key=lambda x: x[1])[0]
             ctx.winner_agent = winner_agent
             ctx.result.winner = winner_agent
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Winner determination failed: {e}")
 
     def _update_relationships(self, ctx: DebateContext) -> None:
@@ -379,7 +379,7 @@ class AnalyticsPhase:
                     metric=metrics.collective_confidence,
                 )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"uncertainty_analysis_failed error={e}")
 
     def _generate_disagreement(self, ctx: DebateContext) -> None:
@@ -436,7 +436,7 @@ class AnalyticsPhase:
                     loop_id=self.loop_id or "unknown",
                 )
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Failed to emit grounded verdict event: {e}")
 
     async def _verify_formally(self, result: DebateResult) -> None:
@@ -446,7 +446,7 @@ class AnalyticsPhase:
 
         try:
             await self._verify_claims_formally(result)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Formal verification failed: {e}")
 
     def _analyze_beliefs(self, result: DebateResult) -> None:
@@ -485,7 +485,7 @@ class AnalyticsPhase:
                         f"belief_crux claim={crux.get('claim', 'unknown')[:60]} "
                         f"uncertainty={crux.get('uncertainty', 0):.2f}"
                     )
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
             logger.debug(f"Belief analysis failed: {e}")
 
     def _log_completion(self, ctx: DebateContext) -> None:
@@ -509,5 +509,5 @@ class AnalyticsPhase:
             result = ctx.result
             verdict = result.final_answer[:100] if result.final_answer else "incomplete"
             self.recorder.finalize(verdict, ctx.vote_tally)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"Recorder finalize error: {e}")

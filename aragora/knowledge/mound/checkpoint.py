@@ -683,7 +683,7 @@ class KMCheckpointStore:
         if hasattr(self.mound, "_culture_accumulator") and self.mound._culture_accumulator:
             try:
                 self.mound._culture_accumulator.import_state(culture_state)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to restore culture state: {e}")
 
     async def _restore_staleness(self, staleness_state: dict[str, Any]) -> None:
@@ -693,7 +693,7 @@ class KMCheckpointStore:
                 # import_state() provided by StalenessDetector at runtime
                 detector = cast(_StalenessDetectorProtocol, self.mound._staleness_detector)
                 detector.import_state(staleness_state)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to restore staleness state: {e}")
 
     async def _restore_vectors(self, vectors: dict[str, list[float]]) -> None:
@@ -701,7 +701,7 @@ class KMCheckpointStore:
         if hasattr(self.mound, "_semantic_store") and self.mound._semantic_store:
             try:
                 self.mound._semantic_store.import_embeddings(vectors)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to restore vectors: {e}")
 
     async def _prune_old_checkpoints(self) -> int:

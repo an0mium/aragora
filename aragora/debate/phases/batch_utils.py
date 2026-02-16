@@ -162,7 +162,7 @@ async def batch_with_agents(
             if len(available_agents) < len(agents):
                 skipped = [a.name for a in agents if a not in available_agents]
                 logger.info(f"batch_{operation_name}_circuit_breaker_skip agents={skipped}")
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"Circuit breaker filter error: {e}")
 
     if not available_agents:

@@ -740,7 +740,7 @@ class DesignPhase:
             if should_audit:
                 self._log(f"  [deep-audit] {reason}")
                 return await self._deep_audit("run", improvement)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             self._log(f"  [deep-audit] Check failed: {e}")
         return None
 
@@ -836,7 +836,7 @@ Designs missing any of these will be automatically rejected."""
             reliable = sum(1 for w in weights.values() if w >= 0.7)
             self._log(f"  [integration] Agent weights: {reliable}/{len(self.agents)} reliable")
             return weights
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             self._log(f"  [integration] Probing failed: {e}")
             return {}
 
@@ -895,7 +895,7 @@ Designs missing any of these will be automatically rejected."""
                         conditional.if_true_confidence or 0.5,
                         conditional.if_false_confidence or 0.5,
                     )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             self._log(f"  [deadlock] Resolution failed: {e}")
 
         return result
@@ -942,7 +942,7 @@ Designs missing any of these will be automatically rejected."""
                 state={"design": result.final_answer, "agent_weights": agent_weights},
                 cycle=self.cycle_count,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             self._log(f"  [integration] Checkpoint failed: {e}")
 
     def _extract_files_from_design(self, design: str) -> list[str]:

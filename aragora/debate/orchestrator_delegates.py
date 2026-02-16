@@ -118,7 +118,7 @@ class ArenaDelegatesMixin:
                 container_tag=self.supermemory_context_container_tag,
                 limit=self.supermemory_max_context_items,
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ConnectionError, OSError) as e:
             logger = logging.getLogger(__name__)
             logger.debug(f"[supermemory] Context injection failed: {e}")
 

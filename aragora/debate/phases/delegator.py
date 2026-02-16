@@ -389,7 +389,7 @@ CONFIDENCE: <0.0-1.0>"""
 
             return self._parse_synthesis_response(str(response))
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001
             logger.error(f"Synthesis failed: {e}")
             return SynthesisResult(
                 summary=f"Synthesis failed: {e}",

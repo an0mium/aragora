@@ -380,6 +380,20 @@ class SharedControlPlaneState:
             self._connected = False
             self._init_sqlite()
             return False
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError inherits directly from Exception, not builtin ConnectionError
+            error_name = type(e).__name__
+            if "ConnectionError" in error_name or "TimeoutError" in error_name or "RedisError" in error_name:
+                if is_distributed_state_required():
+                    raise DistributedStateError(
+                        "shared_state",
+                        f"Failed to connect to Redis: {e}",
+                    ) from e
+                logger.warning(f"Failed to connect to Redis, using SQLite fallback: {e}")
+                self._redis = None
+                self._connected = False
+                self._init_sqlite()
+                return False
+            raise
 
     async def close(self) -> None:
         """Close Redis connection."""

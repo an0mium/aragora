@@ -885,7 +885,7 @@ class TestAutonomousOrchestratorExtended:
     @pytest.mark.asyncio
     async def test_execute_goal_with_exception(self, mock_workflow_engine, mock_task_decomposer):
         """Should handle exceptions during execution."""
-        mock_task_decomposer.analyze.side_effect = Exception("Decomposition failed")
+        mock_task_decomposer.analyze.side_effect = RuntimeError("Decomposition failed")
 
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,

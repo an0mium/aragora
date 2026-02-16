@@ -146,7 +146,7 @@ class TestUnifiedAuditLogger:
             enable_immutable=False,
             enable_middleware=False,
         )
-        bad_handler = MagicMock(side_effect=Exception("Handler error"))
+        bad_handler = MagicMock(side_effect=RuntimeError("Handler error"))
         good_handler = MagicMock()
 
         logger.add_handler(bad_handler)

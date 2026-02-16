@@ -594,7 +594,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
                     },
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 result.records_failed += 1
                 logger.warning("Failed to sync trickster %s: %s", record.id, e)
                 result.errors.append(f"Failed to sync trickster {record.id}")

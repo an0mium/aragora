@@ -149,7 +149,7 @@ class NomicContextBuilder:
             from aragora.rlm import RLMConfig
 
             default_max = RLMConfig().max_content_bytes_nomic
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError) as e:
             logger.debug("Failed to load RLMConfig for max_content_bytes_nomic: %s", e)
         self._max_context_bytes = max_context_bytes or int(env_max or default_max)
         if include_tests is None:
@@ -426,7 +426,7 @@ class NomicContextBuilder:
                 rlm = AragoraRLM(aragora_config=config)
                 result = await rlm.query(question, self._rlm_context)
                 return result.answer
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError) as exc:
                 logger.warning("RLM query failed, falling back to index search: %s", exc)
 
         # Fallback: search index
@@ -482,7 +482,7 @@ class NomicContextBuilder:
                     sections.append("## Knowledge Mound Context")
                     sections.append(km_context)
                     sections.append("")
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("Knowledge Mound query failed: %s", exc)
 
         # Optional: augment with full-corpus TRUE RLM summary (file-backed)
@@ -522,7 +522,7 @@ class NomicContextBuilder:
                             "Warning: corpus truncated to size cap; set NOMIC_MAX_CONTEXT_BYTES to increase."
                         )
                     sections.append("")
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("RLM full-corpus summary failed: %s", exc)
 
         # Add explicit feature inventory from CLAUDE.md
@@ -686,7 +686,7 @@ class NomicContextBuilder:
                         title = getattr(item, "title", str(item))
                         lines.append(f"- {title}")
                     return "\n".join(lines)
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("Knowledge Mound query error: %s", exc)
 
         return ""

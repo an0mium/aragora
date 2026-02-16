@@ -302,7 +302,7 @@ class ConvoyManager:
                         self._convoys[convoy.id] = convoy
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid convoy data: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load convoys: {e}")
 
     async def _save_convoy(self, convoy: Convoy) -> None:
@@ -314,7 +314,7 @@ class ConvoyManager:
                 for c in self._convoys.values():
                     f.write(json.dumps(c.to_dict()) + "\n")
             temp_file.rename(self.convoy_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             raise e

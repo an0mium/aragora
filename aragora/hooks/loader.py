@@ -88,7 +88,7 @@ class HookConfigLoader:
                     self._configs[config.name] = config
                     loaded.append(config)
                     logger.debug(f"Loaded hook '{config.name}' from {file_path}")
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.error(f"Failed to parse hook in {file_path}: {e}")
 
             return loaded
@@ -96,7 +96,7 @@ class HookConfigLoader:
         except yaml.YAMLError as e:
             logger.error(f"YAML parse error in {file_path}: {e}")
             return []
-        except Exception as e:
+        except (OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to load hooks from {file_path}: {e}")
             return []
 
@@ -173,7 +173,7 @@ class HookConfigLoader:
                     config = HookConfig.from_dict(hook_data, source_file=source)
                     self._configs[config.name] = config
                     loaded.append(config)
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.error(f"Failed to parse hook from {source}: {e}")
 
             return loaded
@@ -232,7 +232,7 @@ class HookConfigLoader:
         except ImportError as e:
             logger.error(f"Failed to import handler module: {handler_path} - {e}")
             return None
-        except Exception as e:
+        except (AttributeError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to resolve handler: {handler_path} - {e}")
             return None
 
@@ -298,7 +298,7 @@ class HookConfigLoader:
                 self._registered_hooks.append((config.name, unregister))
                 registered += 1
                 logger.debug(f"Registered hook '{config.name}' for trigger '{config.trigger}'")
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError) as e:
                 logger.error(f"Failed to register hook '{config.name}': {e}")
 
         logger.info(f"Applied {registered}/{len(configs)} hooks to manager")
@@ -337,7 +337,7 @@ class HookConfigLoader:
                     return await handler(**call_args)
                 else:
                     return handler(**call_args)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - hook execution boundary, re-raises
                 logger.error(f"Hook '{config.name}' handler error: {e}")
                 raise
 
@@ -354,7 +354,7 @@ class HookConfigLoader:
             # Call handler
             try:
                 return handler(**call_args)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - hook execution boundary, re-raises
                 logger.error(f"Hook '{config.name}' handler error: {e}")
                 raise
 
@@ -376,7 +376,7 @@ class HookConfigLoader:
                 unregister_fn()
                 count += 1
                 logger.debug(f"Unregistered hook '{name}'")
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to unregister hook '{name}': {e}")
 
         self._registered_hooks.clear()

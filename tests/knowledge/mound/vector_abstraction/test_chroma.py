@@ -152,7 +152,7 @@ class TestChromaConnection:
     async def test_connect_failure_raises_connection_error(self, config, mock_chroma_env):
         """connect() should raise ConnectionError on failure."""
         mock_chromadb, _, _ = mock_chroma_env
-        mock_chromadb.PersistentClient.side_effect = Exception("disk error")
+        mock_chromadb.PersistentClient.side_effect = RuntimeError("disk error")
 
         from aragora.knowledge.mound.vector_abstraction.chroma import ChromaVectorStore
 

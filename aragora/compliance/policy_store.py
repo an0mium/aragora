@@ -1118,7 +1118,7 @@ def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolic
             try:
                 _policy_store = PostgresPolicyStore(database_url)
                 return _policy_store
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"PostgreSQL policy store unavailable, falling back to SQLite: {e}")
                 try:
                     from aragora.storage.production_guards import (

@@ -122,7 +122,7 @@ class GoogleChatDock(ChannelDock):
                     channel_id=channel_id,
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Google Chat send error: {e}")
             return SendResult.fail(
                 error=str(e),
@@ -291,7 +291,7 @@ class GoogleChatDock(ChannelDock):
                     channel_id=channel_id,
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Google Chat result send error: {e}")
             return SendResult.fail(
                 error=str(e),

@@ -120,7 +120,7 @@ class BlockchainIdentityBridge:
                 identity = self._get_identity_contract().get_agent(token_id)
                 owner_address = identity.owner
                 verified = True
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
                 raise ValueError(
                     f"Failed to verify token {token_id} on chain {resolved_chain_id}: {e}"
                 )
@@ -181,7 +181,7 @@ class BlockchainIdentityBridge:
 
         try:
             return self._get_identity_contract().get_agent(link.token_id)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
             logger.warning(f"Failed to fetch identity for {aragora_agent_id}: {e}")
             return None
 
@@ -258,7 +258,7 @@ class BlockchainIdentityBridge:
             link.owner_address = identity.owner
             link.verified = True
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
             logger.warning(f"Failed to verify link for {aragora_agent_id}: {e}")
             link.verified = False
             return False
@@ -298,7 +298,7 @@ class BlockchainIdentityBridge:
                             metadata_bytes = contract.get_metadata(token_id, "aragora_agent_id")
                             if metadata_bytes:
                                 aragora_id = metadata_bytes.decode("utf-8").strip()
-                        except Exception as exc:
+                        except (ValueError, UnicodeDecodeError, KeyError) as exc:
                             logger.debug("Failed to decode metadata: %s", exc)
 
                     if aragora_id:
@@ -310,10 +310,10 @@ class BlockchainIdentityBridge:
                         )
                         links_created += 1
 
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
                     logger.debug(f"Failed to process token {token_id}: {e}")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, KeyError) as e:
             logger.error(f"Sync from blockchain failed: {e}")
 
         return links_created

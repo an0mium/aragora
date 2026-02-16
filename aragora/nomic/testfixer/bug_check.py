@@ -48,7 +48,7 @@ class PostFixBugChecker:
                     include_info=False,
                     include_smells=False,
                 )
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("bug_check.detector_unavailable error=%s", exc)
 
     def check_patches(self, proposal: Any) -> BugCheckResult:
@@ -79,7 +79,7 @@ class PostFixBugChecker:
 
             try:
                 after_bugs = self._detector.detect_in_file(str(file_path))
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning(
                     "bug_check.scan_error file=%s error=%s",
                     patch.file_path,
@@ -135,7 +135,7 @@ class PostFixBugChecker:
                 tmp.write(content)
                 tmp.flush()
                 return self._detector.detect_in_file(tmp.name)
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning(
                 "bug_check.scan_content_error file=%s error=%s",
                 relative_path,

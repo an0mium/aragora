@@ -429,7 +429,7 @@ class CredentialProxy:
 
             return result
 
-        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
+        except (CredentialProxyError, OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             usage.error_message = str(e)
             raise
 

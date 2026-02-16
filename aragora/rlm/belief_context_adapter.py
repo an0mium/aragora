@@ -231,7 +231,7 @@ class BeliefContextAdapter:
                             related_claims=h.get("related_claims", []),
                         ).to_dict()
                     )
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, RuntimeError) as e:
                 logger.debug(f"KM crux query failed: {e}")
 
         # Then check current network for topic-related high-centrality claims
@@ -409,7 +409,7 @@ class BeliefContextAdapter:
                 min_confidence=min_confidence,
             )
             return km_beliefs
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, RuntimeError) as e:
             logger.debug(f"KM belief query failed: {e}")
 
         # Fallback to local network search

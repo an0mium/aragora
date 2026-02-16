@@ -913,7 +913,7 @@ class MultiPartyValidator:
                         "deadline": request.deadline.isoformat() if request.deadline else None,
                     },
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning(f"Failed to notify {validator_id}: {e}")
 
     async def _notify_proposer(
@@ -942,7 +942,7 @@ class MultiPartyValidator:
                     "result": result.to_dict() if result else None,
                 },
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Failed to notify proposer {request.proposer_id}: {e}")
 
     def get_request(self, request_id: str) -> ValidationRequest | None:

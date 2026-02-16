@@ -361,7 +361,7 @@ class ConfidenceDecayManager:
                     if hasattr(mound, "update_confidence"):
                         # KnowledgeMound inherits update_confidence from CRUDMixin
                         await mound.update_confidence(item.id, new_confidence)
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     logger.warning(f"Failed to update confidence for {item.id}: {e}")
 
         # Record run time
@@ -435,7 +435,7 @@ class ConfidenceDecayManager:
             if hasattr(mound, "update_confidence"):
                 # KnowledgeMound inherits update_confidence from CRUDMixin
                 await mound.update_confidence(item_id, new_confidence)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to update confidence for {item_id}: {e}")
 
         async with self._lock:

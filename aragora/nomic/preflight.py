@@ -394,7 +394,7 @@ class PreflightHealthCheck:
                 message=f"{provider} timed out after {timeout}s",
                 latency_ms=(time.time() - start) * 1000,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             return CheckResult(
                 name=f"provider_{provider}_live",
                 status=CheckStatus.FAILED,

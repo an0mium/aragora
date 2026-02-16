@@ -129,7 +129,7 @@ class MilvusVectorStore(BaseVectorStore):
             self._connected = True
             logger.info(f"Connected to Milvus at {host}:{port}")
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Milvus: {e}") from e
 
@@ -138,12 +138,12 @@ class MilvusVectorStore(BaseVectorStore):
         if self._collection:
             try:
                 self._collection.release()
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning(f"Error releasing Milvus collection: {e}")
 
         try:
             connections.disconnect(self._alias)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Error disconnecting from Milvus: {e}")
         finally:
             self._collection = None
@@ -232,7 +232,7 @@ class MilvusVectorStore(BaseVectorStore):
                 utility.drop_collection(name, using=self._alias)
                 return True
             return False
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to delete Milvus collection {name}: {e}")
             return False
 
@@ -582,6 +582,6 @@ class MilvusVectorStore(BaseVectorStore):
                 "total_vectors": self._collection.num_entities,
                 "row_count": stats.get("row_count", 0),
             }
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.warning("Milvus health check failed: %s", e)
             return {"status": "unhealthy", "error": "Health check failed"}

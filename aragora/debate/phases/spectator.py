@@ -106,7 +106,7 @@ class SpectatorMixin:
                 loop_id=getattr(self, "loop_id", ""),
             )
             self.event_emitter.emit(stream_event)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"Event emission error (non-fatal): {e}")
 
         # Update ArgumentCartographer with this event
@@ -135,7 +135,7 @@ class SpectatorMixin:
                 moment.moment_type,
                 moment.agent_name,
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning("Failed to emit moment event: %s", e)
 
     def _update_cartographer(self, event_type: str, **kwargs: Any) -> None:
@@ -185,5 +185,5 @@ class SpectatorMixin:
                         round_num=round_num,
                         metadata={"target_agent": choice},
                     )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Cartographer update error: {e}")

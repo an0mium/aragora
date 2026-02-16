@@ -111,7 +111,7 @@ def init_debate_strategy(
         except (TypeError, ValueError) as e:
             logger.warning(f"Failed to initialize DebateStrategy: {e}")
             arena.debate_strategy = None
-        except Exception as e:
+        except (RuntimeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected error initializing DebateStrategy: {e}")
             arena.debate_strategy = None
 

@@ -162,7 +162,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     async def ingest_receipt(
@@ -229,7 +229,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 if item_id:
                     knowledge_item_ids.append(item_id)
                     claims_ingested += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Claim ingestion failed: %s", e)
                 errors.append("Failed to ingest claim")
 
@@ -255,7 +255,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 if item_id:
                     knowledge_item_ids.append(item_id)
                     findings_ingested += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Finding ingestion failed: %s", e)
                 errors.append("Failed to ingest finding")
 
@@ -275,9 +275,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                             relationship_type=RelationshipType.SUPPORTS,
                         )
                         relationships_created += 1
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.debug("Failed to create receipt summary relationship: %s", e)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to create receipt summary: %s", e)
             errors.append("Failed to create receipt summary")
 
@@ -581,7 +581,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                 await self._mound.ingest(item)
                 return item.id
             return item.id
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to store item {item.id}: {e}")
             return None
 
@@ -603,7 +603,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                     relationship_type=relationship_type,
                 )
                 return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to create relationship: {e}")
         return False
 
@@ -636,7 +636,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                     limit=limit,
                 )
                 return results.items if hasattr(results, "items") else []
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to find related decisions: {e}")
 
         return []

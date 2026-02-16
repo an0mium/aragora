@@ -210,7 +210,7 @@ class TestEventCallback:
         from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
 
         mock_continuum = create_mock_continuum()
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = ContinuumAdapter(mock_continuum, event_callback=callback)
 
         # Should not raise
@@ -1229,7 +1229,7 @@ class TestSyncValidationsToContinuum:
         mock_continuum = create_mock_continuum()
         # First call raises, second succeeds
         mock_continuum.get.side_effect = [
-            Exception("Database error"),
+            RuntimeError("Database error"),
             MockContinuumMemoryEntry(),
         ]
 
@@ -1409,7 +1409,7 @@ class TestSyncMemoryToMound:
         mock_continuum.retrieve.return_value = [entry]
 
         mock_mound = AsyncMock()
-        mock_mound.ingest = AsyncMock(side_effect=Exception("Ingestion failed"))
+        mock_mound.ingest = AsyncMock(side_effect=RuntimeError("Ingestion failed"))
 
         adapter = ContinuumAdapter(mock_continuum, enable_resilience=False)
 
@@ -1859,7 +1859,7 @@ class TestEdgeCases:
         from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
 
         mock_continuum = create_mock_continuum()
-        mock_continuum.update.side_effect = Exception("Update failed")
+        mock_continuum.update.side_effect = RuntimeError("Update failed")
 
         adapter = ContinuumAdapter(mock_continuum, enable_resilience=False)
 

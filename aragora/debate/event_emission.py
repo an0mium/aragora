@@ -207,7 +207,7 @@ class EventEmitter:
         try:
             previews = [self.build_agent_preview(a, role_assignments) for a in agents]
             self.hooks["on_agent_preview"](previews)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, KeyError, ValueError) as e:
             logger.debug(f"Agent preview emission failed: {e}")
 
     # === Feature Integration Events ===

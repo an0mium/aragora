@@ -77,7 +77,7 @@ class CalibrationDatabase:
             try:
                 yield conn
                 conn.execute("COMMIT")
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
                 logger.warning(
                     f"Non-database exception during transaction, rolling back: {type(e).__name__}: {e}"
                 )

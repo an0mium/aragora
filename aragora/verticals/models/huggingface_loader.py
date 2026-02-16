@@ -410,7 +410,7 @@ class HuggingFaceSpecialistLoader:
 
             return specialist_model
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to load model {model_id}: {e}")
             raise ModelLoadError(f"Failed to load model {model_id}: {e}") from e
 
@@ -440,7 +440,7 @@ class HuggingFaceSpecialistLoader:
         except ImportError:
             logger.warning("peft not available for adapter loading")
             return model
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to load adapter {adapter_id}: {e}")
             return model
 
@@ -550,6 +550,6 @@ class HuggingFaceSpecialistLoader:
                 "downloads": info.downloads,
                 "library_name": info.library_name,
             }
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Could not get model info for {model_id}: {e}")
             return None

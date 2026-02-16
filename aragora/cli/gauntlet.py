@@ -320,7 +320,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
                 role=role,
             )
             agents.append(agent)
-        except (OSError, RuntimeError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - CLI must not crash on agent creation
             failed_agents.append((agent_type, str(e)))
             print(f"Warning: Could not create agent {agent_type}: {e}")
 

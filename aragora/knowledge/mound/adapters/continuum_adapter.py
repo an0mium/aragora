@@ -188,7 +188,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 f"fused_confidence={fused_confidence:.3f}"
             )
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result: {e}")
             return False
 
@@ -785,7 +785,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 else:
                     result.skipped += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error validating {validation.memory_id}: {e}"
                 logger.error(error_msg)
                 result.errors.append(error_msg)
@@ -924,7 +924,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 result["synced"] += 1
                 logger.debug(f"Synced continuum entry to KM: {entry.id} -> {km_id}")
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error syncing {entry.id}: {e}"
                 logger.warning(error_msg)
                 result["errors"].append(error_msg)

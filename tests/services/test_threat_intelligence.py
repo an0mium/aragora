@@ -1466,7 +1466,7 @@ class TestEventHandlers:
 
     def test_emit_event_handler_error(self, service):
         """Test event emission handles handler errors."""
-        handler = MagicMock(side_effect=Exception("Handler error"))
+        handler = MagicMock(side_effect=RuntimeError("Handler error"))
         service.add_event_handler(handler)
 
         # Should not raise
@@ -2739,7 +2739,7 @@ class TestVirusTotalAPIResponseHandling:
     async def test_virustotal_exception_handling(self, service):
         """Test VirusTotal handles exceptions gracefully."""
         mock_session = AsyncMock()
-        mock_session.get = MagicMock(side_effect=Exception("Network error"))
+        mock_session.get = MagicMock(side_effect=ConnectionError("Network error"))
         service._http_session = mock_session
 
         result = await service._check_url_virustotal("http://test.com")
@@ -3063,7 +3063,7 @@ class TestPhishTankAPIResponseHandling:
     async def test_phishtank_exception_handling(self, service):
         """Test PhishTank handles exceptions gracefully."""
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(side_effect=Exception("Connection error"))
+        mock_session.post = MagicMock(side_effect=ConnectionError("Connection error"))
         service._http_session = mock_session
 
         result = await service._check_url_phishtank("http://test.com")
@@ -3284,7 +3284,7 @@ class TestThreatAssessmentWithMultipleSources:
     async def test_assess_threat_handles_api_exceptions(self, service):
         """Test threat assessment handles API exceptions gracefully."""
         with (
-            patch.object(service, "_check_url_virustotal", side_effect=Exception("API Error")),
+            patch.object(service, "_check_url_virustotal", side_effect=ConnectionError("API Error")),
             patch.object(service, "_check_url_phishtank", return_value=None),
             patch.object(service, "_check_url_urlhaus", return_value=None),
         ):
@@ -3579,7 +3579,7 @@ class TestRedisCacheOperations:
     async def test_redis_cache_handles_connection_error(self, service):
         """Test Redis cache handles connection errors gracefully."""
         mock_redis = MagicMock()
-        mock_redis.get = MagicMock(side_effect=Exception("Connection refused"))
+        mock_redis.get = MagicMock(side_effect=ConnectionError("Connection refused"))
         service._redis_client = mock_redis
 
         result = await service._get_redis_cached("http://test.com", "url")

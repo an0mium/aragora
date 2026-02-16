@@ -312,7 +312,7 @@ class RevisionGenerator:
             if self.recorder:
                 try:
                     self.recorder.record_turn(agent.name, revised_str, round_num)
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                     logger.debug(f"Recorder error for revision: {e}")
 
             # Record position for grounded personas
@@ -363,7 +363,7 @@ class RevisionGenerator:
                 round=round_num,
                 loop_id=loop_id,
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Rhetorical observation error: {e}")
 
     # Molecule tracking methods (Gastown pattern)
@@ -401,7 +401,7 @@ class RevisionGenerator:
                 )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[molecule] Failed to create revision molecules: {e}")
 
     def _start_molecule(self, agent_name: str) -> None:
@@ -418,7 +418,7 @@ class RevisionGenerator:
             try:
                 self._molecule_tracker.start_molecule(molecule_id)
                 logger.debug(f"[molecule] Started revision molecule {molecule_id}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to start molecule: {e}")
 
     def _complete_molecule(self, agent_name: str, output: dict[str, Any]) -> None:
@@ -436,7 +436,7 @@ class RevisionGenerator:
             try:
                 self._molecule_tracker.complete_molecule(molecule_id, output)
                 logger.debug(f"[molecule] Completed revision molecule {molecule_id}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to complete molecule: {e}")
 
     def _fail_molecule(self, agent_name: str, error: str) -> None:
@@ -454,5 +454,5 @@ class RevisionGenerator:
             try:
                 self._molecule_tracker.fail_molecule(molecule_id, error)
                 logger.debug(f"[molecule] Failed revision molecule {molecule_id}: {error}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to record molecule failure: {e}")

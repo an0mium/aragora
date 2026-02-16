@@ -791,7 +791,7 @@ def validate_configuration(strict: bool = False) -> dict:
             logger.info(f"Created data directory: {DATA_DIR}")
         except PermissionError:
             errors.append(f"Cannot create ARAGORA_DATA_DIR: {DATA_DIR} (permission denied)")
-        except Exception as e:
+        except OSError as e:
             errors.append(f"Cannot create ARAGORA_DATA_DIR: {DATA_DIR} ({e})")
 
     # Check for orphaned database files in project root

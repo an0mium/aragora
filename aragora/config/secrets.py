@@ -328,8 +328,8 @@ class SecretManager:
             # Catch boto3/botocore specific exceptions
             logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
             return None
-        except Exception as e:
-            # Catch any other unexpected exceptions
+        except (OSError, RuntimeError, ValueError) as e:
+            # Catch remaining non-boto exceptions (e.g., config errors, network)
             logger.warning(f"Failed to initialize AWS client ({region}): {type(e).__name__}: {e}")
             return None
 
@@ -383,8 +383,8 @@ class SecretManager:
                         "AWS/botocore error (region=%s): %s: %s", region, type(e).__name__, e
                     )
                 continue
-            except Exception as e:
-                # Catch any other unexpected exceptions
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
+                # Catch remaining non-boto exceptions (e.g., config errors, network)
                 last_error = e
                 logger.error(
                     "Unexpected error loading secrets (region=%s): %s: %s",

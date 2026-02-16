@@ -124,7 +124,7 @@ class TelegramDock(ChannelDock):
                         channel_id=channel_id,
                     )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Telegram send error: {e}")
             return SendResult.fail(
                 error=str(e),
@@ -185,7 +185,7 @@ class TelegramDock(ChannelDock):
                     channel_id=channel_id,
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Telegram voice send error: {e}")
             return SendResult.fail(
                 error=str(e),

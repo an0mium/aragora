@@ -222,7 +222,7 @@ class MetaLearner(SQLiteStore):
         # Get CMS stats
         try:
             cms_stats = cms.get_stats()
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning(f"Failed to get CMS stats: {e}")
             cms_stats = {}
         total_memories = cms_stats.get("total_memories", 0)

@@ -337,7 +337,7 @@ class ConsensusPhase:
                 timeout,
             )
             await self._handle_fallback_consensus(ctx, reason="timeout")
-        except Exception as e:  # noqa: BLE001 - phase isolation: consensus must never crash the debate
+        except Exception as e:  # noqa: BLE001 - phase isolation
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
                 "consensus_error mode=%s category=%s error=%s",

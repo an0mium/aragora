@@ -70,7 +70,7 @@ def enrich_plan_context(
         try:
             result = rlm.inject_memory_helpers(continuum)
             ctx.memory_helpers = result.get("helpers", {})
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError, TypeError) as e:
             logger.debug("Memory helper injection failed: %s", e)
 
     # Inject knowledge helpers
@@ -78,7 +78,7 @@ def enrich_plan_context(
         try:
             result = rlm.inject_knowledge_helpers(mound, workspace_id)
             ctx.knowledge_helpers = result.get("helpers", {})
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError, TypeError) as e:
             logger.debug("Knowledge helper injection failed: %s", e)
 
     # Generate debate summary
@@ -93,7 +93,7 @@ def enrich_plan_context(
             if debate_ctx.consensus_reached:
                 parts.append(f"Consensus: {debate_ctx.final_answer or 'reached'}")
             ctx.debate_summary = " | ".join(parts)
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, AttributeError) as e:
             logger.debug("Debate summary generation failed: %s", e)
 
     ctx.enriched = bool(ctx.memory_helpers or ctx.knowledge_helpers or ctx.debate_summary)
@@ -154,7 +154,7 @@ def analyze_debate_for_gauntlet(
         from .debate_helpers import load_debate_context
 
         debate_ctx = load_debate_context(debate_result)
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError, AttributeError) as e:
         logger.debug("Failed to load debate context for gauntlet: %s", e)
         return GauntletRLMAnalysis(
             findings=[],

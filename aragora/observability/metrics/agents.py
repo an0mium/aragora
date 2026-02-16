@@ -593,7 +593,7 @@ def track_agent_provider_call(
     tracker = AgentCallTracker(provider=provider, model=model)
     try:
         yield tracker
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - metrics context manager must catch all to classify error before re-raising
         # Classify the exception
         error_type = _classify_exception(e)
         tracker.record_error(error_type)
@@ -615,7 +615,7 @@ async def track_agent_provider_call_async(
     tracker = AgentCallTracker(provider=provider, model=model)
     try:
         yield tracker
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - metrics context manager must catch all to classify error before re-raising
         error_type = _classify_exception(e)
         tracker.record_error(error_type)
         raise

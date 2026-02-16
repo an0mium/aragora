@@ -541,7 +541,7 @@ Conclusion:""",
 
             return node, 1
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
             logger.error(f"Compression failed for group {group_index}: {e}")
             # Fallback to truncation
             truncated = combined[: self.config.target_tokens * 4]
@@ -695,7 +695,7 @@ Conclusion:""",
 
         except ImportError:
             pass  # Events module not available
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to emit compression event: {e}")
 
 

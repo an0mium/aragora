@@ -468,7 +468,7 @@ class LocalFineTuner:
                 training_time_seconds=training_time,
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, ImportError) as e:
             logger.error(f"Training failed: {e}")
             return FineTuneResult(
                 success=False,
@@ -712,7 +712,7 @@ class DPOFineTuner(LocalFineTuner):
         except ImportError:
             logger.warning("TRL not installed, falling back to SFT")
             return super().train(data)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"DPO training failed: {e}")
             return FineTuneResult(
                 success=False,

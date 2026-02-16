@@ -130,7 +130,7 @@ class PerformanceRouterBridge:
                     records_added += records
                     agents_updated.append(agent_name)
                     self._last_sync_counts[agent_name] = stats.total_calls
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, KeyError) as e:
                 logger.warning(f"Failed to sync agent {agent_name}: {e}")
 
         result = SyncResult(

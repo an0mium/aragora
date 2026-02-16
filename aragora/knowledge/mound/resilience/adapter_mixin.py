@@ -142,7 +142,7 @@ class ResilientAdapterMixin:
             raise
         except (AdapterUnavailableError, BulkheadFullError):
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure(f"Failed: {type(e).__name__}")
             raise

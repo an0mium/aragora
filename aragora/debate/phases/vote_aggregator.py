@@ -169,7 +169,7 @@ class VoteAggregator:
 
         try:
             vote_groups = self._group_similar_votes(votes)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"Vote grouping failed: {e}")
             choices = set(
                 v.choice for v in votes if not isinstance(v, Exception) and hasattr(v, "choice")
@@ -252,7 +252,7 @@ class VoteAggregator:
             if self._user_vote_multiplier:
                 try:
                     intensity_multiplier = self._user_vote_multiplier(intensity, self.protocol)
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                     logger.warning("User vote multiplier failed, using 1.0: %s", e)
                     intensity_multiplier = 1.0
             else:

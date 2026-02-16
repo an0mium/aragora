@@ -220,7 +220,7 @@ class HookQueue:
                         entries[entry.id] = entry
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid hook entry: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load hook entries: {e}")
         return entries
 
@@ -237,7 +237,7 @@ class HookQueue:
                 for entry in self._entries.values():
                     f.write(json.dumps(entry.to_dict()) + "\n")
             temp_file.rename(self.hook_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             raise e

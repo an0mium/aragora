@@ -955,7 +955,7 @@ class TestListWorktrees:
         body = parse_handler_response(result)
         assert result.status_code == 200
         assert body["total"] == 1
-        assert body["worktrees"][0]["branch"] == "dev/qa-coverage-001"
+        assert body["worktrees"][0]["branch_name"] == "dev/qa-coverage-001"
         assert body["worktrees"][0]["track"] == "qa"
 
     @pytest.mark.asyncio

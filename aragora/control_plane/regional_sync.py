@@ -257,6 +257,12 @@ class RegionalEventBus:
         except (OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect RegionalEventBus: {e}")
             return False
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError inherits directly from Exception, not builtin ConnectionError
+            error_name = type(e).__name__
+            if "ConnectionError" in error_name or "TimeoutError" in error_name or "RedisError" in error_name:
+                logger.error(f"Failed to connect RegionalEventBus: {e}")
+                return False
+            raise
 
     async def close(self) -> None:
         """Close connections and stop background tasks."""

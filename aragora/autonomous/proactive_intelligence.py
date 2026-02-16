@@ -269,7 +269,7 @@ class ScheduledTrigger:
 
                 await self.debate_creator(topic, agents, rounds)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, TypeError) as e:
                 logger.error(f"Trigger {trigger.id} debate creation failed: {e}")
 
         self._save_state()
@@ -470,7 +470,7 @@ class AlertAnalyzer:
                 if result:
                     alert.debate_triggered = True
                     alert.debate_id = result.get("debate_id")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, TypeError) as e:
                 logger.error(f"Auto-debate for alert failed: {e}")
 
         self._save_alerts()

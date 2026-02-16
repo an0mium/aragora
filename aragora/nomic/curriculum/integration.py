@@ -224,7 +224,7 @@ class CurriculumAwareFeedbackLoop:
                 "stone_number": 1,
             }
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Failed to create curriculum: {e}")
             return {
                 "action": "escalate",

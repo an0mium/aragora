@@ -463,7 +463,7 @@ EXPLANATION: [Brief explanation]"""
                         supporting=True,
                         explanation=f"Semantic similarity: {similarity:.3f}",
                     )
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 logger.warning("semantic_check_error: %s", e)
 
         # Strategy 3: LLM inference (if query function available)
@@ -482,7 +482,7 @@ EXPLANATION: [Brief explanation]"""
                 )
                 if match and match.match_score >= self.config.inference_threshold:
                     return match
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
                 logger.warning("inference_check_error: %s", e)
 
         # Strategy 4: Simple word overlap

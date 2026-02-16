@@ -574,7 +574,7 @@ class TestSendPagerDutyAlert:
         )
 
         mock_pagerduty_connector["connector"].create_incident = AsyncMock(
-            side_effect=Exception("API Error")
+            side_effect=ConnectionError("API Error")
         )
         mock_pagerduty_connector["connector_cls"].return_value = mock_pagerduty_connector[
             "connector"
@@ -770,7 +770,7 @@ class TestSendSlackAlert:
         )
 
         mock_notification_manager["manager"].notify = AsyncMock(
-            side_effect=Exception("Slack API error")
+            side_effect=ConnectionError("Slack API error")
         )
 
         mock_module = MagicMock()
@@ -1208,7 +1208,7 @@ class TestOnSLORecovery:
     async def test_recovery_pagerduty_resolve_failure_logged(self, pd_bridge: SLOAlertBridge):
         """PagerDuty resolve failure is handled gracefully."""
         mock_client = AsyncMock()
-        mock_client.resolve_incident = AsyncMock(side_effect=Exception("PD API down"))
+        mock_client.resolve_incident = AsyncMock(side_effect=ConnectionError("PD API down"))
         pd_bridge._pagerduty_client = mock_client
 
         key = pd_bridge._make_incident_key("debate", "p99")
@@ -1234,7 +1234,7 @@ class TestOnSLORecovery:
     ):
         """Slack recovery notification failure is handled gracefully."""
         mock_notification_manager["manager"].notify = AsyncMock(
-            side_effect=Exception("Slack API error")
+            side_effect=RuntimeError("Slack API error")
         )
         slack_bridge._notification_manager = mock_notification_manager["manager"]
 

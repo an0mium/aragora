@@ -611,7 +611,7 @@ class AsyncDecisionService:
                 await self._store.save(state)
                 raise
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - background debate execution must catch all failures to update state
                 logger.exception(f"Debate {debate_id} failed: {e}")
                 state.status = DebateStatus.FAILED
                 state.error = f"Debate failed: {type(e).__name__}"

@@ -204,7 +204,7 @@ class ComplianceMonitor:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, ConnectionError, TimeoutError) as e:
                 logger.error(f"Compliance monitoring error: {e}")
                 await asyncio.sleep(60)  # Wait before retry
 
@@ -222,7 +222,7 @@ class ComplianceMonitor:
 
         except ImportError:
             logger.debug("Policy store not available for compliance check")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError) as e:
             logger.warning(f"Error checking policy store: {e}")
 
         # Calculate overall health
@@ -289,7 +289,7 @@ class ComplianceMonitor:
                     fs.score = max(0, 100 - penalty)
                 fs.last_check = datetime.now(timezone.utc)
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"Error updating from policy store: {e}")
 
     def _fetch_audit_context(self, status: ComplianceStatus) -> dict[str, Any] | None:
@@ -377,7 +377,7 @@ class ComplianceMonitor:
 
         except ImportError:
             logger.debug("Compliance framework not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError) as e:
             logger.warning(f"Error during full scan: {e}")
 
     async def _verify_audit_trail(self) -> bool:
@@ -403,7 +403,7 @@ class ComplianceMonitor:
 
         except ImportError:
             logger.debug("Audit log not available for verification")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Error verifying audit trail: {e}")
 
         return True
@@ -486,7 +486,7 @@ class ComplianceMonitor:
                     await callback(alert_data)
                 else:
                     callback(alert_data)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Alert callback failed: {e}")
 
         # Also try SLO alert bridge if available
@@ -506,7 +506,7 @@ class ComplianceMonitor:
                 )
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Could not route to SLO alert bridge: {e}")
 
     async def _alert_audit_tamper(self) -> None:
@@ -652,7 +652,7 @@ class ComplianceMonitor:
                     await callback(event)
                 else:
                     callback(event)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Drift callback failed: {e}")
 
 

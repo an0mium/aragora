@@ -83,7 +83,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
         nonlocal result, error
         try:
             result = compiled.findall(text)
-        except Exception as e:
+        except (RuntimeError, re.error) as e:
             error = e
 
     thread = threading.Thread(target=run_regex)
@@ -505,7 +505,7 @@ class RLMEnvironment:
             )
             call_record["response_length"] = len(response)
             return response
-        except Exception as e:
+        except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Sub-LM call failed: {e}")
             call_record["error"] = str(e)
             return f"[ERROR: Sub-LM call failed: {e}]"
@@ -638,7 +638,7 @@ class RLMEnvironment:
                 exec(code, {"__builtins__": {}}, self.state.namespace)  # nosec B102 # noqa: S102 - Sandboxed REPL with AST validation
         except SecurityError as e:
             return f"SecurityError: {e}", False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - sandboxed REPL must catch all user code errors
             return f"Error: {type(e).__name__}: {e}", False
 
         # Post-execution security checks

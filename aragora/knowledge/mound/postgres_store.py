@@ -321,7 +321,7 @@ class PostgresStore:
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"PostgreSQL connection failed: {e}")
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.exception(f"Unexpected PostgreSQL initialization error: {e}")
             raise
 

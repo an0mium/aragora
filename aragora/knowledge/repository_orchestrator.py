@@ -230,7 +230,7 @@ class RepositoryOrchestrator:
                     progress.current_file = crawled_file.relative_path
                     progress.last_updated = datetime.now(timezone.utc)
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     errors.append(f"Failed to index {crawled_file.relative_path}: {e}")
                     logger.warning(f"Failed to index file: {e}")
 
@@ -242,7 +242,7 @@ class RepositoryOrchestrator:
                     workspace_id,
                 )
                 relationships_created += graph_rels
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 warnings.append(f"Failed to index dependency graph: {e}")
 
             # Calculate duration
@@ -268,7 +268,7 @@ class RepositoryOrchestrator:
                 completed_at=completed_at,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             progress.status = "failed"
             progress.error = f"Indexing failed: {type(e).__name__}"
             logger.warning("Repository indexing failed: %s", e)
@@ -411,7 +411,7 @@ class RepositoryOrchestrator:
                         node_type="code_chunk",
                     )
                     nodes_created += 1
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     logger.debug(f"Failed to index chunk: {e}")
 
         # Index symbols
@@ -435,7 +435,7 @@ class RepositoryOrchestrator:
                             node_type="code_symbol",
                         )
                         nodes_created += 1
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.debug(f"Failed to index symbol: {e}")
 
         # Index file-level dependencies as relationships
@@ -455,7 +455,7 @@ class RepositoryOrchestrator:
                         node_type="code_dependency",
                     )
                     relationships_created += 1
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     logger.debug(f"Failed to index dependency: {e}")
 
         return nodes_created, relationships_created, symbols_indexed
@@ -490,7 +490,7 @@ class RepositoryOrchestrator:
                         node_type="code_relationship",
                     )
                     relationships_created += 1
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     logger.debug(f"Failed to index graph edge: {e}")
 
         return relationships_created
@@ -539,7 +539,7 @@ class RepositoryOrchestrator:
                     await self.mound.delete(item.id)
                     removed += 1
             return removed
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to remove repository {repository_name}: {e}")
             return 0
 
@@ -574,7 +574,7 @@ class RepositoryOrchestrator:
             }
 
             return stats
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get stats for {repository_name}: {e}")
             return {
                 "repository_name": repository_name,

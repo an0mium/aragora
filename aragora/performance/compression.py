@@ -288,7 +288,7 @@ def compress_response(
 
         return compressed
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"Compression failed: {e}")
         return data
 

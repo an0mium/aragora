@@ -195,7 +195,7 @@ class TestRecordDebateTokens:
     @pytest.mark.asyncio
     async def test_handles_agent_recording_failure(self, mock_meter, mock_agent):
         """Should continue on agent recording failure."""
-        mock_meter.record_token_usage.side_effect = Exception("Recording failed")
+        mock_meter.record_token_usage.side_effect = RuntimeError("Recording failed")
 
         with patch(
             "aragora.services.usage_metering.get_usage_meter",
@@ -241,7 +241,7 @@ class TestRecordAgentTokens:
     @pytest.mark.asyncio
     async def test_handles_recording_failure(self, mock_meter):
         """Should return error info on failure."""
-        mock_meter.record_token_usage.side_effect = Exception("Service unavailable")
+        mock_meter.record_token_usage.side_effect = RuntimeError("Service unavailable")
 
         with patch(
             "aragora.services.usage_metering.get_usage_meter",
@@ -292,7 +292,7 @@ class TestRecordAPICall:
     @pytest.mark.asyncio
     async def test_handles_recording_failure(self, mock_meter):
         """Should return error info on failure."""
-        mock_meter.record_api_call.side_effect = Exception("Database error")
+        mock_meter.record_api_call.side_effect = RuntimeError("Database error")
 
         with patch(
             "aragora.services.usage_metering.get_usage_meter",

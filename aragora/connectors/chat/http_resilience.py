@@ -342,9 +342,7 @@ class HTTPResilienceMixin:
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
                 # Don't retry on unexpected errors
                 break
-            except Exception as e:
-                # Safety net after specific httpx/OS catches above.
-                # Kept broad because httpx internals may raise unexpected types.
+            except Exception as e:  # noqa: BLE001 - safety net after specific httpx/OS catches; httpx internals may raise unexpected types
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
                 logger.error(f"{self.platform_name} {operation} unhandled {type(e).__name__}: {e}")

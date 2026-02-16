@@ -480,7 +480,7 @@ class TestCommitPhaseGitOperations:
         phase = CommitPhase(aragora_path=mock_aragora_path, log_fn=mock_log_fn)
 
         with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = Exception("Git failed")
+            mock_run.side_effect = OSError("Git failed")
 
             files = phase._get_changed_files()
 

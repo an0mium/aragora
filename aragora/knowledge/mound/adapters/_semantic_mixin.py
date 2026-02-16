@@ -111,7 +111,7 @@ class SemanticSearchMixin:
                 result = get_method(record_id)
                 if result is not None:
                     return result
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"get() method failed for {record_id}: {e}")
 
         # Strategy 2: Try _source.get() if _source exists
@@ -123,7 +123,7 @@ class SemanticSearchMixin:
                     result = get_from_source(record_id)
                     if result is not None:
                         return result
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     logger.debug(f"_source.get() failed for {record_id}: {e}")
 
         # Strategy 3: Look up in common storage attributes
@@ -175,7 +175,7 @@ class SemanticSearchMixin:
                 result = record.to_dict()
                 result["similarity"] = similarity
                 return result
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"to_dict() failed: {e}")
 
         # Is a dataclass
@@ -186,7 +186,7 @@ class SemanticSearchMixin:
                 result = dataclasses.asdict(record)
                 result["similarity"] = similarity
                 return result
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"dataclasses.asdict() failed: {e}")
 
         # Extract common attributes manually
@@ -326,7 +326,7 @@ class SemanticSearchMixin:
                     f"[{self.adapter_name}] SemanticStore not available, "
                     "falling back to keyword search"
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"[{self.adapter_name}] Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search

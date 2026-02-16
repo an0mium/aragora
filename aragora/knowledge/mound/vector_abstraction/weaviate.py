@@ -108,7 +108,7 @@ class WeaviateVectorStore(BaseVectorStore):
 
             logger.info(f"Connected to Weaviate at {url}")
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Weaviate: {e}") from e
 
@@ -117,7 +117,7 @@ class WeaviateVectorStore(BaseVectorStore):
         if self._client:
             try:
                 self._client.close()
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning(f"Error closing Weaviate connection: {e}")
             finally:
                 self._client = None
@@ -418,7 +418,7 @@ class WeaviateVectorStore(BaseVectorStore):
                     },
                     embedding=obj.vector.get("default") if obj.vector else None,
                 )
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
@@ -473,7 +473,7 @@ class WeaviateVectorStore(BaseVectorStore):
                 "version": meta.get("version", "unknown"),
                 "modules": list(meta.get("modules", {}).keys()),
             }
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             return {
                 "status": "unhealthy",
                 "backend": "weaviate",

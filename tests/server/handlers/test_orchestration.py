@@ -2261,15 +2261,26 @@ class TestHandlerPostMethod:
             return_value=mock_auth_context,
         ):
             with patch.object(handler, "check_permission", return_value=True):
-                result = await handler.handle_post(
-                    "/api/v1/orchestration/deliberate",
-                    {"question": "Test?"},
-                    {},
-                    None,
-                )
+                # Mock _execute_deliberation to prevent background task from
+                # making real HTTP calls (which hangs the event loop)
+                with patch.object(
+                    handler,
+                    "_execute_deliberation",
+                    new_callable=AsyncMock,
+                    return_value=OrchestrationResult(
+                        request_id="test-async",
+                        success=True,
+                    ),
+                ):
+                    result = await handler.handle_post(
+                        "/api/v1/orchestration/deliberate",
+                        {"question": "Test?"},
+                        {},
+                        None,
+                    )
 
-                assert result is not None
-                assert result.status_code in [202, 400, 500]
+                    assert result is not None
+                    assert result.status_code in [202, 400, 500]
 
     @pytest.mark.asyncio
     async def test_handle_post_sync_deliberate_route(self, handler, mock_auth_context):

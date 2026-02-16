@@ -506,7 +506,7 @@ class AragoraRLM(RLMStreamingMixin):
                     self.backend_config.fallback_backend,
                     self.backend_config.fallback_model_name or self.backend_config.model_name,
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, ImportError, OSError, TypeError) as e:
             logger.error(f"[AragoraRLM] Failed to initialize official RLM: {e}")
             self._official_rlm = None
             self._fallback_rlm = None
@@ -518,13 +518,13 @@ class AragoraRLM(RLMStreamingMixin):
             try:
                 completion = self._official_rlm.completion(prompt)
                 return completion.response
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.warning(f"Official RLM call failed: {e}")
                 if self._fallback_rlm:
                     try:
                         completion = self._fallback_rlm.completion(prompt)
                         return completion.response
-                    except Exception as fallback_exc:
+                    except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
                         logger.warning(f"Fallback RLM call failed: {fallback_exc}")
 
         # Fallback to Aragora agent registry
@@ -532,7 +532,7 @@ class AragoraRLM(RLMStreamingMixin):
             try:
                 agent = self.agent_registry.get_agent(model)
                 return agent.complete(prompt)
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.warning(f"Aragora agent call failed: {e}")
 
         raise RuntimeError("No backend available for agent calls")
@@ -580,7 +580,7 @@ class AragoraRLM(RLMStreamingMixin):
                     augmented_query = f"{belief_summary}\n\n## Query\n{query}"
                     belief_context_used = True
                     logger.debug(f"Injected belief context for topic: {topic}")
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError, TypeError) as e:
                 logger.debug(f"Belief context injection skipped: {e}")
 
         if self._official_rlm:
@@ -787,7 +787,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                 code_blocks_executed=code_blocks_executed,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"[AragoraRLM] TRUE RLM query failed: {e}")
             if self._fallback_rlm:
                 try:
@@ -808,7 +808,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                         confidence=0.8,
                         uncertainty_sources=[],
                     )
-                except Exception as fallback_exc:
+                except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as fallback_exc:
                     logger.warning(f"[AragoraRLM] Fallback TRUE RLM query failed: {fallback_exc}")
             logger.warning(
                 "[AragoraRLM] Falling back to COMPRESSION approach "
@@ -825,7 +825,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             return True
         try:
             content_bytes = len(context.original_content.encode("utf-8", errors="ignore"))
-        except Exception as e:
+        except (UnicodeError, MemoryError, ValueError) as e:
             logger.debug(f"Failed to compute content bytes: {type(e).__name__}: {e}")
             content_bytes = 0
         threshold = getattr(self.aragora_config, "externalize_content_bytes", 0) or 0
@@ -839,7 +839,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             try:
                 if Path(content_path).exists():
                     return content_path
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.debug("Failed to check context file path %s: %s", content_path, e)
 
         # No existing file; write if we have content
@@ -863,7 +863,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         if not file_path.exists():
             try:
                 file_path.write_text(context.original_content)
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"[AragoraRLM] Failed to write context file: {e}")
                 return None
 
@@ -1166,12 +1166,12 @@ Please provide an improved answer based on the feedback."""
         if self._official_rlm and hasattr(self._official_rlm, "close"):
             try:
                 self._official_rlm.close()
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
                 logger.debug("Error closing official RLM: %s", e)
         if self._fallback_rlm and hasattr(self._fallback_rlm, "close"):
             try:
                 self._fallback_rlm.close()
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
                 logger.debug("Error closing fallback RLM: %s", e)
 
     def __enter__(self) -> "AragoraRLM":
@@ -1220,7 +1220,7 @@ Please provide an improved answer based on the feedback."""
                     "debate_id": debate_id,
                 },
             )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
             logger.debug("Audit logging skipped: %s", e)
 
     def inject_memory_helpers(
@@ -1244,7 +1244,7 @@ Please provide an improved answer based on the feedback."""
             ctx = load_memory_context(continuum, query=query)
             helpers = get_memory_helpers()
             return {"context": ctx, "helpers": helpers}
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, AttributeError) as e:
             logger.debug("Memory helper injection failed: %s", e)
             return {"context": None, "helpers": {}}
 
@@ -1268,7 +1268,7 @@ Please provide an improved answer based on the feedback."""
             ctx = load_knowledge_context(mound, workspace_id)
             helpers = get_knowledge_helpers(mound)
             return {"context": ctx, "helpers": helpers}
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, AttributeError) as e:
             logger.debug("Knowledge helper injection failed: %s", e)
             return {"context": None, "helpers": {}}
 

@@ -445,7 +445,7 @@ def classify_exception(
     Example:
         try:
             response = await client.get(url)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - classify_exception must handle all error types to map them to ConnectorError subclasses
             raise classify_exception(e, "web_connector") from e
     """
     import asyncio

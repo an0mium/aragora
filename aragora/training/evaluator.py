@@ -252,7 +252,7 @@ class TinkerEvaluator:
                         bl_score,
                     )
 
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError, TypeError) as e:
                     logger.warning("Trial failed: %s", e)
                     trials.append(
                         {

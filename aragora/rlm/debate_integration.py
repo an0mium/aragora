@@ -331,7 +331,7 @@ def create_training_hook() -> Callable[..., Any]:
                     winner=getattr(result, "winner", None),
                     final_answer=getattr(result, "final_answer", ""),
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError, TypeError) as e:
             logger.debug(f"Failed to record debate trajectory: {e}")
 
     return on_debate_complete

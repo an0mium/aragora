@@ -501,7 +501,7 @@ class TestAgentProbing:
             return "Mock response"
 
         with patch.object(integration.prober, "probe_agent", new_callable=AsyncMock) as mock_probe:
-            mock_probe.side_effect = Exception("Probe failed")
+            mock_probe.side_effect = RuntimeError("Probe failed")
 
             weights = await integration.probe_agents(
                 mock_agents,

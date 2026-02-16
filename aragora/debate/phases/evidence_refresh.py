@@ -172,7 +172,7 @@ class EvidenceRefresher:
 
             return total_refreshed
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
             return 0
 
@@ -250,7 +250,7 @@ class EvidenceRefresher:
 
                 except asyncio.TimeoutError:
                     logger.debug(f"[skills] Refresh timeout for {skill_manifest.name}")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.debug(f"[skills] Refresh error for {skill_manifest.name}: {e}")
 
             return snippets_added
@@ -258,6 +258,6 @@ class EvidenceRefresher:
         except ImportError as e:
             logger.debug(f"[skills] Refresh skipped (missing imports): {e}")
             return 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.warning(f"[skills] Refresh error: {e}")
             return 0

@@ -422,7 +422,7 @@ class TestBatchLocal:
             output=None,
         )
 
-        with patch("asyncio.run", side_effect=Exception("Test error")):
+        with patch("asyncio.run", side_effect=RuntimeError("Test error")):
             _batch_local(items, args)
 
         captured = capsys.readouterr()

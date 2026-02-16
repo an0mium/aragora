@@ -699,7 +699,7 @@ class TestCmdReview:
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
-        with patch("aragora.cli.review.asyncio.run", side_effect=Exception("API error")):
+        with patch("aragora.cli.review.asyncio.run", side_effect=RuntimeError("API error")):
             result = cmd_review(review_args)
 
         assert result == 1

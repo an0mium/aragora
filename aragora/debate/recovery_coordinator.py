@@ -415,7 +415,7 @@ class RecoveryCoordinator:
                     result = self.on_action(event)
                     if asyncio.iscoroutine(result):
                         await result
-                except Exception as e:
+                except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                     logger.error(f"Recovery callback error: {e}")
 
             return event
@@ -461,7 +461,7 @@ class RecoveryCoordinator:
 
             return False
 
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, AttributeError, KeyError) as e:
             logger.error(f"Recovery execution failed: {e}")
             return False
 
@@ -501,7 +501,7 @@ class RecoveryCoordinator:
                 result = self.on_message(message)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.error(f"Protocol message emission failed: {e}")
 
     def _generate_event_id(self) -> str:

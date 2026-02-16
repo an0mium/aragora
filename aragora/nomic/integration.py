@@ -414,7 +414,7 @@ class NomicIntegration:
 
                 weights[agent.name] = weight
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 # If probing fails, assume moderate reliability
                 logger.debug(
                     f"Agent probing failed for {agent.name}, using default weight: {type(e).__name__}"
@@ -734,7 +734,7 @@ class NomicIntegration:
 
             return checkpoint.checkpoint_id
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             # Log but don't fail on checkpoint errors
             logger.warning(f"Checkpoint failed for {phase}: {e}")
             return None
@@ -778,7 +778,7 @@ class NomicIntegration:
                     checkpoint=checkpoint,
                 )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Resume failed: {e}")
 
         return None

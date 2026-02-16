@@ -244,7 +244,7 @@ class ReverseFlowMixin:
                     result["errors"].append("Batch stopped: fail_fast_on_timeout=True")
                     break
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning("[%s] Reverse sync failed for %s: %s", self.adapter_name, source_id, e)
                 result["errors"].append(f"Failed to update {source_id}")
 

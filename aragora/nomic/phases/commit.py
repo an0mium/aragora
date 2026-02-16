@@ -127,7 +127,7 @@ class CommitPhase:
                     commit_hash=None,
                     committed=False,
                 )
-            except Exception as gate_error:
+            except (RuntimeError, ValueError, OSError) as gate_error:
                 self._log(f"  [gate] Gate check error: {gate_error}, falling back to legacy")
                 # Fall through to legacy approval
 
@@ -236,7 +236,7 @@ class CommitPhase:
                 committed=committed,
             )
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning("Commit phase error: %s", e)
             phase_duration = (datetime.now() - phase_start).total_seconds()
             error_desc = f"Commit failed: {type(e).__name__}"
@@ -291,7 +291,7 @@ class CommitPhase:
             )
             if result.returncode == 0:
                 return [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             self._log(f"  [git] Failed to get changed files: {e}")
         return []
 

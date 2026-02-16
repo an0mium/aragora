@@ -104,7 +104,7 @@ class TestKnowledgeMoundOperations:
     async def test_fetch_knowledge_context_handles_error(self):
         """Should handle errors gracefully."""
         mock_mound = MagicMock()
-        mock_mound.query_semantic = AsyncMock(side_effect=Exception("Query failed"))
+        mock_mound.query_semantic = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         ops = KnowledgeMoundOperations(knowledge_mound=mock_mound)
         result = await ops.fetch_knowledge_context("test task")

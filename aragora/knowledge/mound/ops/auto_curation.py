@@ -438,7 +438,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                 )
                 candidates.append(candidate)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to score node {node.get('id')}: {e}")
                 continue
 
@@ -573,7 +573,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                         result.flagged_count += 1
                         result.flagged_ids.append(candidate.node_id)
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Action failed for {candidate.node_id}: {e}")
                     logger.warning(f"Curation action failed: {e}")
 
@@ -592,7 +592,7 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                             result.merged_count += len(merge_result.merged_node_ids)
                             result.merged_ids.extend(merge_result.merged_node_ids)
                             result.dedup_clusters_merged += 1
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Dedup failed: {e}")
                     logger.warning(f"Dedup during curation failed: {e}")
 
@@ -603,11 +603,11 @@ class AutoCurationMixin(_AutoCurationMixinBase):
                         workspace_id=workspace_id,
                     )
                     result.items_pruned = prune_result.items_pruned
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     result.errors.append(f"Pruning failed: {e}")
                     logger.warning(f"Pruning during curation failed: {e}")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             result.errors.append(f"Curation failed: {e}")
             logger.error(f"Curation run failed for {workspace_id}: {e}")
 

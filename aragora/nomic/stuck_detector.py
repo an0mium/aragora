@@ -235,7 +235,7 @@ class StuckDetector:
                 await asyncio.sleep(self.config.check_interval_seconds)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.error(f"Monitoring loop error: {e}")
                 await asyncio.sleep(5)
 
@@ -381,7 +381,7 @@ class StuckDetector:
                         await callback(item, action)
                     else:
                         callback(item, action)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - callback errors must not break detector
                     logger.error(f"Callback error: {e}")
 
             # Take action

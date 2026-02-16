@@ -50,6 +50,9 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     except RuntimeError:
         pass  # No running loop - handled below
 
+    # Wrap coroutine with asyncio.wait_for to enforce timeout on all paths
+    timed_coro = asyncio.wait_for(coro, timeout=timeout)
+
     if running_loop is not None:
         # We're on an event loop. Check if it's the main pool loop
         # (sync handler called from async handle() on the main loop).
@@ -60,7 +63,7 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
 
             main_loop = get_pool_event_loop()
             if running_loop is main_loop:
-                return running_loop.run_until_complete(coro)
+                return running_loop.run_until_complete(timed_coro)
         except ImportError:
             pass
 
@@ -70,12 +73,12 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
             import nest_asyncio
 
             nest_asyncio.apply(running_loop)
-            return running_loop.run_until_complete(coro)
+            return running_loop.run_until_complete(timed_coro)
         except (ImportError, RuntimeError):
             pass
 
         # Running loop but NOT the main pool loop - caller bug
-        coro.close()
+        timed_coro.close()
         raise RuntimeError(
             "run_async() cannot be called from an async context. "
             "asyncpg connection pools are bound to specific event loops. "
@@ -90,13 +93,13 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
 
         main_loop = get_pool_event_loop()
         if main_loop is not None and main_loop.is_running():
-            future = asyncio.run_coroutine_threadsafe(coro, main_loop)
+            future = asyncio.run_coroutine_threadsafe(timed_coro, main_loop)
             return future.result(timeout=timeout)
     except ImportError:
         pass
 
     # Fallback: no shared pool / CLI mode - create temporary event loop
-    return asyncio.run(coro)
+    return asyncio.run(timed_coro)
 
 
 def sync_wrapper(async_method: Any) -> Any:
@@ -204,7 +207,7 @@ async def run_git_command(args: list[str], cwd: Path, timeout: float = 30.0) -> 
         return False, "Git command timed out"
     except FileNotFoundError:
         return False, "Git not found"
-    except Exception as e:
+    except OSError as e:
         return False, str(e)
 
 

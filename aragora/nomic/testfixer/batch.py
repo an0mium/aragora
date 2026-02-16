@@ -325,7 +325,7 @@ class BatchOrchestrator:
             else:
                 result.status = LoopStatus.MAX_ITERATIONS
 
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.exception("batch.error error=%s", exc)
             result.status = LoopStatus.ERROR
 
@@ -385,7 +385,7 @@ class BatchOrchestrator:
                         batch_result.fixes_successful += 1
                     elif attempt.applied and not attempt.success:
                         batch_result.fixes_reverted += 1
-                except Exception as exc:
+                except (RuntimeError, ValueError, OSError) as exc:
                     logger.warning(
                         "batch.fix_error batch=%s test=%s error=%s",
                         batch.id,
@@ -509,7 +509,7 @@ class BatchOrchestrator:
                         "batch.revert test=%s",
                         attempt.failure.test_name,
                     )
-                except Exception as exc:
+                except (RuntimeError, ValueError, OSError) as exc:
                     logger.error(
                         "batch.revert_error test=%s error=%s",
                         attempt.failure.test_name,
@@ -536,7 +536,7 @@ class BatchOrchestrator:
                 fallback_agents=fallback,
             )
             return self._agent_selector
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("batch.agent_selector_unavailable error=%s", exc)
             return None
 
@@ -548,7 +548,7 @@ class BatchOrchestrator:
 
             self._bug_checker = PostFixBugChecker(self._orch.repo_path)
             return self._bug_checker
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("batch.bug_checker_unavailable error=%s", exc)
             return None
 
@@ -560,7 +560,7 @@ class BatchOrchestrator:
 
             self._impact_analyzer = ImpactAnalyzer(self._orch.runner)
             return self._impact_analyzer
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("batch.impact_analyzer_unavailable error=%s", exc)
             return None
 

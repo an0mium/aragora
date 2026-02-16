@@ -219,7 +219,7 @@ class EmbeddingRelevanceScorer:
 
             self._cache[key] = embedding
             return embedding
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug(f"Failed to get embedding: {e}")
             return None
 
@@ -565,7 +565,7 @@ class FederatedQueryAggregator:
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug("Query to %s failed with expected error: %s", source.value, e)
                 results[source] = ([], f"Query failed: {type(e).__name__}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning("Query to %s failed with unexpected error: %s", source.value, e)
                 results[source] = ([], f"Query failed: {type(e).__name__}")
 
@@ -587,7 +587,7 @@ class FederatedQueryAggregator:
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug("Sequential query to %s failed with expected error: %s", source.value, e)
                 results[source] = ([], f"Query failed: {type(e).__name__}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning(
                     "Sequential query to %s failed with unexpected error: %s", source.value, e
                 )

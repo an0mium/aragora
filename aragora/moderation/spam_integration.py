@@ -357,7 +357,7 @@ class SpamModerationIntegration:
             except ImportError:
                 logger.warning("SpamClassifier not available - spam moderation will be disabled")
                 self._config.enabled = False
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                 logger.error(f"Failed to initialize spam classifier: {e}")
                 if not self._config.fail_open:
                     raise
@@ -451,7 +451,7 @@ class SpamModerationIntegration:
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, OSError, ConnectionError) as e:
             self._stats["errors"] += 1
             logger.error(f"Spam check failed: {e}")
 
@@ -624,7 +624,7 @@ class SpamModerationIntegration:
         if self._classifier:
             try:
                 await self._classifier.close()
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
                 logger.warning(f"Error closing classifier: {e}")
         self._initialized = False
 

@@ -69,7 +69,7 @@ def select_debate_team(
             return selected
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(f"[ml] ML delegation failed with data error, falling back: {e}")
-        except Exception as e:
+        except (RuntimeError, AttributeError, OSError) as e:
             logger.exception(f"[ml] Unexpected ML delegation error, falling back: {e}")
 
     if use_performance_selection:
@@ -112,7 +112,7 @@ def filter_responses_by_quality(
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning(f"[ml] Quality gate failed with data error, keeping all responses: {e}")
         return responses
-    except Exception as e:
+    except (RuntimeError, OSError, ImportError) as e:
         logger.exception(f"[ml] Unexpected quality gate error, keeping all responses: {e}")
         return responses
 
@@ -157,7 +157,7 @@ def should_terminate_early(
     except (ValueError, TypeError, KeyError) as e:
         logger.warning(f"[ml] Consensus estimation failed with data error: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, AttributeError, OSError) as e:
         logger.exception(f"[ml] Unexpected consensus estimation error: {e}")
         return False
 

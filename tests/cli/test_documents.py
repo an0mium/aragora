@@ -601,7 +601,7 @@ class TestCmdUpload:
         mock_folder.parse_size_string.side_effect = lambda x: 500 * 1024 * 1024
 
         mock_processor = MagicMock()
-        mock_processor.submit = AsyncMock(side_effect=Exception("Upload failed"))
+        mock_processor.submit = AsyncMock(side_effect=RuntimeError("Upload failed"))
 
         mock_ingestion = MagicMock()
         mock_ingestion.get_batch_processor = AsyncMock(return_value=mock_processor)

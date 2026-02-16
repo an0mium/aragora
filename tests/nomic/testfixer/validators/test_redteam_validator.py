@@ -632,7 +632,7 @@ class TestValidationFlow:
         with patch(
             "aragora.nomic.testfixer.validators.redteam_validator.create_agent"
         ) as mock_create:
-            mock_create.side_effect = Exception("No API key")
+            mock_create.side_effect = RuntimeError("No API key")
 
             validator = RedTeamValidator()
 

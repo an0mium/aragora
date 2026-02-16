@@ -648,7 +648,7 @@ class AdapterFactory:
                     )
                     logger.info(f"Created adapter: {spec_name}")
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to create adapter '{spec_name}': {e}")
 
         return adapters
@@ -723,7 +723,7 @@ class AdapterFactory:
                         if config is None:
                             return None
                         connector = ObsidianConnector(config)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                         logger.debug("Obsidian connector init failed: %s", e)
                         return None
 
@@ -868,7 +868,7 @@ class AdapterFactory:
                     return adapter_class()
                 else:
                     return adapter_class(**deps)
-            except Exception as e2:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e2:
                 logger.error(f"Failed to create {spec.name} adapter: {e2}")
                 return None
 

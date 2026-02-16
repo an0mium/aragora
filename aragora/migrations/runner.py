@@ -23,6 +23,7 @@ import logging
 import os
 import pkgutil
 import socket
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass, field
@@ -228,7 +229,7 @@ class MigrationRunner:
         # Check for checksum column
         try:
             self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
             logger.debug(f"checksum column check failed (will add): {type(e).__name__}: {e}")
             try:
@@ -236,13 +237,13 @@ class MigrationRunner:
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN checksum TEXT DEFAULT NULL"
                 )
                 logger.info("Added checksum column to migrations table")
-            except (OSError, RuntimeError, ValueError) as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Could not add checksum column (may already exist): {e}")
 
         # Check for rollback_sql column
         try:
             self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
             logger.debug(f"rollback_sql column check failed (will add): {type(e).__name__}: {e}")
             try:
@@ -250,7 +251,7 @@ class MigrationRunner:
                     f"ALTER TABLE {self.MIGRATIONS_TABLE} ADD COLUMN rollback_sql TEXT DEFAULT NULL"
                 )
                 logger.info("Added rollback_sql column to migrations table")
-            except (OSError, RuntimeError, ValueError) as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Could not add rollback_sql column (may already exist): {e}")
 
     def _init_rollback_history_table(self) -> None:
@@ -268,7 +269,7 @@ class MigrationRunner:
         """
         try:
             self._backend.execute_write(sql)
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Non-fatal: rollback history is optional audit functionality
             logger.debug(f"Could not create rollback history table: {e}")
 
@@ -297,7 +298,7 @@ class MigrationRunner:
                     reason,
                 ),
             )
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Non-fatal: don't let history tracking failures block rollback
             logger.warning(f"Failed to record rollback history for v{migration.version}: {e}")
 
@@ -832,7 +833,7 @@ class MigrationRunner:
                 )
                 for row in rows
             ]
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Could not read rollback history: {e}")
             return []
 

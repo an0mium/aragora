@@ -1043,7 +1043,7 @@ class TestContextRelevanceAgent:
     @pytest.mark.asyncio
     async def test_analyze_context_mound_error_handled(self, agent_with_mound):
         """Test knowledge mound errors are handled gracefully."""
-        agent_with_mound.mound.query = AsyncMock(side_effect=Exception("Connection error"))
+        agent_with_mound.mound.query = AsyncMock(side_effect=ConnectionError("Connection error"))
 
         # Should not raise, just return baseline result
         result = await agent_with_mound.analyze_context(

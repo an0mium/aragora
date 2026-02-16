@@ -92,7 +92,7 @@ class AdapterCircuitBreaker:
                 result = await adapter.do_something()
                 breaker.record_success()
                 return result
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 breaker.record_failure(f"Failed: {type(e).__name__}")
                 raise
     """
@@ -280,7 +280,7 @@ class AdapterCircuitBreaker:
             record_km_adapter_sync(self.adapter_name, "circuit_breaker", success)
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Failed to record circuit breaker metric: {e}")
 
     def _record_state_change(self) -> None:
@@ -296,7 +296,7 @@ class AdapterCircuitBreaker:
                 f"Adapter {self.adapter_name} state: {self._state.value} "
                 f"(health={state_map.get(self._state, 0)})"
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Failed to record state change metric: {e}")
 
     @asynccontextmanager
@@ -329,7 +329,7 @@ class AdapterCircuitBreaker:
             if self._state == AdapterCircuitState.HALF_OPEN:
                 self._half_open_calls -= 1
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self.record_failure(f"Failed: {type(e).__name__}")
             raise
 

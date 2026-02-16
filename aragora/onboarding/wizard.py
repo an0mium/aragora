@@ -427,7 +427,7 @@ class OnboardingWizard:
         if step_id in self._step_handlers:
             try:
                 await self._step_handlers[step_id](session, step, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, KeyError, OSError) as e:
                 logger.warning("Step handler '%s' failed: %s", step_id, e)
                 step.validation_errors = ["Step processing failed"]
                 step.status = StepStatus.FAILED

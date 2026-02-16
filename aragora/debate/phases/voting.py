@@ -102,7 +102,7 @@ class VoteWeightCalculator:
         if self._reputation_source:
             try:
                 weight *= self._reputation_source(agent_name)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
                 logger.debug(f"Reputation weight error for {agent_name}: {e}")
 
         # Reliability weight (0-1 multiplier)
@@ -115,14 +115,14 @@ class VoteWeightCalculator:
                 consistency_score = self._consistency_source(agent_name)
                 consistency_weight = 0.5 + (consistency_score * 0.5)
                 weight *= consistency_weight
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
                 logger.debug(f"Consistency weight error for {agent_name}: {e}")
 
         # Calibration weight (0.5-1.5)
         if self._calibration_source:
             try:
                 weight *= self._calibration_source(agent_name)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
                 logger.debug(f"Calibration weight error for {agent_name}: {e}")
 
         self._cache[agent_name] = weight

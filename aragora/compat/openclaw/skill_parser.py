@@ -150,7 +150,7 @@ class OpenClawSkillParser:
             try:
                 skill = OpenClawSkillParser.parse_file(skill_file)
                 skills.append(skill)
-            except Exception as e:
+            except (OSError, ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Failed to parse {skill_file}: {e}")
 
         return skills
@@ -164,7 +164,7 @@ class OpenClawSkillParser:
             data = yaml.safe_load(yaml_str) or {}
         except ImportError:
             data = OpenClawSkillParser._simple_yaml_parse(yaml_str)
-        except Exception as exc:
+        except (ValueError, TypeError, KeyError) as exc:
             logger.debug("Failed to parse YAML frontmatter: %s", exc)
             data = {}
 

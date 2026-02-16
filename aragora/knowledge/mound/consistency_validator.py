@@ -369,7 +369,7 @@ class ConsistencyValidator:
                     )
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Referential integrity check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.REFERENTIAL,
@@ -459,7 +459,7 @@ class ConsistencyValidator:
                             )
                         )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Content validation check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONTENT,
@@ -543,7 +543,7 @@ class ConsistencyValidator:
                 issues_found=0,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Contradiction check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONTRADICTION,
@@ -622,7 +622,7 @@ class ConsistencyValidator:
                             )
                         )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Staleness check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.STALENESS,
@@ -679,7 +679,7 @@ class ConsistencyValidator:
                         )
                     )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Confidence decay check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONFIDENCE,
@@ -731,7 +731,7 @@ class ConsistencyValidator:
                                     suggested_fix="Check adapter connection and restart if needed",
                                 )
                             )
-                except Exception as adapter_error:
+                except (OSError, ConnectionError, TimeoutError, RuntimeError) as adapter_error:  # noqa: BLE001 - adapter isolation
                     issues.append(
                         ConsistencyIssue(
                             check_type=ConsistencyCheckType.SYNC,
@@ -741,7 +741,7 @@ class ConsistencyValidator:
                         )
                     )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Adapter sync check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.SYNC,
@@ -842,7 +842,7 @@ class ConsistencyValidator:
                             }
                         )
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.warning("Auto-fix failed for issue: %s", e)
                         fixes_failed.append(
                             {

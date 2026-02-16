@@ -213,7 +213,7 @@ class DistributedDebateCoordinator:
                 await self._sync_debates()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ConnectionError, OSError, ValueError) as e:
                 logger.error(f"[DistributedDebate] Sync error: {e}")
 
     async def _sync_debates(self) -> None:
@@ -244,7 +244,7 @@ class DistributedDebateCoordinator:
         """Handle incoming debate events."""
         try:
             event = DistributedDebateEvent.from_dict(event_data)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"[DistributedDebate] Invalid event: {e}")
             return
 
@@ -431,7 +431,7 @@ class DistributedDebateCoordinator:
                 if consensus:
                     break
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - debate execution must not crash coordinator
             logger.error(f"[DistributedDebate] Debate {debate_id} failed: {e}")
             state.status = "failed"
 

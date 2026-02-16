@@ -129,7 +129,7 @@ class RLMHierarchyCache:
                                 )
                                 return result
 
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"[RLMHierarchyCache] Mound query failed: {e}")
 
         self._cache_misses += 1
@@ -187,7 +187,7 @@ class RLMHierarchyCache:
                     f"(ratio={compression.compression_ratio}, fidelity={compression.estimated_fidelity:.2f})"
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"[RLMHierarchyCache] Mound storage failed: {e}")
 
     def _serialize_compression(self, compression: CompressionResult) -> dict:
@@ -274,7 +274,7 @@ class RLMHierarchyCache:
                 key_topics_extracted=data.get("key_topics", []),
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.warning(f"[RLMHierarchyCache] Deserialization failed: {e}")
             return None
 

@@ -223,7 +223,7 @@ def export_decision_pdf(decision: Decision, title: str | None = None) -> bytes |
     except ImportError:
         logger.info("weasyprint not installed; PDF export unavailable")
         return None
-    except Exception as e:
+    except OSError as e:
         logger.warning(f"PDF generation failed: {e}")
         return None
 

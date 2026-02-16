@@ -343,7 +343,7 @@ TL;DR:"""
                 # Fallback: try direct call
                 response = await llm(prompt)
                 return str(response)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.warning(f"LLM call failed: {e}")
             raise
 

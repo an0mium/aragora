@@ -560,7 +560,7 @@ try:
     exec_globals = {{"input_data": input_data, "__builtins__": SAFE_BUILTINS}}
     exec(_user_code, exec_globals)  # nosec
     result = exec_globals.get("result")
-except Exception as e:
+except Exception as e:  # noqa: BLE001 - sandbox: user code can raise anything
     _capture_print(f"Error: {{e}}")
     result = None
 

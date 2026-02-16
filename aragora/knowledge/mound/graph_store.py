@@ -264,7 +264,7 @@ class KnowledgeGraphStore(SQLiteStore):
                         json.dumps(metadata),
                     ),
                 )
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 if "UNIQUE constraint" in str(e):
                     # Link already exists, return existing ID
                     row = self.fetch_one(

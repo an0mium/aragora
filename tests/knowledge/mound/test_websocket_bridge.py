@@ -795,7 +795,7 @@ class TestKMWebSocketBridgeEmitCallback:
     async def test_emit_callback_handles_exceptions(self):
         """Test that emit callback handles exceptions gracefully."""
         broadcaster = MagicMock()
-        broadcaster.broadcast = AsyncMock(side_effect=Exception("Broadcast error"))
+        broadcaster.broadcast = AsyncMock(side_effect=RuntimeError("Broadcast error"))
 
         bridge = KMWebSocketBridge(broadcaster=broadcaster)
         bridge.start()

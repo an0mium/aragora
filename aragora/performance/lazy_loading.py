@@ -286,7 +286,7 @@ class AutoPrefetchBatcher:
             if future and not future.done():
                 future.set_result(None)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Auto-prefetch batch failed for '{property_name}': {e}")
             if future and not future.done():
                 future.set_exception(e)
@@ -365,7 +365,7 @@ class LazyValue(Generic[T]):
             self._load_future.set_result(self._value)
             return self._value
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             if self._load_future and not self._load_future.done():
                 self._load_future.set_exception(e)
             raise

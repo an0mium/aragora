@@ -294,7 +294,7 @@ class DebatePhase:
                         "reasoning": "Generated from agent",
                     }
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 self._log(f"Agent {agent} failed to generate proposal: {e}")
 
         return proposals
@@ -336,7 +336,7 @@ class DebatePhase:
                     if proposals:
                         prop = proposals[0]
                         votes[agent_name] = prop.get("id", prop.get("proposal", ""))
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 self._log(f"Agent {agent} failed to vote: {e}")
         return votes
 
@@ -416,7 +416,7 @@ class DebatePhase:
                     # Default: vote for first proposal
                     if proposals:
                         votes[agent_name] = proposals[0]["proposal"]
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 self._log(f"Agent {agent} failed to vote: {e}")
 
         return votes
@@ -583,7 +583,7 @@ class DebatePhase:
                         f"  [novelty] Consensus proposal passed codebase novelty check "
                         f"(max_similarity: {novelty_result.max_similarity:.2f})"
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.warning(f"Codebase novelty check failed: {e}")
 
         # Process post-debate hooks
@@ -628,7 +628,7 @@ class DebatePhase:
                     self._log(f"  [belief] Loading belief network from cycle {prev_cycle}")
                     await self.nomic_integration.resume_from_checkpoint(cp.get("checkpoint_id", ""))
                     break
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             self._log(f"  [belief] Failed to load previous belief network: {e}")
 
     def _build_task_prompt(
@@ -715,7 +715,7 @@ DO NOT propose features that already exist below.
             reliable = sum(1 for w in weights.values() if w >= 0.7)
             self._log(f"  [integration] Agent weights: {reliable}/{len(self.agents)} reliable")
             return weights
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             self._log(f"  [integration] Probing failed: {e}")
             return {}
 
@@ -724,7 +724,7 @@ DO NOT propose features that already exist below.
         try:
             result = await arena.run()
             return result
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             self._log(f"  Debate error: {e}")
             raise
 
@@ -776,7 +776,7 @@ DO NOT propose features that already exist below.
             if hooks.on_belief_network_built:
                 await self._safe_call(hooks.on_belief_network_built, result)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - hook errors must not break debate flow
             self._log(f"  Post-debate hooks error: {e}")
 
     async def _safe_call(self, fn: Callable, *args) -> None:
@@ -785,7 +785,7 @@ DO NOT propose features that already exist below.
             result = fn(*args)
             if asyncio.iscoroutine(result):
                 await result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - hook errors must not break debate flow
             self._log(f"  Hook error: {e}")
 
 

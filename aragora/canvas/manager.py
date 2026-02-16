@@ -672,7 +672,7 @@ class CanvasStateManager:
                 "debate_node_id": debate_node.id,
                 "error": "Debate modules not available",
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Debate execution failed: {e}")
             debate_node.data["status"] = "error"
             debate_node.data["error"] = "Debate execution failed"
@@ -821,7 +821,7 @@ class CanvasStateManager:
                 "executed": False,
                 "note": "Workflow modules not available - node created but not executed",
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Workflow execution failed: {e}")
             workflow_node.data["status"] = "error"
             workflow_node.data["error"] = "Workflow execution failed"
@@ -919,7 +919,7 @@ class CanvasStateManager:
                 "executed": False,
                 "note": "Knowledge modules not available - node created but not queried",
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Knowledge query failed: {e}")
             knowledge_node.data["status"] = "error"
             knowledge_node.data["error"] = "Knowledge query failed"
@@ -962,7 +962,7 @@ class CanvasStateManager:
         except ImportError:
             # KnowledgeMound not available
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             # If primary knowledge mound fails, return empty results
             logger.debug(f"Knowledge mound query failed: {type(e).__name__}: {e}")
             return []

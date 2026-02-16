@@ -902,7 +902,7 @@ Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]""
                 time_sensitivity_score=tier_1_result.time_sensitivity_score,
             )
 
-        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError, ImportError) as e:
             logger.warning(f"Tier 2 scoring failed, using Tier 1 result: {e}")
             tier_1_result.tier_used = ScoringTier.TIER_2_LIGHTWEIGHT
             tier_1_result.rationale += " (Tier 2 fallback to rules)"
@@ -985,7 +985,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     agent_dissent=result.dissent if hasattr(result, "dissent") else None,
                 )
 
-        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError, ImportError) as e:
             logger.warning(f"Tier 3 debate failed, using Tier 2 result: {e}")
             tier_2_result.tier_used = ScoringTier.TIER_3_DEBATE
             tier_2_result.rationale += " (Tier 3 fallback to lightweight)"

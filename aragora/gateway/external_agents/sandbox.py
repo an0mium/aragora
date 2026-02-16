@@ -550,7 +550,7 @@ class DockerSandbox(SandboxBackend):
             logger.info(f"Destroyed Docker sandbox: {instance_id}")
             return True
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error(f"Failed to destroy Docker sandbox: {e}")
             return False
 

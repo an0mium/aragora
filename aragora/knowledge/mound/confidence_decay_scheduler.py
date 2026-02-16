@@ -235,7 +235,7 @@ class ConfidenceDecayScheduler:
 
             except (RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Decay cycle failed: {e}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.exception(f"Unexpected decay cycle error: {e}")
 
             # Wait for next cycle
@@ -269,7 +269,7 @@ class ConfidenceDecayScheduler:
                 else:
                     # Default to "default" workspace
                     workspaces = ["default"]
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Could not list workspaces: {e}")
                 workspaces = ["default"]
 
@@ -287,7 +287,7 @@ class ConfidenceDecayScheduler:
 
             except (RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"Decay failed for workspace {workspace_id}: {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.exception(f"Unexpected decay error for workspace {workspace_id}: {e}")
 
         return reports
@@ -369,7 +369,7 @@ class ConfidenceDecayScheduler:
         except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"Decay application failed for {workspace_id}: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected decay error for {workspace_id}: {e}")
             return None
 

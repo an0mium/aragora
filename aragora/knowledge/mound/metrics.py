@@ -264,7 +264,7 @@ class KMMetrics:
                 record_km_operation(operation.value, success, latency_seconds)
         except ImportError:
             pass  # Prometheus not available
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to export to Prometheus: {e}")
 
     @contextmanager
@@ -293,7 +293,7 @@ class KMMetrics:
 
         try:
             yield
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             success = False
             error = f"Operation failed: {type(e).__name__}"
             raise

@@ -168,7 +168,7 @@ class ConsensusHealingWorker:
             except asyncio.CancelledError:
                 logger.info(f"[{self.worker_id}] Worker cancelled")
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
                 logger.error(f"[{self.worker_id}] Error in healing loop: {e}")
                 await asyncio.sleep(30)  # Back off on errors
 
@@ -191,11 +191,11 @@ class ConsensusHealingWorker:
                     if self.on_healing_needed:
                         try:
                             self.on_healing_needed(candidate)
-                        except Exception as e:
+                        except (RuntimeError, ValueError, TypeError) as e:
                             logger.error(f"Error in on_healing_needed callback: {e}")
 
             logger.debug(f"[{self.worker_id}] Scan complete: {len(candidates)} candidates found")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             logger.error(f"[{self.worker_id}] Error scanning for candidates: {e}")
 
     async def _find_healing_candidates(self) -> list[HealingCandidate]:
@@ -243,7 +243,7 @@ class ConsensusHealingWorker:
 
         except ImportError:
             logger.debug("ConsensusMemory not available, skipping scan")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             logger.error(f"Error finding healing candidates: {e}")
 
         return candidates
@@ -264,7 +264,7 @@ class ConsensusHealingWorker:
                     return cast(list[dict[str, Any]], result)
                 return []
             return []
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             logger.debug(f"Failed to query stale debates: {type(e).__name__}: {e}")
             return []
 
@@ -312,10 +312,10 @@ class ConsensusHealingWorker:
                 if self.on_healing_complete:
                     try:
                         self.on_healing_complete(result)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:
                         logger.error(f"Error in on_healing_complete callback: {e}")
 
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, ValueError) as e:
                 logger.error(f"Error healing candidate {candidate.debate_id}: {e}")
 
     async def _heal_candidate(self, candidate: HealingCandidate) -> HealingResult:
@@ -347,7 +347,7 @@ class ConsensusHealingWorker:
                     success=False,
                     message=f"Unknown action: {action}",
                 )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             return HealingResult(
                 debate_id=candidate.debate_id,
                 action=action,

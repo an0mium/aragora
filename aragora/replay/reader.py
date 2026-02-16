@@ -75,7 +75,7 @@ class ReplayReader:
         except json.JSONDecodeError as e:
             self._load_error = f"Corrupted replay metadata: {e.msg} at pos {e.pos}"
             logger.warning(self._load_error)
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError) as e:
             self._load_error = f"Failed to load replay: {type(e).__name__}: {e}"
             logger.warning(self._load_error)
 
@@ -111,7 +111,7 @@ class ReplayReader:
                     except (json.JSONDecodeError, ValueError, TypeError) as e:
                         logger.warning(f"Skipping corrupted event at line {line_num}: {e}")
                         continue
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to read events file: {type(e).__name__}: {e}")
 
     def filter_by_type(self, event_type: str) -> Iterator[ReplayEvent]:
@@ -370,7 +370,7 @@ class ReplayReader:
                     except (json.JSONDecodeError, ValueError, TypeError) as e:
                         errors.append(f"Corrupted event at line {line_num}: {e}")
 
-        except Exception as e:
+        except OSError as e:
             errors.append(f"Failed to read events file: {type(e).__name__}: {e}")
 
         # Verify event count matches metadata
@@ -400,7 +400,7 @@ class ReplayReader:
                 for chunk in iter(lambda: f.read(8192), b""):
                     hasher.update(chunk)
             return hasher.hexdigest()
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to compute checksum: {e}")
             return ""
 

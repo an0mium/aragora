@@ -470,7 +470,7 @@ class RlmAdapter(KnowledgeMoundAdapter):
                 await mound.ingest(request)
                 result["patterns_synced"] += 1
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 result["errors"].append(f"Pattern {pattern_id}: {e}")
 
         logger.info(
@@ -539,7 +539,7 @@ class RlmAdapter(KnowledgeMoundAdapter):
 
                 result["patterns_loaded"] += 1
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             result["errors"].append(f"Load failed: {e}")
             logger.error(f"Failed to load patterns from KM: {e}")
 

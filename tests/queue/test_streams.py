@@ -79,7 +79,7 @@ class TestEnsureInitialized:
     @pytest.mark.asyncio
     async def test_handles_busygroup_error(self):
         queue, mock_redis = _make_queue()
-        mock_redis.xgroup_create.side_effect = Exception("BUSYGROUP Consumer group already exists")
+        mock_redis.xgroup_create.side_effect = RuntimeError("BUSYGROUP Consumer group already exists")
 
         await queue._ensure_initialized()
 
@@ -88,9 +88,9 @@ class TestEnsureInitialized:
     @pytest.mark.asyncio
     async def test_raises_on_other_error(self):
         queue, mock_redis = _make_queue()
-        mock_redis.xgroup_create.side_effect = Exception("Connection refused")
+        mock_redis.xgroup_create.side_effect = ConnectionError("Connection refused")
 
-        with pytest.raises(Exception, match="Connection refused"):
+        with pytest.raises(ConnectionError, match="Connection refused"):
             await queue._ensure_initialized()
 
         assert queue._initialized is False
@@ -111,7 +111,7 @@ class TestEnqueue:
     @pytest.mark.asyncio
     async def test_enqueue_adds_to_stream(self):
         queue, mock_redis = _make_queue()
-        mock_redis.xgroup_create.side_effect = Exception("BUSYGROUP already exists")
+        mock_redis.xgroup_create.side_effect = RuntimeError("BUSYGROUP already exists")
 
         job = Job(id="j-enq-1", payload={"q": "test"}, priority=0)
 
@@ -126,7 +126,7 @@ class TestEnqueue:
     @pytest.mark.asyncio
     async def test_enqueue_sets_priority(self):
         queue, mock_redis = _make_queue()
-        mock_redis.xgroup_create.side_effect = Exception("BUSYGROUP already exists")
+        mock_redis.xgroup_create.side_effect = RuntimeError("BUSYGROUP already exists")
 
         job = Job(id="j-pri", payload={})
         await queue.enqueue(job, priority=10)
@@ -224,7 +224,7 @@ class TestDequeue:
     async def test_dequeue_returns_none_on_error(self):
         queue, mock_redis = _make_queue()
         queue._initialized = True
-        mock_redis.xreadgroup.side_effect = Exception("Redis connection lost")
+        mock_redis.xreadgroup.side_effect = ConnectionError("Redis connection lost")
 
         job = await queue.dequeue("worker-1")
         assert job is None
@@ -457,7 +457,7 @@ class TestGetQueueStats:
             "retrying": 0,
         }
         mock_redis.xlen.return_value = 0
-        mock_redis.xpending.side_effect = Exception("NOGROUP")
+        mock_redis.xpending.side_effect = RuntimeError("NOGROUP")
 
         stats = await queue.get_queue_stats()
         assert stats["pending_in_group"] == 0
@@ -507,7 +507,7 @@ class TestClaimStaleJobs:
     async def test_handles_error(self):
         queue, mock_redis = _make_queue()
         queue._initialized = True
-        mock_redis.xpending_range.side_effect = Exception("Redis error")
+        mock_redis.xpending_range.side_effect = ConnectionError("Redis error")
 
         claimed = await queue.claim_stale_jobs(idle_ms=60000)
         assert claimed == 0

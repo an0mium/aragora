@@ -6,6 +6,8 @@ Endpoints:
 - GET  /api/self-improve/runs/:id - Get run status and progress
 - POST /api/self-improve/runs/:id/cancel - Cancel a running run
 - GET  /api/self-improve/history   - Get run history (alias for /runs)
+- GET  /api/self-improve/worktrees - List active worktrees
+- POST /api/self-improve/worktrees/cleanup - Clean up all worktrees
 
 These endpoints expose the HardenedOrchestrator's self-improvement
 pipeline through a REST API, enabling web UI, API clients, and
@@ -60,6 +62,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/start",
         "/api/self-improve/runs",
         "/api/self-improve/history",
+        "/api/self-improve/worktrees",
     ]
 
     def __init__(self, server_context: dict[str, Any]) -> None:
@@ -93,6 +96,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         if path in ("/api/self-improve/runs", "/api/self-improve/history"):
             return self._list_runs(query_params)
 
+        if path == "/api/self-improve/worktrees":
+            return self._list_worktrees()
+
         # GET /api/self-improve/runs/:id
         run_id = _extract_run_id(path)
         if run_id and not path.endswith("/cancel"):
@@ -110,6 +116,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         if path == "/api/self-improve/start":
             body = self.read_json_body(handler) or {}
             return await self._start_run(body)
+
+        if path == "/api/self-improve/worktrees/cleanup":
+            return self._cleanup_worktrees()
 
         # POST /api/self-improve/runs/:id/cancel
         if path.endswith("/cancel"):
@@ -188,7 +197,6 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             )
             return json_response(
                 {"run_id": run.run_id, "status": "preview", "plan": plan},
-                status_code=200,
             )
 
         # Start async execution
@@ -205,7 +213,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         return json_response(
             {"run_id": run.run_id, "status": "started"},
-            status_code=202,
+            status=202,
         )
 
     def _cancel_run(self, run_id: str) -> HandlerResult:
@@ -306,3 +314,42 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             )
         finally:
             _active_tasks.pop(run_id, None)
+
+    def _list_worktrees(self) -> HandlerResult:
+        """List active git worktrees managed by the branch coordinator."""
+        try:
+            from aragora.nomic.branch_coordinator import BranchCoordinator
+
+            coordinator = BranchCoordinator()
+            worktrees = coordinator.list_worktrees()
+            return json_response({
+                "worktrees": [
+                    {
+                        "branch_name": wt.branch_name,
+                        "worktree_path": str(wt.worktree_path),
+                        "track": wt.track,
+                        "created_at": wt.created_at,
+                        "assignment_id": wt.assignment_id,
+                    }
+                    for wt in worktrees
+                ],
+                "total": len(worktrees),
+            })
+        except (ImportError, OSError, ValueError) as e:
+            logger.warning(f"Failed to list worktrees: {type(e).__name__}")
+            return json_response({"worktrees": [], "total": 0, "error": "Worktree listing unavailable"})
+
+    def _cleanup_worktrees(self) -> HandlerResult:
+        """Clean up all managed worktrees."""
+        try:
+            from aragora.nomic.branch_coordinator import BranchCoordinator
+
+            coordinator = BranchCoordinator()
+            removed = coordinator.cleanup_all_worktrees()
+            return json_response({
+                "removed": removed,
+                "status": "cleaned",
+            })
+        except (ImportError, OSError, ValueError) as e:
+            logger.warning(f"Failed to cleanup worktrees: {type(e).__name__}")
+            return error_response(f"Worktree cleanup failed: {type(e).__name__}", 503)

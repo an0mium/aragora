@@ -944,7 +944,7 @@ class PatchProposer:
                         0.0,
                     )
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 duration = time.perf_counter() - start_time
                 logger.exception(
                     "proposal.generate_error id=%s agent=%s duration=%.2fs",
@@ -1006,7 +1006,7 @@ class PatchProposer:
                         critique_duration,
                     )
                     all_critiques.append((critic_label, agent, "Critique timed out", False))
-                except Exception as e:
+                except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                     critique_duration = time.perf_counter() - critique_start
                     logger.exception(
                         "proposal.critique_error id=%s critic=%s duration=%.2fs",
@@ -1038,7 +1038,7 @@ class PatchProposer:
                 final_confidence,
                 synth_duration,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             synth_duration = time.perf_counter() - synth_start
             logger.exception("proposal.synthesis_error id=%s", proposal_id)
             # Fall back to highest confidence proposal

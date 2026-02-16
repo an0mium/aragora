@@ -65,7 +65,7 @@ def _default_audit_on_denied(decision: AuthorizationDecision) -> None:
         )
     except ImportError:
         pass  # Audit module not available
-    except (OSError, RuntimeError, ValueError, TypeError) as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.debug(f"Failed to emit permission denial audit event: {e}")
 
 

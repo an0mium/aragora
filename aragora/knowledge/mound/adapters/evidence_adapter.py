@@ -182,7 +182,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 f"fused_confidence={fused_confidence:.3f}"
             )
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result to evidence: {e}")
             return False
 
@@ -321,7 +321,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         except EvidenceStoreUnavailableError:
             raise
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Evidence search failed for query '{query}': {e}")
             raise EvidenceAdapterError(f"Search failed: {e}") from e
         finally:
@@ -367,7 +367,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                         if SLO_AVAILABLE:
                             check_and_record_slo("evidence_hash_lookup", latency_ms)
                         return [existing]
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     # Log but don't fail - fall back to text search
                     logger.warning(f"Hash lookup failed, falling back to text search: {e}")
             else:
@@ -385,7 +385,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             raise
         except EvidenceAdapterError:
             raise
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Similar evidence search failed: {e}")
             raise EvidenceAdapterError(f"Similar search failed: {e}") from e
 
@@ -411,7 +411,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         try:
             return store.get_evidence(evidence_id)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Failed to get evidence: {e}") from e
 
@@ -629,7 +629,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         except EvidenceStoreUnavailableError:
             raise
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to store evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Storage failed: {e}") from e
         finally:
@@ -659,7 +659,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 logger.debug(
                     f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to mark evidence {evidence_id} in consensus: {e}")
                 raise EvidenceAdapterError(f"Failed to mark consensus usage: {e}") from e
         else:
@@ -725,7 +725,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             raise
         except EvidenceStoreUnavailableError:
             raise
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to update reliability for evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Reliability update failed: {e}") from e
 
@@ -744,7 +744,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         if hasattr(store, "get_stats"):
             try:
                 return store.get_stats()
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get evidence store stats: {e}")
                 raise EvidenceAdapterError(f"Stats retrieval failed: {e}") from e
         else:
@@ -779,7 +779,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             # Store doesn't support debate evidence lookup
             logger.debug("Evidence store does not support get_debate_evidence")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get debate evidence for {debate_id}: {e}")
             raise EvidenceAdapterError(f"Debate evidence retrieval failed: {e}") from e
 

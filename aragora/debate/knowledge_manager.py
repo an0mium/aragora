@@ -422,7 +422,7 @@ class ArenaKnowledgeManager:
 
         except (KeyError, TypeError, AttributeError) as e:
             logger.debug(f"[arena] Failed to apply culture hints (data error): {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.warning(f"[arena] Unexpected error applying culture hints: {e}")
 
     async def fetch_context(
@@ -532,7 +532,7 @@ class ArenaKnowledgeManager:
                     "[supermemory] Outcome sync failed: %s",
                     sync_result.error,
                 )
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError, TypeError, AttributeError) as e:
             logger.debug(f"[supermemory] Outcome sync error: {e}")
 
     @property

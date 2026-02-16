@@ -109,7 +109,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.debug("ObsidianAdapter event callback failed: %s", e)
 
     def _get_mound(self) -> Any | None:
@@ -118,7 +118,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
             from aragora.knowledge.mound import get_knowledge_mound
 
             return get_knowledge_mound(workspace_id=self._sync_config.workspace_id)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Could not get knowledge mound: %s", e)
             return None
 
@@ -211,7 +211,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                         )
                         await mound.ingest(req)
                         synced += 1
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         failed += 1
                         logger.warning("Obsidian note ingestion failed: %s", e)
                         errors.append("Note ingestion failed")
@@ -219,7 +219,7 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                     if max_notes is not None and (synced + skipped + failed) >= max_notes:
                         break
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning("Obsidian sync failed: %s", e)
             errors.append("Obsidian sync failed")
 

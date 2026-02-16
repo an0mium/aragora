@@ -250,7 +250,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store rig snapshot: {e}")
                 return None
 
@@ -335,7 +335,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to store convoy outcome: {e}")
                 return None
 
@@ -416,7 +416,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store merge outcome: {e}")
                 return None
 
@@ -491,7 +491,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
                 return snapshots[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get rig performance history: {e}")
                 return []
 
@@ -563,7 +563,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
                 return outcomes[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get convoy patterns: {e}")
                 return []
 
@@ -650,7 +650,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 recommendations.sort(key=lambda r: r["combined_score"], reverse=True)
                 return recommendations[:top_n]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get rig recommendations: {e}")
                 return []
 
@@ -815,7 +815,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                     ],
                 }
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to get merge success factors: %s", e)
                 return {"analysis_available": False, "error": "Merge success analysis unavailable"}
 
@@ -888,7 +888,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 logger.info(f"Synced from workspace: {synced}")
                 return synced
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to sync from workspace: %s", e)
                 return {"error": "Workspace sync failed"}
 

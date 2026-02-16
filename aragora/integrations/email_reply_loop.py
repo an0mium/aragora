@@ -432,8 +432,7 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
                 f"PostgreSQL email reply store connection failed: {type(e).__name__}: {e}"
             )
             return None
-        except Exception as e:
-            # asyncpg and psycopg raise their own exception hierarchies
+        except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
             logger.warning(f"PostgreSQL email reply store not available: {type(e).__name__}: {e}")
             return None
 
@@ -463,7 +462,7 @@ def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
         r.setex(key, EMAIL_ORIGIN_TTL_SECONDS, json.dumps(origin.to_dict()))
     except ImportError:
         raise
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         logger.debug(f"Redis email origin store failed: {e}")
         raise
 
@@ -481,7 +480,7 @@ def _load_email_origin_redis(message_id: str) -> EmailReplyOrigin | None:
         return None
     except ImportError:
         raise
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         logger.debug(f"Redis email origin load failed: {e}")
         raise
 
@@ -535,7 +534,7 @@ def register_email_origin(
             logger.warning(
                 f"PostgreSQL email origin storage connection error: {type(e).__name__}: {e}"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
             logger.warning(f"PostgreSQL email origin storage failed: {type(e).__name__}: {e}")
     else:
         # Persist to SQLite for durability (always available)
@@ -556,7 +555,7 @@ def register_email_origin(
                 "Redis library not installed (pip install redis)",
             )
         logger.debug("Redis not available, using SQLite/PostgreSQL only")
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         if is_distributed_state_required():
             raise DistributedStateError(
                 "email_reply_loop",
@@ -589,7 +588,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 return origin
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Redis email origin lookup connection error: {type(e).__name__}: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.debug(f"Redis email origin lookup not available: {type(e).__name__}: {e}")
 
         # Try PostgreSQL if configured

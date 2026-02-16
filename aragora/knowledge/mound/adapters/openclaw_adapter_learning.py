@@ -322,7 +322,7 @@ class OpenClawLearningMixin:
                     self._actions[action_key]["km_confidence"] = confidence
                     result.actions_updated += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 error_msg = f"Error processing KM item: {e}"
                 logger.warning(error_msg)
                 result.errors.append(error_msg)

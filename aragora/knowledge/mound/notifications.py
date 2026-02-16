@@ -503,7 +503,7 @@ class SharingNotifier:
         except ImportError:
             logger.debug("Email integration not available")
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to send email notification: {e}")
             return False
 

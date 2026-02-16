@@ -83,6 +83,7 @@ class HardenedConfig:
     enable_audit_reconciliation: bool = True
     enable_auto_commit: bool = True
     enable_meta_planning: bool = False
+    use_hierarchical: bool = False
     budget_limit_usd: float | None = None
     budget_enforcement: BudgetEnforcementConfig | None = None
     generate_receipts: bool = True
@@ -128,6 +129,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         enable_audit_reconciliation: bool = True,
         enable_auto_commit: bool = True,
         enable_meta_planning: bool = False,
+        use_hierarchical: bool = False,
         budget_limit_usd: float | None = None,
         budget_enforcement: BudgetEnforcementConfig | None = None,
         generate_receipts: bool = True,
@@ -156,6 +158,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             enable_audit_reconciliation=enable_audit_reconciliation,
             enable_auto_commit=enable_auto_commit,
             enable_meta_planning=enable_meta_planning,
+            use_hierarchical=use_hierarchical,
             budget_limit_usd=budget_limit_usd,
             budget_enforcement=budget_enforcement,
             generate_receipts=generate_receipts,

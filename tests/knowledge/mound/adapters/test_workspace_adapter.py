@@ -563,7 +563,7 @@ class TestStoreRigSnapshot:
     async def test_store_rig_snapshot_handles_exception(self):
         """Should handle ingest exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.ingest = AsyncMock(side_effect=Exception("Ingest failed"))
+        mock_km.ingest = AsyncMock(side_effect=RuntimeError("Ingest failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
         snapshot = RigSnapshot(
@@ -715,7 +715,7 @@ class TestStoreConvoyOutcome:
     async def test_store_convoy_outcome_handles_exception(self):
         """Should handle ingest exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.ingest = AsyncMock(side_effect=Exception("Ingest failed"))
+        mock_km.ingest = AsyncMock(side_effect=RuntimeError("Ingest failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
         outcome = ConvoyOutcome(
@@ -839,7 +839,7 @@ class TestStoreMergeOutcome:
     async def test_store_merge_outcome_handles_exception(self):
         """Should handle ingest exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.ingest = AsyncMock(side_effect=Exception("Ingest failed"))
+        mock_km.ingest = AsyncMock(side_effect=RuntimeError("Ingest failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
         outcome = MergeOutcome(
@@ -1092,7 +1092,7 @@ class TestGetRigPerformanceHistory:
     async def test_get_rig_performance_handles_exception(self):
         """Should handle query exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_km.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
 
@@ -1200,7 +1200,7 @@ class TestGetConvoyPatterns:
     async def test_get_convoy_patterns_handles_exception(self):
         """Should handle query exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_km.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
 
@@ -1352,7 +1352,7 @@ class TestGetRigRecommendations:
     async def test_get_rig_recommendations_handles_exception(self):
         """Should handle query exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_km.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
 
@@ -1562,7 +1562,7 @@ class TestGetMergeSuccessFactors:
     async def test_get_merge_success_factors_handles_exception(self):
         """Should handle query exceptions gracefully."""
         mock_km = AsyncMock()
-        mock_km.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_km.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = WorkspaceAdapter(knowledge_mound=mock_km)
 
@@ -1700,7 +1700,7 @@ class TestSyncFromWorkspace:
     async def test_sync_handles_exception(self):
         """Should handle sync exceptions gracefully."""
         mock_ws = AsyncMock()
-        mock_ws.list_rigs = AsyncMock(side_effect=Exception("List failed"))
+        mock_ws.list_rigs = AsyncMock(side_effect=RuntimeError("List failed"))
 
         adapter = WorkspaceAdapter(workspace_manager=mock_ws)
 

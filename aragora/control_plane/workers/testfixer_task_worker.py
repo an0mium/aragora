@@ -53,7 +53,7 @@ class TestFixerTaskWorker:
             await self._integration._coordinator._scheduler_bridge.complete_task(
                 task.id, result=result, agent_id=self._worker_id
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as exc:
             logger.error(f"TestFixer task {task.id} failed: {exc}")
             await self._integration._coordinator._scheduler_bridge.fail_task(
                 task.id, error=str(exc), agent_id=self._worker_id

@@ -956,7 +956,7 @@ class TestMigrateContinuumMemory:
         mock_mound = AsyncMock()
         mock_mound.query = AsyncMock(return_value=MagicMock(items=[]))
         mock_mound.add_node = AsyncMock(
-            side_effect=["node_001", Exception("Add failed"), "node_003"]
+            side_effect=["node_001", RuntimeError("Add failed"), "node_003"]
         )
 
         mock_source = MagicMock()
@@ -1217,7 +1217,7 @@ class TestMigrateConsensusMemory:
         from aragora.knowledge.migration import KnowledgeMoundMigrator
 
         mock_mound = AsyncMock()
-        mock_mound.add_node = AsyncMock(side_effect=["cons_001", Exception("Failed"), "cons_003"])
+        mock_mound.add_node = AsyncMock(side_effect=["cons_001", RuntimeError("Failed"), "cons_003"])
 
         mock_source = MagicMock()
         records = [

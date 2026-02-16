@@ -469,7 +469,7 @@ class FederationScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.error(f"Error in federation scheduler loop: {e}")
                 await asyncio.sleep(30)
 
@@ -524,7 +524,7 @@ class FederationScheduler:
                 f"Federation sync completed: {run.items_pushed} pushed, {run.items_pulled} pulled"
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             run.status = "error"
             run.error_message = f"Federation sync failed: {type(e).__name__}"
             run.completed_at = datetime.now()
@@ -604,7 +604,7 @@ class FederationScheduler:
 
         except ImportError:
             logger.warning("KnowledgeMound not available for sync")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Error during sync: {e}")
             raise
 

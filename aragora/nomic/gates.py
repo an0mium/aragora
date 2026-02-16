@@ -720,7 +720,7 @@ class CommitGate(ApprovalGate):
                     reason="Web UI approval" if approved else "Web UI rejected",
                     metadata={"files_changed": files_changed},
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Web UI callback failed: {e}, falling back to CLI")
 
         # Fall back to CLI approval

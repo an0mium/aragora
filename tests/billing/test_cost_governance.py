@@ -1514,7 +1514,7 @@ class TestCostGovernanceEngine:
         """Test audit callback errors are caught."""
 
         def failing_callback(entry):
-            raise Exception("Callback error")
+            raise RuntimeError("Callback error")
 
         engine.add_audit_callback(failing_callback)
 

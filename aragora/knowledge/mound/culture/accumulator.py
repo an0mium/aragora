@@ -213,7 +213,7 @@ class CultureAccumulator:
                     debate_id=observation.debate_id,
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to observe debate: {e}")
 
         return patterns_updated
@@ -296,7 +296,7 @@ class CultureAccumulator:
                 domain=domain,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to extract observation: {e}")
             return None
 
@@ -786,7 +786,7 @@ class OrganizationCultureManager:
         if hasattr(self._mound, "_vector_store") and self._mound._vector_store:
             try:
                 embeddings = await self._mound._vector_store.embed_text(content)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"Could not generate embeddings: {e}")
 
         doc = CultureDocument(
@@ -839,7 +839,7 @@ class OrganizationCultureManager:
         if hasattr(self._mound, "_vector_store") and self._mound._vector_store:
             try:
                 embeddings = await self._mound._vector_store.embed_text(content)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"Could not generate embeddings: {e}")
 
         new_doc = CultureDocument(
@@ -926,7 +926,7 @@ class OrganizationCultureManager:
 
                 scored.sort(key=lambda x: x[1], reverse=True)
                 return [doc for doc, _ in scored[:limit]]
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.debug(f"Semantic search failed: {e}")
 
         # Fallback to keyword matching
@@ -1087,7 +1087,7 @@ class OrganizationCultureManager:
                     # Aggregate patterns
                     for pattern_type, patterns in profile.patterns.items():
                         aggregated_patterns[pattern_type].extend(patterns)
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:  # noqa: BLE001 - adapter isolation
                     logger.debug(f"Could not get profile for workspace {ws_id}: {e}")
 
         # Extract dominant traits from aggregated data

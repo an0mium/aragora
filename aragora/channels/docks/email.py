@@ -109,7 +109,7 @@ class EmailDock(ChannelDock):
                 channel_id=channel_id,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Email send error: {e}")
             return SendResult.fail(
                 error=str(e),

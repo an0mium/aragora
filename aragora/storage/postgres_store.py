@@ -470,7 +470,7 @@ async def acquire_connection_resilient(
                 f"pool utilization: {pool.get_size()}/{pool.get_max_size()}"
             )
 
-        except (OSError, RuntimeError, ConnectionError) as e:
+        except Exception as e:  # noqa: BLE001 - retry loop must catch all transient pool/connection errors (asyncpg, network, etc.)
             _pool_metrics["failed_acquisitions"] += 1
             last_error = e
 

@@ -539,7 +539,7 @@ class AuditTrail:
         except ImportError:
             logger.warning("aiosqlite not available, falling back to in-memory audit storage")
             self._enable_persistence = False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to initialize audit database: {e}")
             self._enable_persistence = False
 
@@ -578,7 +578,7 @@ class AuditTrail:
                     ),
                 )
                 await db.commit()
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Failed to persist audit entry: {e}")
 
     async def log(
@@ -805,7 +805,7 @@ class AuditTrail:
                         entries.append(entry)
 
             return entries
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Database query failed, falling back to in-memory: {e}")
             return None
 

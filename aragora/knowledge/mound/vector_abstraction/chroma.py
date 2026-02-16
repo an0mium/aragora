@@ -105,7 +105,7 @@ class ChromaVectorStore(BaseVectorStore):
 
             logger.info(f"Connected to Chroma at {persist_path}")
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Chroma: {e}") from e
 
@@ -409,7 +409,7 @@ class ChromaVectorStore(BaseVectorStore):
                     metadata={k: v for k, v in meta.items() if k != "namespace"},
                     embedding=results["embeddings"][0] if results.get("embeddings") else None,
                 )
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.debug(f"Error retrieving vector by ID: {e}")
 
         return None
@@ -473,7 +473,7 @@ class ChromaVectorStore(BaseVectorStore):
                 "backend": "chroma",
                 "collections": len(collections),
             }
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             return {
                 "status": "unhealthy",
                 "backend": "chroma",

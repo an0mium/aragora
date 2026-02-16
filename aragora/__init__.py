@@ -94,7 +94,7 @@ try:
         from aragora.config.secrets import hydrate_env_from_secrets
 
         hydrate_env_from_secrets(overwrite=True)
-except Exception as exc:
+except (ImportError, OSError, RuntimeError, ValueError) as exc:
     # Best-effort: avoid blocking imports if secrets hydration fails.
     import logging as _logging
 

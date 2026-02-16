@@ -120,7 +120,7 @@ class PineconeVectorStore(BaseVectorStore):
             self._connected = True
             logger.info(f"Connected to Pinecone index: {self._index_name}")
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Pinecone: {e}") from e
 
@@ -182,7 +182,7 @@ class PineconeVectorStore(BaseVectorStore):
         try:
             self._client.delete_index(name)
             return True
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Failed to delete Pinecone index {name}: {e}")
             return False
 
@@ -416,6 +416,6 @@ class PineconeVectorStore(BaseVectorStore):
                 "dimensions": stats.dimension,
                 "namespaces": list(stats.namespaces.keys()),
             }
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.warning("Pinecone health check failed: %s", e)
             return {"status": "unhealthy", "error": "Health check failed"}

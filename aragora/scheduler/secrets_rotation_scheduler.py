@@ -739,7 +739,7 @@ class SecretsRotationScheduler:
             if handler:
                 result = handler(secret_id)
                 if not result.get("success", False):
-                    raise Exception(result.get("error", "Rotation failed"))
+                    raise RuntimeError(result.get("error", "Rotation failed"))
                 rotation.new_version = result.get("new_version", self._generate_version_hash())
             else:
                 # Simulate rotation if no handler
@@ -776,7 +776,7 @@ class SecretsRotationScheduler:
                 rotation.verification_passed = True
                 rotation.status = RotationStatus.COMPLETED
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             rotation.status = RotationStatus.FAILED
             rotation.error_message = "Secret rotation failed"
             logger.error(f"Secret rotation failed: {e}")

@@ -208,7 +208,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 )
                 return True
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result to insights: {e}")
             return False
 
@@ -1328,7 +1328,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 if validation.km_confidence >= min_confidence:
                     await self.apply_km_validation(validation)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Error validating {flip_id}: {e}")
 
         # Also update thresholds
@@ -1343,7 +1343,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                     flip_items, min_confidence
                 )
                 result.threshold_updates.append(threshold_update)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             errors.append(f"Error updating thresholds: {e}")
 
         # Update agent baselines
@@ -1357,7 +1357,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             try:
                 baseline = await self.get_agent_flip_baselines(agent_name, km_items)
                 result.baseline_updates.append(baseline)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Error computing baseline for {agent_name}: {e}")
 
         result.errors = errors

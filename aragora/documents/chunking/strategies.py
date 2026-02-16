@@ -783,7 +783,7 @@ class RLMChunking(ChunkingStrategy):
                 # Set agent_call if the compressor supports it
                 if agent_call and hasattr(self._compressor, "agent_call"):
                     self._compressor.agent_call = agent_call
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, ImportError) as e:
                 logger.warning(f"Failed to initialize RLM compressor: {e}")
 
     @property
@@ -824,7 +824,7 @@ class RLMChunking(ChunkingStrategy):
             compression_result = loop.run_until_complete(
                 self._compressor.compress(text, source_type="text", max_levels=3)
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
             logger.error(f"RLM compression failed: {e}, falling back to semantic")
             fallback = SemanticChunking(self.config)
             return fallback.chunk(text, document_id, metadata)

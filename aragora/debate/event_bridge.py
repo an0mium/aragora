@@ -136,7 +136,7 @@ class EventEmitterBridge:
         except (ConnectionError, RuntimeError) as e:
             # Network/event system issues
             logger.warning(f"Event emission connection error (non-fatal): {e}")
-        except Exception as e:
+        except (AttributeError, ImportError, OSError) as e:
             # Unexpected - log with type info
             logger.warning(f"Event emission unexpected error (non-fatal): {type(e).__name__}: {e}")
 
@@ -191,7 +191,7 @@ class EventEmitterBridge:
 
             if updated:
                 self._emit_graph_update()
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Cartographer error (non-fatal): {e}")
 
     def _emit_graph_update(self) -> None:
@@ -210,7 +210,7 @@ class EventEmitterBridge:
                     loop_id=self.loop_id or "",
                 )
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ImportError) as e:
             logger.warning(f"Graph update emission error (non-fatal): {e}")
 
     @staticmethod
@@ -236,5 +236,5 @@ class EventEmitterBridge:
                 )
             )
             logger.debug("Emitted moment event: %s for %s", moment.moment_type, moment.agent_name)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ImportError) as e:
             logger.warning("Failed to emit moment event: %s", e)

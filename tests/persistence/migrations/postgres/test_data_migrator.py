@@ -415,7 +415,7 @@ class TestMigrateTable:
             {"column_name": "id", "data_type": "text"},
             {"column_name": "email", "data_type": "text"},
         ]
-        conn.executemany = AsyncMock(side_effect=Exception("Constraint violation"))
+        conn.executemany = AsyncMock(side_effect=RuntimeError("Constraint violation"))
 
         migrator = DataMigrator(
             sqlite_path=temp_sqlite_db,

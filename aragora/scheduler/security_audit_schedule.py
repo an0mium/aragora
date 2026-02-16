@@ -191,7 +191,7 @@ async def run_security_scan_with_debate(
         except ImportError as e:
             logger.warning(f"Security debate module not available: {e}")
             result["debate_error"] = "Security debate module not available"
-        except Exception as e:
+        except (RuntimeError, ValueError, ConnectionError, TimeoutError) as e:
             logger.error(f"Security debate failed: {e}")
             result["debate_error"] = "Security debate failed"
 

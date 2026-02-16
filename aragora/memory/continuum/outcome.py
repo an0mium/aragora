@@ -82,7 +82,7 @@ class OutcomeMixin:
                     except RuntimeError:
                         # No event loop running - can't dispatch async
                         pass
-            except Exception as hook_err:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as hook_err:
                 logger.warning("Post-outcome hook failed: %s", hook_err)
 
     def update_outcome(

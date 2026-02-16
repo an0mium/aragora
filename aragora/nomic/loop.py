@@ -225,7 +225,7 @@ class NomicLoop:
                 "verification": verify_result,
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("Cycle %s failed with exception: %s", self._current_cycle_id, e)
             self.create_checkpoint()
 
@@ -489,7 +489,7 @@ class NomicLoop:
                 checkpoint_path = self.checkpoint_dir / f"checkpoint_{self._current_cycle_id}.json"
                 checkpoint_path.write_text(json.dumps(checkpoint, indent=2, default=str))
                 self._log(f"Checkpoint saved: {checkpoint_path}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Failed to save checkpoint: {e}")
 
         return checkpoint
@@ -556,7 +556,7 @@ class NomicLoop:
             logger.debug(
                 f"cycle_record_saved cycle_id={self._current_record.cycle_id} success={success}"
             )
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Failed to save cycle record: {e}")
 
     def _get_cross_cycle_context(self) -> dict[str, Any]:
@@ -620,7 +620,7 @@ class NomicLoop:
 
             return context
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug(f"Failed to get cross-cycle context: {e}")
             return {}
 

@@ -96,7 +96,7 @@ class TransactionManager:
                 await conn.execute("COMMIT")
                 logger.debug("Transaction committed successfully")
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional: rollback transaction before re-raising any error
                 # Rollback on any exception
                 await conn.execute("ROLLBACK")
                 logger.warning(f"Transaction rolled back due to: {e}")
@@ -165,7 +165,7 @@ class TransactionManager:
                 async with self.transaction(isolation, timeout) as conn:
                     yield conn
                     return  # Success - exit the retry loop
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional: detect deadlocks across any exception type
                 if self._is_deadlock_error(e) and attempt < max_retries:
                     delay = self._calculate_deadlock_delay(attempt)
                     logger.warning(

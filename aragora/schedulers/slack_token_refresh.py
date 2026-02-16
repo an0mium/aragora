@@ -253,7 +253,7 @@ class SlackTokenRefreshScheduler:
                 elif stats.refreshed > 0:
                     logger.info(f"Token refresh cycle completed: {stats.refreshed} refreshed")
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error in token refresh cycle: {e}", exc_info=True)
 
             # Wait for next cycle
@@ -273,7 +273,7 @@ class SlackTokenRefreshScheduler:
 
             # Update active workspaces metric (total checked represents active)
             _update_active_workspaces(len(expiring))
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to get expiring tokens: {e}")
             _record_refresh_failure("store_error")
             return stats
@@ -299,7 +299,7 @@ class SlackTokenRefreshScheduler:
                 if self.on_refresh_failure:
                     try:
                         self.on_refresh_failure(result)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                         logger.error(f"Error in refresh failure callback: {e}")
 
             # Small delay between refreshes to avoid rate limiting
@@ -343,7 +343,7 @@ class SlackTokenRefreshScheduler:
                     error=error,
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             error = str(e)
             logger.error(f"Exception refreshing token for {workspace_name}: {error}")
             return RefreshResult(

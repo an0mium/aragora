@@ -309,7 +309,7 @@ class GitCheckpointStore(CheckpointStore):
         except (OSError, PermissionError) as e:
             logger.warning(f"Git command OS error: {e}")
             return False, f"git_os_error:{type(e).__name__}"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.exception(f"Unexpected git command error: {e}")
             return False, f"git_error:{type(e).__name__}"
 

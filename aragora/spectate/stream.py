@@ -126,7 +126,7 @@ class SpectatorStream:
         except (MemoryError, RecursionError):
             # Re-raise resource exhaustion - indicates serious problem
             raise
-        except Exception as e:
+        except (OSError, ValueError, TypeError, UnicodeError, RuntimeError) as e:
             # Swallow non-critical errors (IO, encoding, etc.) to ensure
             # spectating never breaks debates. Log at debug level.
             logger.debug(f"Spectator emit failed (non-fatal): {type(e).__name__}: {e}")

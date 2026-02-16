@@ -319,7 +319,7 @@ def _run_health_checks(config: dict[str, Any]) -> None:
         except ImportError:
             print("SKIP (psycopg2 not installed)")
             checks_passed += 1  # Not a failure, just not testable
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             print(f"FAILED ({str(e)[:40]})")
     else:
         print("    Checking SQLite availability...", end=" ", flush=True)
@@ -330,7 +330,7 @@ def _run_health_checks(config: dict[str, Any]) -> None:
             conn.close()
             print("OK")
             checks_passed += 1
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             print(f"FAILED ({e})")
 
     # Check 2: Redis connectivity (if configured)
@@ -347,7 +347,7 @@ def _run_health_checks(config: dict[str, Any]) -> None:
         except ImportError:
             print("SKIP (redis not installed)")
             checks_passed += 1
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             print(f"FAILED ({str(e)[:40]})")
 
     # Check 3: Stripe API (if configured)
@@ -372,7 +372,7 @@ def _run_health_checks(config: dict[str, Any]) -> None:
         except ImportError:
             print("SKIP (httpx not installed)")
             checks_passed += 1
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             print(f"FAILED ({str(e)[:40]})")
 
     # Check 4: Required Python packages

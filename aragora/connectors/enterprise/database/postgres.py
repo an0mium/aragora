@@ -358,11 +358,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except Exception as e:
-                # Intentionally broad: DB driver (asyncpg) raises its own exception
-                # hierarchy that we cannot enumerate without a hard dependency.
-                # Ensures sync continues with remaining tables on connection errors,
-                # query failures, and data conversion issues.
+            except Exception as e:  # noqa: BLE001 - DB driver (asyncpg) raises its own exception hierarchy without hard dependency
                 logger.warning(f"Failed to sync table {table} ({type(e).__name__}): {e}")
                 state.errors.append(f"{table}: sync failed")
                 continue

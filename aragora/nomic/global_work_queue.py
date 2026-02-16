@@ -353,7 +353,7 @@ class GlobalWorkQueue:
                             self._add_to_heap(work)
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid queue data: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load queue: {e}")
 
     async def _save_queue(self) -> None:
@@ -366,7 +366,7 @@ class GlobalWorkQueue:
                 for work in self._items.values():
                     f.write(json.dumps(work.to_dict()) + "\n")
             temp_file.rename(queue_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             logger.error(f"Failed to save queue: {e}")
@@ -423,7 +423,7 @@ class GlobalWorkQueue:
                         await callback("push", work)
                     else:
                         callback("push", work)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - callback errors must not break queue operations
                     logger.error(f"Callback error: {e}")
 
             return work

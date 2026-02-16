@@ -448,7 +448,7 @@ class ChannelRouter:
 
         except ImportError:
             logger.debug("TTS bridge not available")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.warning(f"TTS synthesis failed: {e}")
 
         return None

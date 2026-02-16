@@ -436,7 +436,7 @@ def _shutdown_state_manager() -> None:
 
         try:
             sys.stderr.write(f"[StateManager shutdown error] {type(e).__name__}: {e}\n")
-        except Exception as exc:  # noqa: F841
+        except Exception as exc:  # noqa: BLE001, F841 - atexit stderr: interpreter shutdown may raise any exception
             # Even stderr might fail during final shutdown - silently ignore
             # exc: captured for debugging if needed
             pass

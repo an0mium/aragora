@@ -403,7 +403,7 @@ class DirectoryWatcher:
                 for change_type, change_path in changes:
                     try:
                         await self._handle_change(root, state, change_type, change_path)
-                    except Exception as e:
+                    except (OSError, RuntimeError, ValueError, KeyError, TypeError) as e:
                         logger.error(f"Error handling change {change_path}: {e}")
                         state.error_count += 1
                         state.last_error = str(e)

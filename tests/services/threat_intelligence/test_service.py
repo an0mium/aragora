@@ -1783,13 +1783,13 @@ class TestAggregateThreatAssessment:
         mock_session = AsyncMock()
         mock_session.get = MagicMock(
             return_value=AsyncMock(
-                __aenter__=AsyncMock(side_effect=Exception("API Error")),
+                __aenter__=AsyncMock(side_effect=ConnectionError("API Error")),
                 __aexit__=AsyncMock(),
             )
         )
         mock_session.post = MagicMock(
             return_value=AsyncMock(
-                __aenter__=AsyncMock(side_effect=Exception("API Error")),
+                __aenter__=AsyncMock(side_effect=ConnectionError("API Error")),
                 __aexit__=AsyncMock(),
             )
         )

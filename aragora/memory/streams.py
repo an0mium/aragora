@@ -363,7 +363,7 @@ class MemoryStream(SQLiteStore):
         if self.embedding_provider:
             try:
                 return self._embedding_similarity(content, query)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 logger.debug(f"[memory] Embedding similarity failed, using keyword fallback: {e}")
 
         # Keyword matching fallback

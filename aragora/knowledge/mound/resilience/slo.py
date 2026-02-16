@@ -137,7 +137,7 @@ def record_adapter_slo_check(
 
     except ImportError:
         pass
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.debug(f"Failed to record adapter metrics: {e}")
 
     # Check SLO compliance
@@ -164,7 +164,7 @@ def record_adapter_slo_check(
             )
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to record SLO check: {e}")
 
         logger.warning(message)

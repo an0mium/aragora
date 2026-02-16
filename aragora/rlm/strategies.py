@@ -383,7 +383,7 @@ Combined answer:"""
             try:
                 final_answer = self.agent_call(reduce_prompt, self.config.root_model, "")
                 sub_calls += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                 logger.error(f"Reduce step failed: {e}")
                 final_answer = "\n\n".join(partial_answers)
         elif partial_answers:
@@ -414,7 +414,7 @@ Combined answer:"""
             if "not found" in response.lower() or "no information" in response.lower():
                 return None
             return response
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
             logger.error(f"Chunk {index} processing failed: {e}")
             return None
 
@@ -482,7 +482,7 @@ Summary:"""
                 try:
                     summary = self.agent_call(prompt, self.config.root_model, "")
                     answer_parts.append(summary)
-                except Exception as e:
+                except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                     logger.error(f"Summarization failed: {e}")
                     answer_parts.append(context.original_content[:1000] + "...")
             else:
@@ -553,7 +553,7 @@ Relevant node IDs (comma-separated):"""
                 ]
                 sub_calls += 1
                 examined_tokens += len(abstract_content) // 4
-            except Exception as e:
+            except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                 logger.error(f"Relevance identification failed: {e}")
 
         # Step 2: Drill down into relevant sections
@@ -592,7 +592,7 @@ Answer with citations:"""
             try:
                 answer = self.agent_call(answer_prompt, self.config.root_model, "")
                 sub_calls += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                 logger.error(f"Answer generation failed: {e}")
                 answer = f"Based on the content: {detailed_content[0][:500]}..."
         else:

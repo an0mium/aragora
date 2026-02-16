@@ -42,6 +42,13 @@ from aragora.storage.generic_store import (
 if TYPE_CHECKING:
     pass
 
+# redis.exceptions.ConnectionError does NOT inherit from builtins.ConnectionError
+# (it inherits from redis.RedisError -> Exception), so we need to catch it explicitly.
+try:
+    from redis.exceptions import RedisError as _RedisError  # noqa: F401
+except ImportError:
+    _RedisError = OSError  # type: ignore[misc,assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -415,7 +422,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for gauntlet run storage")
             self._using_fallback = False
-        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except (ImportError, _RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -428,7 +435,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis get failed, using fallback: {e}")
             return await self._fallback.get(run_id)
 
@@ -452,7 +459,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             if template_id:
                 pipe.sadd(f"{self.REDIS_INDEX_TEMPLATE}{template_id}", run_id)
             pipe.execute()
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, run_id: str) -> bool:
@@ -480,7 +487,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 pipe.execute()
                 return True
             return result
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis delete failed: {e}")
             return result
 
@@ -505,7 +512,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                         if valid_values:
                             results.extend(_batch_deserialize_json([(v,) for v in valid_values]))
             return results
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_all failed, using fallback: {e}")
             return await self._fallback.list_all()
 
@@ -521,7 +528,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_by_status failed, using fallback: {e}")
             return await self._fallback.list_by_status(status)
 
@@ -537,7 +544,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_by_template failed, using fallback: {e}")
             return await self._fallback.list_by_template(template_id)
 
@@ -549,7 +556,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             pending = await self.list_by_status("pending")
             running = await self.list_by_status("running")
             return pending + running
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis list_active failed, using fallback: {e}")
             return await self._fallback.list_active()
 
@@ -586,7 +593,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             pipe.sadd(f"{self.REDIS_INDEX_STATUS}{status}", run_id)
             pipe.execute()
             return True
-        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
+        except (_RedisError, ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis update_status failed: {e}")
             return result
 
@@ -597,7 +604,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
                 logger.debug(f"Redis close failed (connection already closed): {e}")
-            except (ConnectionError, TimeoutError, OSError) as e:
+            except (_RedisError, ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"Redis close failed: {e}")
 
 

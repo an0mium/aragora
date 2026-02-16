@@ -191,7 +191,7 @@ def load_policy(path: str | Path | None = None) -> PolicyConfig:
     except ImportError:
         logger.warning("PyYAML not installed, using default policy")
         return _default_policy()
-    except Exception as exc:
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         logger.warning("Failed to parse policy %s: %s", path, exc)
         return _default_policy()
 
@@ -685,7 +685,7 @@ class PRReviewRunner:
             return findings, None
         except ImportError:
             pass
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.debug("Direct review import failed: %s, falling back to subprocess", exc)
 
         # Fallback: run as subprocess

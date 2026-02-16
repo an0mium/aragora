@@ -117,7 +117,7 @@ class TranscriptionWorker:
             except asyncio.CancelledError:
                 logger.info(f"[{self.worker_id}] Worker cancelled")
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
                 logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
@@ -171,7 +171,7 @@ class TranscriptionWorker:
 
             logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
                 f"[{self.worker_id}] Job {job.id} failed: {e}",
                 exc_info=True,
@@ -387,7 +387,7 @@ async def recover_interrupted_transcriptions() -> int:
                 logger.info(f"Recovered {stale_recovered} stale {job_type} jobs")
                 recovered += stale_recovered
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TypeError) as e:
         logger.error(f"Error recovering transcription jobs: {e}", exc_info=True)
 
     if recovered:

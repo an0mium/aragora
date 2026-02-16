@@ -105,7 +105,7 @@ class TestEventCallback:
         from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
 
         mock_consensus = MagicMock()
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = ConsensusAdapter(mock_consensus, event_callback=callback)
 
         # Should not raise

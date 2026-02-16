@@ -650,7 +650,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                     },
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 result.records_failed += 1
                 logger.warning("Failed to sync consensus %s: %s", record.id, e)
                 result.errors.append(f"Failed to sync consensus {record.id}")
@@ -759,7 +759,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                     },
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Reverse sync failed for consensus %s: %s", source_id, e)
                 result["errors"].append(f"Failed to update {source_id}")
 
@@ -871,6 +871,6 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result: {e}")
             return False

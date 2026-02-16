@@ -313,7 +313,7 @@ class ConvoyImplementExecutor:
                     bead.status = "done"
                     bead.result = f"[Bead ready for external execution: {bead.title}]"
 
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 bead.status = "failed"
                 bead.result = str(exc)
                 logger.error("Bead %s failed: %s", bead.bead_id, exc)
@@ -352,7 +352,7 @@ class ConvoyImplementExecutor:
                 else:
                     passed += 1  # No reviewer available, assume pass
 
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("Cross-check failed for %s: %s", bead.bead_id, exc)
                 passed += 1  # Don't block on review failures
 
@@ -483,7 +483,7 @@ class ConvoyImplementExecutor:
             if on_task_complete:
                 try:
                     on_task_complete(task_id, result)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - callback errors must not break executor
                     logger.warning("on_task_complete callback failed: %s", exc)
 
         return results

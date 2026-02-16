@@ -107,7 +107,7 @@ class QualityScorer:
                 from aragora.ml.embeddings import get_embedding_service
 
                 self._embedding_service = get_embedding_service()
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Could not load embedding service: {e}")
                 self.config.use_embeddings = False
         return self._embedding_service
@@ -278,7 +278,7 @@ class QualityScorer:
                 context_emb = embedding_service.embed(context[:500])
                 similarity = embedding_service.similarity(text_emb, context_emb)
                 return float(similarity)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.debug(f"Embedding similarity failed: {e}")
 
         # Fallback: keyword overlap

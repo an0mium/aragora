@@ -347,7 +347,7 @@ class TestCmdGauntlet:
         mock_gauntlet.InputType = MagicMock()
 
         mock_agents = MagicMock()
-        mock_agents.create_agent.side_effect = Exception("No API key")
+        mock_agents.create_agent.side_effect = RuntimeError("No API key")
 
         mock_spec = MagicMock()
         mock_spec.coerce_list.return_value = [MockAgentSpec()]

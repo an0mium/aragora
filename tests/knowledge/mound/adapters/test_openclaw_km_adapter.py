@@ -1834,7 +1834,7 @@ class TestErrorHandling:
 
     def test_event_callback_error_does_not_crash_store(self, adapter):
         """Should handle callback errors without crashing store_action_result."""
-        adapter.set_event_callback(MagicMock(side_effect=Exception("callback boom")))
+        adapter.set_event_callback(MagicMock(side_effect=RuntimeError("callback boom")))
 
         action = OpenClawKnowledgeItem(action_id="err_001", result=ActionStatus.SUCCESS, context={})
 

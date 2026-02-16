@@ -357,7 +357,7 @@ class DebateRoundsPhase:
                             "reasoning": strategy_rec.reasoning,
                             "relevant_memories": strategy_rec.relevant_memories[:3],
                         }
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("[strategy] Round estimation failed, using protocol default: %s", e)
 
         # Track novelty for initial proposals (round 0 baseline)
@@ -392,7 +392,7 @@ class DebateRoundsPhase:
                             ctx.result.metadata["budget_pause_round"] = round_num
                         # Exit round loop gracefully (don't raise exception)
                         break
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                     # Budget check failure should not stop the debate
                     logger.debug("Budget check error (continuing): %s", e)
 
@@ -426,7 +426,7 @@ class DebateRoundsPhase:
         if ctx.hook_manager:
             try:
                 await ctx.hook_manager.trigger("pre_round", ctx=ctx, round_num=round_num)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("PRE_ROUND hook failed: %s", e)
 
         # Emit heartbeat at round start
@@ -460,7 +460,7 @@ class DebateRoundsPhase:
         if self.recorder:
             try:
                 self.recorder.record_phase_change(f"round_{round_num}_start")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("Recorder error for round start: %s", e)
 
         # Await background research/evidence before round 1 critiques
@@ -548,7 +548,7 @@ class DebateRoundsPhase:
         if self._checkpoint_callback:
             try:
                 await self._checkpoint_callback(ctx, round_num)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("Checkpoint failed for round %s: %s", round_num, e)
 
         # Trigger POST_ROUND hook if hook_manager is available
@@ -560,7 +560,7 @@ class DebateRoundsPhase:
                     round_num=round_num,
                     proposals=ctx.proposals,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("POST_ROUND hook failed: %s", e)
 
         # Emit heartbeat before convergence check
@@ -659,7 +659,7 @@ class DebateRoundsPhase:
                     skipped = [c.name for c in critics if c not in available]
                     logger.info("circuit_breaker_skip_critics skipped=%s", skipped)
                 critics = available
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.error("Circuit breaker filter error for critics: %s", e)
 
         return critics
@@ -681,7 +681,7 @@ class DebateRoundsPhase:
                 )
                 order = {name: idx for idx, (name, _) in enumerate(ranked_names)}
                 ranked.sort(key=lambda a: order.get(a.name, len(order)))
-            except Exception as exc:
+            except (ValueError, KeyError, TypeError) as exc:  # noqa: BLE001
                 logger.debug("fast_first_bridge_ranking_failed: %s", exc)
 
         # Fallback tie-breaker: lower timeout implies faster model path.
@@ -838,7 +838,7 @@ class DebateRoundsPhase:
                     e,
                 )
                 return (critic, proposal_agent, e)
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
                 # Unexpected error - log at error level for investigation
                 latency_ms = (time.perf_counter() - start_time) * 1000
                 governor.record_agent_response(critic.name, latency_ms, success=False)
@@ -908,7 +908,7 @@ class DebateRoundsPhase:
             except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.error("critique_task_error error_type=%s: %s", type(e).__name__, e)
                 continue
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error("critique_task_unexpected error_type=%s: %s", type(e).__name__, e)
                 continue
 
@@ -1023,7 +1023,7 @@ class DebateRoundsPhase:
                 if self.recorder:
                     try:
                         self.recorder.record_turn(critic.name, critique_content, round_num)
-                    except Exception as e:
+                    except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                         logger.debug("Recorder error for critique: %s", e)
 
                 # Add to context
@@ -1109,7 +1109,7 @@ class DebateRoundsPhase:
                     e,
                 )
                 raise
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 # Unexpected error - log at error level
                 latency_ms = (time.perf_counter() - start_time) * 1000
                 governor.record_agent_response(agent.name, latency_ms, success=False)
@@ -1265,7 +1265,7 @@ class DebateRoundsPhase:
             if self.recorder:
                 try:
                     self.recorder.record_turn(agent.name, revised_str, round_num)
-                except Exception as e:
+                except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                     logger.debug("Recorder error for revision: %s", e)
 
             # Record position for grounded personas

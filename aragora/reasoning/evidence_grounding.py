@@ -295,7 +295,7 @@ class EvidenceGrounder:
                 grounding_score=avg_grounding,
             )
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Error creating grounded verdict: {e}")
             return None
 
@@ -394,7 +394,7 @@ class EvidenceGrounder:
                         )
                         disproven_count += 1
 
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError) as e:
                     logger.debug(f"Verification skipped for claim: {e}")
 
             if verified_count > 0 or disproven_count > 0:
@@ -404,7 +404,7 @@ class EvidenceGrounder:
 
             return verified_count, disproven_count
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning(f"Formal verification system error: {e}")
             return 0, 0
 

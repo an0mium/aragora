@@ -258,7 +258,7 @@ class TestTestApiKey:
 
     def test_connection_error(self):
         """Test connection error."""
-        with patch("httpx.post", side_effect=Exception("Connection refused")):
+        with patch("httpx.post", side_effect=ConnectionError("Connection refused")):
             success, msg = _test_api_key("anthropic", "key")
 
         assert success is False

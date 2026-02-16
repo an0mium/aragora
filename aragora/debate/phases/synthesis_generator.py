@@ -141,7 +141,7 @@ class SynthesisGenerator:
         except ImportError as e:
             logger.warning(f"synthesis_import_error: {e}, trying sonnet fallback")
             synthesis_source = "sonnet"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.warning(f"synthesis_opus_failed error={e}, trying sonnet fallback")
             synthesis_source = "sonnet"
 
@@ -161,7 +161,7 @@ class SynthesisGenerator:
                         timeout=30.0,
                     )
                 logger.info(f"synthesis_generated_sonnet chars={len(synthesis)}")
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001
                 logger.warning(f"synthesis_sonnet_failed error={e}, using proposal combination")
                 synthesis_source = "combined"
 
@@ -204,7 +204,7 @@ class SynthesisGenerator:
                     content=synthesis,
                     confidence=ctx.result.confidence if ctx.result else 0.0,
                 )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"on_synthesis hook failed: {e}")
 
         # Also emit as agent_message for backwards compatibility
@@ -217,7 +217,7 @@ class SynthesisGenerator:
                     role="synthesis",  # Special role for frontend styling
                     round_num=rounds + 1,
                 )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"on_message hook failed: {e}")
 
         # Notify spectator
@@ -229,7 +229,7 @@ class SynthesisGenerator:
                     details=f"Final synthesis ({len(synthesis)} chars, source={synthesis_source})",
                     metric=ctx.result.confidence if ctx.result else 0.0,
                 )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"notify_spectator failed: {e}")
 
     def _generate_export_links(self, ctx: DebateContext) -> None:
@@ -259,7 +259,7 @@ class SynthesisGenerator:
                     debate_id=debate_id,
                     links=ctx.result.export_links,
                 )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"on_export_ready hook failed: {e}")
 
     def _combine_proposals_as_synthesis(self, ctx: DebateContext) -> str:

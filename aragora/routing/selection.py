@@ -245,7 +245,7 @@ class AgentSelector:
                 probe_profile = self.probe_filter.get_agent_profile(agent_name)
                 profile.probe_score = probe_profile.probe_score
                 profile.has_critical_probes = probe_profile.has_critical_issues()
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in probe system - use defaults
                 logger.debug(f"Failed to sync probe profile for {agent_name}: {e}. Using defaults.")
                 profile.probe_score = 1.0
@@ -298,7 +298,7 @@ class AgentSelector:
                 if probe_profile.total_probes > 0:  # Only use if agent has been probed
                     probe_score = probe_profile.probe_score
                     has_critical = probe_profile.has_critical_issues()
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug(f"Probe lookup failed for {agent_name}: {e}")
 
         # Fall back to agent profile's probe_score if no filter data
@@ -345,7 +345,7 @@ class AgentSelector:
                     profile.calibration_score = 1.0
                     profile.brier_score = 0.0
                     profile.is_overconfident = False
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # Agent not in calibration system - use defaults
                 logger.debug(f"Failed to sync calibration for {agent_name}: {e}. Using defaults.")
                 profile.calibration_score = 1.0
@@ -373,7 +373,7 @@ class AgentSelector:
                 if summary.total_predictions >= 5:
                     calibration_score = max(0.0, 1.0 - summary.ece)
                     is_overconfident = summary.is_overconfident
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug(f"Calibration lookup failed for {agent_name}: {e}")
 
         # Fall back to agent profile if no tracker data
@@ -412,7 +412,7 @@ class AgentSelector:
             logger.debug(
                 f"Refreshed performance insights for {len(self._performance_insights.get('agent_stats', {}))} agents"
             )
-        except Exception as e:
+        except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.warning(f"Failed to refresh performance insights: {e}")
             self._performance_insights = {}
 
@@ -567,7 +567,7 @@ class AgentSelector:
                     for trait in persona.traits:
                         if trait not in traits:
                             traits.append(trait)
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug(
                     f"Failed to get persona for {agent.name}: {e}. Using static expertise."
                 )

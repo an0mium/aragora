@@ -179,7 +179,7 @@ class RedTeamValidator:
                 )
                 self.attackers.append(agent)
                 logger.info("redteam_validator.attacker_created type=%s", agent_type)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 logger.warning(
                     "redteam_validator.attacker_failed type=%s: %s",
                     agent_type,
@@ -196,7 +196,7 @@ class RedTeamValidator:
                     timeout=self.config.agent_timeout,
                 )
                 logger.info("redteam_validator.defender_created type=%s", self.config.defender_type)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 logger.warning(
                     "redteam_validator.defender_failed type=%s: %s",
                     self.config.defender_type,
@@ -491,7 +491,7 @@ Be honest. Don't dismiss valid concerns - acknowledge and explain tradeoffs.
         except asyncio.TimeoutError:
             logger.warning("redteam_validator.defense_timeout round=%d", round_num)
             return []
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning("redteam_validator.defense_error: %s", e)
             return []
 

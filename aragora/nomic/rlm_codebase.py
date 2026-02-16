@@ -175,7 +175,7 @@ async def build_codebase_corpus(
                 truncated=manifest.get("truncated", False),
                 warnings=manifest.get("warnings", []),
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug("Failed to load cached codebase corpus manifest: %s", e)
 
     crawler = RepositoryCrawler(
@@ -309,7 +309,7 @@ async def summarize_codebase_with_rlm(
             used_true_rlm=result.used_true_rlm,
             used_fallback=result.used_compression_fallback,
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.warning("[nomic-rlm] TRUE RLM summary failed: %s", e)
         fallback = _build_summary_nodes(corpus, repo_path)[0].content
         return CodebaseRLMResult(

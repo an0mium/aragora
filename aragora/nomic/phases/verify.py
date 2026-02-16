@@ -147,7 +147,7 @@ class VerifyPhase:
                 self._log(f"  [gate] Test quality gate failed: {e}")
                 gate_passed = False
                 all_passed = False
-            except Exception as gate_error:
+            except (RuntimeError, ValueError, OSError) as gate_error:
                 self._log(f"  [gate] Gate check error: {gate_error}")
                 # Non-fatal: continue without gate if it fails
 
@@ -204,7 +204,7 @@ class VerifyPhase:
             self._log("    FAILED syntax: timeout")
             self._stream_emit("on_verification_result", "syntax", False, "timeout")
             return {"check": "syntax", "passed": False, "error": "timeout"}
-        except Exception as e:
+        except OSError as e:
             logger.warning("Syntax check failed: %s", e)
             error_desc = f"Syntax check failed: {type(e).__name__}"
             self._stream_emit("on_verification_result", "syntax", False, error_desc)
@@ -240,7 +240,7 @@ class VerifyPhase:
             self._log("    FAILED import: timeout")
             self._stream_emit("on_verification_result", "import", False, "timeout")
             return {"check": "import", "passed": False, "error": "timeout"}
-        except Exception as e:
+        except OSError as e:
             logger.warning("Import check failed: %s", e)
             error_desc = f"Import check failed: {type(e).__name__}"
             self._stream_emit("on_verification_result", "import", False, error_desc)
@@ -292,7 +292,7 @@ class VerifyPhase:
                 "error": "timeout",
                 "note": "Test execution timed out",
             }
-        except Exception as e:
+        except OSError as e:
             logger.warning("Test execution failed: %s", e)
             error_desc = f"Test execution failed: {type(e).__name__}"
             self._stream_emit("on_verification_result", "tests", False, error_desc)

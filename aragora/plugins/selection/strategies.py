@@ -490,7 +490,7 @@ class AHMADRoleAssigner(RoleAssignerProtocol):
             from aragora.debate.role_specializer import AHMADRoleSpecializer
 
             self._specializer = AHMADRoleSpecializer()
-        except Exception as exc:  # pragma: no cover - defensive fallback
+        except (ImportError, RuntimeError, AttributeError) as exc:  # pragma: no cover - defensive fallback
             logger.debug("AHMAD role specializer unavailable: %s", exc)
             self._specializer = None
 

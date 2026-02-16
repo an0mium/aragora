@@ -262,7 +262,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                             route_decision.start_id, depth=2, max_nodes=limit
                         )
                         items = list(graph_result.nodes)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.warning("Graph route failed, falling back: %s", e)
                         items = await self._query_local(query, filters, limit, ws_id)
                 elif route_decision.route in ("semantic", "rlm", "long_context"):
@@ -281,7 +281,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                             try:
                                 await rlm_fn(query, limit=semantic_limit, workspace_id=ws_id)
                                 span.add_event("lara_rlm_context_built")
-                            except Exception as e:
+                            except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                                 logger.debug("LaRA RLM route failed: %s", e)
                     if not items:
                         items = await self._query_local(query, filters, limit, ws_id)
@@ -463,7 +463,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     filters={"workspace_id": ws_id},
                 )
                 return [self._vector_result_to_item(r) for r in results]
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.warning(f"Weaviate search failed: {e}, falling back")
 
         # Try local semantic store (embeddings in SQLite)
@@ -482,7 +482,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     if node:
                         items.append(node)
                 return items
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.warning(f"Semantic store search failed: {e}, falling back")
 
         if not allow_fallback:
@@ -607,7 +607,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         )
         try:
             graph_result = await retriever.retrieve(query)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("GraphRAG retrieval failed: %s", e)
             return []
 

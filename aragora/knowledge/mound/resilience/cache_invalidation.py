@@ -75,7 +75,7 @@ class CacheInvalidationBus:
             except (ValueError, TypeError, RuntimeError, AttributeError) as e:
                 logger.warning("Cache invalidation subscriber error (expected): %s", e)
                 errors.append("Subscriber notification failed")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.exception("Cache invalidation subscriber error (unexpected): %s", e)
                 errors.append("Subscriber notification failed")
 

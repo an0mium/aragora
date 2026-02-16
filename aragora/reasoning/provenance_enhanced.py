@@ -182,7 +182,7 @@ class GitProvenanceTracker:
             return True, result.stdout.strip()
         except subprocess.TimeoutExpired:
             return False, "git command timed out after 30s"
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             return False, str(e)
 
     def get_current_commit(self) -> str | None:
@@ -427,7 +427,7 @@ class WebProvenanceTracker:
                 checked_at=datetime.now().isoformat(),
                 reason="http pool not available for web checking",
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             return StalenessCheck(
                 evidence_id=source_info.url,
                 status=StalenessStatus.ERROR,

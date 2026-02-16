@@ -221,7 +221,7 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
                 reasoning="Verification timed out",
                 verification_time_ms=(time.time() - start_time) * 1000,
             )
-        except Exception as e:
+        except (ConnectionError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error("verification_error round=%d agent=%s error=%s", round_number, agent_id, e)
             return StepVerification(
                 step_id=f"step_{round_number}_{agent_id}",

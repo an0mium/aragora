@@ -137,7 +137,7 @@ class RevalidationScheduler:
                 await self.check_and_schedule_revalidations()
             except (RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Revalidation check failed: {e}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.exception(f"Unexpected revalidation check error: {e}")
 
             # Wait for next check interval
@@ -194,7 +194,7 @@ class RevalidationScheduler:
         except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"Failed to check/schedule revalidations: {e}")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected revalidation scheduling error: {e}")
             return []
 
@@ -263,7 +263,7 @@ class RevalidationScheduler:
 
             except (RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Failed to submit revalidation task: {e}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.exception(f"Unexpected task submission error: {e}")
 
         # Fallback: use knowledge mound's schedule_revalidation
@@ -277,7 +277,7 @@ class RevalidationScheduler:
         except (RuntimeError, ValueError, AttributeError) as e:
             logger.warning(f"Failed to schedule revalidation via mound: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected mound revalidation error: {e}")
             return None
 
@@ -371,7 +371,7 @@ async def handle_revalidation_task(
     except (RuntimeError, ValueError, KeyError) as e:
         logger.warning("Revalidation failed for %s: %s", node_id, e)
         return {"success": False, "error": "Revalidation failed"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.exception("Unexpected revalidation failure for %s: %s", node_id, e)
         return {"success": False, "error": "Unexpected revalidation failure"}
 
@@ -416,7 +416,7 @@ async def _revalidate_via_debate(
         # Create agents for the revalidation debate
         try:
             agents = create_default_agents(num_agents=3)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Could not create agents for revalidation: {e}")
             # Fall back to placeholder response
             return {
@@ -460,7 +460,7 @@ async def _revalidate_via_debate(
                     validator="debate",
                     confidence=result.confidence if result else 0.7,
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to update mound validation status: {e}")
 
         return {
@@ -480,7 +480,7 @@ async def _revalidate_via_debate(
             "success": False,
             "error": "Debate components not available",
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.exception("Revalidation debate failed: %s", e)
         return {
             "success": False,
@@ -531,7 +531,7 @@ async def _revalidate_via_evidence(
             "success": False,
             "error": "Evidence collection failed",
         }
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
         logger.exception("Unexpected evidence collection error: %s", e)
         return {
             "success": False,

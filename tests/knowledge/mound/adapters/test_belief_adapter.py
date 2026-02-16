@@ -196,7 +196,7 @@ class TestEventCallback:
         """Should handle callback errors gracefully."""
         from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = BeliefAdapter(event_callback=callback)
 
         # Should not raise

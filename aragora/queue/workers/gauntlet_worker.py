@@ -377,7 +377,7 @@ class GauntletWorker:
                 len(agents),
                 result.robustness_score,
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.warning("Failed to update ELO from gauntlet %s: %s", gauntlet_id, e)
 
         return {
@@ -507,7 +507,7 @@ async def recover_interrupted_gauntlets() -> int:
                     error=f"Failed to resume: {e}",
                 )
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError) as e:
         logger.error("Error recovering gauntlet jobs: %s", e, exc_info=True)
 
     if recovered:

@@ -464,7 +464,7 @@ class FeedbackPhase:
 
         except ImportError:
             logger.debug("[workflow] WorkflowEngine not available")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.warning("[workflow] Post-debate workflow failed: %s", e)
 
     async def _generate_and_post_receipt(self, ctx: DebateContext) -> Any | None:
@@ -532,7 +532,7 @@ class FeedbackPhase:
                 )
             except ImportError:
                 logger.debug("[receipt] Receipt store not available")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.warning("[receipt] Failed to store receipt: %s", e)
 
             # Post to originating channel if enabled
@@ -554,7 +554,7 @@ class FeedbackPhase:
                         )
                 except ImportError:
                     logger.debug("[receipt] Debate origin module not available")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.warning("[receipt] Failed to post receipt: %s", e)
 
             # Store receipt reference in context
@@ -564,7 +564,7 @@ class FeedbackPhase:
         except ImportError:
             logger.debug("[receipt] DecisionReceipt module not available")
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.warning("[receipt] Receipt generation failed: %s", e)
             return None
 
@@ -611,7 +611,7 @@ class FeedbackPhase:
             # Store transaction reference in context for debugging
             setattr(ctx, "_memory_transaction", transaction)
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.error("[coordinator] Transaction failed for %s: %s", ctx.debate_id, e)
 
     async def _update_selection_feedback(self, ctx: DebateContext) -> None:
@@ -644,7 +644,7 @@ class FeedbackPhase:
                 # Emit selection feedback event
                 self._emit_selection_feedback_event(ctx, adjustments)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug("[feedback] Selection feedback update failed: %s", e)
 
     def _emit_selection_feedback_event(
@@ -779,7 +779,7 @@ class FeedbackPhase:
 
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("[knowledge_extraction] Failed to extract knowledge: %s", e)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             # Catch-all for unexpected errors; don't fail the feedback phase
             logger.error("[knowledge_extraction] Unexpected error during extraction: %s", e)
 
@@ -912,7 +912,7 @@ class FeedbackPhase:
                     pipeline_result.error_message,
                 )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning("[broadcast] Auto-broadcast failed: %s", e)
 
     def _assess_risks(self, ctx: DebateContext) -> None:

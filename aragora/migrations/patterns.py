@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import re
+import sqlite3
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -545,7 +546,7 @@ def validate_migration_safety(
         row_count = 0
         try:
             row_count = get_table_row_count(backend, table)
-        except (OSError, RuntimeError, ValueError) as e:
+        except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             logger.debug("Failed to get row count for table %s: %s", table, e)
 
         is_large_table = row_count > 100_000

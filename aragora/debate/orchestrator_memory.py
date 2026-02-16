@@ -57,7 +57,7 @@ def queue_for_supabase_sync(ctx: DebateContext, result: DebateResult) -> None:
         logger.debug("Supabase sync not available")
     except (ConnectionError, TimeoutError) as e:
         logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Unexpected Supabase sync error (non-fatal): {e}")
 
 
@@ -262,7 +262,7 @@ def auto_create_knowledge_mound(
             f"[knowledge_mound] Initialization failed (config): {e}. "
             "Debates will run without knowledge grounding."
         )
-    except Exception as e:
+    except (KeyError, ImportError) as e:
         logger.exception(
             f"[knowledge_mound] Unexpected initialization error: {e}. "
             "Debates will run without knowledge grounding."
@@ -340,6 +340,6 @@ async def compress_debate_messages(
     except (ValueError, TypeError, AttributeError) as e:
         logger.warning(f"[arena] RLM compression failed with data error, using original: {e}")
         return messages, critiques
-    except Exception as e:
+    except (RuntimeError, OSError, ImportError) as e:
         logger.exception(f"[arena] Unexpected RLM compression error, using original: {e}")
         return messages, critiques

@@ -293,7 +293,7 @@ class PruningOperationsMixin:
                     flagged += 1
                     pruned_ids.append(node_id)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Failed to prune {node_id}: {e!s}")
 
         # Record history

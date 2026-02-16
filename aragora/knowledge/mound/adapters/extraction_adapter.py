@@ -317,7 +317,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
                 success = True
                 return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to extract from debate {debate_id}: {e}")
             raise ExtractionAdapterError(f"Extraction failed: {e}") from e
         finally:
@@ -364,7 +364,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
                         topic=debate.get("topic"),
                         workspace_id=workspace_id,
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     failed_ids.append(debate["debate_id"])
                     logger.warning("Extraction failed for debate %s: %s", debate["debate_id"], e)
                     errors.append(f"{debate['debate_id']}: extraction failed")
@@ -468,7 +468,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
 
             return promoted
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to promote claims: {e}")
             raise ExtractionAdapterError(f"Promotion failed: {e}") from e
 

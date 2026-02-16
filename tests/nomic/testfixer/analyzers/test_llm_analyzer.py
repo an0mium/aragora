@@ -488,7 +488,7 @@ class TestAgentAnalysisRetrieval:
     @pytest.mark.asyncio
     async def test_get_agent_analysis_exception(self, mock_agent):
         """Test handling exception from agent."""
-        mock_agent.generate.side_effect = Exception("API error")
+        mock_agent.generate.side_effect = RuntimeError("API error")
 
         analyzer = LLMFailureAnalyzer()
         result = await analyzer._get_agent_analysis(mock_agent, "test prompt")
@@ -663,7 +663,7 @@ class TestFullAnalysisFlow:
     async def test_analyze_no_agents_raises(self, sample_test_failure):
         """Test that analyze raises when no agents available."""
         with patch("aragora.nomic.testfixer.analyzers.llm_analyzer.create_agent") as mock_create:
-            mock_create.side_effect = Exception("No API key")
+            mock_create.side_effect = RuntimeError("No API key")
 
             analyzer = LLMFailureAnalyzer()
 

@@ -257,7 +257,7 @@ class UnstructuredParser:
         # Partition the document
         try:
             elements = partition(**kwargs)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"unstructured partition failed: {e}, trying fallback")
             ext = Path(filename).suffix.lower()
             return self._parse_with_fallback(content, filename, ext)

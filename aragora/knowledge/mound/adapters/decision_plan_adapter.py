@@ -117,7 +117,7 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
                 from aragora.knowledge.mound import get_knowledge_mound
 
                 self._km = get_knowledge_mound()
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.debug("Could not get knowledge mound: %s", e)
         return self._km
 
@@ -126,7 +126,7 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.debug("Event callback failed: %s", e)
 
     async def ingest_plan_outcome(
@@ -198,7 +198,7 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Plan ingestion failed: %s", e)
             errors.append("Plan ingestion failed")
 
@@ -341,7 +341,7 @@ Task: {plan.task[:200]}
                 return getattr(result, "id", None) or str(result)
             elif hasattr(km, "store"):
                 return await km.store(item)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Failed to store item: %s", e)
         return None
 
@@ -357,7 +357,7 @@ Task: {plan.task[:200]}
             if hasattr(km, "add_relationship"):
                 await km.add_relationship(source_id, target_id, rel_type)
                 return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Failed to create relationship: %s", e)
         return False
 
@@ -372,7 +372,7 @@ Task: {plan.task[:200]}
                 )
                 if results:
                     return getattr(results[0], "id", None)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Failed to find debate item: %s", e)
         return None
 
@@ -413,7 +413,7 @@ Task: {plan.task[:200]}
                     for r in results
                     if hasattr(r, "metadata")
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Similar plan query failed: %s", e)
 
         return []
@@ -453,7 +453,7 @@ Task: {plan.task[:200]}
                         if len(parts) > 1:
                             lessons.append(parts[-1].strip())
                 return lessons
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Lessons query failed: %s", e)
 
         return []

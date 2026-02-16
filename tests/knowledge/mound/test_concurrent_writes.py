@@ -88,7 +88,7 @@ class DelayingMemorySystem:
         await asyncio.sleep(self.delay_ms / 1000)
 
         if random.random() < self.fail_rate:
-            raise Exception(f"{self.name}: Random failure")
+            raise RuntimeError(f"{self.name}: Random failure")
 
         async with self._lock:
             self._write_count += 1
@@ -120,7 +120,7 @@ class ConcurrentAdapter:
         await asyncio.sleep(self.delay_ms / 1000)
 
         if random.random() < self.fail_rate:
-            raise Exception(f"{self.name}: Forward sync failed")
+            raise RuntimeError(f"{self.name}: Forward sync failed")
 
         async with self._lock:
             self.forward_calls.append(datetime.now())
@@ -137,7 +137,7 @@ class ConcurrentAdapter:
         await asyncio.sleep(self.delay_ms / 1000)
 
         if random.random() < self.fail_rate:
-            raise Exception(f"{self.name}: Reverse sync failed")
+            raise RuntimeError(f"{self.name}: Reverse sync failed")
 
         async with self._lock:
             self.reverse_calls.append(datetime.now())
@@ -223,7 +223,7 @@ class TestMemoryCoordinatorConcurrentWrites:
             topic = kwargs.get("topic", "")
             # Fail debates 3, 6, 9 (indices 2, 5, 8)
             if any(f"debate-{i}" in topic for i in [2, 5, 8]):
-                raise Exception(f"Persistent failure for {topic}")
+                raise RuntimeError(f"Persistent failure for {topic}")
             mock_record = MagicMock()
             mock_record.id = f"consensus-{call_counter['count']}"
             return mock_record
@@ -266,7 +266,7 @@ class TestMemoryCoordinatorConcurrentWrites:
         continuum, consensus, critique, mound = mock_memory_systems
 
         # Make mound always fail to trigger rollback
-        mound.ingest_debate_outcome = AsyncMock(side_effect=Exception("Mound unavailable"))
+        mound.ingest_debate_outcome = AsyncMock(side_effect=RuntimeError("Mound unavailable"))
 
         coordinator = MemoryCoordinator(
             continuum_memory=continuum,

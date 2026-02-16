@@ -1493,7 +1493,7 @@ class TestNotifications:
         """Should handle notification callback errors gracefully."""
 
         def failing_callback(validator_id, event_type, data):
-            raise Exception("Notification failed")
+            raise RuntimeError("Notification failed")
 
         validator = MultiPartyValidator()
         validator.set_notification_callback(failing_callback)

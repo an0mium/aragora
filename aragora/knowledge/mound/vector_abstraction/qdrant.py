@@ -110,7 +110,7 @@ class QdrantVectorStore(BaseVectorStore):
         except (ConnectionError, TimeoutError, OSError) as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._connected = False
             logger.exception(f"Unexpected Qdrant connection error: {e}")
             raise ConnectionError(f"Failed to connect to Qdrant: {e}") from e

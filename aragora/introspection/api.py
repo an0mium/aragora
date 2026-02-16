@@ -55,7 +55,7 @@ def get_agent_introspection(
                 snapshot.critiques_given = rep.critiques_given
                 snapshot.critiques_valuable = rep.critiques_valuable
                 snapshot.calibration_score = rep.calibration_score
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Graceful degradation - continue with defaults
             logger.debug(f"Could not get reputation for {agent_name}: {type(e).__name__}: {e}")
 
@@ -79,7 +79,7 @@ def get_agent_introspection(
                 # Get personality traits
                 if hasattr(persona, "traits") and persona.traits:
                     snapshot.traits = persona.traits[:3]
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Graceful degradation - continue with defaults
             logger.debug(f"Could not get persona for {agent_name}: {type(e).__name__}: {e}")
 

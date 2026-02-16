@@ -31,7 +31,7 @@ def _build_generators(agent_types: list[str]) -> list[Any] | None:
     for agent_type in agent_types:
         try:
             generators.append(AgentCodeGenerator(agent_type))
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             print(f"[testfix] Skipping agent '{agent_type}': {exc}")
     return generators or None
 

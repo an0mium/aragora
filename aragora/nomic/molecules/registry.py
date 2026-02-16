@@ -115,7 +115,7 @@ class EscalationStepExecutor(StepExecutor):
                 if escalation_ctx.previous_level
                 else None,
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.error(f"Escalation handler failed: {e}")
             raise
 

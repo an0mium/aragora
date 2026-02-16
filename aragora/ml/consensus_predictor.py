@@ -141,7 +141,7 @@ class ConsensusPredictor:
                 from aragora.ml.embeddings import get_embedding_service
 
                 self._embedding_service = get_embedding_service()
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Could not load embedding service: {e}")
                 self.config.use_embeddings = False
         return self._embedding_service
@@ -153,7 +153,7 @@ class ConsensusPredictor:
                 from aragora.ml.quality_scorer import get_quality_scorer
 
                 self._quality_scorer = get_quality_scorer()
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError) as e:
                 logger.warning(f"Could not load quality scorer: {e}")
         return self._quality_scorer
 
@@ -176,14 +176,14 @@ class ConsensusPredictor:
                     score = quality_scorer.score(text, context)
                     rf.quality_score = score.overall
                     rf.confidence = score.confidence
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:
                     logger.debug(f"Quality scoring failed: {e}")
 
             # Get embedding
             if embedding_service:
                 try:
                     rf.embedding = embedding_service.embed(text[:1000])
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError) as e:
                     logger.debug(f"Embedding failed: {e}")
 
             # Detect stance (simple heuristic)

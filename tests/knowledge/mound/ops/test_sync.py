@@ -501,7 +501,7 @@ class TestSyncFromContinuum:
         mixin = TestableSyncMixin()
 
         continuum = MagicMock()
-        continuum.retrieve.side_effect = Exception("Database connection failed")
+        continuum.retrieve.side_effect = RuntimeError("Database connection failed")
 
         result = await mixin.sync_from_continuum(continuum)
 
@@ -810,7 +810,7 @@ class TestSyncFromFacts:
         mixin = TestableSyncMixin()
 
         facts = MagicMock()
-        facts.query_facts.side_effect = Exception("Query failed")
+        facts.query_facts.side_effect = RuntimeError("Query failed")
 
         result = await mixin.sync_from_facts(facts)
 

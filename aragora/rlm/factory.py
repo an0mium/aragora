@@ -363,7 +363,7 @@ async def compress_and_query(
         _metrics.failed_queries += 1
         logger.warning(f"RLM compress_and_query failed with expected error: {e}")
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - catch-all to record metrics before re-raising
         _metrics.failed_queries += 1
         logger.exception(f"RLM compress_and_query failed with unexpected error: {e}")
         raise

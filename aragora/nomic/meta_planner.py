@@ -161,7 +161,7 @@ class MetaPlanner:
                     agent = self._create_agent(agent_type)
                     if agent is not None:
                         agents.append(agent)
-                except Exception as e:
+                except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                     logger.warning(f"Could not create agent {agent_type}: {e}")
 
             if not agents:
@@ -190,7 +190,7 @@ class MetaPlanner:
         except ImportError as e:
             logger.warning(f"Debate infrastructure not available: {e}")
             return self._heuristic_prioritize(objective, available_tracks)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.exception(f"Meta-planning failed: {e}")
             return self._heuristic_prioritize(objective, available_tracks)
 
@@ -263,7 +263,7 @@ class MetaPlanner:
 
         except ImportError:
             logger.debug("Nomic cycle adapter not available, skipping history enrichment")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to enrich context with history: {e}")
 
         # Also query PlanStore for recent pipeline outcomes
@@ -297,7 +297,7 @@ class MetaPlanner:
                 )
         except ImportError:
             logger.debug("PlanStore not available, skipping pipeline feedback")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to load pipeline outcomes: {e}")
 
         return context

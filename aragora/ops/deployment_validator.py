@@ -415,7 +415,7 @@ class DeploymentValidator:
                         metadata={"backend": "sqlite", "path": str(db_path)},
                     )
                 )
-            except Exception as e:
+            except (OSError, ImportError, RuntimeError) as e:
                 self.components.append(
                     ComponentHealth(
                         name="database",
@@ -505,7 +505,7 @@ class DeploymentValidator:
                     suggestion="pip install asyncpg",
                 )
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             self.components.append(
                 ComponentHealth(
                     name="database",
@@ -717,7 +717,7 @@ class DeploymentValidator:
                         suggestion="pip install redis",
                     )
                 )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             self.components.append(
                 ComponentHealth(
                     name="redis",
@@ -1252,7 +1252,7 @@ def quick_health_check() -> bool:
             return False
 
         return True
-    except Exception as e:
+    except (ImportError, ValueError, TypeError, OSError, RuntimeError) as e:
         logger.error(f"Health check failed: {e}")
         return False
 

@@ -695,7 +695,7 @@ class TestSyncActionsToMound:
         """Should handle ingest errors gracefully."""
         adapter = OpenClawAdapter()
         mock_mound = MagicMock()
-        mock_mound.ingest = AsyncMock(side_effect=Exception("Ingest failed"))
+        mock_mound.ingest = AsyncMock(side_effect=RuntimeError("Ingest failed"))
 
         action = OpenClawKnowledgeItem(
             action_id="action_error",
@@ -843,7 +843,7 @@ class TestPushDebateDecisions:
     async def test_handles_client_errors(self):
         """Should handle client errors gracefully."""
         mock_client = MagicMock()
-        mock_client.update_task_priority = AsyncMock(side_effect=Exception("Client error"))
+        mock_client.update_task_priority = AsyncMock(side_effect=RuntimeError("Client error"))
         adapter = OpenClawAdapter(openclaw_client=mock_client)
 
         decisions = [{"task_id": "task_005", "priority": 0.6}]
@@ -1713,7 +1713,7 @@ class TestEdgeCases:
 
     def test_event_callback_handles_errors(self):
         """Should handle event callback errors."""
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = OpenClawAdapter(event_callback=callback)
 
         action = OpenClawKnowledgeItem(

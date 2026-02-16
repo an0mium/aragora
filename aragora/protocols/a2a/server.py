@@ -200,7 +200,7 @@ class A2AServer:
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Task {request.task_id} failed: {e}", exc_info=True)
 
             result = TaskResult(
@@ -273,7 +273,7 @@ class A2AServer:
                 "timestamp": datetime.now().isoformat(),
             }
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Stream task {request.task_id} failed: {e}", exc_info=True)
             yield {
                 "type": "error",
@@ -337,7 +337,7 @@ class A2AServer:
                     role=role,
                 )
                 agents.append(agent)
-            except Exception as e:
+            except (ImportError, ValueError, TypeError, RuntimeError) as e:
                 logger.warning(f"Could not create agent {agent_name}: {e}")
 
         if not agents:

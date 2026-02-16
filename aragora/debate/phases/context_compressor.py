@@ -154,7 +154,7 @@ class ContextCompressor:
 
             return (original_count, original_count)
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"[rlm] Context compression failed: {e}")
             # Continue without compression - don't break the debate
             return (original_count, original_count)

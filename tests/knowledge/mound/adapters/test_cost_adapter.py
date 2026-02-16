@@ -764,7 +764,7 @@ class TestEventEmission:
 
     def test_emit_event_handles_error(self):
         """Should catch callback errors."""
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = CostAdapter(event_callback=callback)
 
         adapter._emit_event("test_event", {"key": "value"})  # Should not raise

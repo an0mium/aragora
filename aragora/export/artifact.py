@@ -228,7 +228,7 @@ class DebateArtifact:
                 valid, chain_errors = chain.verify_chain()
                 if not valid:
                     errors.extend(chain_errors)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError) as e:
                 errors.append(f"Failed to verify provenance: {e}")
 
         return len(errors) == 0, errors

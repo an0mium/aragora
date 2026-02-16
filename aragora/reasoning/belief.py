@@ -419,7 +419,7 @@ class BeliefNetwork:
                 limit=limit,
                 min_confidence=min_confidence,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for related beliefs: {e}")
             return []
 
@@ -448,7 +448,7 @@ class BeliefNetwork:
                 query=topic,
                 limit=limit,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for historical cruxes: {e}")
             return []
 
@@ -484,7 +484,7 @@ class BeliefNetwork:
                 node.metadata["source"] = "knowledge_mound"
                 node.metadata["km_belief_id"] = belief.get("id")
                 seeded_count += 1
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:
                 logger.warning(f"Failed to seed belief from KM: {e}")
 
         if seeded_count > 0:
@@ -677,7 +677,7 @@ class BeliefNetwork:
                             debate_id=self.debate_id,
                         )
                         logger.debug(f"Belief synced to Knowledge Mound: {node.node_id}")
-                    except Exception as e:
+                    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                         logger.warning(f"Failed to sync belief to KM: {e}")
 
         return PropagationResult(
@@ -736,7 +736,7 @@ class BeliefNetwork:
             pass  # Events module not available
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Event emission skipped due to expected error: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Unexpected error during event emission: {e}")
             # Event emission is non-critical, don't fail belief propagation
 

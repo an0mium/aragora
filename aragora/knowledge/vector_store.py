@@ -188,7 +188,7 @@ class KnowledgeVectorStore:
             )
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to connect to Weaviate: {e}")
             self._connected = False
             raise
@@ -789,7 +789,7 @@ class KnowledgeVectorStore:
         except (RuntimeError, ConnectionError, TimeoutError) as e:
             logger.warning("Health check failed: %s", e)
             return {"healthy": False, "error": "Health check failed"}
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.exception("Unexpected error in health check: %s", e)
             return {"healthy": False, "error": "Health check failed"}
 

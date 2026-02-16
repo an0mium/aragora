@@ -86,7 +86,7 @@ class AgentSelector:
                         names,
                     )
                     return names[:limit]
-            except Exception as exc:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as exc:
                 logger.warning("agent_selector.elo_error domain=%s error=%s", domain, exc)
 
         # Fallback
@@ -107,7 +107,7 @@ class AgentSelector:
             try:
                 cfg = AgentGeneratorConfig(agent_type=agent_type)
                 generators.append(AgentCodeGenerator(cfg))
-            except Exception as exc:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as exc:
                 logger.warning(
                     "agent_selector.create_generator_error agent=%s error=%s",
                     agent_type,

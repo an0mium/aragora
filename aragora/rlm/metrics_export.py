@@ -86,7 +86,7 @@ class MetricsCollector:
         for callback in self._callbacks:
             try:
                 callback(snapshot)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Metrics callback failed: {e}")
 
         self._last_snapshot = snapshot
@@ -265,7 +265,7 @@ def export_to_statsd(
         logger.info(f"[RLM Metrics] Exported to StatsD at {host}:{port}")
         return True
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.error(f"[RLM Metrics] StatsD export failed: {e}")
         return False
 
@@ -319,7 +319,7 @@ def export_to_opentelemetry(
         logger.info(f"[RLM Metrics] OpenTelemetry instruments created for '{meter_name}'")
         return instruments
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError) as e:
         logger.error(f"[RLM Metrics] OpenTelemetry export failed: {e}")
         return {}
 
@@ -353,7 +353,7 @@ def create_periodic_exporter(
         while not stop_event.is_set():
             try:
                 export_fn()
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Periodic metrics export failed: {e}")
             stop_event.wait(interval_seconds)
 

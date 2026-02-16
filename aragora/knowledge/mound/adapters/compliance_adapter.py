@@ -422,7 +422,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
                 check.metadata["km_synced_at"] = datetime.now(timezone.utc).isoformat()
                 self._synced_checks[check.check_id] = check
                 synced += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 failed += 1
                 errors.append(f"Failed to sync check {check.check_id}: {e}")
                 logger.warning("Failed to sync check %s: %s", check.check_id, e)
@@ -443,7 +443,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
                 violation.metadata["km_synced_at"] = datetime.now(timezone.utc).isoformat()
                 self._synced_violations[violation.violation_id] = violation
                 synced += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 failed += 1
                 errors.append(f"Failed to sync violation {violation.violation_id}: {e}")
                 logger.warning("Failed to sync violation %s: %s", violation.violation_id, e)

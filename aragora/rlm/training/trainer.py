@@ -260,7 +260,7 @@ class Trainer:
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
             logger.error(f"Error collecting trajectory: {e}")
             trajectory.finalize(
                 answer="",
@@ -457,7 +457,7 @@ class Trainer:
         for callback in self._callbacks:
             try:
                 callback(metrics)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - callback errors must not break training loop
                 logger.error(f"Callback error: {e}")
 
         return metrics

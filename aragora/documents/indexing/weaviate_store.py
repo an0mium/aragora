@@ -151,7 +151,7 @@ class WeaviateStore:
             logger.info(f"Connected to Weaviate at {self.config.url}")
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Failed to connect to Weaviate: {e}")
             self._connected = False
             raise
@@ -508,7 +508,7 @@ class WeaviateStore:
                 "url": self.config.url,
                 "collection": self.config.collection_name,
             }
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             return {"healthy": False, "error": str(e)}
 
 

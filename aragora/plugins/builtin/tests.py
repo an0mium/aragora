@@ -103,7 +103,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
     except asyncio.TimeoutError:
         context.error("Test run timed out after 5 minutes")
         return {"passed": 0, "failed": 0, "error": "Timeout"}
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         context.error(f"Failed to run pytest: {e}")
         return {"passed": 0, "failed": 0, "error": str(e)}
 

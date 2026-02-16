@@ -379,7 +379,7 @@ class TenantIsolationMiddleware:
         # SECURITY: Check membership - fail closed on any error
         try:
             is_member = await self._store.is_member(user_id, tenant_id)
-        except Exception as e:  # nosec - Intentional broad catch: fail closed on any error for security
+        except Exception as e:  # noqa: BLE001 - Security fail-closed: membership store may raise DB driver exceptions not in builtins
             # SECURITY: Fail closed - any error denies access
             self._audit_attempt(
                 request=request,
@@ -686,7 +686,7 @@ async def verify_tenant_access(
 
     try:
         return await store.is_member(user_id, tenant_id)
-    except Exception as e:  # nosec - Intentional broad catch: fail closed for security
+    except Exception as e:  # noqa: BLE001 - Security fail-closed: membership store may raise DB driver exceptions not in builtins
         security_logger.warning(
             f"Tenant access verification failed (denied): "
             f"user={user_id} tenant={tenant_id} error={e}"

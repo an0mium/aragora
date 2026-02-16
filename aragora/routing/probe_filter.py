@@ -181,7 +181,7 @@ class ProbeFilter:
             try:
                 data = json.loads(probe_file.read_text())
                 reports.append(data)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, ValueError, KeyError) as e:
                 logger.debug(f"Failed to load probe file {probe_file}: {e}")
 
         if not reports:

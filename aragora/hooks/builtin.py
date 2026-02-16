@@ -169,7 +169,7 @@ async def send_webhook(
                 logger.warning(f"Webhook failed: {response.status_code}")
                 return False
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.error(f"Webhook error: {e}")
         return False
 
@@ -274,7 +274,7 @@ async def save_checkpoint(
         logger.info(f"Checkpoint saved: {file_path}")
         return str(file_path)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         logger.error(f"Checkpoint save error: {e}")
         return None
 
@@ -321,7 +321,7 @@ async def store_fact(
     except ImportError:
         logger.debug("Knowledge mound not available")
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.error(f"Fact storage error: {e}")
         return False
 

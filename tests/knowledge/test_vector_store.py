@@ -1597,7 +1597,7 @@ class TestHealthCheck:
         store._collection = mock_collection
         store._connected = True
 
-        mock_client.is_ready = MagicMock(side_effect=Exception("Unexpected error occurred"))
+        mock_client.is_ready = MagicMock(side_effect=RuntimeError("Unexpected error occurred"))
 
         result = await store.health_check()
 

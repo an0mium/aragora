@@ -235,7 +235,7 @@ class CritiqueGenerator:
                     critique=crit_result,
                     error=None,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 return CritiqueResult(
                     critic=critic,
                     target_agent=proposal_agent,
@@ -290,7 +290,7 @@ class CritiqueGenerator:
                 crit_result: CritiqueResult = await completed_task
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error(f"task_exception phase=critique error={e}")
                 continue
 
@@ -492,7 +492,7 @@ class CritiqueGenerator:
         if self.recorder:
             try:
                 self.recorder.record_turn(critic.name, critique_content, round_num)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for critique: {e}")
 
         # Add to context
@@ -556,7 +556,7 @@ class CritiqueGenerator:
             )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[molecule] Failed to create critique molecule: {e}")
 
     def _start_molecule(self, critic_name: str, target_name: str) -> None:
@@ -575,7 +575,7 @@ class CritiqueGenerator:
             try:
                 self._molecule_tracker.start_molecule(molecule_id)
                 logger.debug(f"[molecule] Started critique molecule {molecule_id}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to start molecule: {e}")
 
     def _complete_molecule(self, critic_name: str, target_name: str, output: dict) -> None:
@@ -595,7 +595,7 @@ class CritiqueGenerator:
             try:
                 self._molecule_tracker.complete_molecule(molecule_id, output)
                 logger.debug(f"[molecule] Completed critique molecule {molecule_id}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to complete molecule: {e}")
 
     def _fail_molecule(self, critic_name: str, target_name: str, error: str) -> None:
@@ -615,5 +615,5 @@ class CritiqueGenerator:
             try:
                 self._molecule_tracker.fail_molecule(molecule_id, error)
                 logger.debug(f"[molecule] Failed critique molecule {molecule_id}: {error}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to record molecule failure: {e}")

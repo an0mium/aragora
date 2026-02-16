@@ -226,7 +226,7 @@ class VoteBonusCalculator:
                         f"criteria={list(result.criterion_scores.keys())}"
                     )
 
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(f"process_evaluation_error agent={agent_name}: {e}")
                 # No bonus on error
 

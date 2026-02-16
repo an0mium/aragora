@@ -368,7 +368,7 @@ class RedisDeliveryStore(WebhookDeliveryStore):
             raise ImportError(
                 "redis package required for RedisDeliveryStore. Install with: pip install redis"
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Redis connection failed: {e}")
             raise
 
@@ -669,7 +669,7 @@ class WebhookRetryQueue:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error in retry queue process loop: {e}")
                 await asyncio.sleep(PROCESS_INTERVAL)
 
@@ -704,7 +704,7 @@ class WebhookRetryQueue:
                     if self._delivery_callback:
                         try:
                             await self._delivery_callback(delivery)
-                        except Exception as e:
+                        except (RuntimeError, TypeError, ValueError, OSError) as e:
                             logger.error(f"Delivery callback error: {e}")
 
                 else:
@@ -727,7 +727,7 @@ class WebhookRetryQueue:
                         if self._dead_letter_callback:
                             try:
                                 await self._dead_letter_callback(delivery)
-                            except Exception as e:
+                            except (RuntimeError, TypeError, ValueError, OSError) as e:
                                 logger.error(f"Dead-letter callback error: {e}")
                     else:
                         # Schedule retry
@@ -743,7 +743,7 @@ class WebhookRetryQueue:
                             f"at {delivery.next_retry_at.isoformat()}"
                         )
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 # Unexpected error - treat as failed attempt
                 delivery.last_error = "Unexpected delivery error"
 
@@ -826,7 +826,7 @@ class WebhookRetryQueue:
             return False, 0, "Connection error"
         except asyncio.TimeoutError:
             return False, 0, "Request timed out"
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug("Webhook delivery error: %s", e)
             return False, 0, "Delivery failed"
 
@@ -891,7 +891,7 @@ class WebhookRetryQueue:
                 return False, 0, "Connection error"
             except TimeoutError:
                 return False, 0, "Request timed out"
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug("Webhook sync delivery error: %s", e)
                 return False, 0, "Delivery failed"
 

@@ -461,7 +461,7 @@ class BatchProcessor:
 
                 try:
                     await self._process_job(job)
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError, TypeError) as e:
                     logger.exception(f"Worker {worker_id} error processing {job_id}")
                     job.status = JobStatus.FAILED
                     job.error_message = str(e)
@@ -474,7 +474,7 @@ class BatchProcessor:
                             logger.debug(
                                 f"Job {job_id} error callback raised expected error: {callback_err}"
                             )
-                        except Exception as callback_err:
+                        except (RuntimeError, OSError) as callback_err:
                             logger.warning(
                                 f"Job {job_id} error callback raised unexpected error: {callback_err}"
                             )
@@ -484,7 +484,7 @@ class BatchProcessor:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.exception(f"Worker {worker_id} unexpected error: {e}")
 
         logger.debug(f"Worker {worker_id} stopped")
@@ -507,7 +507,7 @@ class BatchProcessor:
                 uploaded_by=job.uploaded_by,
                 tags=job.tags,
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, TypeError) as e:
             raise DocumentParseError(
                 document_id=None,
                 reason=str(e),
@@ -548,7 +548,7 @@ class BatchProcessor:
             document.chunk_overlap = job.chunk_overlap
             document.total_tokens = sum(c.token_count for c in chunks)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError, TypeError) as e:
             raise DocumentChunkError(
                 document_id=document.id if document else None,
                 reason=str(e),
@@ -581,7 +581,7 @@ class BatchProcessor:
         if job.on_complete:
             try:
                 job.on_complete(job)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"Error in completion callback: {e}")
 
         logger.info(
@@ -596,7 +596,7 @@ class BatchProcessor:
         if job.on_progress:
             try:
                 job.on_progress(progress, message)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError) as e:
                 logger.warning(f"Error in progress callback: {e}")
 
 

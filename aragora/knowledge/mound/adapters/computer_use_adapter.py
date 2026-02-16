@@ -247,7 +247,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store task result: {e}")
                 return None
 
@@ -327,7 +327,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store task execution record: {e}")
                 return None
 
@@ -401,7 +401,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store action performance: {e}")
                 return None
 
@@ -473,7 +473,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store policy block: {e}")
                 return None
 
@@ -546,7 +546,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return records[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get similar tasks: {e}")
                 return []
 
@@ -613,7 +613,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
                 return stats
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get action statistics: {e}")
                 return {}
 
@@ -759,7 +759,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                     ),
                 }
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to get policy block analysis: %s", e)
                 return {"analysis_available": False, "error": "Policy block analysis unavailable"}
 
@@ -838,7 +838,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 logger.info(f"Synced from orchestrator: {synced}")
                 return synced
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to sync from orchestrator: %s", e)
                 return {"error": "Orchestrator sync failed"}
 

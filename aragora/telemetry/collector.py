@@ -102,7 +102,7 @@ class TelemetryCollector:
                 await asyncio.sleep(self.flush_interval)
                 try:
                     await self.flush()
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError, TypeError) as e:
                     logger.error("periodic_flush_error: %s", e)
 
         self._flush_task = asyncio.create_task(_periodic_flush())
@@ -199,7 +199,7 @@ class TelemetryCollector:
         if self.backend:
             try:
                 await self.backend.write(events)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.error("telemetry_flush_error: %s", e)
                 # Re-add events to buffer on failure (with limit)
                 self._buffer = (events + self._buffer)[: self.buffer_size]

@@ -504,7 +504,7 @@ class SkillPublisher:
             logger.info(f"Published skill: {listing.skill_id} v{listing.current_version}")
             return True, listing, validation.issues
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
             logger.error(f"Failed to publish skill: {e}")
             return (
                 False,
@@ -601,7 +601,7 @@ class SkillPublisher:
             logger.info(f"Published new version: {skill_id} v{new_version}")
             return True, listing, validation.issues
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
             logger.error(f"Failed to publish version: {e}")
             return (
                 False,

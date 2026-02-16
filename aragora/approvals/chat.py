@@ -191,7 +191,7 @@ async def send_chat_approval_request(
                         "error": getattr(response, "error", None),
                     }
                 )
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError, TypeError) as exc:
                 results.append(
                     {
                         "platform": platform,

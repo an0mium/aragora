@@ -104,7 +104,7 @@ class TestDebatePhaseProposals:
         )
 
         with patch.object(phase, "_generate_proposals", new_callable=AsyncMock) as mock_gen:
-            mock_gen.side_effect = Exception("Agent timeout")
+            mock_gen.side_effect = RuntimeError("Agent timeout")
 
             # Should not raise, should return empty or partial results
             try:

@@ -238,7 +238,7 @@ class TestBudgetAlertNotifier:
         mock_subscription_store.get_for_event.return_value = [subscription]
 
         mock_slack = AsyncMock()
-        mock_slack.post_message.side_effect = Exception("Connection failed")
+        mock_slack.post_message.side_effect = ConnectionError("Connection failed")
 
         notifier = BudgetAlertNotifier(
             slack_connector=mock_slack,

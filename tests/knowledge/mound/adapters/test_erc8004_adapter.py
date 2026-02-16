@@ -266,7 +266,7 @@ class TestForwardSync:
 
         identity_contract = MagicMock()
         identity_contract.get_total_supply.return_value = 2
-        identity_contract.get_agent.side_effect = Exception("Contract error")
+        identity_contract.get_agent.side_effect = RuntimeError("Contract error")
 
         with patch.object(adapter, "_get_identity_contract", return_value=identity_contract):
             result = await adapter.sync_to_km()
@@ -557,7 +557,7 @@ class TestHealthStatus:
     def test_health_status_error(self):
         """Test health status when provider throws error."""
         provider = MagicMock()
-        provider.is_connected.side_effect = Exception("Connection error")
+        provider.is_connected.side_effect = RuntimeError("Connection error")
         adapter = ERC8004Adapter(provider=provider)
 
         status = adapter.get_health_status()
@@ -590,7 +590,7 @@ class TestEventEmission:
         identity_contract.get_agent.return_value = _make_mock_identity()
 
         reputation_contract = MagicMock()
-        reputation_contract.get_summary.side_effect = Exception("No reputation")
+        reputation_contract.get_summary.side_effect = RuntimeError("No reputation")
 
         validation_contract = MagicMock()
         validation_contract.get_agent_validations.return_value = []
@@ -1120,7 +1120,7 @@ class TestPredictionCommitment:
         )
 
         mock_rep_contract = MagicMock()
-        mock_rep_contract.give_feedback.side_effect = Exception("RPC error")
+        mock_rep_contract.give_feedback.side_effect = RuntimeError("RPC error")
 
         with patch.object(
             adapter, "_get_reputation_contract", return_value=mock_rep_contract
@@ -1256,7 +1256,7 @@ class TestErrorHandling:
         ]
 
         mock_rep_contract = MagicMock()
-        mock_rep_contract.give_feedback.side_effect = Exception("Transaction reverted")
+        mock_rep_contract.give_feedback.side_effect = RuntimeError("Transaction reverted")
 
         with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
             with patch.object(adapter, "_get_performance_adapter", return_value=mock_perf_adapter):
@@ -1286,7 +1286,7 @@ class TestErrorHandling:
         ]
 
         mock_cal_engine = MagicMock()
-        mock_cal_engine.get_domain_stats.side_effect = Exception("Calibration DB error")
+        mock_cal_engine.get_domain_stats.side_effect = RuntimeError("Calibration DB error")
 
         with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
             with patch(
@@ -1322,7 +1322,7 @@ class TestErrorHandling:
         ]
 
         mock_perf_adapter = MagicMock()
-        mock_perf_adapter.get_agent_skill_history.side_effect = Exception("Database error")
+        mock_perf_adapter.get_agent_skill_history.side_effect = RuntimeError("Database error")
 
         with patch.object(adapter, "_get_identity_bridge", return_value=mock_bridge):
             with patch.object(adapter, "_get_performance_adapter", return_value=mock_perf_adapter):

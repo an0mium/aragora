@@ -312,7 +312,7 @@ class TestSupermemoryAdapterHealth:
     @pytest.mark.asyncio
     async def test_health_check_error(self, adapter, mock_client):
         """Test health check on error."""
-        mock_client.health_check.side_effect = Exception("Connection failed")
+        mock_client.health_check.side_effect = RuntimeError("Connection failed")
 
         health = await adapter.health_check()
 

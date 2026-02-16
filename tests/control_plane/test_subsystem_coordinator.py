@@ -415,7 +415,7 @@ class TestLifecycleHooks:
 
     def test_on_round_complete_handles_ledger_error(self, mock_context, mock_position_ledger):
         """on_round_complete handles ledger errors gracefully."""
-        mock_position_ledger.record_position.side_effect = Exception("Database error")
+        mock_position_ledger.record_position.side_effect = RuntimeError("Database error")
         coordinator = SubsystemCoordinator(position_ledger=mock_position_ledger)
 
         positions = {"claude": "Python is best"}
@@ -457,7 +457,7 @@ class TestLifecycleHooks:
         self, mock_context, mock_result, mock_consensus_memory
     ):
         """on_debate_complete handles consensus memory errors gracefully."""
-        mock_consensus_memory.store_consensus.side_effect = Exception("Storage error")
+        mock_consensus_memory.store_consensus.side_effect = RuntimeError("Storage error")
         coordinator = SubsystemCoordinator(consensus_memory=mock_consensus_memory)
 
         # Should not raise
@@ -482,7 +482,7 @@ class TestErrorHandling:
 
     def test_get_historical_dissent_handles_retriever_error(self, mock_dissent_retriever):
         """get_historical_dissent handles retriever errors gracefully."""
-        mock_dissent_retriever.retrieve_for_new_debate.side_effect = Exception("Network error")
+        mock_dissent_retriever.retrieve_for_new_debate.side_effect = RuntimeError("Network error")
         coordinator = SubsystemCoordinator(dissent_retriever=mock_dissent_retriever)
 
         result = coordinator.get_historical_dissent("test task")
@@ -500,7 +500,7 @@ class TestErrorHandling:
 
     def test_get_continuum_context_handles_memory_error(self, mock_continuum_memory):
         """get_continuum_context handles memory errors gracefully."""
-        mock_continuum_memory.retrieve.side_effect = Exception("Database unavailable")
+        mock_continuum_memory.retrieve.side_effect = RuntimeError("Database unavailable")
         coordinator = SubsystemCoordinator(continuum_memory=mock_continuum_memory)
 
         context = coordinator.get_continuum_context("test task")

@@ -369,7 +369,7 @@ class TestSlackNotificationChannel:
         )
 
         # Should not raise, returns False on error
-        with patch.object(channel, "_post_webhook", side_effect=Exception("Network error")):
+        with patch.object(channel, "_post_webhook", side_effect=ConnectionError("Network error")):
             result = await channel.send(alert, rule)
             assert result is False
 

@@ -595,7 +595,7 @@ class TestEmailPrioritizerTier2:
             import sys
 
             sys.modules["aragora.core.model_router"].get_model_router = MagicMock(
-                side_effect=Exception("Model not available")
+                side_effect=RuntimeError("Model not available")
             )
 
             result = await prioritizer._tier_2_score(mock_email, sender_profile)
@@ -673,7 +673,7 @@ class TestEmailPrioritizerTier3:
             import sys
 
             sys.modules["aragora.debate.arena"].DebateArena = MagicMock(
-                side_effect=Exception("Debate failed")
+                side_effect=RuntimeError("Debate failed")
             )
 
             result = await prioritizer._tier_3_debate(mock_email, sender_profile)

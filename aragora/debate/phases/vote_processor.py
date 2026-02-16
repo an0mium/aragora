@@ -139,7 +139,7 @@ class VoteProcessor:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(f"vote_exception agent={agent.name} error={type(e).__name__}: {e}")
                 return (agent, e)
 
@@ -152,7 +152,7 @@ class VoteProcessor:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.error(f"task_exception phase=vote error={e}")
                     continue
 
@@ -208,7 +208,7 @@ class VoteProcessor:
                 else:
                     vote_result = await self._vote_with_agent(agent, ctx.proposals, task)
                 return (agent, vote_result)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.warning(
                     f"vote_exception_unanimous agent={agent.name} error={type(e).__name__}: {e}"
                 )
@@ -224,7 +224,7 @@ class VoteProcessor:
                     agent, vote_result = await completed_task
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - phase isolation
                     logger.error(f"task_exception phase=unanimous_vote error={e}")
                     voting_errors += 1
                     continue
@@ -283,7 +283,7 @@ class VoteProcessor:
         if self.recorder:
             try:
                 self.recorder.record_vote(agent.name, vote.choice, vote.reasoning)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for vote: {e}")
 
         if self.position_tracker:
@@ -299,7 +299,7 @@ class VoteProcessor:
                     round_num=result.rounds_used,
                     confidence=vote.confidence,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Position tracking error for vote: {e}")
 
     def compute_vote_groups(self, votes: list[Vote]) -> tuple[dict[str, list[str]], dict[str, str]]:
@@ -404,7 +404,7 @@ class VoteProcessor:
                     )
                 else:
                     adjusted_votes.append(vote)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Calibration adjustment failed for {vote.agent}: {e}")
                 adjusted_votes.append(vote)
 

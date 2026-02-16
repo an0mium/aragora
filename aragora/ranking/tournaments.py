@@ -711,7 +711,7 @@ class TournamentManager:
                     f"{agent1}={elo_changes.get(agent1, 0):+.1f}, "
                     f"{agent2}={elo_changes.get(agent2, 0):+.1f}"
                 )
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to update ELO for match {match_id}: {e}")
 
         return elo_changes

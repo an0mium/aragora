@@ -790,7 +790,7 @@ class TestPolicySyncOnStartup:
         """Test that policy sync failure doesn't crash startup."""
         mock_policy_manager = MagicMock()
         mock_policy_manager.sync_from_compliance_store = MagicMock(
-            side_effect=Exception("Database connection failed")
+            side_effect=RuntimeError("Database connection failed")
         )
 
         config = ControlPlaneConfig(enable_policy_sync=True)

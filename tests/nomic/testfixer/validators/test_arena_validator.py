@@ -428,7 +428,7 @@ REASONING: The fix is correct.
     @pytest.mark.asyncio
     async def test_get_agent_validation_exception(self, mock_agent):
         """Test handling exception."""
-        mock_agent.generate.side_effect = Exception("API error")
+        mock_agent.generate.side_effect = RuntimeError("API error")
 
         validator = ArenaValidator()
         result = await validator._get_agent_validation(mock_agent, "test prompt")
@@ -450,7 +450,7 @@ class TestValidationFlow:
         with patch(
             "aragora.nomic.testfixer.validators.arena_validator.create_agent"
         ) as mock_create:
-            mock_create.side_effect = Exception("No API key")
+            mock_create.side_effect = RuntimeError("No API key")
 
             validator = ArenaValidator()
 
@@ -663,7 +663,7 @@ class TestArenaDebateIntegration:
             mock_create.return_value = mock_agent
 
             with patch("aragora.debate.orchestrator.Arena") as mock_arena:
-                mock_arena.side_effect = Exception("Arena initialization failed")
+                mock_arena.side_effect = RuntimeError("Arena initialization failed")
 
                 config = ArenaValidatorConfig(agent_types=["test"])
                 validator = ArenaValidator(config)

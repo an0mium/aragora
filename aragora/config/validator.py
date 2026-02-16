@@ -64,7 +64,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
         errors.extend(basic_result.get("errors", []))
         warnings.extend(basic_result.get("warnings", []))
         config_summary = cast(dict[str, Any], basic_result.get("config_summary", {}))
-    except Exception as e:
+    except (ImportError, ValueError, TypeError, RuntimeError, OSError) as e:
         errors.append(f"Basic configuration validation failed: {e}")
 
     # Additional security checks

@@ -145,7 +145,7 @@ class SlackProvider(NotificationProvider):
                 notification_id=notification.id,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to send Slack notification: {e}")
             latency = time.perf_counter() - start_time
             error_type = "rate_limited" if "rate" in str(e).lower() else "delivery_error"
@@ -334,7 +334,7 @@ class EmailProvider(NotificationProvider):
                 notification_id=notification.id,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to send email notification: {e}")
             latency = time.perf_counter() - start_time
             error_type = "connection_error" if "connection" in str(e).lower() else "delivery_error"
@@ -572,7 +572,7 @@ class WebhookProvider(NotificationProvider):
                 notification_id=notification.id,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to send webhook notification: {e}")
             latency = time.perf_counter() - start_time
             error_type = "timeout" if "timeout" in str(e).lower() else "delivery_error"

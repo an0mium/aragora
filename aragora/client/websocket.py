@@ -355,7 +355,7 @@ class DebateStream:
 
         except asyncio.TimeoutError:
             raise ConnectionError(f"Connection timeout to {self.url}")
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             raise ConnectionError(f"Failed to connect to {self.url}: {e}")
 
     async def disconnect(self) -> None:
@@ -492,10 +492,10 @@ class DebateStream:
 
                 except json.JSONDecodeError:
                     logger.warning(f"Invalid JSON: {message[:100]}")
-                except Exception as e:
+                except (ValueError, KeyError, TypeError, AttributeError) as e:
                     logger.warning(f"Error processing message: {e}")
 
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             if not self._is_closing:
                 self._emit_error(e)
                 self._emit_close(1006, str(e))
@@ -511,7 +511,7 @@ class DebateStream:
             for callback in self._event_callbacks[type_key]:
                 try:
                     callback(event)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                     logger.warning(f"Callback error: {e}")
 
         # Wildcard callbacks
@@ -519,7 +519,7 @@ class DebateStream:
             for callback in self._event_callbacks["*"]:
                 try:
                     callback(event)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                     logger.warning(f"Callback error: {e}")
 
     def _emit_error(self, error: Exception) -> None:
@@ -527,7 +527,7 @@ class DebateStream:
         for callback in self._error_callbacks:
             try:
                 callback(error)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                 logger.warning(f"Error callback error: {e}")
 
     def _emit_close(self, code: int, reason: str) -> None:
@@ -535,7 +535,7 @@ class DebateStream:
         for callback in self._close_callbacks:
             try:
                 callback(code, reason)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                 logger.warning(f"Close callback error: {e}")
 
     async def _attempt_reconnect(self) -> None:
@@ -552,7 +552,7 @@ class DebateStream:
 
         try:
             await self.connect()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.warning(f"Reconnect failed: {e}")
             await self._attempt_reconnect()
 

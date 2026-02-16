@@ -366,7 +366,7 @@ def migrate_sqlite_to_postgres(
                     pg_conn.commit()
                     results[table] = migrated
                     logger.info(f"  Migrated {migrated} rows")
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.error(f"  Error migrating {table}: {e}")
                     pg_conn.rollback()
                     results[table] = -1
@@ -418,7 +418,7 @@ def verify_migration(
                 pg_cursor = pg_conn.cursor()
                 pg_cursor.execute(f"SELECT COUNT(*) FROM {table}")
                 pg_count = pg_cursor.fetchone()[0]
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to get row count for table {table} in PostgreSQL: {e}")
                 pg_count = -1
 

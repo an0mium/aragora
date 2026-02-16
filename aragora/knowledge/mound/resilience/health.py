@@ -99,7 +99,7 @@ class ConnectionHealthMonitor:
                 last_error=f"Failed: {type(e).__name__}",
             )
             logger.debug("Health check failed with expected error: %s", e)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             self._status = HealthStatus(
                 healthy=self._status.consecutive_failures < self._failure_threshold,
                 last_check=datetime.now(timezone.utc),
@@ -120,7 +120,7 @@ class ConnectionHealthMonitor:
                 break
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"Health check loop error (expected): {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning(f"Health check loop error (unexpected): {e}")
 
     def record_success(self) -> None:

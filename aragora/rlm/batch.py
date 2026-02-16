@@ -320,7 +320,7 @@ async def llm_batch_detailed(
                     early_stop_triggered.set()
                     return
 
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 item_result.error = e
                 item_result.status = BatchItemStatus.FAILED
                 item_result.duration_seconds = time.time() - item_start

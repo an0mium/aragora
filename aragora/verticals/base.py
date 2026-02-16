@@ -106,7 +106,7 @@ class VerticalSpecialistAgent(APIAgent):
                     temperature=config.model_config.temperature,
                     top_p=config.model_config.top_p,
                 )
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"[verticals] Failed to initialize delegate agent: {e}")
             self._delegate = None
 
@@ -294,7 +294,7 @@ class VerticalSpecialistAgent(APIAgent):
                 policy=policy,
                 result=result,
             )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.debug("Tool audit record failed for %s: %s", tool.name, e)
 
     @abstractmethod
@@ -462,7 +462,7 @@ class VerticalSpecialistAgent(APIAgent):
                 content=response_text,
                 agent=self.name,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"[verticals] Generation failed for {self.name}: {e}")
             return Message(
                 role="assistant",

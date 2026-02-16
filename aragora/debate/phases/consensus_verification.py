@@ -148,7 +148,7 @@ class ConsensusVerifier:
                 if hasattr(result, "verification_results"):
                     result.verification_results[agent_name] = -1  # Timeout indicator
                 self._emit_verification_event(ctx, agent_name, -1, 0.0, timeout=True)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.debug(f"verification_error agent={agent_name} error={e}")
 
         # Update ELO based on verification results
@@ -179,7 +179,7 @@ class ConsensusVerifier:
         if self._extract_debate_domain:
             try:
                 domain = self._extract_debate_domain()
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Failed to extract debate domain: {e}")
 
         # Process verification results for each agent
@@ -214,7 +214,7 @@ class ConsensusVerifier:
                         f"verified={verified_count} disproven={disproven_count} "
                         f"change={change:.1f}"
                     )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"verification_elo_error agent={agent_name} error={e}")
 
     def adjust_vote_confidence_from_verification(
@@ -341,7 +341,7 @@ class ConsensusVerifier:
                     },
                 )
             )
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"verification_event_error: {e}")
 
 

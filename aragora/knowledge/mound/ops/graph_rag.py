@@ -360,7 +360,7 @@ class GraphRAGRetriever:
             # Get neighbors
             try:
                 neighbors = await self.graph_store.get_neighbors(current_id)
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.warning("neighbor_fetch_error node=%s error=%s", current_id, e)
                 continue
 

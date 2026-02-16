@@ -415,7 +415,7 @@ class DomainDetector:
                 import anthropic
 
                 self._client = anthropic.Anthropic()
-            except Exception as e:
+            except (ImportError, ValueError, OSError, RuntimeError) as e:
                 logger.warning(f"Failed to create Anthropic client: {e}")
                 self.use_llm = False
         return self._client
@@ -503,7 +503,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             # No valid domains found, fallback
             return None
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.debug(f"LLM domain detection failed: {e}")
             return None
 

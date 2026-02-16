@@ -271,7 +271,7 @@ class TestMigrate:
             migration_count[0] += 1
             tx = MagicMock()
             if migration_count[0] > 1:
-                tx.__aenter__ = AsyncMock(side_effect=Exception("SQL error"))
+                tx.__aenter__ = AsyncMock(side_effect=RuntimeError("SQL error"))
             else:
                 tx.__aenter__ = AsyncMock()
             tx.__aexit__ = AsyncMock()

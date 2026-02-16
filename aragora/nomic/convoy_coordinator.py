@@ -320,7 +320,7 @@ class ConvoyCoordinator:
                         self._bead_assignments[assignment.bead_id] = assignment.id
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid assignment data: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load assignments: {e}")
 
     async def _save_assignments(self) -> None:
@@ -333,7 +333,7 @@ class ConvoyCoordinator:
                 for assignment in self._assignments.values():
                     f.write(json.dumps(assignment.to_dict()) + "\n")
             temp_file.rename(assignments_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             logger.error(f"Failed to save assignments: {e}")
@@ -383,7 +383,7 @@ class ConvoyCoordinator:
                     # High queue depth indicates agent is busy
                     queue_depth = stats.get("pending", 0)
                     load.pending_beads = max(load.pending_beads, queue_depth)
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError, OSError) as e:
             logger.warning(f"Failed to update loads from hook queue: {e}")
 
     async def distribute_convoy(

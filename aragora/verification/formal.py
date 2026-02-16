@@ -514,7 +514,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
         except asyncio.TimeoutError:
             logger.warning("Timeout translating claim to Lean 4")
             return None
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.warning(f"Failed to translate claim to Lean 4: {type(e).__name__}: {e}")
             return None
 
@@ -621,7 +621,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
                 formal_statement=formal_statement,
                 error_message="ProofSandbox not available",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             return FormalProofResult(
                 status=FormalProofStatus.BACKEND_UNAVAILABLE,
                 language=FormalLanguage.LEAN4,
@@ -765,7 +765,7 @@ Examples of MATCHING:
 
                 return matches, min(1.0, max(0.0, confidence)), explanation
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
             logger.warning(f"Semantic verification failed: {e}")
             return False, 0.3, f"Verification error: {e}"
 
@@ -1019,7 +1019,7 @@ class Z3Backend:
             ctx = z3.Context()
             z3.parse_smt2_string(smtlib, ctx=ctx)
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.debug(f"SMT-LIB2 validation failed: {type(e).__name__}: {e}")
             return False
 
@@ -1117,7 +1117,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                 if self._validate_smtlib2(smtlib):
                     return smtlib
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
                 # LLM translation failed, log and continue to return None
                 logger.debug(f"LLM translation to SMT-LIB2 failed: {e}")
 
@@ -1221,7 +1221,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
                     prover_version=self.z3_version,
                 )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
             return FormalProofResult(
                 status=FormalProofStatus.BACKEND_UNAVAILABLE,
                 language=FormalLanguage.Z3_SMT,

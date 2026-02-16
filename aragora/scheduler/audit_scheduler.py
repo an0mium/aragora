@@ -611,7 +611,7 @@ class AuditScheduler:
             await self._emit("job_failed", job, run)
             logger.error(f"Job {job.job_id} timed out")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - scheduler job isolation requires catching all failures
             run.status = "error"
             run.error_message = "Audit job execution failed"
             run.completed_at = datetime.now(timezone.utc)
@@ -634,7 +634,7 @@ class AuditScheduler:
                     await callback(*args)
                 else:
                     callback(*args)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.error(f"Callback error for {event}: {e}")
 
     def _verify_webhook_signature(

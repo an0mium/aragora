@@ -74,6 +74,6 @@ class DebateStepExecutor(StepExecutor):
         except ImportError as e:
             logger.warning(f"Debate modules not available: {e}")
             return {"status": "skipped", "reason": "Debate modules not available"}
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Debate execution failed: {e}")
             raise

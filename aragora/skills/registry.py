@@ -261,7 +261,7 @@ def _validate_skill_code(skill: Skill) -> list[str]:
         validate_python_code(source, strict_mode=False)
     except CodeValidationError as e:
         warnings.append(f"Skill '{skill.manifest.name}' execute() code validation warning: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
         # Don't break registration for unexpected validation errors
         warnings.append(f"Skill '{skill.manifest.name}' code validation could not complete: {e}")
 
@@ -464,7 +464,7 @@ class SkillRegistry:
         for hook in self._hooks["pre_invoke"]:
             try:
                 hook(skill_name, input_data, context)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - user-provided hook isolation
                 logger.warning(f"Pre-invoke hook error: {e}")
 
         try:
@@ -604,12 +604,12 @@ class SkillRegistry:
             for hook in self._hooks["post_invoke"]:
                 try:
                     hook(skill_name, result, context)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - user-provided hook isolation
                     logger.warning(f"Post-invoke hook error: {e}")
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - skill plugin execution boundary
             logger.exception(f"Skill execution failed: {skill_name}")
             result = SkillResult.create_failure(str(e))
             self._record_metrics(skill_name, result, start_time)
@@ -636,7 +636,7 @@ class SkillRegistry:
             for hook in self._hooks["on_error"]:
                 try:
                     hook(skill_name, e, context)
-                except Exception as hook_error:
+                except Exception as hook_error:  # noqa: BLE001 - user-provided hook isolation
                     logger.warning(f"Error hook failed: {hook_error}")
 
             return result
@@ -714,7 +714,7 @@ class SkillRegistry:
                 for permission in manifest.required_permissions:
                     if not await self._check_rbac_permission(context, permission):
                         return False, permission
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:
                 logger.warning(f"RBAC check failed, falling back to context: {e}")
                 # Fall back to context permissions
                 for permission in manifest.required_permissions:
@@ -742,7 +742,7 @@ class SkillRegistry:
             if asyncio.iscoroutine(check_result):
                 return await check_result
             return check_result
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             logger.warning(f"RBAC check error: {e}")
             return False
 

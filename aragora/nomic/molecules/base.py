@@ -155,7 +155,7 @@ class CompensatingAction:
                 return True
             self.executed = True
             return True
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Compensating action failed for step {self.step_name}: {e}")
             return False
 
@@ -229,7 +229,7 @@ class MoleculeTransaction:
             self.committed_at = datetime.now(timezone.utc)
             logger.info(f"Transaction {self.transaction_id} committed successfully")
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning("Transaction commit failed: %s", e)
             self.error_message = f"Failed: {type(e).__name__}"
             self.state = TransactionState.FAILED
@@ -257,7 +257,7 @@ class MoleculeTransaction:
                     if not success:
                         rollback_success = False
                         logger.error(f"Compensating action failed for step {action.step_name}")
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     rollback_success = False
                     logger.error(f"Error executing compensating action: {e}")
 
@@ -265,7 +265,7 @@ class MoleculeTransaction:
         if self.pre_transaction_snapshot:
             try:
                 await self._restore_snapshot()
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 rollback_success = False
                 logger.error(f"Failed to restore pre-transaction snapshot: {e}")
 
@@ -293,7 +293,7 @@ class MoleculeTransaction:
         try:
             with open(log_file, "w") as f:
                 json.dump(log_entry, f, indent=2)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to write transaction log: {e}")
 
     async def _restore_snapshot(self) -> None:
@@ -306,7 +306,7 @@ class MoleculeTransaction:
             with open(snapshot_file, "w") as f:
                 json.dump(self.pre_transaction_snapshot, f, indent=2)
             logger.info(f"Restored pre-transaction snapshot for molecule {self.molecule_id}")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             raise TransactionRollbackError(f"Failed to restore snapshot: {e}")
 
     def to_dict(self) -> dict[str, Any]:

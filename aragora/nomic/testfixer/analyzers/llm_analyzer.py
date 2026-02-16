@@ -117,7 +117,7 @@ class LLMFailureAnalyzer(AIAnalyzer):
                 )
                 self.agents.append(agent)
                 logger.info("llm_analyzer.agent_created type=%s", agent_type)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(
                     "llm_analyzer.agent_create_failed type=%s: %s",
                     agent_type,
@@ -313,7 +313,7 @@ Your assessment of the analysis, including any issues or improvements...
                 duration,
             )
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             duration = time.perf_counter() - start_time
             logger.warning(
                 "llm_analyzer.agent_error agent=%s duration=%.2fs: %s",

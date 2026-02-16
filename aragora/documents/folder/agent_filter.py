@@ -169,7 +169,7 @@ class AgentFileFilter:
             if len(content) == self.max_preview_size:
                 content += "..."
             return content
-        except Exception as e:
+        except (OSError, UnicodeDecodeError, ValueError) as e:
             logger.debug(f"Could not read preview for {file_info.path}: {e}")
             return None
 
@@ -344,7 +344,7 @@ Provide a decision for every file listed above."""
                 response = await self._call_llm(llm_prompt)
                 batch_decisions = self._parse_response(response, batch)
                 all_decisions.extend(batch_decisions)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                 logger.error(f"Agent filter batch {i // self.batch_size + 1} failed: {e}")
                 # On error, default to including all files in this batch
                 for file_info in batch:

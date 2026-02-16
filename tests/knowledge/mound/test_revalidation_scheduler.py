@@ -1081,7 +1081,7 @@ class TestErrorHandlingAndRecovery:
         from aragora.knowledge.mound.revalidation_scheduler import RevalidationScheduler
 
         mock_knowledge_mound.get_stale_knowledge = AsyncMock(
-            side_effect=Exception("Unexpected error")
+            side_effect=RuntimeError("Unexpected error")
         )
 
         scheduler = RevalidationScheduler(knowledge_mound=mock_knowledge_mound)

@@ -596,7 +596,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
                 f"Applied KM boost to pattern {validation.pattern_id}: "
                 f"+{validation.boost_amount} successes"
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("KM boost application failed: %s", e)
             boost.metadata["error"] = f"Boost failed: {type(e).__name__}"
 
@@ -727,7 +727,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
             )
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to apply reputation adjustment: {e}")
             return False
 
@@ -787,7 +787,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
                     if boost.was_applied:
                         result.patterns_boosted += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Error validating pattern {pattern_id}: {e}")
 
         # Compute and apply reputation adjustments
@@ -801,7 +801,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
                     if await self.apply_reputation_adjustment(adjustment):
                         result.reputation_adjustments += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Error adjusting reputation for {agent_name}: {e}")
 
         result.errors = errors

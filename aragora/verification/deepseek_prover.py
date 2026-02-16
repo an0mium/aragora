@@ -125,7 +125,7 @@ import Mathlib.Algebra.Ring.Basic
                     model_ids = {m.get("id") for m in models}
                     self._model_available = self.PRIMARY_MODEL in model_ids
                     return self._model_available
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.warning(f"Failed to check model availability: {e}")
 
         return False
@@ -308,7 +308,7 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
             except (OSError, ConnectionError) as e:
                 last_error = f"Network error: {e}"
                 logger.warning(f"DeepSeek-Prover {model} network error: {e}")
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:
                 last_error = f"Unexpected error: {type(e).__name__}: {e}"
                 logger.warning(f"DeepSeek-Prover {model} error: {e}")
 

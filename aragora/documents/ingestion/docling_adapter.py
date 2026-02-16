@@ -265,7 +265,7 @@ class DoclingParser:
             result = self._parse_with_docling(content, filename)
             result.parse_duration_ms = int((time.monotonic() - start_time) * 1000)
             return result
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"Docling parsing failed: {e}")
             return DoclingResult(
                 text="",

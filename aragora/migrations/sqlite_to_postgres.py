@@ -808,7 +808,7 @@ class MigrationOrchestrator:
             try:
                 row = await conn.fetchval(f'SELECT COUNT(*) FROM "{table}"')  # noqa: S608
                 result.rows_total_target = row or 0
-            except (OSError, RuntimeError, ValueError) as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
                 result.errors.append(f"Verification error: {e}")
 
         return result
@@ -830,7 +830,7 @@ class MigrationOrchestrator:
                 await conn.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')  # noqa: S608
                 logger.info(f"Rolled back table: {table}")
                 return True
-            except (OSError, RuntimeError, ValueError) as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to rollback table {table}: {e}")
                 return False
 

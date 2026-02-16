@@ -141,7 +141,7 @@ class SyncManager:
                 state.sync_count += 1
                 state.status = SyncStatus.COMPLETED
 
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
                 logger.error(f"Sync failed for {path_str}: {e}")
                 result.success = False
                 result.errors.append(str(e))
@@ -239,7 +239,7 @@ class SyncManager:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, ValueError) as e:
                 logger.error(f"Auto-sync error for {path_str}: {e}")
 
     def _handle_change(self, change: FileChange) -> None:
@@ -285,7 +285,7 @@ class SyncManager:
 
                 change.processed = True
 
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
                 logger.error(f"Error processing {change.path}: {e}")
                 change.error = str(e)
                 result.files_failed += 1
@@ -326,7 +326,7 @@ class SyncManager:
 
             logger.debug(f"Added document: {change.path} -> {doc_id}")
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError) as e:
             logger.error(f"Failed to ingest {change.path}: {e}")
             raise
 
@@ -357,7 +357,7 @@ class SyncManager:
                 change.document_id = doc_id
                 logger.debug(f"Updated document: {change.path} ({doc_id})")
 
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, ValueError) as e:
                 logger.error(f"Failed to update {change.path}: {e}")
                 raise
         else:
@@ -379,7 +379,7 @@ class SyncManager:
                 change.document_id = doc_id
                 logger.debug(f"Deleted document: {change.path} ({doc_id})")
 
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, ValueError) as e:
                 logger.error(f"Failed to delete {change.path}: {e}")
                 raise
 

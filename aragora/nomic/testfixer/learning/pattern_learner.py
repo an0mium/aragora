@@ -154,7 +154,7 @@ class PatternLearner:
                     len(self.patterns),
                     self.store_path,
                 )
-            except Exception as e:
+            except OSError as e:
                 logger.warning(
                     "pattern_learner.load_failed path=%s: %s",
                     self.store_path,
@@ -451,7 +451,7 @@ class PatternLearner:
                 if pattern.id not in self.patterns:
                     self.patterns[pattern.id] = pattern
                     imported += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.warning("pattern_learner.import_failed: %s", e)
 
         if imported > 0:

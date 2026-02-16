@@ -196,7 +196,7 @@ def _safe_write_text(path: Path, content: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    except Exception as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("test.run.write_failed path=%s error=%s", path, exc)
 
 
@@ -706,7 +706,7 @@ class TestRunner:
                 logger.debug("test.run.stdout_tail=%s", stdout[-800:])
                 logger.debug("test.run.stderr_tail=%s", stderr[-800:])
 
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             execution_error = e
             logger.warning("test.run.execution_error run_id=%s: %s", run_id, e)
             stderr = f"Test execution failed: {type(e).__name__}"

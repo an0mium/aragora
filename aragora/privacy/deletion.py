@@ -962,7 +962,7 @@ class GDPRDeletionScheduler:
                         loop.create_task(result)
                     except RuntimeError as e:
                         logger.debug("fire verification callbacks encountered an error: %s", e)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.warning("Verification callback failed: %s", e)
 
 

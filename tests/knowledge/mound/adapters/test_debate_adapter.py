@@ -247,7 +247,7 @@ class TestSyncToKM:
         self, adapter: DebateAdapter, sample_outcome: DebateOutcome
     ) -> None:
         mound = MagicMock()
-        mound.store_item = AsyncMock(side_effect=Exception("Store failed"))
+        mound.store_item = AsyncMock(side_effect=RuntimeError("Store failed"))
 
         adapter.store_outcome(sample_outcome)
         result = await adapter.sync_to_km(mound)

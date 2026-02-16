@@ -175,7 +175,7 @@ class KMPersistenceMixin:
                 await mound.ingest(request)
                 result["expertise_synced"] += 1
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 result["errors"].append(f"Expertise {expertise_key}: {e}")
 
         logger.info(
@@ -263,7 +263,7 @@ class KMPersistenceMixin:
 
                 result["expertise_loaded"] += 1
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             result["errors"].append(f"Load failed: {e}")
             logger.error(f"Failed to load expertise from KM: {e}")
 

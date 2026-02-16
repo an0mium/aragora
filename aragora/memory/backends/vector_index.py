@@ -221,7 +221,7 @@ class VectorIndex:
             try:
                 self._faiss_index = self._create_faiss_index(normalized)
                 logger.debug(f"Built FAISS index with {n} entries")
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.warning(f"Failed to build FAISS index: {e}, using fallback")
                 self._faiss_index = None
         else:

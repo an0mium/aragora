@@ -437,7 +437,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         except ImportError:
             # CrossWorkspaceCoordinator not available
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to record sharing consent: {e}")
 
     async def _send_share_notification(
@@ -462,7 +462,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             logger.debug(f"Would notify workspace {to_workspace_id} about shared item {item_id}")
         except ImportError:
             logger.debug("Notifications module not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to send share notification: {e}")
 
     async def _send_user_share_notification(
@@ -489,7 +489,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
             )
         except ImportError:
             logger.debug("Notifications module not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to send share notification: {e}")
 
     # =========================================================================

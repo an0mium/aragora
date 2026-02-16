@@ -339,7 +339,7 @@ class FusionMixin:
 
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result: {e}")
             return False
 
@@ -503,7 +503,7 @@ class FusionMixin:
                 else:
                     result["items_skipped"] += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("[%s] Error fusing item %s: %s", self.adapter_name, item_id, e)
                 result["errors"].append(f"Error fusing item {item_id}")
 

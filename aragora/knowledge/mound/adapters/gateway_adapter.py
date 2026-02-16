@@ -249,7 +249,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store routing record: {e}")
                 return None
 
@@ -330,7 +330,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store channel snapshot: {e}")
                 return None
 
@@ -403,7 +403,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store device registration: {e}")
                 return None
 
@@ -469,7 +469,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store routing decision: {e}")
                 return None
 
@@ -541,7 +541,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return snapshots[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get channel performance history: {e}")
                 return []
 
@@ -613,7 +613,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
                 return records[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to get routing patterns: {e}")
                 return []
 
@@ -793,7 +793,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                     "device_types": list(set(d["device_type"] for d in devices_with_capability)),
                 }
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to get device capabilities analysis: %s", e)
                 return {"analysis_available": False, "error": "Device capabilities analysis unavailable"}
 
@@ -859,7 +859,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 logger.info(f"Synced from gateway: {synced}")
                 return synced
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to sync from gateway: %s", e)
                 return {"error": "Gateway sync failed"}
 

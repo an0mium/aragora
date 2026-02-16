@@ -243,7 +243,7 @@ class TestSyncToKM:
         self, adapter: WorkflowAdapter, sample_outcome: WorkflowOutcome
     ) -> None:
         mound = MagicMock()
-        mound.store_item = AsyncMock(side_effect=Exception("DB error"))
+        mound.store_item = AsyncMock(side_effect=RuntimeError("DB error"))
 
         adapter.store_execution(sample_outcome)
         result = await adapter.sync_to_km(mound)

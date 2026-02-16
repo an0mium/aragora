@@ -480,7 +480,7 @@ class TestCmdHealth:
         mock_service = MagicMock()
         mock_service.get_active_key_id.return_value = "key-123"
         mock_service.get_active_key.return_value = mock_key
-        mock_service.encrypt.side_effect = Exception("Encryption failed")
+        mock_service.encrypt.side_effect = RuntimeError("Encryption failed")
 
         mock_encryption = MagicMock()
         mock_encryption.CRYPTO_AVAILABLE = True
@@ -517,7 +517,7 @@ class TestCmdHealth:
         """Test health when service initialization fails."""
         mock_encryption = MagicMock()
         mock_encryption.CRYPTO_AVAILABLE = True
-        mock_encryption.get_encryption_service.side_effect = Exception("Service init failed")
+        mock_encryption.get_encryption_service.side_effect = RuntimeError("Service init failed")
 
         with patch.dict("sys.modules", {"aragora.security.encryption": mock_encryption}):
             result = cmd_health(health_args)

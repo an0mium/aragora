@@ -223,7 +223,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
         except ImportError as e:
             logger.debug(f"Import error storing pattern: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to store culture pattern: {e}")
             return None
 
@@ -310,7 +310,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 # No running loop, create one
                 return asyncio.run(do_query())
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to load culture patterns: {e}")
             return []
 
@@ -482,7 +482,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
                 # No running loop, create one
                 return asyncio.run(do_store())
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to promote pattern to organization: {e}")
             return None
 

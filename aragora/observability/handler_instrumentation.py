@@ -153,7 +153,7 @@ def track_request(
         if hasattr(span, "__enter__"):
             span.__enter__()
         yield context
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - instrumentation must catch all to record metrics before re-raising
         context["status"] = 500
         context["error"] = e
         if span and hasattr(span, "record_exception"):
@@ -241,7 +241,7 @@ def instrument_handler(
                     status = result.status
 
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - instrumentation must catch all to record metrics before re-raising
                 status = 500
                 if span and hasattr(span, "record_exception"):
                     span.record_exception(e)
@@ -355,7 +355,7 @@ class MetricsMiddleware:
                 status = result.status
 
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - instrumentation must catch all to record metrics before re-raising
             status = 500
             if span and hasattr(span, "record_exception"):
                 span.record_exception(e)

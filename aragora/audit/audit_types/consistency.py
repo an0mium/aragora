@@ -506,6 +506,8 @@ class ConsistencyAuditor:
         model: str,
     ) -> list[AuditFinding]:
         """Use LLM for deeper consistency analysis."""
+        from aragora.agents.errors.exceptions import AgentAPIError
+
         findings = []
 
         try:
@@ -563,13 +565,8 @@ If no issues found, respond with empty array: []"""
             logger.warning(f"LLM consistency analysis failed to parse response: {e}")
         except OSError as e:
             logger.exception(f"LLM consistency analysis failed due to I/O error: {e}")
-        except Exception as e:
-            from aragora.agents.errors.exceptions import AgentAPIError
-
-            if isinstance(e, AgentAPIError):
-                logger.warning(f"LLM consistency analysis unavailable: {e}")
-            else:
-                raise
+        except AgentAPIError as e:
+            logger.warning(f"LLM consistency analysis unavailable: {e}")
 
         return findings
 

@@ -930,7 +930,7 @@ class SpecialistTrainingPipeline:
                     f"ELO={elo_rating}, accuracy={vertical_accuracy:.2f}, win_rate={win_rate:.2f}"
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, TypeError) as e:
                 logger.warning(f"Gauntlet evaluation failed for {model_id}: {e}")
                 # Still mark as ready, just without evaluation metrics
                 self._registry.update_status(model_id, TrainingStatus.READY)

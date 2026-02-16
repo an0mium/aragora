@@ -108,7 +108,7 @@ class ProtocolBridge:
                     agents = await self._a2a_client.discover_agents(registry)
                     for agent in agents:
                         self._external_agents[agent.name] = agent
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning(f"Failed to discover agents from {registry}: {e}")
 
         logger.info("Protocol bridge initialized")
@@ -221,7 +221,7 @@ class ProtocolBridge:
                         }
             except ImportError:
                 logger.warning("mcp package not installed, cannot connect to remote MCP server")
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Remote MCP invocation failed: {e}")
                 return {
                     "protocol": "mcp",
@@ -244,7 +244,7 @@ class ProtocolBridge:
             }
         except ImportError:
             logger.warning("AragoraMCPServer not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning(f"Local MCP invocation failed: {e}")
             return {
                 "protocol": "mcp",

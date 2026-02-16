@@ -202,7 +202,7 @@ class TestEmailSending:
     @patch("smtplib.SMTP")
     def test_send_email_failure(self, mock_smtp_class):
         """Test email sending failure."""
-        mock_smtp_class.side_effect = Exception("SMTP connection failed")
+        mock_smtp_class.side_effect = OSError("SMTP connection failed")
 
         notifier = BillingNotifier(
             smtp_host="mail.example.com",

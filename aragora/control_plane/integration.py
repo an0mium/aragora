@@ -118,7 +118,7 @@ class IntegratedControlPlane:
                 await asyncio.sleep(self._sync_interval)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
                 logger.error(f"Sync loop error: {e}")
                 await asyncio.sleep(self._sync_interval)
 
@@ -128,7 +128,7 @@ class IntegratedControlPlane:
             agents = await self._coordinator.list_agents(only_available=False)
             for agent in agents:
                 await self._sync_agent_to_shared_state(agent)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Agent sync failed: {e}")
 
     async def _sync_agent_to_shared_state(self, agent: AgentInfo) -> None:
@@ -157,7 +157,7 @@ class IntegratedControlPlane:
                 "metadata": agent.metadata or {},
             }
             await self._shared_state.register_agent(agent_data)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Failed to sync agent {agent.agent_id}: {e}")
 
     def _map_agent_status(self, status: AgentStatus) -> str:
@@ -625,7 +625,7 @@ class IntegratedControlPlane:
 
             except ImportError:
                 logger.debug("ELO system not available")
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError) as e:
                 logger.error(f"Failed to update ELO: {e}")
 
         return elo_callback
@@ -714,7 +714,7 @@ class IntegratedControlPlane:
 
             except ImportError:
                 logger.debug("Notification dispatcher not available")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
                 logger.error(f"Failed to send notification: {e}")
 
         return notification_callback

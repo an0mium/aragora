@@ -361,7 +361,7 @@ Example: confidential:0.85"""
             # For now, return None to indicate no LLM result
             return None
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning(f"LLM classification failed: {e}")
             return None
 

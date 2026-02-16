@@ -88,7 +88,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
     except asyncio.TimeoutError:
         context.error("Security scan timed out after 60 seconds")
         return {"vulnerabilities": [], "error": "Timeout"}
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         context.error(f"Failed to run bandit: {e}")
         return {"vulnerabilities": [], "error": str(e)}
 

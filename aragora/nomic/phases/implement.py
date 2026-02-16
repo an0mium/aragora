@@ -131,7 +131,7 @@ class ImplementPhase:
         # Generate code
         try:
             code_changes = await self.generate_code(design_str)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             return {"success": False, "error": f"Code generation failed: {e}"}
 
         # Validate syntax
@@ -147,7 +147,7 @@ class ImplementPhase:
             files_to_backup = [f for f in code_changes.keys() if (self.aragora_path / f).exists()]
             self._backup_manifest = await self.create_backup(files_to_backup)
             await self.write_files(code_changes)
-        except Exception as e:
+        except OSError as e:
             if self._backup_manifest:
                 await self.rollback(self._backup_manifest)
             return {"success": False, "error": f"Write failed: {e}"}
@@ -425,7 +425,7 @@ class ImplementPhase:
                         files_modified=[],
                         diff_summary="",
                     )
-                except Exception as gate_error:
+                except (RuntimeError, OSError, ValueError) as gate_error:
                     self._log(f"  [gate] Gate check error: {gate_error}")
                     # Non-fatal: continue without gate if it fails
 
@@ -448,7 +448,7 @@ class ImplementPhase:
                     self._log("  Generating implementation plan...")
                     plan = await self._plan_generator(design, self.aragora_path)
                     self._log(f"  Plan generated: {len(plan.tasks)} tasks")
-                except Exception as e:
+                except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                     logger.warning("Plan generation failed: %s", e)
                     return ImplementResult(
                         success=False,
@@ -594,7 +594,7 @@ class ImplementPhase:
                     diff_summary=diff[:2000] if diff else "",
                 )
 
-        except Exception as e:
+        except OSError as e:
             logger.warning("Catastrophic implementation failure: %s", e)
             self._log("  Rolling back changes...")
             await self._git_stash_pop(stash_ref)
@@ -690,7 +690,7 @@ CRITICAL SAFETY RULES:
                 files_modified=[],
                 diff_summary="",
             )
-        except Exception as e:
+        except OSError as e:
             logger.warning("Legacy implementation failed: %s", e)
             phase_duration = (datetime.now() - phase_start).total_seconds()
             error_desc = f"Legacy implementation failed: {type(e).__name__}"

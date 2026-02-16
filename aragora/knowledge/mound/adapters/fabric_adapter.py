@@ -259,7 +259,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.error(f"Failed to store pool snapshot: {e}")
                 return None
 
@@ -339,7 +339,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to store task outcome: {e}")
                 return None
 
@@ -419,7 +419,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store budget snapshot: {e}")
                 return None
 
@@ -490,7 +490,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return item_id
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.error(f"Failed to store policy decision: {e}")
                 return None
 
@@ -567,7 +567,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return snapshots[:limit]
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.error(f"Failed to get pool performance history: {e}")
                 return []
 
@@ -646,7 +646,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
                 return outcomes[:limit]
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to get task patterns: {e}")
                 return []
 
@@ -869,7 +869,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
                     "sample_size": len(snapshots),
                 }
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to get budget forecast: %s", e)
                 return {"forecast_available": False, "error": "Budget forecast unavailable"}
 
@@ -951,13 +951,13 @@ class FabricAdapter(KnowledgeMoundAdapter):
                         )
                         if await self.store_budget_snapshot(budget_snapshot):
                             synced["budgets"] += 1
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.debug(f"Failed to sync budget for {entity_id}: {e}")
 
                 logger.info(f"Synced from fabric: {synced}")
                 return synced
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Failed to sync from fabric: %s", e)
                 return {"error": "Fabric sync failed"}
 

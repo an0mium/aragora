@@ -114,7 +114,7 @@ def emit_heartbeat(hooks: dict, phase: str, status: str = "alive") -> None:
     if "on_heartbeat" in hooks:
         try:
             hooks["on_heartbeat"](phase=phase, status=status)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.debug("Heartbeat emission failed: %s", e)
 
 
@@ -178,7 +178,7 @@ def observe_rhetorical_patterns(
                 obs.confidence,
             )
 
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
         logger.debug("Rhetorical observation failed: %s", e)
 
 
@@ -269,7 +269,7 @@ async def refresh_evidence_for_round(
                     new_snippets=total_refreshed,
                 )
 
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
         logger.warning("Evidence refresh failed for round %s: %s", round_num, e)
 
 
@@ -346,7 +346,7 @@ async def refresh_with_skills(
 
             except asyncio.TimeoutError:
                 logger.debug("[skills] Refresh timeout for %s", skill_manifest.name)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.debug("[skills] Refresh error for %s: %s", skill_manifest.name, e)
 
         if snippets_added:
@@ -357,7 +357,7 @@ async def refresh_with_skills(
     except ImportError as e:
         logger.debug("[skills] Refresh skipped (missing imports): %s", e)
         return 0
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - phase isolation
         logger.warning("[skills] Refresh error: %s", e)
         return 0
 
@@ -431,7 +431,7 @@ async def compress_debate_context(
                     compressed_count=len(ctx.context_messages),
                 )
 
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
         logger.warning("[rlm] Context compression failed: %s", e)
         # Continue without compression - don't break the debate
 
@@ -476,7 +476,7 @@ async def execute_final_synthesis_round(
                 skipped = [p.name for p in proposers if p not in available]
                 logger.info("circuit_breaker_skip_synthesis skipped=%s", skipped)
             proposers = available
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.error("Circuit breaker filter error for synthesis: %s", e)
 
     # Each proposer writes their final synthesis
@@ -545,7 +545,7 @@ async def execute_final_synthesis_round(
                 type(e).__name__,
                 e,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.error(
                 "synthesis_unexpected_error agent=%s error_type=%s: %s",
                 agent.name,
@@ -682,5 +682,5 @@ async def fire_propulsion_event(
             )
     except ImportError:
         logger.debug("[propulsion] PropulsionEngine imports unavailable")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - phase isolation
         logger.warning("[propulsion] Failed to fire %s: %s", event_type, e)

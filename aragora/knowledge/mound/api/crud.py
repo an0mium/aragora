@@ -251,7 +251,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                         importance=request.confidence,
                     )
                     span.add_event("semantic_indexed")
-                except Exception as e:
+                except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:  # noqa: BLE001 - adapter isolation
                     logger.warning(f"Failed to index in semantic store: {e}")
                     span.add_event("semantic_index_failed", {"error": "Semantic indexing failed"})
 
@@ -594,7 +594,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
             await self._save_relationship(from_id, to_id, relationship_type)
             logger.debug(f"Created relationship: {from_id} --{relationship_type}--> {to_id}")
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to create relationship: {e}")
             return False
 
@@ -634,7 +634,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                     }
                     for link in links
                 ]
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to get relationships from graph store: {e}")
 
         # Fallback to empty list if no graph store
@@ -737,6 +737,6 @@ class CRUDOperationsMixin(_CRUDMixinBase):
 
             logger.debug(f"Updated confidence for {node_id} to {new_confidence:.3f}")
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to update confidence for {node_id}: {e}")
             return False

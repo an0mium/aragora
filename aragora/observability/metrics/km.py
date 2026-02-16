@@ -542,7 +542,7 @@ def sync_km_metrics_to_prometheus() -> None:
 
     except ImportError:
         logger.debug("KMMetrics not available for Prometheus sync")
-    except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+    except Exception as e:  # noqa: BLE001 - fire-and-forget telemetry sync
         logger.warning(f"Failed to sync KM metrics to Prometheus: {e}")
 
 

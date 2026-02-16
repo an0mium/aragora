@@ -286,7 +286,7 @@ class FractalOrchestrator:
                 if hasattr(agent, "system_prompt"):
                     agent.system_prompt = f"{agent.system_prompt}\n\n{context}"
                 specialist_agents.append(agent)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, KeyError) as e:
                 # Fall back to generic agents if creation fails
                 logger.debug(f"Failed to create specialist agent {genome.name}: {e}")
 
@@ -301,7 +301,7 @@ class FractalOrchestrator:
                         role="proposer",
                     )
                     specialist_agents.append(agent)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, KeyError) as e:
                     logger.debug(f"Failed to create agent from genome {genome.name}: {e}")
 
         # Build focused task from tension

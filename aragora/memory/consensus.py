@@ -469,7 +469,7 @@ class ConsensusMemory(SQLiteStore):
         if self._km_adapter and confidence >= 0.7:
             try:
                 self._km_adapter.store_consensus(record)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Failed to sync consensus to KM: {e}")
 
         return record

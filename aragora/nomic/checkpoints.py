@@ -123,7 +123,7 @@ def save_checkpoint(
         logger.debug(f"Saved checkpoint: {filepath}")
         return str(filepath)
 
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to save checkpoint: {e}")
         # Clean up temp file if it exists
         if temp_path.exists():
@@ -157,7 +157,7 @@ def load_checkpoint(checkpoint_path: str) -> dict[str, Any] | None:
     except json.JSONDecodeError as e:
         logger.error(f"Invalid checkpoint JSON: {e}")
         return None
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to load checkpoint: {e}")
         return None
 
@@ -228,7 +228,7 @@ def list_checkpoints(checkpoint_dir: str) -> list[dict[str, Any]]:
                     "size_bytes": filepath.stat().st_size,
                 }
             )
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(f"Could not read checkpoint {filepath}: {e}")
 
     # Sort by save time, most recent first
@@ -255,7 +255,7 @@ def delete_checkpoint(checkpoint_path: str) -> bool:
         path.unlink()
         logger.debug(f"Deleted checkpoint: {checkpoint_path}")
         return True
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to delete checkpoint: {e}")
         return False
 
@@ -302,7 +302,7 @@ def cleanup_old_checkpoints(
                 filepath.unlink()
                 deleted += 1
                 logger.debug(f"Cleaned up old checkpoint: {filepath}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Could not delete checkpoint {filepath}: {e}")
 
     return deleted

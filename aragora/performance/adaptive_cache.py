@@ -214,7 +214,7 @@ class AdaptiveTTLCache(Generic[K, V]):
                 self._cleanup_expired()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError, OSError) as e:
                 logger.exception(f"Cleanup error in {self._name}: {e}")
 
     def _cleanup_expired(self) -> None:

@@ -459,7 +459,7 @@ class TestEmailActionsServiceActions:
             ActionType,
         )
 
-        mock_connector.send_message.side_effect = Exception("SMTP error")
+        mock_connector.send_message.side_effect = OSError("SMTP error")
         service = EmailActionsService()
         service._connectors["gmail:user_123"] = mock_connector
 
@@ -473,7 +473,7 @@ class TestEmailActionsServiceActions:
 
         assert result.success is False
         assert result.action_type == ActionType.SEND
-        assert result.error == "SMTP error"
+        assert result.error == "Send failed"
 
     @pytest.mark.asyncio
     async def test_reply_email_success(self, mock_connector):

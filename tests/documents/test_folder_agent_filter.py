@@ -455,7 +455,7 @@ class TestAgentFileFilterFilterBatch:
 
         filter = AgentFileFilter()
 
-        with patch.object(filter, "_call_llm", side_effect=Exception("LLM Error")):
+        with patch.object(filter, "_call_llm", side_effect=ConnectionError("LLM Error")):
             decisions = await filter.filter_batch(files, "Test")
 
         assert len(decisions) == 1

@@ -19,6 +19,7 @@ import re
 import shutil
 import sqlite3
 import tempfile
+import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
@@ -491,7 +492,7 @@ class BackupManager:
                 result.errors.append(
                     f"Checksum mismatch: expected {backup_meta.checksum}, got {current_checksum}"
                 )
-        except (OSError, IOError, RuntimeError) as e:
+        except (OSError, IOError, RuntimeError, zlib.error) as e:
             result.verified = False
             result.errors.append(f"Checksum computation failed: {e}")
 
@@ -538,7 +539,7 @@ class BackupManager:
                 # Clean up
                 tmp_path.unlink()
 
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, IOError, RuntimeError, zlib.error) as e:
                 result.verified = False
                 result.errors.append(f"Restore test failed: {e}")
 
@@ -1194,7 +1195,7 @@ class BackupManager:
             # Clean up
             tmp_path.unlink()
 
-        except (OSError, IOError, RuntimeError) as e:
+        except (OSError, IOError, RuntimeError, zlib.error) as e:
             result.verified = False
             result.all_errors.append(f"Comprehensive verification failed: {e}")
 

@@ -297,7 +297,7 @@ class Refinery:
             else:
                 await self._fail_request(request, "Merge failed")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             await self._fail_request(request, str(e))
 
         finally:

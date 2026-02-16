@@ -371,7 +371,7 @@ class DebateSession:
             )
             logger.info(f"session_cancelled id={self.id} reason={e.reason}")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - session lifecycle must catch all failures to transition to FAILED state
             self._transition_state(DebateSessionState.FAILED)
             self.error_message = f"Session failed: {type(e).__name__}"
             self._emit_event(

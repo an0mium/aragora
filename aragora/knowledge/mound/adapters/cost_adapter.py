@@ -175,7 +175,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
                 )
                 return True
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result to cost: {e}")
             return False
 

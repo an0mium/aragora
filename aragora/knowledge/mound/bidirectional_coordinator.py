@@ -254,7 +254,7 @@ class BidirectionalCoordinator:
                 return True, "Circuit closed"
             remaining = circuit.cooldown_remaining()
             return False, f"Circuit open for {adapter_name}, retry in {remaining:.1f}s"
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.debug(f"Circuit breaker check failed for {adapter_name}: {e}")
             return True, "Circuit check failed, allowing request"
 
@@ -320,7 +320,7 @@ class BidirectionalCoordinator:
             logger.error(error)
             registration.forward_errors += 1
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             error = f"Forward sync error for {registration.name}: {e}"
             result.errors.append(error)
             logger.error(error, exc_info=True)
@@ -409,7 +409,7 @@ class BidirectionalCoordinator:
             logger.error(error)
             registration.reverse_errors += 1
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             error = f"Reverse sync error for {registration.name}: {e}"
             result.errors.append(error)
             logger.error(error, exc_info=True)
@@ -438,7 +438,7 @@ class BidirectionalCoordinator:
             record_km_adapter_sync(adapter_name, direction, success)
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to record Prometheus metrics: {e}")
 
     async def sync_all_to_km(self) -> list[SyncResult]:
@@ -557,7 +557,7 @@ class BidirectionalCoordinator:
                     since=self._last_full_sync,
                 )
                 return items
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Error getting KM items: {e}")
 
         return []

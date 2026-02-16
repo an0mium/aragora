@@ -327,7 +327,7 @@ class TestAuditBridge:
     async def test_storage_error_handling(self):
         """Test that storage errors are handled gracefully."""
         mock_storage = AsyncMock()
-        mock_storage.store_event.side_effect = Exception("Storage error")
+        mock_storage.store_event.side_effect = RuntimeError("Storage error")
         bridge = AuditBridge(storage_backend=mock_storage)
 
         task = ExternalAgentTask(prompt="test")

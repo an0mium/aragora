@@ -244,7 +244,7 @@ class TestCheckServer:
         """Test server not running detection."""
         mock_session = MagicMock()
         mock_context = MagicMock()
-        mock_context.__aenter__ = AsyncMock(side_effect=Exception("Connection refused"))
+        mock_context.__aenter__ = AsyncMock(side_effect=ConnectionError("Connection refused"))
         mock_context.__aexit__ = AsyncMock()
         mock_session.get.return_value = mock_context
 
@@ -403,7 +403,7 @@ class TestMain:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
         # Make asyncio.run raise an exception
-        with patch("asyncio.run", side_effect=Exception("Test error")):
+        with patch("asyncio.run", side_effect=RuntimeError("Test error")):
             result = main()
 
         captured = capsys.readouterr()

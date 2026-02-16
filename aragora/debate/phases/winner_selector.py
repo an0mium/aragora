@@ -152,7 +152,7 @@ class WinnerSelector:
         if self.recorder:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner_agent}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for consensus: {e}")
 
         # Finalize for truth-grounded personas
@@ -167,7 +167,7 @@ class WinnerSelector:
                     winning_position=result.final_answer[:1000],
                     consensus_confidence=result.confidence,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Position tracker finalize error: {e}")
 
         # Record calibration predictions
@@ -201,7 +201,7 @@ class WinnerSelector:
                         debate_id=debate_id,
                     )
             logger.debug(f"calibration_recorded predictions={len(result.votes)}")
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             category, msg, exc_info = _build_error_action(e, "calibration")
             logger.warning(f"calibration_error category={category} error={msg}", exc_info=exc_info)
 
@@ -250,7 +250,7 @@ class WinnerSelector:
         if self.recorder:
             try:
                 self.recorder.record_phase_change(f"consensus_reached: {winner}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for unanimous consensus: {e}")
 
         # Record calibration predictions
@@ -271,7 +271,7 @@ class WinnerSelector:
                             debate_id=debate_id,
                         )
                 logger.debug(f"calibration_recorded_unanimous predictions={len(result.votes)}")
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 category, msg, exc_info = _build_error_action(e, "calibration")
                 logger.warning(
                     f"calibration_error_unanimous category={category} error={msg}",
@@ -382,7 +382,7 @@ class WinnerSelector:
                 )
                 logger.info(f"belief_cruxes_identified count={len(analysis.cruxes)}")
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001
             logger.debug(f"Belief network analysis failed: {e}")
 
 

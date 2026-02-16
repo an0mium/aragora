@@ -358,7 +358,7 @@ class WitnessBehavior:
                 await asyncio.sleep(self.config.patrol_interval_seconds)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Patrol cycle error: {e}")
                 await asyncio.sleep(5)  # Brief pause on error
 
@@ -595,7 +595,7 @@ class WitnessBehavior:
                         await callback(alert)
                     else:
                         callback(alert)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - callback errors must not break alert dispatch
                     logger.error(f"Alert callback error: {e}")
 
             # Notify mayor if critical

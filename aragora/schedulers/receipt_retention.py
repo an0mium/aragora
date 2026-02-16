@@ -214,10 +214,10 @@ class ReceiptRetentionScheduler:
                 if self.on_cleanup_complete:
                     try:
                         self.on_cleanup_complete(result)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - user-provided callback isolation
                         logger.error(f"Error in cleanup complete callback: {e}")
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error in receipt cleanup cycle: {e}", exc_info=True)
                 error_result = CleanupResult(
                     receipts_deleted=0,
@@ -232,7 +232,7 @@ class ReceiptRetentionScheduler:
                 if self.on_error:
                     try:
                         self.on_error(e)
-                    except Exception as callback_error:
+                    except Exception as callback_error:  # noqa: BLE001 - user-provided callback isolation
                         logger.error(f"Error in error callback: {callback_error}")
 
             # Wait for next cycle
@@ -260,7 +260,7 @@ class ReceiptRetentionScheduler:
                     log_deletions=True,
                 ),
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Exception during receipt cleanup: {e}")
             error = str(e)
 

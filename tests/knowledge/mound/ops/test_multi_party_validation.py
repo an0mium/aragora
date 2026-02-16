@@ -1680,7 +1680,7 @@ class TestNotifications:
         """Test notification callback errors are handled gracefully."""
 
         def bad_callback(validator_id, event_type, data):
-            raise Exception("Callback error")
+            raise RuntimeError("Callback error")
 
         validator.set_notification_callback(bad_callback)
 

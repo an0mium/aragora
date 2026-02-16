@@ -167,7 +167,7 @@ class TestWeaviateConnection:
     async def test_connect_failure_raises_connection_error(self, config, mock_weaviate_env):
         """connect() should raise ConnectionError on failure."""
         _, mock_weaviate_mod = mock_weaviate_env
-        mock_weaviate_mod.connect_to_local.side_effect = Exception("refused")
+        mock_weaviate_mod.connect_to_local.side_effect = RuntimeError("refused")
 
         from aragora.knowledge.mound.vector_abstraction.weaviate import WeaviateVectorStore
 
@@ -858,7 +858,7 @@ class TestWeaviateRetrieval:
         store = _make_store(config, mock_client)
 
         mock_collection = MagicMock()
-        mock_collection.query.fetch_object_by_id.side_effect = Exception("error")
+        mock_collection.query.fetch_object_by_id.side_effect = RuntimeError("error")
         store._collections["test_collection"] = mock_collection
 
         result = await store.get_by_id("error-id")

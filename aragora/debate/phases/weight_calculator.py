@@ -577,7 +577,7 @@ class WeightCalculator:
 
         try:
             self._ratings_cache = self.elo_system.get_ratings_batch(agent_names)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Batch ratings fetch failed: {e}")
             self._ratings_cache = {}
 
@@ -729,7 +729,7 @@ class WeightCalculator:
 
         try:
             return self.memory.get_vote_weight(agent_name)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Reputation weight error for {agent_name}: {e}")
             return 1.0
 
@@ -749,7 +749,7 @@ class WeightCalculator:
             consistency = self.flip_detector.get_agent_consistency(agent_name)
             # Map 0.0-1.0 consistency score to 0.5-1.0 weight
             return 0.5 + (consistency.consistency_score * 0.5)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"Consistency weight error for {agent_name}: {e}")
             return 1.0
 
@@ -764,7 +764,7 @@ class WeightCalculator:
         if self._get_calibration_weight:
             try:
                 return self._get_calibration_weight(agent_name)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Calibration weight callback error for {agent_name}: {e}")
 
         return 1.0
@@ -843,7 +843,7 @@ class WeightCalculator:
 
             return weight
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"ELO skill weight error for {agent_name}: {e}")
             return 1.0
 

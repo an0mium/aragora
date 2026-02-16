@@ -218,7 +218,7 @@ class StalenessDetector:
 
             return 0.0
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to compute contradiction score: {e}")
             return 0.0
 
@@ -250,7 +250,7 @@ class StalenessDetector:
 
             return 0.0
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to compute evidence score: {e}")
             return 0.0
 
@@ -282,7 +282,7 @@ class StalenessDetector:
 
             return 0.0
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to compute consensus score: {e}")
             return 0.0
 
@@ -323,7 +323,7 @@ class StalenessDetector:
 
         except ImportError:
             pass  # Events module not available
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to emit staleness event: {e}")
 
     async def get_stale_nodes(

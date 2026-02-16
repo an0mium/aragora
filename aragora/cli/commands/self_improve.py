@@ -36,6 +36,7 @@ def cmd_self_improve(args: argparse.Namespace) -> None:
     sessions = args.sessions
     codebase_path = Path(args.path).resolve() if args.path else Path.cwd()
     verbose = getattr(args, "verbose", False)
+    hierarchical = getattr(args, "hierarchical", False)
 
     # Validate tracks
     valid_track_values = {"sme", "developer", "self_hosted", "qa", "core", "security"}
@@ -64,6 +65,7 @@ def cmd_self_improve(args: argparse.Namespace) -> None:
         print(f"Worktree isolation: ON")
         print(f"Gauntlet validation: ON")
         print(f"Mode enforcement: ON")
+        print(f"Coordination: {'hierarchical' if hierarchical else 'flat'}")
         print(f"Spectate: {'ON' if spectate else 'OFF'}")
         print(f"Receipts: {'ON' if generate_receipts else 'OFF'}")
         if require_approval:
@@ -84,6 +86,7 @@ def cmd_self_improve(args: argparse.Namespace) -> None:
             sessions=sessions,
             codebase_path=codebase_path,
             verbose=verbose,
+            hierarchical=hierarchical,
         )
 
 
@@ -199,6 +202,7 @@ def _run_self_improve_pipeline(
     sessions: int | None,
     codebase_path: Path,
     verbose: bool,
+    hierarchical: bool = False,
 ) -> None:
     """Run the full coordinated self-improvement pipeline."""
     from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
@@ -229,6 +233,7 @@ def _run_self_improve_pipeline(
         enable_prompt_defense=True,
         enable_audit_reconciliation=True,
         enable_meta_planning=True,
+        use_hierarchical=hierarchical,
         budget_limit_usd=budget_limit,
         generate_receipts=generate_receipts,
         spectate_stream=spectate,

@@ -645,7 +645,7 @@ class TestEmailCategorizerGmailIntegration:
         from aragora.services.email_categorizer import EmailCategorizer, EmailCategory
 
         mock_gmail = AsyncMock()
-        mock_gmail.list_labels = AsyncMock(side_effect=Exception("API error"))
+        mock_gmail.list_labels = AsyncMock(side_effect=ConnectionError("API error"))
 
         categorizer = EmailCategorizer(gmail_connector=mock_gmail)
 

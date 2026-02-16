@@ -77,7 +77,7 @@ async def run(context: PluginContext) -> dict[str, Any]:
     except asyncio.TimeoutError:
         context.error("Linting timed out after 30 seconds")
         return {"issues": [], "error": "Timeout"}
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         context.error(f"Failed to run linter: {e}")
         return {"issues": [], "error": str(e)}
 

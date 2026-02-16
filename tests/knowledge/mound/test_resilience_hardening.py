@@ -201,10 +201,10 @@ class TestDeadlockRetry:
         pool = MagicMock()
         tm = TransactionManager(pool)
 
-        assert tm._is_deadlock_error(Exception("deadlock detected"))
-        assert tm._is_deadlock_error(Exception("ERROR 40P01: deadlock"))
-        assert tm._is_deadlock_error(Exception("40001 serialization failure"))
-        assert not tm._is_deadlock_error(Exception("connection refused"))
+        assert tm._is_deadlock_error(RuntimeError("deadlock detected"))
+        assert tm._is_deadlock_error(RuntimeError("ERROR 40P01: deadlock"))
+        assert tm._is_deadlock_error(RuntimeError("40001 serialization failure"))
+        assert not tm._is_deadlock_error(RuntimeError("connection refused"))
         assert not tm._is_deadlock_error(ValueError("invalid value"))
 
     def test_deadlock_delay_calculation(self):

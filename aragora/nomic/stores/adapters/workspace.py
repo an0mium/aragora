@@ -76,7 +76,7 @@ def resolve_workspace_bead_status(
     if isinstance(stored, str):
         try:
             return status_cls(stored)
-        except Exception as e:
+        except (ValueError, KeyError) as e:
             logger.debug("Invalid workspace bead status '%s': %s", stored, e)
     return status_cls(_NOMIC_TO_WORKSPACE_BEAD.get(nomic_status, "pending"))
 
@@ -162,7 +162,7 @@ def resolve_workspace_convoy_status(
     if isinstance(stored, str):
         try:
             return status_cls(stored)
-        except Exception as e:
+        except (ValueError, KeyError) as e:
             logger.debug("Invalid workspace convoy status '%s': %s", stored, e)
     return status_cls(_NOMIC_TO_WORKSPACE_CONVOY.get(nomic_status, "created"))
 

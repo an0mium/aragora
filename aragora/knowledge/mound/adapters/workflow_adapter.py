@@ -319,7 +319,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
                     },
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 failed += 1
                 error_msg = f"Failed to sync workflow {outcome.workflow_id}: {e}"
                 errors.append(error_msg)

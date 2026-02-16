@@ -250,7 +250,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 f"fused_confidence={fused_confidence:.3f}"
             )
             return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result to belief: {e}")
             return False
 
@@ -1391,14 +1391,14 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 if validation.km_confidence >= min_confidence and validation.adjustment != 0:
                     await self.apply_km_validation(validation)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Error validating {belief_id}: {e}")
 
         # Also update thresholds
         try:
             threshold_update = await self.update_belief_thresholds_from_km(km_items, min_confidence)
             result.threshold_updates.append(threshold_update)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             errors.append(f"Error updating thresholds: {e}")
 
         result.errors = errors

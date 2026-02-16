@@ -169,7 +169,7 @@ class ProposalPhase:
                 await ctx.hook_manager.trigger(
                     "pre_debate", ctx=ctx, agents=ctx.agents, task=ctx.env.task
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"PRE_DEBATE hook failed: {e}")
 
         # 1. Update role assignments for round 0
@@ -224,7 +224,7 @@ class ProposalPhase:
 
         try:
             available = self.circuit_breaker.filter_available_agents(proposers)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.error(f"Circuit breaker filter error: {e}")
             return proposers  # Fall back to all proposers
 
@@ -276,7 +276,7 @@ class ProposalPhase:
                 agent, result_or_error = await completed_task
             except asyncio.CancelledError:
                 raise  # Propagate cancellation
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase isolation
                 logger.error(f"task_exception phase=proposal error={e}")
                 continue
 
@@ -340,7 +340,7 @@ class ProposalPhase:
             # Record timeout to governor
             governor.record_agent_timeout(agent.name, timeout)
             return (agent, e)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             # Record failure to governor
             latency_ms = (time.perf_counter() - start_time) * 1000
             governor.record_agent_response(agent.name, latency_ms, success=False)
@@ -431,7 +431,7 @@ class ProposalPhase:
         if self.recorder and not is_error:
             try:
                 self.recorder.record_turn(agent.name, ctx.proposals[agent.name], 0)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Recorder error for proposal: {e}")
 
     def _record_positions(self, ctx: DebateContextType, agent: AgentType, proposal: str) -> None:
@@ -455,7 +455,7 @@ class ProposalPhase:
                     round_num=0,
                     confidence=calibrated_confidence,
                 )
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Position tracking error: {e}")
 
         # New grounded position system
@@ -496,7 +496,7 @@ class ProposalPhase:
                     )
                     _record_calibration_adjustment(agent_name)
                 return calibrated
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
             logger.debug(f"[calibration] Failed for {agent_name}: {e}")
 
         return raw_confidence
@@ -523,7 +523,7 @@ class ProposalPhase:
                     round_num=0,
                     enable_tts=True,
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Spectator notification failed: {e}")
 
     async def _fire_propulsion_event(self, ctx: DebateContextType) -> None:
@@ -565,7 +565,7 @@ class ProposalPhase:
                 )
         except ImportError:
             logger.debug("[propulsion] PropulsionEngine imports unavailable")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.warning(f"[propulsion] Failed to fire proposals_ready: {e}")
 
     # Molecule tracking methods (Gastown pattern)
@@ -603,7 +603,7 @@ class ProposalPhase:
                 )
         except ImportError:
             logger.debug("[molecule] Molecule imports unavailable")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[molecule] Failed to create proposal molecules: {e}")
 
     def _start_molecule(self, agent_name: str) -> None:
@@ -620,7 +620,7 @@ class ProposalPhase:
             try:
                 self._molecule_tracker.start_molecule(molecule_id)
                 logger.debug(f"[molecule] Started molecule {molecule_id} for {agent_name}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to start molecule: {e}")
 
     def _complete_molecule(self, agent_name: str, output: dict) -> None:
@@ -638,7 +638,7 @@ class ProposalPhase:
             try:
                 self._molecule_tracker.complete_molecule(molecule_id, output)
                 logger.debug(f"[molecule] Completed molecule {molecule_id} for {agent_name}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to complete molecule: {e}")
 
     def _fail_molecule(self, agent_name: str, error: str) -> None:
@@ -656,5 +656,5 @@ class ProposalPhase:
             try:
                 self._molecule_tracker.fail_molecule(molecule_id, error)
                 logger.debug(f"[molecule] Failed molecule {molecule_id} for {agent_name}: {error}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"[molecule] Failed to record molecule failure: {e}")

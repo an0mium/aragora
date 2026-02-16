@@ -163,7 +163,7 @@ class DebateOptions:
                     ],
                     nomic_profile.consensus_mode,
                 )
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.warning("Failed to apply debate profile '%s': %s", profile, exc)
 
     def to_protocol(self) -> DebateProtocol:
@@ -410,7 +410,7 @@ class DebateService:
                     resolved.append(self._agent_resolver(agent))
                 except (KeyError, ValueError) as e:
                     logger.warning(f"Failed to resolve agent '{agent}': {e}")
-                except Exception as e:
+                except (RuntimeError, TypeError, AttributeError) as e:
                     logger.exception(f"Unexpected error resolving agent '{agent}': {e}")
             elif isinstance(agent, str):
                 # Try to create a basic agent from the name

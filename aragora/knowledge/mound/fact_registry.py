@@ -633,7 +633,7 @@ class FactRegistry:
                 return await self._embedding_service.embed(text)
             except (RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Failed to generate embedding: {e}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.exception(f"Unexpected embedding generation error: {e}")
         return None
 

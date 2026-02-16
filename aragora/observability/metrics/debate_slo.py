@@ -417,7 +417,7 @@ def track_debate_completion(outcome: str = "unknown") -> Generator[dict, None, N
 
     try:
         yield ctx
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - metrics context manager must catch all to record outcome before re-raising
         ctx["outcome"] = "error"
         ctx["error"] = str(e)
         raise

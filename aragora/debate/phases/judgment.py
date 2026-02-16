@@ -125,7 +125,7 @@ class JudgmentPhase:
                     if judge:
                         logger.debug(f"Selected {top_agent_name} (ELO: {top_elo}) as judge")
                         return judge
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
             logger.warning(f"ELO query failed: {e}; falling back to random")
 
         return random.choice(self._require_agents())
@@ -147,7 +147,7 @@ class JudgmentPhase:
             try:
                 score = self._compute_composite_score(agent.name)
                 agent_scores.append((agent, score))
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
                 logger.debug(f"Score computation failed for {agent.name}: {e}")
 
         if agent_scores:

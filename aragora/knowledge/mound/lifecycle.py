@@ -349,13 +349,13 @@ class LifecycleManager:
             for callback in self._archive_callbacks:
                 try:
                     callback(knowledge_id, reason)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                     logger.error(f"Archive callback error: {e}")
         elif stage == LifecycleStage.DELETED:
             for callback in self._delete_callbacks:
                 try:
                     callback(knowledge_id, reason)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                     logger.error(f"Delete callback error: {e}")
 
         return transition
@@ -506,7 +506,7 @@ class LifecycleManager:
                 else:
                     report["kept"] += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 report["errors"].append(
                     {
                         "knowledge_id": knowledge_id,

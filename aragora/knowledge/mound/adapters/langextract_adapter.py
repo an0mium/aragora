@@ -206,7 +206,7 @@ class LangExtractAdapter(KnowledgeMoundAdapter):
                 facts.append(fact)
                 self._fact_store[fact.fact_id] = fact
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("extraction_failed doc=%s error=%s", document_path, e)
             error = f"Extraction failed: {type(e).__name__}"
 
@@ -464,7 +464,7 @@ class LangExtractAdapter(KnowledgeMoundAdapter):
             if isinstance(result, list):
                 return result
             return [{"content": result}]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error("langextract_error: %s", e)
             raise
 

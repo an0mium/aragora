@@ -607,7 +607,7 @@ class TestEmitAgentPreview:
         mock_agent: Mock,
     ) -> None:
         """emit_agent_preview catches errors from hook callback."""
-        failing_hook = Mock(side_effect=Exception("Hook failed"))
+        failing_hook = Mock(side_effect=RuntimeError("Hook failed"))
         emitter = EventEmitter(hooks={"on_agent_preview": failing_hook})
 
         # Should not raise

@@ -400,7 +400,7 @@ Answer (be specific and cite relevant parts):"""
                 content_id=content_id,
             ) from e
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
             logger.warning(f"adapter_query_failed error={e}")
@@ -624,7 +624,7 @@ Summary:"""
                         f"adapter_llm_summary_connection_error error={e}, trying compression"
                     )
 
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError) as e:
                     if self._circuit_breaker:
                         self._circuit_breaker.record_failure()
                     logger.warning(f"adapter_llm_summary_failed error={e}, trying compression")
@@ -651,7 +651,7 @@ Summary:"""
             except asyncio.TimeoutError:
                 logger.warning(f"adapter_compress_timeout timeout={timeout}s, using truncation")
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.warning(f"adapter_compress_failed error={e}, using truncation")
 
         # PRIORITY 3: TRUNCATION - Heuristic extraction as last resort
@@ -969,7 +969,7 @@ class REPLContextAdapter(RLMContextAdapter):
 
             return env
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to create debate REPL environment: {e}")
             return None
 
@@ -1087,7 +1087,7 @@ class REPLContextAdapter(RLMContextAdapter):
 
             return env
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to create knowledge REPL environment: {e}")
             return None
 

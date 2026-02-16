@@ -234,7 +234,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return item_id
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to store task outcome: {e}")
             return None
 
@@ -311,7 +311,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return item_id
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to store capability record: {e}")
             return None
 
@@ -398,7 +398,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return records[:limit]
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to get capability recommendations: {e}")
             return []
 
@@ -449,7 +449,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return outcomes
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get task history: {e}")
             return []
 
@@ -523,7 +523,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to share cross-workspace insight: {e}")
             return False
 
@@ -585,7 +585,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return insights
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get cross-workspace insights: {e}")
             return []
 
@@ -676,7 +676,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return outcomes[:limit]
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get similar task outcomes: {e}")
             return []
 
@@ -755,7 +755,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
             return success_rates
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to get agent success rates: {e}")
             return {agent: 0.5 for agent in agents}
 

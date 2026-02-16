@@ -171,7 +171,7 @@ class Policy:
             try:
                 if not self._eval_condition(condition, context):
                     return False
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.warning(f"Policy condition '{condition}' failed: {e}")
                 return False
 

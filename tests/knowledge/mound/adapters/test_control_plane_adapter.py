@@ -460,7 +460,7 @@ class TestControlPlaneEdgeCases:
 
     def test_emit_event_handles_errors(self, adapter):
         """Should handle event callback errors."""
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter._event_callback = callback
 
         # Should not raise

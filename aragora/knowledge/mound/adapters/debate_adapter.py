@@ -319,7 +319,7 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
                     },
                 )
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 failed += 1
                 error_msg = f"Failed to sync debate {outcome.debate_id}: {e}"
                 errors.append(error_msg)

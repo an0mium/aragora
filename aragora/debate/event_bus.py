@@ -275,21 +275,21 @@ class EventBus:
                 event_data = event.to_dict()
                 event_data.pop("event_type", None)  # Already passed as first arg
                 self._event_bridge.notify(event_type, **event_data)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Event bridge notification failed: {e}")
 
         # Notify spectator stream
         if self._spectator is not None:
             try:
                 self._spectator.emit(event_type, event.to_dict())
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Spectator notification failed: {e}")
 
         # Call sync handlers
         for handler in self._sync_handlers.get(event_type, []):
             try:
                 handler(event)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handler isolation: user-provided handlers may raise anything
                 logger.warning(f"Sync handler error for '{event_type}': {e}")
 
         # Call async handlers
@@ -310,7 +310,7 @@ class EventBus:
         """Safely call an async handler with error handling."""
         try:
             await handler(event)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler isolation: user-provided handlers may raise anything
             logger.warning(f"Async handler error for '{event.event_type}': {e}")
 
     def emit_sync(
@@ -349,14 +349,14 @@ class EventBus:
                 event_data = event.to_dict()
                 event_data.pop("event_type", None)  # Already passed as first arg
                 self._event_bridge.notify(event_type, **event_data)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Event bridge notification failed: {e}")
 
         # Call sync handlers only
         for handler in self._sync_handlers.get(event_type, []):
             try:
                 handler(event)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handler isolation: user-provided handlers may raise anything
                 logger.warning(f"Sync handler error for '{event_type}': {e}")
 
     # =========================================================================
@@ -501,7 +501,7 @@ class EventBus:
             for event in events:
                 try:
                     await self._process_user_event(event, debate_id)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                     logger.warning(f"Failed to process user event: {e}")
 
         return events

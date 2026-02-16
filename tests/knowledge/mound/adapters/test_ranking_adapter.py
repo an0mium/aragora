@@ -506,7 +506,7 @@ class TestKnowledgeMoundSync:
         adapter.store_agent_expertise("claude-3", "security", 1650, 50)
 
         mock_mound = AsyncMock()
-        mock_mound.ingest = AsyncMock(side_effect=Exception("Sync failed"))
+        mock_mound.ingest = AsyncMock(side_effect=RuntimeError("Sync failed"))
 
         result = await adapter.sync_to_mound(mock_mound, "workspace-1")
 
@@ -549,7 +549,7 @@ class TestKnowledgeMoundSync:
         adapter = RankingAdapter()
 
         mock_mound = AsyncMock()
-        mock_mound.query_nodes = AsyncMock(side_effect=Exception("Query failed"))
+        mock_mound.query_nodes = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         result = await adapter.load_from_mound(mock_mound, "workspace-1")
 

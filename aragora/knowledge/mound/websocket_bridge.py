@@ -416,7 +416,7 @@ class KMWebSocketBridge:
             else:
                 logger.debug("[km_websocket] No event loop available, event not broadcast")
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"[km_websocket] Failed to emit event: {e}")
 
     def get_stats(self) -> dict[str, Any]:

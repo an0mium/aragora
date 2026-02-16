@@ -661,7 +661,7 @@ class CheckpointWebhook:
                     handler(data)
             except (TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"Checkpoint webhook handler failed for event '{event}': {e}")
-            except Exception as e:
+            except (RuntimeError, KeyError, OSError) as e:
                 logger.exception(
                     f"Unexpected error in checkpoint webhook handler for event '{event}': {e}"
                 )
@@ -686,7 +686,7 @@ class CheckpointWebhook:
             logger.debug(f"Webhook notification failed - http pool not available: {e}")
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Webhook notification failed - connection error: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Unexpected webhook notification error: {e}")
 
 

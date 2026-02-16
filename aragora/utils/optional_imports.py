@@ -74,7 +74,7 @@ def try_import(
         if log_on_failure:
             _log(f"Optional module not available: {module_path} ({e})", log_level)
         return result, False
-    except Exception as e:
+    except (AttributeError, TypeError, RuntimeError) as e:
         if log_on_failure:
             _log(f"Error importing {module_path}: {e}", log_level)
         return result, False

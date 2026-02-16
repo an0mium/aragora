@@ -114,7 +114,7 @@ class ConditionEvaluator:
 
             return result
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Condition evaluation error for {condition.field}: {e}")
             return False
 

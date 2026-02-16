@@ -601,7 +601,7 @@ class MLFallbackService:
 
                 return similarity
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 self._manager.record_error(MLFeature.EMBEDDINGS, e)
                 # Fall through to heuristic
 
@@ -650,7 +650,7 @@ class MLFallbackService:
 
                 return prediction.to_dict()
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ImportError) as e:
                 self._manager.record_error(MLFeature.CONSENSUS_PREDICTION, e)
 
         # Use heuristic fallback
@@ -689,7 +689,7 @@ class MLFallbackService:
 
                 return quality_result.overall
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ImportError) as e:
                 self._manager.record_error(MLFeature.QUALITY_SCORING, e)
 
         # Use heuristic fallback

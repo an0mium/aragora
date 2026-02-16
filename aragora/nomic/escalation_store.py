@@ -540,7 +540,7 @@ class EscalationStore:
                         self._index_chain(chain)
                     except (json.JSONDecodeError, KeyError) as e:
                         logger.warning(f"Invalid chain data: {e}")
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Failed to load chains: {e}")
 
     def _index_chain(self, chain: EscalationChain) -> None:
@@ -568,7 +568,7 @@ class EscalationStore:
                 for chain in self._chains.values():
                     f.write(json.dumps(chain.to_dict()) + "\n")
             temp_file.rename(chains_file)
-        except Exception as e:
+        except OSError as e:
             if temp_file.exists():
                 temp_file.unlink()
             logger.error(f"Failed to save chains: {e}")
@@ -697,7 +697,7 @@ class EscalationStore:
                 chain.events[-1].handler_result = {"result": str(result)}
 
             return result
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning("Handler for level %s failed: %s", level.value, e)
             if chain.events:
                 chain.events[-1].handler_result = {"error": f"Handler failed: {type(e).__name__}"}

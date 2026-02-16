@@ -134,7 +134,7 @@ class ArenaValidator:
                 )
                 self.agents.append(agent)
                 logger.info("arena_validator.agent_created type=%s", agent_type)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 logger.warning(
                     "arena_validator.agent_create_failed type=%s: %s",
                     agent_type,
@@ -300,7 +300,7 @@ IMPROVEMENTS: [Suggestions]
                 agent.name,
             )
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning(
                 "arena_validator.agent_error agent=%s: %s",
                 agent.name,
@@ -519,7 +519,7 @@ IMPROVEMENTS: [Suggestions]
                 agreement_ratio=0.0,
                 critiques=["Arena debate timed out"],
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.warning(
                 "arena_validator.arena_error: %s",
                 e,

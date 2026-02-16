@@ -153,7 +153,7 @@ class RLMOperationsMixin:
         try:
             config = RLMConfig() if RLMConfig else None
             rlm = get_rlm(config=config)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to get RLM instance: {e}")
             return None
 
@@ -184,7 +184,7 @@ class RLMOperationsMixin:
 
             return None
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"RLM query failed: {e}")
             return None
 
@@ -299,7 +299,7 @@ class RLMOperationsMixin:
             # TRUE RLM required but not available
             logger.error(f"[rlm] TRUE RLM initialization failed: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"[rlm] Failed to get RLM instance: {e}")
             return None
 
@@ -319,7 +319,7 @@ class RLMOperationsMixin:
                         len(items),
                     )
                     return result.answer
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.debug(f"[rlm] TRUE RLM query failed, trying compress_and_query: {e}")
 
         # Fall back to compress_and_query
@@ -341,7 +341,7 @@ class RLMOperationsMixin:
 
             return None
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"[rlm] Knowledge query failed: {e}")
             return None
 
@@ -401,6 +401,6 @@ class RLMOperationsMixin:
         except ImportError:
             logger.debug("[rlm] REPL adapter not available")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"[rlm] Failed to create knowledge REPL: {e}")
             return None

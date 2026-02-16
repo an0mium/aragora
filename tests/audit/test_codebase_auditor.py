@@ -1393,7 +1393,7 @@ class TestRunConsistencyAudit:
 
     @pytest.mark.asyncio
     async def test_consistency_audit_handles_error(self, auditor):
-        auditor.consistency_auditor.audit = AsyncMock(side_effect=Exception("boom"))
+        auditor.consistency_auditor.audit = AsyncMock(side_effect=RuntimeError("boom"))
 
         chunks = [{"id": "f.py:0", "document_id": "f.py", "content": "content", "file_type": ".py"}]
         findings = await auditor._run_consistency_audit(chunks, "test_session")
@@ -1731,7 +1731,7 @@ class TestAuditGitDiff:
 
     @pytest.mark.asyncio
     async def test_audit_git_diff_error(self, auditor):
-        with patch("subprocess.run", side_effect=Exception("git not found")):
+        with patch("subprocess.run", side_effect=OSError("git not found")):
             result = await auditor.audit_git_diff()
 
         assert result.error == "git not found"

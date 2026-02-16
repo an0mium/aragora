@@ -245,7 +245,7 @@ class TestFixerOrchestrator:
 
                 llm_config = self.config.llm_analyzer_config or LLMAnalyzerConfig()
                 ai_analyzer = LLMFailureAnalyzer(llm_config)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.llm_analyzer_unavailable error=%s", exc)
 
         self.analyzer = FailureAnalyzer(repo_path=self.repo_path, ai_analyzer=ai_analyzer)
@@ -264,7 +264,7 @@ class TestFixerOrchestrator:
 
                 arena_config = self.config.arena_validator_config or ArenaValidatorConfig()
                 self.arena_validator = ArenaValidator(arena_config)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.arena_validator_unavailable error=%s", exc)
 
         self.redteam_validator = None
@@ -277,7 +277,7 @@ class TestFixerOrchestrator:
 
                 redteam_config = self.config.redteam_validator_config or RedTeamValidatorConfig()
                 self.redteam_validator = RedTeamValidator(redteam_config)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.redteam_validator_unavailable error=%s", exc)
 
         self.pattern_learner = None
@@ -289,7 +289,7 @@ class TestFixerOrchestrator:
                 if store_path is None:
                     store_path = self.repo_path / ".testfixer" / "patterns.json"
                 self.pattern_learner = PatternLearner(store_path)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.pattern_learner_unavailable error=%s", exc)
 
         # State
@@ -312,7 +312,7 @@ class TestFixerOrchestrator:
             maybe_awaitable = self._event_emitter(event)
             if inspect.isawaitable(maybe_awaitable):
                 await maybe_awaitable
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             logger.warning("testfixer.event_emit_failed run_id=%s error=%s", self.run_id, exc)
 
     async def run_fix_loop(
@@ -686,7 +686,7 @@ class TestFixerOrchestrator:
                 # Loop completed without success
                 result.status = LoopStatus.MAX_ITERATIONS
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception("Error in fix loop")
             result.status = LoopStatus.ERROR
             if result.attempts:
@@ -732,7 +732,7 @@ class TestFixerOrchestrator:
         if self.pattern_learner:
             try:
                 suggestion = self.pattern_learner.suggest_heuristic(analysis)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.pattern_suggest_error error=%s", exc)
                 suggestion = None
             if suggestion:
@@ -783,7 +783,7 @@ class TestFixerOrchestrator:
                         success=False,
                         notes=validation_notes + ["Arena validator rejected fix"],
                     )
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.arena.error error=%s", exc)
                 validation_notes.append(f"Arena validator error: {exc}")
                 self.arena_validator = None
@@ -804,7 +804,7 @@ class TestFixerOrchestrator:
                         success=False,
                         notes=validation_notes + ["Red team validator rejected fix"],
                     )
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("testfixer.redteam.error error=%s", exc)
                 validation_notes.append(f"Red team validator error: {exc}")
                 self.redteam_validator = None
@@ -872,7 +872,7 @@ class TestFixerOrchestrator:
             learned = self.pattern_learner.learn_from_attempt(attempt)
             if learned:
                 attempt.notes.append(f"pattern_learned:{learned.id}")
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("testfixer.pattern_learn_error error=%s", exc)
 
     async def _save_attempt(self, attempt: FixAttempt) -> None:

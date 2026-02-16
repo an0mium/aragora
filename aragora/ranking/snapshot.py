@@ -64,7 +64,7 @@ def write_snapshot(
         with open(temp_path, "w") as f:
             json.dump(data, f)
         temp_path.rename(snapshot_path)
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         # Snapshot is optional, don't fail on write errors
         logger.debug(f"Failed to write ELO snapshot: {e}")
         if temp_path.exists():

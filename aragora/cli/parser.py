@@ -1757,6 +1757,11 @@ Examples:
         help="Disable receipt generation",
     )
     si_parser.add_argument(
+        "--hierarchical",
+        action="store_true",
+        help="Use hierarchical planner/worker/judge coordination",
+    )
+    si_parser.add_argument(
         "--sessions",
         type=int,
         default=None,

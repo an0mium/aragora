@@ -206,7 +206,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                 )
                 return True
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to apply fusion result to pulse: {e}")
             return False
 
@@ -1296,7 +1296,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         try:
             threshold_update = await self.update_quality_thresholds_from_km(km_items)
             result.threshold_updates = threshold_update.adjustments_made
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             errors.append(f"Threshold update error: {e}")
 
         # Process each topic
@@ -1310,7 +1310,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
                     if rec.was_applied:
                         result.topics_adjusted += 1
                         result.scheduling_changes += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 errors.append(f"Topic {topic_id} error: {e}")
 
         result.errors = errors

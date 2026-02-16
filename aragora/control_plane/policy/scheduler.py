@@ -133,7 +133,7 @@ class PolicySyncScheduler:
             except asyncio.CancelledError:
                 # Don't swallow cancellation - allow graceful shutdown
                 raise
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
                 self._error_count += 1
                 logger.error("policy_sync_error", error=str(e))
 
@@ -194,7 +194,7 @@ class PolicySyncScheduler:
             if self._conflict_callback:
                 try:
                     self._conflict_callback(self._detected_conflicts)
-                except Exception as e:  # User callback - any exception possible
+                except Exception as e:  # noqa: BLE001 - User callback can throw any exception type
                     logger.warning(
                         "conflict_callback_error",
                         error=str(e),

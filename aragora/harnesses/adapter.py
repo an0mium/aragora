@@ -164,7 +164,7 @@ class HarnessResultAdapter:
 
                 audit_findings.append(audit_finding)
 
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to adapt finding {finding.id}: {e}")
 
         return audit_findings

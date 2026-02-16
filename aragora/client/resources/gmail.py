@@ -105,7 +105,7 @@ class GmailAPI:
             if response.get("connected"):
                 return self._parse_connection(response)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.debug(f"Gmail connection status check failed: {type(e).__name__}: {e}")
             return None
 
@@ -116,7 +116,7 @@ class GmailAPI:
             if response.get("connected"):
                 return self._parse_connection(response)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.debug(f"Gmail async connection status check failed: {type(e).__name__}: {e}")
             return None
 

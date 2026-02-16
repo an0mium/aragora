@@ -304,7 +304,7 @@ def _register_debate_origin_best_effort(debate_id: str, ctx: CommandContext, top
             thread_id=ctx.thread_id,
             metadata={"topic": topic, "source": ctx.platform.value},
         )
-    except Exception as exc:
+    except (ImportError, RuntimeError, ValueError, TypeError) as exc:
         logger.debug("Failed to register debate origin: %s", exc)
 
 

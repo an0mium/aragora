@@ -353,7 +353,7 @@ class ReverseFlowMixin:
 
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Error applying KM adjustment for {agent_name}: {e}")
             return False
 

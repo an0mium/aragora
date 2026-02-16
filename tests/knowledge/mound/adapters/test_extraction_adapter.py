@@ -1138,7 +1138,7 @@ class TestErrorHandlingAndRecovery:
         with patch.object(
             adapter._extractor,
             "extract_from_debate",
-            side_effect=Exception("Extraction failed"),
+            side_effect=RuntimeError("Extraction failed"),
         ):
             with pytest.raises(ExtractionAdapterError) as exc_info:
                 await adapter.extract_from_debate(
@@ -1159,7 +1159,7 @@ class TestErrorHandlingAndRecovery:
         with patch.object(
             adapter_with_mound._extractor,
             "promote_to_mound",
-            side_effect=Exception("Promotion failed"),
+            side_effect=RuntimeError("Promotion failed"),
         ):
             with pytest.raises(ExtractionAdapterError) as exc_info:
                 await adapter_with_mound.promote_claims(
@@ -1180,7 +1180,7 @@ class TestErrorHandlingAndRecovery:
             nonlocal call_count
             call_count += 1
             if call_count == 2:
-                raise Exception("Simulated failure")
+                raise RuntimeError("Simulated failure")
             return await original_extract(*args, **kwargs)
 
         with patch.object(adapter, "extract_from_debate", side_effect=mock_extract):

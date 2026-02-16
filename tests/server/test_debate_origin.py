@@ -522,7 +522,7 @@ class TestSynthesizeVoice:
         from aragora.server.debate_origin import _synthesize_voice
 
         mock_bridge = MagicMock()
-        mock_bridge.synthesize_response = AsyncMock(side_effect=Exception("Synthesis failed"))
+        mock_bridge.synthesize_response = AsyncMock(side_effect=RuntimeError("Synthesis failed"))
 
         with patch(
             "aragora.connectors.chat.tts_bridge.get_tts_bridge",

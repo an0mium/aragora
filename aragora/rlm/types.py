@@ -205,7 +205,7 @@ class RLMContext:
                 if max_bytes is None:
                     return path.read_text(errors="replace")
                 return path.read_text(errors="replace")[:max_bytes]
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.debug(
                     f"Failed to read source file {self.source_path}: {type(e).__name__}: {e}"
                 )

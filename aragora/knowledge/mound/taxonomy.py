@@ -474,7 +474,7 @@ class DomainTaxonomy:
                         datetime.now().isoformat(),
                     ),
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 if "UNIQUE constraint" in str(e):
                     # Already exists, get existing ID
                     row = self._store.fetch_one(

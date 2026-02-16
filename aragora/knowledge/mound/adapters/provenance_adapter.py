@@ -171,7 +171,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     async def ingest_provenance(
@@ -237,7 +237,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 if item_id:
                     knowledge_item_ids.append(item_id)
                     records_ingested += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Record ingestion failed for %s: %s", record.id, e)
                 errors.append(f"Failed to ingest record {record.id}")
 
@@ -274,10 +274,10 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                             relationship_type=rel_type,
                         )
                         relationships_created += 1
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         logger.debug("Failed to create evidence-claim relationship: %s", e)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
                 logger.warning("Citation ingestion failed: %s", e)
                 errors.append("Failed to ingest citation")
 
@@ -298,9 +298,9 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                                 relationship_type=RelationshipType.DERIVED_FROM,
                             )
                             relationships_created += 1
-                        except Exception as e:
+                        except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                             logger.debug("Failed to create summary-record relationship: %s", e)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to create chain summary: %s", e)
             errors.append("Failed to create chain summary")
 
@@ -509,7 +509,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                 await self._mound.ingest(item)
                 return item.id
             return item.id
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to store item {item.id}: {e}")
             return None
 
@@ -531,7 +531,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                     relationship_type=relationship_type,
                 )
                 return True
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug(f"Failed to create relationship: {e}")
         return False
 
@@ -564,7 +564,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                     limit=limit,
                 )
                 return results.items if hasattr(results, "items") else []
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to find related evidence: {e}")
 
         return []
@@ -596,7 +596,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                     limit=100,
                 )
                 return results.items if hasattr(results, "items") else []
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to find citations for claim: {e}")
 
         return []

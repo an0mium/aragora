@@ -269,7 +269,7 @@ def trace_handler(name: str) -> Callable[[F], F]:
                         span.set_attribute("http.status_code", result.status_code)
 
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise
@@ -304,7 +304,7 @@ def trace_async_handler(name: str) -> Callable[[F], F]:
                     if hasattr(result, "status_code"):
                         span.set_attribute("http.status_code", result.status_code)
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise
@@ -350,7 +350,7 @@ def trace_agent_call(agent_name: str) -> Callable[[F], F]:
                         span.set_attribute("agent.response_length", len(result))
 
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     span.set_attribute("agent.error", str(e))
                     _set_error_status(span)
@@ -473,7 +473,7 @@ def trace_debate(debate_id: str) -> Callable[[F], F]:
                         span.set_attribute("debate.confidence", result.confidence)
 
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise
@@ -550,7 +550,7 @@ def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
                 try:
                     result = await func(*args, **kwargs)
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise
@@ -787,7 +787,7 @@ def trace_decision(func: F) -> F:
 
                 return result
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                 span.record_exception(e)
                 span.set_attribute("decision.error", str(e)[:200])
                 _set_error_status(span)
@@ -1021,7 +1021,7 @@ def traced(
                         _record_result(span, result)
 
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise
@@ -1046,7 +1046,7 @@ def traced(
                         _record_result(span, result)
 
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - tracing must catch all to record exception on span before re-raising
                     span.record_exception(e)
                     _set_error_status(span)
                     raise

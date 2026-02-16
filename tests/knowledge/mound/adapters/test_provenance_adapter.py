@@ -217,7 +217,7 @@ class TestEventEmission:
 
     def test_emit_event_handles_callback_error(self):
         """Should catch and log callback errors."""
-        callback = MagicMock(side_effect=Exception("Callback failed"))
+        callback = MagicMock(side_effect=RuntimeError("Callback failed"))
         adapter = ProvenanceAdapter(event_callback=callback)
 
         # Should not raise
@@ -941,7 +941,7 @@ class TestFindRelatedEvidence:
     async def test_find_related_evidence_handles_error(self):
         """Should return empty list on query error."""
         mock_mound = AsyncMock()
-        mock_mound.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_mound.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = ProvenanceAdapter(mound=mock_mound)
 
@@ -985,7 +985,7 @@ class TestFindCitationsForClaim:
     async def test_find_citations_handles_error(self):
         """Should return empty list on query error."""
         mock_mound = AsyncMock()
-        mock_mound.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_mound.query = AsyncMock(side_effect=RuntimeError("Query failed"))
 
         adapter = ProvenanceAdapter(mound=mock_mound)
 
@@ -1032,7 +1032,7 @@ class TestRelationshipCreation:
     async def test_create_relationship_handles_error(self):
         """Should return False on link error."""
         mock_mound = AsyncMock()
-        mock_mound.link = AsyncMock(side_effect=Exception("Link failed"))
+        mock_mound.link = AsyncMock(side_effect=RuntimeError("Link failed"))
 
         adapter = ProvenanceAdapter(mound=mock_mound)
 
@@ -1103,7 +1103,7 @@ class TestStoreItem:
     async def test_store_item_handles_error(self):
         """Should return None on store error."""
         mock_mound = AsyncMock()
-        mock_mound.store = AsyncMock(side_effect=Exception("Store failed"))
+        mock_mound.store = AsyncMock(side_effect=RuntimeError("Store failed"))
 
         adapter = ProvenanceAdapter(mound=mock_mound)
 

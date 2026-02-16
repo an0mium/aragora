@@ -386,7 +386,7 @@ def track_decision(
 
     try:
         yield context
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - metrics context manager must catch all to record error type before re-raising
         context["success"] = False
         context["error_type"] = type(e).__name__
         raise

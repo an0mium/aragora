@@ -50,7 +50,7 @@ def get_nomic_knowledge_mound() -> Any | None:
         _nomic_km_instance = get_knowledge_mound(workspace_id="nomic")
         logger.info("[nomic-km] Knowledge Mound initialized for Nomic context")
         return _nomic_km_instance
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError, OSError) as e:
         logger.debug("[nomic-km] KM not available: %s", e)
         return None
 

@@ -372,7 +372,7 @@ class TestFederationScheduler:
     @pytest.mark.asyncio
     async def test_trigger_sync_error(self):
         """Test sync error handling."""
-        mock_callback = AsyncMock(side_effect=Exception("Sync failed"))
+        mock_callback = AsyncMock(side_effect=RuntimeError("Sync failed"))
 
         scheduler = FederationScheduler(sync_callback=mock_callback)
 
@@ -468,7 +468,7 @@ class TestFederationScheduler:
     @pytest.mark.asyncio
     async def test_consecutive_error_disables_schedule(self):
         """Test that consecutive errors disable the schedule."""
-        mock_callback = AsyncMock(side_effect=Exception("Persistent error"))
+        mock_callback = AsyncMock(side_effect=RuntimeError("Persistent error"))
 
         scheduler = FederationScheduler(sync_callback=mock_callback)
 

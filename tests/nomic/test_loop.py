@@ -201,7 +201,7 @@ class TestNomicLoopErrorHandling:
         )
 
         with patch.object(loop, "run_context_phase", new_callable=AsyncMock) as mock_context:
-            mock_context.side_effect = Exception("Phase failed")
+            mock_context.side_effect = RuntimeError("Phase failed")
 
             result = await loop.run_cycle()
 
@@ -224,7 +224,7 @@ class TestNomicLoopErrorHandling:
             with patch.object(loop, "run_debate_phase", new_callable=AsyncMock) as mock_debate:
                 with patch.object(loop, "create_checkpoint") as mock_checkpoint:
                     mock_context.return_value = {"success": True}
-                    mock_debate.side_effect = Exception("Debate failed")
+                    mock_debate.side_effect = RuntimeError("Debate failed")
 
                     await loop.run_cycle()
 

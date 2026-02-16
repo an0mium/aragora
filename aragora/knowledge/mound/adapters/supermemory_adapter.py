@@ -163,7 +163,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         except ImportError:
             logger.warning("supermemory package not available")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to initialize Supermemory client: {e}")
             return None
 
@@ -264,7 +264,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 search_time_ms=search_time_ms,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Failed to inject context from Supermemory: {e}")
             return ContextInjectionResult()
 
@@ -372,7 +372,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             else:
                 return SyncOutcomeResult(success=False, error=result.error)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to sync debate outcome: %s", e)
             return SyncOutcomeResult(success=False, error="Debate outcome sync failed")
 
@@ -429,7 +429,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
 
             return results
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.error(f"Search failed: {e}")
             return []
 
@@ -485,7 +485,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 "adapter": self.adapter_name,
                 "external": health,
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             return {
                 "healthy": False,
                 "error": "Health check failed",

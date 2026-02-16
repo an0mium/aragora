@@ -760,7 +760,7 @@ class AnalyticsDashboard:
 
             return findings
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Failed to get findings: {e}")
             return []
 
@@ -804,7 +804,7 @@ class AnalyticsDashboard:
 
             return sessions
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Failed to get sessions: {e}")
             return []
 

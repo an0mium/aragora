@@ -117,7 +117,7 @@ class DebateReplayer:
                     "metadata": data.get("metadata", {}),
                 }
                 debates.append(debate_info)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, ValueError, KeyError, TypeError) as e:
                 logger.warning("Could not load debate %s: %s", file_path, e)
 
         # Sort by recorded_at descending (newest first)
@@ -145,7 +145,7 @@ class DebateReplayer:
             result_data = data["debate_result"]
             result = DebateResult(**result_data)
             return result
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, ValueError, KeyError, TypeError) as e:
             logger.error("Error loading debate %s: %s", filename, e)
             return None
 
