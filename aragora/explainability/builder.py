@@ -110,6 +110,15 @@ class ExplanationBuilder:
 
         # Build components
         decision.evidence_chain = await self._build_evidence_chain(result, context)
+
+        # Emit provenance event if provenance tracker contributed
+        if self.provenance_tracker and decision.evidence_chain:
+            self._emit_event("EXPLAINABILITY_PROVENANCE", {
+                "debate_id": debate_id,
+                "evidence_count": len(decision.evidence_chain),
+                "has_provenance": True,
+            })
+
         decision.vote_pivots = self._build_vote_pivots(result, context)
         decision.belief_changes = self._build_belief_changes(result, context)
         decision.confidence_attribution = self._build_confidence_attribution(
@@ -125,11 +134,24 @@ class ExplanationBuilder:
 
         if include_counterfactuals:
             decision.counterfactuals = self._build_counterfactuals(result, decision)
+            if decision.counterfactuals:
+                self._emit_event("EXPLAINABILITY_COUNTERFACTUAL", {
+                    "debate_id": debate_id,
+                    "counterfactual_count": len(decision.counterfactuals),
+                    "top_sensitivity": decision.counterfactuals[0].sensitivity if decision.counterfactuals else 0,
+                })
 
         # Compute summary metrics
         decision.evidence_quality_score = self._compute_evidence_quality(decision)
         decision.agent_agreement_score = self._compute_agreement_score(result, decision)
         decision.belief_stability_score = self._compute_belief_stability(decision)
+
+        self._emit_event("EXPLAINABILITY_NARRATIVE", {
+            "debate_id": debate_id,
+            "conclusion_length": len(decision.conclusion),
+            "evidence_quality": decision.evidence_quality_score,
+            "agreement_score": decision.agent_agreement_score,
+        })
 
         self._emit_event("EXPLAINABILITY_COMPLETE", {
             "debate_id": debate_id,
