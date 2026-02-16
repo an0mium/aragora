@@ -1021,8 +1021,12 @@ class AutonomousOrchestrator:
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)
-            self._completed_assignments.append(assignment)
-            self._active_assignments.remove(assignment)
+            if assignment not in self._completed_assignments:
+                self._completed_assignments.append(assignment)
+            try:
+                self._active_assignments.remove(assignment)
+            except ValueError:
+                pass  # Already removed (e.g., during retry)
 
     def _select_alternative_agent(self, assignment: AgentAssignment) -> str | None:
         """Select an alternative agent type for reassignment on failure.

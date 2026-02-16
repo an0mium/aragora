@@ -1951,21 +1951,21 @@ class TestCrossCycleLearning:
         )
 
         mock_adapter = MagicMock()
-        mock_adapter.record_cycle = AsyncMock()
+        mock_adapter.ingest_cycle_outcome = AsyncMock()
 
         with patch(
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=mock_adapter,
         ):
             await orch._record_orchestration_outcome("Test goal", result)
-            mock_adapter.record_cycle.assert_called_once()
-            call_kwargs = mock_adapter.record_cycle.call_args.kwargs
-            assert call_kwargs["objective"] == "Test goal"
-            assert call_kwargs["success"] is False
-            assert call_kwargs["completed"] == 2
-            assert call_kwargs["failed"] == 1
-            assert len(call_kwargs["what_worked"]) == 2
-            assert len(call_kwargs["what_failed"]) == 1
+            mock_adapter.ingest_cycle_outcome.assert_called_once()
+            outcome = mock_adapter.ingest_cycle_outcome.call_args.args[0]
+            assert outcome.objective == "Test goal"
+            assert outcome.status.value == "partial"  # 2 succeeded, 1 failed
+            assert outcome.goals_succeeded == 2
+            assert outcome.goals_failed == 1
+            assert len(outcome.what_worked) == 2
+            assert len(outcome.what_failed) == 1
 
     @pytest.mark.asyncio
     async def test_record_outcome_without_km(self):

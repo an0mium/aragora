@@ -36,7 +36,7 @@ import secrets
 import subprocess
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -559,6 +559,8 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         """
         try:
             from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                CycleStatus,
+                NomicCycleOutcome,
                 get_nomic_cycle_adapter,
             )
 
@@ -567,52 +569,49 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             # Build outcome record
             what_worked = []
             what_failed = []
-            agent_performance: dict[str, dict[str, Any]] = {}
+            agents_used: set[str] = set()
+            tracks_affected: set[str] = set()
 
             for assignment in result.assignments:
                 agent = assignment.agent_type
-                if agent not in agent_performance:
-                    agent_performance[agent] = {
-                        "completed": 0,
-                        "failed": 0,
-                        "tracks": set(),
-                    }
+                agents_used.add(agent)
+                tracks_affected.add(str(assignment.track))
 
                 if assignment.status == "completed":
-                    agent_performance[agent]["completed"] += 1
                     what_worked.append(
                         f"{assignment.subtask.title} (agent={agent})"
                     )
                 else:
-                    agent_performance[agent]["failed"] += 1
                     what_failed.append(
                         f"{assignment.subtask.title} (agent={agent}, "
                         f"status={assignment.status})"
                     )
 
-                agent_performance[agent]["tracks"].add(
-                    str(assignment.track)
-                )
+            # Determine cycle status
+            if result.success:
+                status = CycleStatus.SUCCESS
+            elif result.completed_subtasks > 0:
+                status = CycleStatus.PARTIAL
+            else:
+                status = CycleStatus.FAILED
 
-            # Serialize tracks sets for storage
-            serializable_perf = {
-                agent: {
-                    **data,
-                    "tracks": list(data["tracks"]),
-                }
-                for agent, data in agent_performance.items()
-            }
-
-            await adapter.record_cycle(
+            now = datetime.now(timezone.utc)
+            outcome = NomicCycleOutcome(
+                cycle_id=f"orch_{id(result):x}",
                 objective=goal[:500],
-                success=result.success,
-                completed=result.completed_subtasks,
-                failed=result.failed_subtasks,
-                duration_seconds=result.duration_seconds,
+                status=status,
+                started_at=now - timedelta(seconds=result.duration_seconds),
+                completed_at=now,
+                goals_attempted=result.completed_subtasks + result.failed_subtasks,
+                goals_succeeded=result.completed_subtasks,
+                goals_failed=result.failed_subtasks,
                 what_worked=what_worked[:10],
                 what_failed=what_failed[:10],
-                agent_performance=serializable_perf,
+                agents_used=sorted(agents_used),
+                tracks_affected=sorted(tracks_affected),
             )
+
+            await adapter.ingest_cycle_outcome(outcome)
 
             logger.info(
                 "cross_cycle_recorded goal=%s success=%s completed=%d failed=%d",
