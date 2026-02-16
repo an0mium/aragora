@@ -187,7 +187,7 @@ class VerifyPhase:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await proc.communicate()
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
             passed = proc.returncode == 0
             stderr_text = stderr.decode() if stderr else ""
             check = {
@@ -198,6 +198,12 @@ class VerifyPhase:
             self._log(f"    {'passed' if passed else 'FAILED'} syntax")
             self._stream_emit("on_verification_result", "syntax", passed, stderr_text)
             return check
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            self._log("    FAILED syntax: timeout")
+            self._stream_emit("on_verification_result", "syntax", False, "timeout")
+            return {"check": "syntax", "passed": False, "error": "timeout"}
         except Exception as e:
             logger.warning("Syntax check failed: %s", e)
             error_desc = f"Syntax check failed: {type(e).__name__}"
@@ -229,6 +235,8 @@ class VerifyPhase:
             self._stream_emit("on_verification_result", "import", passed, stderr_text)
             return check
         except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
             self._log("    FAILED import: timeout")
             self._stream_emit("on_verification_result", "import", False, "timeout")
             return {"check": "import", "passed": False, "error": "timeout"}
@@ -274,6 +282,8 @@ class VerifyPhase:
             )
             return check
         except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
             self._log("    FAILED tests (timeout)")
             self._stream_emit("on_verification_result", "tests", False, "Test execution timed out")
             return {
@@ -309,7 +319,12 @@ class VerifyPhase:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                stdout, _ = await proc.communicate()
+                try:
+                    stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    stdout = None
                 diff_output = stdout.decode()[:5000] if proc.returncode == 0 and stdout else ""
 
             audit_prompt = f"""As the verification lead, audit this implementation:
