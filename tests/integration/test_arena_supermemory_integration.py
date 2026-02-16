@@ -501,7 +501,7 @@ async def test_graceful_degradation_api_error(mock_supermemory_config):
     result = DebateResult(task="Test", debate_id="test-err", confidence=0.9)
     sync_result = await adapter.sync_debate_outcome(result)
     assert sync_result.success is False
-    assert "API timeout" in sync_result.error
+    assert "Debate outcome sync failed" in sync_result.error
 
 
 @pytest.mark.asyncio
@@ -780,7 +780,7 @@ async def test_health_check_unhealthy():
 
     assert health["healthy"] is False
     assert "error" in health
-    assert "Connection refused" in health["error"]
+    assert "Health check failed" in health["error"]
 
 
 @pytest.mark.asyncio
