@@ -270,7 +270,7 @@ class SlackNotificationChannel(NotificationChannel):
             logger.info(f"Slack notification sent for alert {alert.rule_name}")
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             logger.error(f"Failed to send Slack notification: {e}")
             return False
 
@@ -389,7 +389,7 @@ class EmailNotificationChannel(NotificationChannel):
                 f"to {len(self.recipients)} recipients"
             )
             return True
-        except Exception as e:
+        except (OSError, smtplib.SMTPException, ConnectionError) as e:
             logger.error(f"Failed to send email notification: {e}")
             return False
 
@@ -482,7 +482,7 @@ class PrometheusAlertManagerChannel(NotificationChannel):
             await self._post_alert(payload)
             logger.info(f"Prometheus AlertManager notification sent for {alert.rule_name}")
             return True
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError) as e:
             logger.error(f"Failed to send AlertManager notification: {e}")
             return False
 
@@ -558,27 +558,27 @@ class MetricsCollector:
 
         try:
             await self._collect_agent_metrics(snapshot)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.debug(f"Error collecting agent metrics: {e}")
 
         try:
             await self._collect_debate_metrics(snapshot)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.debug(f"Error collecting debate metrics: {e}")
 
         try:
             await self._collect_queue_metrics(snapshot)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.debug(f"Error collecting queue metrics: {e}")
 
         try:
             await self._collect_memory_metrics(snapshot)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.debug(f"Error collecting memory metrics: {e}")
 
         try:
             await self._collect_api_metrics(snapshot)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.debug(f"Error collecting API metrics: {e}")
 
         return snapshot
@@ -827,7 +827,7 @@ class AlertManager:
         while self._running:
             try:
                 await self.evaluate_rules()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - observability must not crash app
                 logger.error(f"Error in alert monitoring loop: {e}")
 
             await asyncio.sleep(self.check_interval)
@@ -845,7 +845,7 @@ class AlertManager:
             for rule_name, rule in self._rules.items():
                 try:
                     condition_met = rule.condition(metrics_dict)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - observability must not crash app
                     logger.error(f"Error evaluating rule {rule_name}: {e}")
                     continue
 

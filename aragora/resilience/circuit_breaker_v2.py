@@ -357,7 +357,7 @@ class BaseCircuitBreaker:
         if self.config.on_state_change:
             try:
                 self.config.on_state_change(self.name, old_state, new_state)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - callback must not break state transitions
                 logger.warning(f"[{self.name}] State change callback error: {e}")
 
     def _add_result(self, success: bool) -> None:
@@ -415,7 +415,7 @@ def with_circuit_breaker(
                 result = await func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
                 cb.record_failure(e)
                 raise
 
@@ -450,7 +450,7 @@ def with_circuit_breaker_sync(
                 result = func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
                 cb.record_failure(e)
                 raise
 

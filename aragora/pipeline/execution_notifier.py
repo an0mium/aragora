@@ -202,7 +202,7 @@ class ExecutionNotifier:
                 from aragora.server.result_router import route_result
 
                 await route_result(self.progress.debate_id, event_payload)
-            except Exception as exc:
+            except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as exc:
                 self._record_delivery_error("channel_route", exc)
                 logger.debug("Channel progress notification failed: %s", exc)
 
@@ -216,7 +216,7 @@ class ExecutionNotifier:
                     progress_dict,
                     debate_id=self.progress.debate_id,
                 )
-            except Exception as exc:
+            except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as exc:
                 self._record_delivery_error("websocket_broadcast", exc)
                 logger.debug("WebSocket progress broadcast failed: %s", exc)
 
@@ -226,7 +226,7 @@ class ExecutionNotifier:
                 result = listener(self.progress)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as exc:
+            except (TypeError, ValueError, RuntimeError, OSError) as exc:
                 self._record_delivery_error("listener", exc)
                 logger.debug("Progress listener failed: %s", exc)
 
@@ -299,7 +299,7 @@ class ExecutionNotifier:
                 from aragora.server.result_router import route_result
 
                 await route_result(self.progress.debate_id, summary_payload)
-            except Exception as exc:
+            except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as exc:
                 self._record_delivery_error("channel_route", exc)
                 logger.debug("Channel completion notification failed: %s", exc)
 
@@ -312,7 +312,7 @@ class ExecutionNotifier:
                     summary_payload.get("summary", {}),
                     debate_id=self.progress.debate_id,
                 )
-            except Exception as exc:
+            except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as exc:
                 self._record_delivery_error("websocket_broadcast", exc)
                 logger.debug("WebSocket completion broadcast failed: %s", exc)
 
@@ -342,7 +342,7 @@ class ExecutionNotifier:
                     thread_id=thread_id,
                 )
                 return
-            except Exception as exc:
+            except (OSError, ConnectionError, RuntimeError, TimeoutError, ValueError) as exc:
                 retryable = attempt < max_attempts
                 self._record_delivery_error(
                     "target_dispatch",

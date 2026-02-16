@@ -638,7 +638,7 @@ class TestOpenClawActionStepExecute:
 
         assert result["success"] is False
         assert result["skipped"] is True
-        assert "timeout" in result["error"]
+        assert "OpenClaw action failed" in result["error"]
 
     @pytest.mark.asyncio
     async def test_execute_import_error(self, mock_context):

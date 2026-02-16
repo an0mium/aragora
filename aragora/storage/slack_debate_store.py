@@ -224,7 +224,7 @@ class SlackDebateStore:
             logger.debug(f"Saved Slack debate: {debate.debate_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to save debate: {e}")
             return False
 
@@ -250,7 +250,7 @@ class SlackDebateStore:
 
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get debate {debate_id}: {e}")
             return None
 
@@ -286,7 +286,7 @@ class SlackDebateStore:
 
             return None
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get debate by thread: {e}")
             return None
 
@@ -331,7 +331,7 @@ class SlackDebateStore:
 
             return [SlackActiveDebate.from_row(row) for row in cursor.fetchall()]
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list active debates: {e}")
             return []
 
@@ -365,7 +365,7 @@ class SlackDebateStore:
 
             return [SlackActiveDebate.from_row(row) for row in cursor.fetchall()]
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to list debates by user: {e}")
             return []
 
@@ -405,7 +405,7 @@ class SlackDebateStore:
             logger.info(f"Updated Slack debate {debate_id} status to {status}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to update debate {debate_id}: {e}")
             return False
 
@@ -431,7 +431,7 @@ class SlackDebateStore:
             logger.debug(f"Updated thread_ts for debate {debate_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to update thread for {debate_id}: {e}")
             return False
 
@@ -454,7 +454,7 @@ class SlackDebateStore:
             logger.info(f"Deleted Slack debate: {debate_id}")
             return True
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to delete debate {debate_id}: {e}")
             return False
 
@@ -486,7 +486,7 @@ class SlackDebateStore:
                 logger.info(f"Cleaned up {deleted} old Slack debates")
             return deleted
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to cleanup old debates: {e}")
             return 0
 
@@ -547,7 +547,7 @@ class SlackDebateStore:
                 "failed_debates": failed,
             }
 
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Failed to get stats: {e}")
             return {"total_debates": 0, "active_debates": 0}
 

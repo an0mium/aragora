@@ -165,7 +165,7 @@ class ExecutionBridge:
                 auth_context=auth_context,
                 execution_mode=execution_mode,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - intentional broad catch to record failure before re-raising
             logger.error("Plan %s execution failed: %s", plan_id, exc)
             store.update_status(plan_id, PlanStatus.FAILED)
             store.update_execution_record(
@@ -276,7 +276,7 @@ class ExecutionBridge:
                     execution_id=record_execution_id,
                     correlation_id=record_correlation_id,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - intentional broad catch for fire-and-forget background task
                 logger.error("Background execution of plan %s failed: %s", plan_id, exc)
 
         try:

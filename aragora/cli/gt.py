@@ -164,7 +164,7 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error listing convoys: {e}")
         return 1
 
@@ -256,7 +256,7 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error creating convoy: {e}")
         return 1
 

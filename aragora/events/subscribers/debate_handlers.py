@@ -94,7 +94,7 @@ class DebateHandlersMixin:
                     )
             except ImportError:
                 logger.debug("TeamSelector not available for ELO updates")
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, ValueError) as e:
                 logger.debug(f"TeamSelector update failed: {e}")
 
             self.stats["elo_to_debate"]["events"] += 1
@@ -104,7 +104,7 @@ class DebateHandlersMixin:
                 latency_ms = (time.time() - start) * 1000
                 _check_and_record_slo("elo_to_debate", latency_ms, "success")
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"ELO → Debate handler error: {e}")
             self.stats["elo_to_debate"]["errors"] += 1
 
@@ -151,7 +151,7 @@ class DebateHandlersMixin:
                     )
             except ImportError:
                 logger.debug("ConfidenceManager not available")
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, ValueError) as e:
                 logger.debug(f"Calibration update failed: {e}")
 
             self.stats["calibration_to_agent"]["events"] += 1
@@ -161,7 +161,7 @@ class DebateHandlersMixin:
                 latency_ms = (time.time() - start) * 1000
                 _check_and_record_slo("calibration_to_agent", latency_ms, "success")
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"Calibration → Agent handler error: {e}")
             self.stats["calibration_to_agent"]["errors"] += 1
 
@@ -192,7 +192,7 @@ class DebateHandlersMixin:
             logger.debug(f"Cached culture hints for debate {debate_id}")
             self.stats["culture_to_debate"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"Culture → Debate handler error: {e}")
             self.stats["culture_to_debate"]["errors"] += 1
 
@@ -227,7 +227,7 @@ class DebateHandlersMixin:
                                 "hints": patterns,
                                 "timestamp": time.time(),
                             }
-                except Exception as e:
+                except (ImportError, RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
                     logger.debug(f"Culture retrieval failed: {e}")
 
             try:
@@ -239,7 +239,7 @@ class DebateHandlersMixin:
 
             self.stats["mound_to_culture"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.error(f"Mound → Culture handler error: {e}")
             self.stats["mound_to_culture"]["errors"] += 1
 
@@ -324,12 +324,12 @@ class DebateHandlersMixin:
                 if hasattr(mound, "refresh_nodes"):
                     mound.refresh_nodes(node_ids)
                     logger.debug(f"Triggered refresh for {len(node_ids)} stale nodes")
-            except Exception as e:
+            except (ImportError, RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
                 logger.debug(f"Staleness refresh failed: {e}")
 
             self.stats["staleness_to_debate"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"Staleness → Debate handler error: {e}")
             self.stats["staleness_to_debate"]["errors"] += 1
 
@@ -362,12 +362,12 @@ class DebateHandlersMixin:
                         verification_status=verification_status,
                     )
                     logger.debug(f"Updated provenance for claim {claim_id}")
-            except Exception as e:
+            except (ImportError, RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
                 logger.debug(f"Provenance update failed: {e}")
 
             self.stats["provenance_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"Provenance → Mound handler error: {e}")
             self.stats["provenance_to_mound"]["errors"] += 1
 
@@ -427,13 +427,13 @@ class DebateHandlersMixin:
                     )
             except ImportError:
                 logger.debug("KnowledgeMound not available for debate outcome storage")
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
                 logger.debug("Knowledge storage failed: %s", e)
 
             self.stats.setdefault("debate_outcome_to_knowledge", {"events": 0, "errors": 0})
             self.stats["debate_outcome_to_knowledge"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Debate outcome → Knowledge handler error: %s", e)
             self.stats.setdefault("debate_outcome_to_knowledge", {"events": 0, "errors": 0})
             self.stats["debate_outcome_to_knowledge"]["errors"] += 1

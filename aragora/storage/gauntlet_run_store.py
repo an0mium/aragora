@@ -415,7 +415,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for gauntlet run storage")
             self._using_fallback = False
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -428,7 +428,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis get failed, using fallback: {e}")
             return await self._fallback.get(run_id)
 
@@ -452,7 +452,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             if template_id:
                 pipe.sadd(f"{self.REDIS_INDEX_TEMPLATE}{template_id}", run_id)
             pipe.execute()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, run_id: str) -> bool:
@@ -480,7 +480,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 pipe.execute()
                 return True
             return result
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis delete failed: {e}")
             return result
 
@@ -505,7 +505,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                         if valid_values:
                             results.extend(_batch_deserialize_json([(v,) for v in valid_values]))
             return results
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_all failed, using fallback: {e}")
             return await self._fallback.list_all()
 
