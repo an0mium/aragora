@@ -347,7 +347,7 @@ class TestEmergentTraitsEndpoint:
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.laboratory.PersonaLaboratory",
-                side_effect=ValueError("Database error"),
+                side_effect=RuntimeError("Database error"),
             ):
                 result = handler.handle("/api/v1/laboratory/emergent-traits", {}, mock_http_handler)
 
@@ -495,7 +495,7 @@ class TestCrossPollinationsSuggestEndpoint:
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.laboratory.PersonaLaboratory",
-                side_effect=ValueError("Database error"),
+                side_effect=RuntimeError("Database error"),
             ):
                 result = handler.handle_post(
                     "/api/v1/laboratory/cross-pollinations/suggest", {}, http_handler
