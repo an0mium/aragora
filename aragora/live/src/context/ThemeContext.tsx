@@ -133,16 +133,16 @@ function storePreference(preference: ThemePreference): void {
 
 interface ThemeProviderProps {
   children: ReactNode;
-  /** Default preference if none stored. Defaults to 'dark' */
+  /** Default preference if none stored. Defaults to 'light' */
   defaultPreference?: ThemePreference;
 }
 
 export function ThemeProvider({
   children,
-  defaultPreference = 'dark',
+  defaultPreference = 'light',
 }: ThemeProviderProps) {
   const [preference, setPreference] = useState<ThemePreference>(defaultPreference);
-  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>('dark');
+  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>('light');
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize from storage on mount
@@ -236,8 +236,11 @@ export const themeInitScript = `
         theme = parsed.theme;
       }
     }
-    if (theme === 'system' || !theme) {
+    if (theme === 'system') {
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    if (!theme) {
+      theme = 'light';
     }
     if (theme === 'light') {
       document.documentElement.setAttribute('data-theme', 'light');
