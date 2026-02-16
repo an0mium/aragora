@@ -108,6 +108,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
   const [selectedVertical, setSelectedVertical] = useState<string>('general');
+  const [budgetLimit, setBudgetLimit] = useState<string>('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<{ total: number; breakdown: { model: string; subtotal: number }[] } | null>(null);
   const [costLoading, setCostLoading] = useState(false);
