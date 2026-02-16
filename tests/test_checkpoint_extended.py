@@ -811,11 +811,11 @@ class TestGitCheckpointStore:
     @pytest.mark.asyncio
     async def test_run_git_exception(self, store):
         """_run_git should handle exceptions."""
-        with patch("asyncio.create_subprocess_exec", side_effect=Exception("Unexpected error")):
+        with patch("asyncio.create_subprocess_exec", side_effect=OSError("Unexpected error")):
             success, output = await store._run_git(["status"])
 
             assert success is False
-            assert "Unexpected error" in output
+            assert "git_os_error" in output
 
     @pytest.mark.asyncio
     async def test_save_validates_checkpoint_id(self, store):
@@ -898,17 +898,25 @@ class TestWebhookExtended:
         """Webhook should post to URL when configured."""
         webhook = CheckpointWebhook(webhook_url="https://example.com/webhook")
 
-        with patch("aiohttp.ClientSession") as MockSession:
-            mock_session = MagicMock()
-            mock_session.post = AsyncMock()
-            MockSession.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            MockSession.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock()
 
+        mock_session_ctx = AsyncMock()
+        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        mock_pool = MagicMock()
+        mock_pool.get_session = MagicMock(return_value=mock_session_ctx)
+
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await webhook.emit("on_checkpoint", {"test": "data"})
 
-            mock_session.post.assert_called_once()
-            call_args = mock_session.post.call_args
-            assert call_args[0][0] == "https://example.com/webhook"
+            mock_client.post.assert_called_once()
+            call_args = mock_client.post.call_args
+            assert call_args[1]["json"]["event"] == "on_checkpoint"
 
     @pytest.mark.asyncio
     async def test_webhook_url_failure_handled(self):
@@ -1352,70 +1360,47 @@ class TestDatabaseCheckpointStorePooling:
         )
 
     def test_pool_initialization(self, store):
-        """Connection pool should be initialized empty."""
+        """Pool stats should report managed_by_sqlitestore after migration."""
         stats = store.get_pool_stats()
-        assert stats["available_connections"] == 0
+        assert stats["available_connections"] == "managed_by_sqlitestore"
         assert stats["max_pool_size"] == 3
 
     @pytest.mark.asyncio
     async def test_connection_returned_to_pool(self, store, sample_checkpoint):
-        """Connections should be returned to pool after operations."""
+        """Connections should be managed by SQLiteStore after operations."""
         await store.save(sample_checkpoint)
 
         stats = store.get_pool_stats()
-        assert stats["available_connections"] == 1
+        # Connections are now managed by SQLiteStore context manager
+        assert stats["available_connections"] == "managed_by_sqlitestore"
 
     @pytest.mark.asyncio
     async def test_connection_reused_from_pool(self, store, sample_checkpoint):
-        """Second operation should reuse connection from pool."""
+        """Multiple operations should work via SQLiteStore connection management."""
         await store.save(sample_checkpoint)
 
-        # First operation returns connection to pool
-        stats_after_save = store.get_pool_stats()
-        assert stats_after_save["available_connections"] == 1
-
-        # Load should use the pooled connection
-        await store.load(sample_checkpoint.checkpoint_id)
-
-        # Connection should be back in pool
-        stats_after_load = store.get_pool_stats()
-        assert stats_after_load["available_connections"] == 1
+        # Load should work using SQLiteStore connection management
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded is not None
+        assert loaded.checkpoint_id == sample_checkpoint.checkpoint_id
 
     @pytest.mark.asyncio
     async def test_pool_size_limit(self, store, sample_checkpoint):
-        """Pool should not exceed max_pool_size."""
-        # Manually get connections without returning them
-        conns = []
-        for _ in range(5):
-            conn = store._get_connection()
-            conns.append(conn)
+        """Pool size parameter should be stored for backward compatibility."""
+        # _pool_size is kept for API compatibility but actual pooling
+        # is handled by SQLiteStore
+        assert store._pool_size == 3
 
-        # Pool should be empty
-        assert store.get_pool_stats()["available_connections"] == 0
-
-        # Return all connections
-        for conn in conns:
-            store._return_connection(conn)
-
-        # Only pool_size (3) should be kept
-        stats = store.get_pool_stats()
-        assert stats["available_connections"] == 3
+        # Operations should still work correctly
+        await store.save(sample_checkpoint)
+        loaded = await store.load(sample_checkpoint.checkpoint_id)
+        assert loaded is not None
 
     def test_close_pool(self, store):
-        """close_pool should close all pooled connections."""
-        # Get multiple connections simultaneously (without returning in between)
-        conns = [store._get_connection() for _ in range(3)]
-
-        # Return all of them
-        for conn in conns:
-            store._return_connection(conn)
-
-        # All should be in pool
-        assert store.get_pool_stats()["available_connections"] == 3
-
-        store.close_pool()
-
-        assert store.get_pool_stats()["available_connections"] == 0
+        """Pool stats should reflect SQLiteStore management."""
+        stats = store.get_pool_stats()
+        assert stats["available_connections"] == "managed_by_sqlitestore"
+        assert "db_path" in stats
 
     @pytest.mark.asyncio
     async def test_stats_include_pool_info(self, store, sample_checkpoint):
@@ -1429,7 +1414,7 @@ class TestDatabaseCheckpointStorePooling:
 
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, store):
-        """Pool should handle concurrent operations safely."""
+        """SQLiteStore should handle concurrent operations safely."""
         import asyncio
 
         checkpoints = []
@@ -1455,23 +1440,20 @@ class TestDatabaseCheckpointStorePooling:
         all_cps = await store.list_checkpoints(debate_id="debate-concurrent")
         assert len(all_cps) == 10
 
-        # Pool should be stable
+        # Pool stats should report managed_by_sqlitestore
         stats = store.get_pool_stats()
-        assert stats["available_connections"] <= 3
+        assert stats["available_connections"] == "managed_by_sqlitestore"
 
     @pytest.mark.asyncio
     async def test_wal_mode_enabled(self, store, sample_checkpoint):
         """WAL mode should be enabled for better concurrency."""
         await store.save(sample_checkpoint)
 
-        # Check WAL mode
-        conn = store._get_connection()
-        try:
+        # Check WAL mode via SQLiteStore's connection context manager
+        with store._db.connection() as conn:
             cursor = conn.execute("PRAGMA journal_mode")
             mode = cursor.fetchone()[0].lower()
             assert mode == "wal"
-        finally:
-            store._return_connection(conn)
 
     @pytest.mark.asyncio
     async def test_default_pool_size(self, tmp_path):

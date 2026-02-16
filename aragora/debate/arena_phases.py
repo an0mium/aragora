@@ -470,7 +470,7 @@ def init_phases(arena: Arena) -> None:
         training_exporter=getattr(arena.extensions, "training_exporter", None),
         argument_cartographer=getattr(arena, "cartographer", None),
         genesis_ledger=getattr(arena, "genesis_ledger", None),
-        cost_tracker=getattr(arena, "cost_tracker", None),
+        cost_tracker=getattr(arena.extensions, "cost_tracker", None),
     )
 
 

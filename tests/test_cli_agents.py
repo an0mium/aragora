@@ -29,6 +29,7 @@ from aragora.agents.cli_agents import (
     MAX_MESSAGE_CHARS,
 )
 from aragora.agents.base import create_agent, list_available_agents
+from aragora.agents.errors.exceptions import CLISubprocessError
 from aragora.core import Critique, Message
 
 
@@ -126,12 +127,12 @@ class TestCLIAgentRunCli:
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_proc = AsyncMock()
             mock_proc.returncode = None
-            mock_proc.communicate = AsyncMock(side_effect=Exception("Test error"))
+            mock_proc.communicate = AsyncMock(side_effect=OSError("Test error"))
             mock_proc.kill = MagicMock()
             mock_proc.wait = AsyncMock()
             mock_exec.return_value = mock_proc
 
-            with pytest.raises(Exception, match="Test error"):
+            with pytest.raises(OSError, match="Test error"):
                 await agent._run_cli(["bad", "command"])
 
             mock_proc.kill.assert_called_once()
@@ -145,7 +146,7 @@ class TestCLIAgentRunCli:
             mock_proc.communicate = AsyncMock(return_value=(b"", b"Error message"))
             mock_exec.return_value = mock_proc
 
-            with pytest.raises(RuntimeError, match="CLI command failed"):
+            with pytest.raises(CLISubprocessError, match="CLI command failed"):
                 await agent._run_cli(["false"])
 
     @pytest.mark.asyncio
@@ -157,7 +158,7 @@ class TestCLIAgentRunCli:
             mock_proc.communicate = AsyncMock(return_value=(b"", b"Specific error details"))
             mock_exec.return_value = mock_proc
 
-            with pytest.raises(RuntimeError, match="Specific error details"):
+            with pytest.raises(CLISubprocessError, match="Specific error details"):
                 await agent._run_cli(["bad"])
 
 
@@ -241,22 +242,23 @@ REASONING: This needs work because of X and Y.
         assert "Fix the first one" in critique.suggestions
 
     def test_parses_severity_from_text(self, agent):
-        """Should extract severity value."""
+        """Should extract severity value on 0-10 scale."""
         response = "SEVERITY: 0.8\nSome other text"
         critique = agent._parse_critique(response, "target", "content")
-        assert critique.severity == pytest.approx(0.8, abs=0.01)
+        # 0.8 <= 1.0, so it gets scaled to 0-10: 0.8 * 10 = 8.0
+        assert critique.severity == pytest.approx(8.0, abs=0.01)
 
     def test_handles_0_to_10_scale_conversion(self, agent):
-        """Values > 1 are clamped to 1.0 due to min() being applied first.
+        """Values > 1 are kept on the 0-10 scale and clamped to [0, 10].
 
-        Note: Implementation has a bug - the scale conversion check happens
-        after the clamp, so values 1-10 all become 1.0. This test verifies
-        actual behavior, not intended behavior.
+        The severity system now uses a 0-10 scale natively. Values > 1.0
+        are treated as already on the 0-10 scale and clamped via
+        min(10.0, max(0.0, value)).
         """
         response = "SEVERITY: 7\nSome issues here"
         critique = agent._parse_critique(response, "target", "content")
-        # Bug: value 7 gets clamped to 1.0 before division check
-        assert critique.severity == pytest.approx(1.0, abs=0.01)
+        # Value 7 > 1.0, stays as-is on 0-10 scale
+        assert critique.severity == pytest.approx(7.0, abs=0.01)
 
     def test_handles_unstructured_response(self, agent):
         """Should handle plain text without structure."""
@@ -566,7 +568,7 @@ class TestKiloCodeAgent:
 
     @pytest.mark.asyncio
     async def test_generate_builds_correct_command(self):
-        """generate() should build correct kilocode command."""
+        """generate() should build correct kilo run command."""
         agent = KiloCodeAgent(name="test", provider_id="test-provider", mode="ask")
 
         with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_run:
@@ -574,14 +576,13 @@ class TestKiloCodeAgent:
             await agent.generate("Test")
 
             cmd = mock_run.call_args[0][0]
-            assert "kilocode" in cmd
+            assert "kilo" in cmd
+            assert "run" in cmd
             assert "--auto" in cmd
-            assert "--yolo" in cmd
-            assert "--json" in cmd
-            assert "-pv" in cmd
+            assert "--format" in cmd
+            assert "json" in cmd
+            assert "--model" in cmd
             assert "test-provider" in cmd
-            assert "-m" in cmd
-            assert "ask" in cmd
 
     def test_extract_kilocode_response_json_assistant(self):
         """Should extract assistant content from JSON."""
@@ -1297,7 +1298,7 @@ class TestCLIAgentModelMapping:
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""
         agent = GrokCLIAgent(name="test", model="grok-3")
-        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-2-1212"
+        assert agent.OPENROUTER_MODEL_MAP.get("grok-3") == "x-ai/grok-4"
 
     def test_deepseek_model_mapping(self):
         """Should map Deepseek models correctly."""
@@ -1313,7 +1314,7 @@ class TestCLIAgentModelMapping:
 
     def test_unknown_model_uses_default(self):
         """Unknown models should use default fallback model."""
-        agent = CodexAgent(name="test", model="unknown-model-xyz")
+        agent = CodexAgent(name="test", model="unknown-model-xyz", enable_fallback=True)
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
             with patch("aragora.agents.api_agents.OpenRouterAgent") as mock_or:

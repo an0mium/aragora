@@ -24,7 +24,7 @@ class TestDocumentPipelineE2E:
 
         # Python files
         py_files = [
-            project_root / "aragora" / "core.py",
+            project_root / "aragora" / "core_types.py",
             project_root / "aragora" / "debate" / "orchestrator.py",
             project_root / "aragora" / "agents" / "cli_agents.py",
             project_root / "aragora" / "audit" / "document_auditor.py",
@@ -34,7 +34,7 @@ class TestDocumentPipelineE2E:
         # Markdown files
         md_files = [
             project_root / "CLAUDE.md",
-            project_root / "docs" / "RUNBOOK.md",
+            project_root / "docs" / "STATUS.md",
         ]
         files.extend([f for f in md_files if f.exists()])
 
@@ -188,9 +188,9 @@ class TestDocumentAuditE2E:
         # Look for markdown documentation
         doc_paths = [
             root / "CLAUDE.md",
-            root / "docs" / "RUNBOOK.md",
-            root / "docs" / "ENVIRONMENT.md",
             root / "docs" / "STATUS.md",
+            root / "docs" / "reference" / "ENVIRONMENT.md",
+            root / "docs" / "COMMERCIAL_OVERVIEW.md",
         ]
         docs.extend([p for p in doc_paths if p.exists()])
 
