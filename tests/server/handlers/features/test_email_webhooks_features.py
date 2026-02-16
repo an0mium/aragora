@@ -528,7 +528,7 @@ class TestOutlookWebhook:
         req = FakeRequest()
 
         async def bad_json():
-            raise RuntimeError("boom")
+            raise ValueError("boom")
 
         req.json = bad_json
         result = _run(_dispatch(handler, req, "/api/v1/webhooks/outlook", "POST"))

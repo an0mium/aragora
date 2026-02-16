@@ -352,7 +352,7 @@ class TestFullExplanation:
     @pytest.mark.asyncio
     async def test_full_explanation_error_handling(self, handler):
         """Returns 500 on unexpected errors."""
-        with patch.object(handler, "_get_or_build_decision", side_effect=RuntimeError("DB down")):
+        with patch.object(handler, "_get_or_build_decision", side_effect=ValueError("DB down")):
             result = await handler._handle_full_explanation("debate-123", {}, False)
 
         assert result.status_code == 500
@@ -644,7 +644,7 @@ class TestGetOrBuildDecision:
         ):
             with patch(
                 "aragora.explainability.ExplanationBuilder",
-                side_effect=RuntimeError("builder broken"),
+                side_effect=ImportError("builder broken"),
             ):
                 result = await handler._get_or_build_decision("debate-123")
 

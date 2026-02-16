@@ -410,7 +410,7 @@ class TestAuditResultRecorderProbeElo:
 
     def test_handles_elo_exception(self, caplog):
         elo = MagicMock()
-        elo.record_redteam_result.side_effect = RuntimeError("elo down")
+        elo.record_redteam_result.side_effect = OSError("elo down")
         report = MagicMock(
             probes_run=5, vulnerability_rate=0.2, vulnerabilities_found=1, critical_count=0
         )
@@ -1655,7 +1655,7 @@ class TestAuditAgentFactoryExtended:
         def conditional_create(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 2:
-                raise Exception("Agent 2 failed")
+                raise ValueError("Agent 2 failed")
             return MagicMock()
 
         with (
