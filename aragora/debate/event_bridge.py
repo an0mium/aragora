@@ -130,15 +130,8 @@ class EventEmitterBridge:
                 loop_id=self.loop_id,
             )
             self.event_emitter.emit(stream_event)
-        except (TypeError, ValueError) as e:
-            # Serialization issues with event data
-            logger.warning(f"Event emission serialization error (non-fatal): {e}")
-        except (ConnectionError, RuntimeError) as e:
-            # Network/event system issues
-            logger.warning(f"Event emission connection error (non-fatal): {e}")
-        except (AttributeError, ImportError, OSError) as e:
-            # Unexpected - log with type info
-            logger.warning(f"Event emission unexpected error (non-fatal): {type(e).__name__}: {e}")
+        except Exception as e:  # noqa: BLE001 - graceful degradation, event emission is non-critical
+            logger.warning(f"Event emission error (non-fatal): {type(e).__name__}: {e}")
 
         # Update cartographer with this event
         self._update_cartographer(event_type, **kwargs)
@@ -191,7 +184,7 @@ class EventEmitterBridge:
 
             if updated:
                 self._emit_graph_update()
-        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, cartographer update is non-critical
             logger.warning(f"Cartographer error (non-fatal): {e}")
 
     def _emit_graph_update(self) -> None:
@@ -210,7 +203,7 @@ class EventEmitterBridge:
                     loop_id=self.loop_id or "",
                 )
             )
-        except (RuntimeError, AttributeError, TypeError, ImportError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, graph update is non-critical
             logger.warning(f"Graph update emission error (non-fatal): {e}")
 
     @staticmethod
@@ -236,5 +229,5 @@ class EventEmitterBridge:
                 )
             )
             logger.debug("Emitted moment event: %s for %s", moment.moment_type, moment.agent_name)
-        except (RuntimeError, AttributeError, TypeError, ImportError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, moment emission is non-critical
             logger.warning("Failed to emit moment event: %s", e)

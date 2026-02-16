@@ -312,7 +312,7 @@ class TestFixerOrchestrator:
             maybe_awaitable = self._event_emitter(event)
             if inspect.isawaitable(maybe_awaitable):
                 await maybe_awaitable
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (RuntimeError, OSError, ValueError) as exc:
             logger.warning("testfixer.event_emit_failed run_id=%s error=%s", self.run_id, exc)
 
     async def run_fix_loop(

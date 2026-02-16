@@ -330,6 +330,7 @@ class Arena(ArenaDelegatesMixin):
     enable_post_debate_workflow: bool
     post_debate_workflow: Any
     post_debate_workflow_threshold: float
+    post_debate_config: Any
     enable_agent_hierarchy: bool
     _hierarchy: Any
     _knowledge_ops: Any
@@ -400,7 +401,7 @@ class Arena(ArenaDelegatesMixin):
         supermemory_enable_privacy_filter: bool = True,
         supermemory_enable_resilience: bool = True,
         supermemory_enable_km_adapter: bool = False,
-        enable_belief_guidance: bool = False,
+        enable_belief_guidance: bool = True,
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.8,
         revalidation_check_interval_seconds: int = 3600,
@@ -465,6 +466,7 @@ class Arena(ArenaDelegatesMixin):
         post_debate_workflow: Workflow | None = None,
         enable_post_debate_workflow: bool = False,
         post_debate_workflow_threshold: float = 0.7,
+        post_debate_config: Any | None = None,
         fabric: Any = None,
         fabric_config: Any = None,
         mode_sequence: list[str] | None = None,
@@ -716,6 +718,8 @@ class Arena(ArenaDelegatesMixin):
             cfg.post_debate_workflow,
             cfg.post_debate_workflow_threshold,
         )
+        # Store post-debate coordinator config (opt-in pipeline)
+        self.post_debate_config = post_debate_config
         _setup_init_agent_hierarchy(self, cfg.enable_agent_hierarchy, cfg.hierarchy_config)
         _setup_init_rlm_limiter(
             self,

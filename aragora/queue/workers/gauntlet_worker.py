@@ -111,12 +111,6 @@ class GauntletWorker:
                 cancelled_exc = exc
                 self._running = False
                 break
-            except RuntimeError as e:
-                if "Event loop is closed" in str(e):
-                    logger.info("[%s] Event loop closed, exiting worker", self.worker_id)
-                    break
-                logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
-                await asyncio.sleep(self.poll_interval)
             except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
                 # Check for pool/connection closure errors that indicate shutdown
                 err_msg = str(e).lower()

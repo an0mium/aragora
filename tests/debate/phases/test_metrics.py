@@ -124,7 +124,7 @@ class TestMetricsHelper:
     def test_get_calibration_weight_error(self):
         """Calibration weight is 1.0 on error."""
         elo = MagicMock()
-        elo.get_rating.side_effect = Exception("Rating error")
+        elo.get_rating.side_effect = RuntimeError("Rating error")
 
         helper = MetricsHelper(elo_system=elo)
         weight = helper.get_calibration_weight("agent1")
@@ -170,7 +170,7 @@ class TestMetricsHelper:
     def test_get_composite_judge_score_error(self):
         """Composite score is 0.0 on error."""
         elo = MagicMock()
-        elo.get_rating.side_effect = Exception("Rating error")
+        elo.get_rating.side_effect = RuntimeError("Rating error")
 
         helper = MetricsHelper(elo_system=elo)
         score = helper.get_composite_judge_score("agent1")

@@ -29,7 +29,7 @@ async def list_agents_tool() -> dict[str, Any]:
             "agents": agents,
             "count": len(agents),
         }
-    except (ImportError, RuntimeError, OSError) as e:
+    except Exception as e:  # noqa: BLE001 - graceful degradation, provide fallback agent list
         logger.warning(f"Could not list agents: {e}")
         # Fallback list
         return {

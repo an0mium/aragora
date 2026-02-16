@@ -138,7 +138,7 @@ def get_sme_kpis(
         try:
             workspace_stats = cost_tracker.get_workspace_stats(org_id)
             total_cost = Decimal(workspace_stats.get("total_cost_usd", "0"))
-        except (ValueError, TypeError, KeyError, OSError, ConnectionError) as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
             logger.debug(f"Failed to get cost data: {e}")
 
     kpis.total_cost_usd = float(total_cost)
@@ -155,7 +155,7 @@ def get_sme_kpis(
             try:
                 ws = cost_tracker.get_workspace_stats(org_id)
                 api_calls = ws.get("total_api_calls", 0)
-            except (ValueError, TypeError, KeyError, OSError, ConnectionError) as e:
+            except (ValueError, TypeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
                 logger.warning("Failed to get workspace API call stats for %s: %s", org_id, e)
         kpis.total_debates = max(1, api_calls // 10) if api_calls > 0 else 0
 

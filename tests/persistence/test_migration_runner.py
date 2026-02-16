@@ -348,7 +348,7 @@ class TestRollback:
         )
 
         mock_module = MagicMock()
-        mock_module.downgrade = MagicMock(side_effect=Exception("Downgrade failed"))
+        mock_module.downgrade = MagicMock(side_effect=RuntimeError("Downgrade failed"))
 
         with patch.object(runner, "discover_migrations", return_value=[migration]):
             with patch.object(runner, "_load_migration_module", return_value=mock_module):
@@ -844,7 +844,7 @@ class TestRollbackToVersion:
         def failing_downgrade(conn):
             call_count[0] += 1
             if call_count[0] == 2:  # Fail on second call (version 2)
-                raise Exception("Rollback failed at version 2")
+                raise RuntimeError("Rollback failed at version 2")
 
         mock_module = MagicMock()
         mock_module.downgrade = failing_downgrade

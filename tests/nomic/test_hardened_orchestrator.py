@@ -2024,3 +2024,179 @@ class TestCalibrationFeedback:
         }):
             agent = orch._select_best_agent(subtask, Track.DEVELOPER)
             assert agent in ("claude", "codex")
+
+
+# =============================================================================
+# Gauntlet Constraint Extraction Tests (Item 2)
+# =============================================================================
+
+
+class TestGauntletConstraints:
+    """Tests for gauntlet findings -> debate constraints feedback loop."""
+
+    def test_extract_gauntlet_constraints_basic(self):
+        """Extracts constraints from findings."""
+        orch = HardenedOrchestrator()
+
+        finding1 = MagicMock()
+        finding1.description = "SQL injection vulnerability in user input"
+        finding1.severity = "critical"
+        finding1.category = "security"
+
+        finding2 = MagicMock()
+        finding2.description = "Missing error handling in API call"
+        finding2.severity = "high"
+        finding2.category = "reliability"
+
+        constraints = orch._extract_gauntlet_constraints(
+            [finding1, finding2], "Fix authentication"
+        )
+
+        assert len(constraints) == 2
+        assert "SQL injection vulnerability" in constraints[0]
+        assert "Address this in the new design" in constraints[0]
+        assert "[critical/security]" in constraints[0]
+        assert "Missing error handling" in constraints[1]
+
+    def test_extract_constraints_no_category(self):
+        """Handles findings without category."""
+        orch = HardenedOrchestrator()
+
+        finding = MagicMock()
+        finding.description = "Buffer overflow risk"
+        finding.severity = "high"
+        del finding.category
+
+        constraints = orch._extract_gauntlet_constraints([finding], "task")
+
+        assert len(constraints) == 1
+        assert "[high]" in constraints[0]
+        assert "Buffer overflow risk" in constraints[0]
+
+    def test_extract_constraints_truncates_long_description(self):
+        """Truncates long finding descriptions."""
+        orch = HardenedOrchestrator()
+
+        finding = MagicMock()
+        finding.description = "x" * 500
+        finding.severity = "critical"
+        finding.category = ""
+
+        constraints = orch._extract_gauntlet_constraints([finding], "task")
+
+        assert len(constraints) == 1
+        assert len(constraints[0]) < 500  # Truncated
+
+    def test_extract_constraints_caps_at_10(self):
+        """Limits to 10 constraints to avoid context bloat."""
+        orch = HardenedOrchestrator()
+
+        findings = []
+        for i in range(15):
+            f = MagicMock()
+            f.description = f"Finding {i}"
+            f.severity = "high"
+            f.category = "test"
+            findings.append(f)
+
+        constraints = orch._extract_gauntlet_constraints(findings, "task")
+        assert len(constraints) == 10
+
+    def test_empty_findings_returns_empty(self):
+        """Returns empty list for empty findings."""
+        orch = HardenedOrchestrator()
+        constraints = orch._extract_gauntlet_constraints([], "task")
+        assert constraints == []
+
+    @pytest.mark.asyncio
+    async def test_gauntlet_critical_stores_constraints(self):
+        """Critical gauntlet findings are stored as constraints."""
+        orch = HardenedOrchestrator(enable_gauntlet_validation=True)
+
+        assignment = _make_assignment(status="completed")
+        assignment.result = {"workflow_result": "some output"}
+
+        mock_finding = MagicMock()
+        mock_finding.severity = "critical"
+        mock_finding.description = "Exposed API key in output"
+        mock_finding.category = "security"
+        mock_result = MagicMock()
+        mock_result.findings = [mock_finding]
+
+        with patch("aragora.gauntlet.runner.GauntletRunner") as MockRunner:
+            runner_instance = MockRunner.return_value
+            runner_instance.run = AsyncMock(return_value=mock_result)
+
+            assert len(orch._gauntlet_constraints) == 0
+            await orch._run_gauntlet_validation(assignment)
+
+            assert len(orch._gauntlet_constraints) == 1
+            assert "Exposed API key" in orch._gauntlet_constraints[0]
+
+    @pytest.mark.asyncio
+    async def test_gauntlet_constraints_injected_into_context(self):
+        """Gauntlet constraints are injected into execute_goal context."""
+        orch = HardenedOrchestrator(
+            enable_prompt_defense=False,
+            enable_meta_planning=False,
+            enable_gauntlet_validation=False,
+            enable_audit_reconciliation=False,
+        )
+        orch._gauntlet_constraints = [
+            "Previous iteration found: SQL injection risk. Address this in the new design."
+        ]
+        orch._enable_measurement = False
+
+        mock_result = OrchestrationResult(
+            goal="test",
+            success=True,
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
+        )
+
+        # Patch super().execute_goal to capture the context
+        captured_context = {}
+
+        async def fake_execute(goal, tracks, max_cycles, context):
+            captured_context.update(context or {})
+            return mock_result
+
+        with patch.object(
+            AutonomousOrchestrator,
+            "execute_goal",
+            side_effect=fake_execute,
+        ), patch.object(orch, "_record_orchestration_outcome", new=AsyncMock()):
+            await orch.execute_goal("test goal", context={})
+
+        assert "gauntlet_constraints" in captured_context
+        assert len(captured_context["gauntlet_constraints"]) == 1
+        assert "SQL injection" in captured_context["gauntlet_constraints"][0]
+
+    def test_constraints_accumulate_across_validations(self):
+        """Multiple gauntlet runs accumulate constraints."""
+        orch = HardenedOrchestrator()
+
+        finding1 = MagicMock()
+        finding1.description = "Issue one"
+        finding1.severity = "high"
+        finding1.category = ""
+
+        finding2 = MagicMock()
+        finding2.description = "Issue two"
+        finding2.severity = "critical"
+        finding2.category = "perf"
+
+        orch._extract_gauntlet_constraints([finding1], "task1")
+        # Manually simulate the accumulation
+        orch._gauntlet_constraints.extend(
+            orch._extract_gauntlet_constraints([finding1], "task1")
+        )
+        orch._gauntlet_constraints.extend(
+            orch._extract_gauntlet_constraints([finding2], "task2")
+        )
+
+        assert len(orch._gauntlet_constraints) == 2

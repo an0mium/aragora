@@ -363,7 +363,7 @@ class RevisionGenerator:
                 round=round_num,
                 loop_id=loop_id,
             )
-        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:  # noqa: BLE001
             logger.debug(f"Rhetorical observation error: {e}")
 
     # Molecule tracking methods (Gastown pattern)

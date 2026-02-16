@@ -13,12 +13,14 @@ from .api_key import APIKeyRotationHandler
 from .base import RotationError, RotationHandler, RotationResult, RotationStatus
 from .database import DatabaseRotationHandler
 from .encryption import EncryptionKeyRotationHandler
+from .github_sync import GitHubSecretsSyncBackend
 from .oauth import OAuthRotationHandler
 
 __all__ = [
     "APIKeyRotationHandler",
     "DatabaseRotationHandler",
     "EncryptionKeyRotationHandler",
+    "GitHubSecretsSyncBackend",
     "OAuthRotationHandler",
     "RotationError",
     "RotationHandler",

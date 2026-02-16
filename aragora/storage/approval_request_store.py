@@ -359,7 +359,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for approval request storage")
             self._using_fallback = False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
             logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -372,7 +372,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis get failed, using fallback: {e}")
             return await self._fallback.get(request_id)
 
@@ -397,7 +397,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
             if workflow_id:
                 pipe.sadd(f"{self.REDIS_INDEX_WORKFLOW}{workflow_id}", request_id)
             pipe.execute()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, request_id: str) -> bool:

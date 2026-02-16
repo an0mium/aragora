@@ -1155,7 +1155,7 @@ class TestImplementPhaseErrorHandling:
         """Should handle plan generation failure."""
         from aragora.nomic.phases.implement import ImplementPhase
 
-        failing_generator = AsyncMock(side_effect=Exception("Plan failed"))
+        failing_generator = AsyncMock(side_effect=RuntimeError("Plan failed"))
 
         phase = ImplementPhase(
             aragora_path=mock_aragora_path,
@@ -1184,7 +1184,7 @@ class TestImplementPhaseErrorHandling:
         from aragora.nomic.phases.implement import ImplementPhase
 
         failing_executor = MagicMock()
-        failing_executor.execute_plan = AsyncMock(side_effect=Exception("Execution crashed"))
+        failing_executor.execute_plan = AsyncMock(side_effect=RuntimeError("Execution crashed"))
 
         phase = ImplementPhase(
             aragora_path=mock_aragora_path,

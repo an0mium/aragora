@@ -546,8 +546,8 @@ class TestContextPhaseFallback:
         self, mock_aragora_path, mock_claude_agent, mock_codex_agent, mock_log_fn
     ):
         """Should handle agent raising exception gracefully."""
-        mock_claude_agent.generate = AsyncMock(side_effect=Exception("Failed"))
-        mock_codex_agent.generate = AsyncMock(side_effect=Exception("Failed"))
+        mock_claude_agent.generate = AsyncMock(side_effect=RuntimeError("Failed"))
+        mock_codex_agent.generate = AsyncMock(side_effect=RuntimeError("Failed"))
 
         phase = ContextPhase(
             aragora_path=mock_aragora_path,

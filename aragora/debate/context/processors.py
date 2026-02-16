@@ -105,7 +105,7 @@ class ContentProcessor:
                 logger.debug("[rlm] RLM module not available: %s", e)
             except (RuntimeError, ValueError) as e:
                 logger.warning("[rlm] Failed to initialize RLM: %s", e)
-            except Exception as e:
+            except (OSError, TypeError, KeyError) as e:
                 logger.warning("[rlm] Unexpected error getting RLM from factory: %s", e)
 
             # Fallback: get compressor from factory (compression-only)
@@ -119,7 +119,7 @@ class ContentProcessor:
                     logger.debug("[rlm] Compressor module not available: %s", e)
                 except (RuntimeError, ValueError) as e:
                     logger.warning("[rlm] Failed to initialize compressor: %s", e)
-                except Exception as e:
+                except (OSError, TypeError, KeyError) as e:
                     logger.warning("[rlm] Unexpected error getting compressor: %s", e)
 
     async def compress_with_rlm(
@@ -195,7 +195,7 @@ class ContentProcessor:
                 logger.debug("[rlm] AragoraRLM compression timed out")
             except (ValueError, RuntimeError) as e:
                 logger.debug("[rlm] AragoraRLM compression failed: %s", e)
-            except Exception as e:
+            except (OSError, TypeError, KeyError, AttributeError) as e:
                 logger.warning("[rlm] Unexpected error in AragoraRLM compression: %s", e)
 
         # FALLBACK: Try direct HierarchicalCompressor (compression-only)
@@ -236,7 +236,7 @@ class ContentProcessor:
                 logger.debug("[rlm] HierarchicalCompressor timed out")
             except (ValueError, RuntimeError) as e:
                 logger.debug("[rlm] HierarchicalCompressor failed: %s", e)
-            except Exception as e:
+            except (OSError, TypeError, KeyError, AttributeError) as e:
                 logger.warning("[rlm] Unexpected error in HierarchicalCompressor: %s", e)
 
         # FINAL FALLBACK: Simple truncation
@@ -316,7 +316,7 @@ class ContentProcessor:
             logger.debug("[rlm] TRUE RLM query timed out for: '%s...'", query[:30])
         except (ValueError, RuntimeError) as e:
             logger.debug("[rlm] TRUE RLM query failed: %s", e)
-        except Exception as e:
+        except (OSError, TypeError, KeyError, AttributeError) as e:
             logger.warning("[rlm] Unexpected error in TRUE RLM query: %s", e)
 
         return None
@@ -415,7 +415,7 @@ class ContentProcessor:
             logger.warning("Failed to load Aragora context (file error): %s", e)
         except (ValueError, RuntimeError) as e:
             logger.warning("Failed to load Aragora context: %s", e)
-        except Exception as e:
+        except (TypeError, KeyError, AttributeError) as e:
             logger.warning("Unexpected error loading Aragora context: %s", e)
 
         return None
@@ -434,7 +434,7 @@ class ContentProcessor:
 
         try:
             from aragora.rlm.codebase_context import CodebaseContextBuilder
-        except Exception as exc:
+        except (ImportError, OSError) as exc:
             logger.debug("Codebase context unavailable: %s", exc)
             return None
 
@@ -444,7 +444,7 @@ class ContentProcessor:
                     root_path=self._project_root,
                     knowledge_mound=self._knowledge_mound,
                 )
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError, TypeError) as exc:
                 logger.warning("Failed to initialize codebase context builder: %s", exc)
                 return None
 
@@ -460,7 +460,7 @@ class ContentProcessor:
         except asyncio.TimeoutError:
             logger.warning("Codebase context build timed out")
             return None
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError, TypeError) as exc:
             logger.warning("Codebase context build failed: %s", exc)
             return None
 
@@ -675,7 +675,7 @@ class ContentProcessor:
 
             return len(evidence_pack.snippets), evidence_pack
 
-        except Exception as e:
+        except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError, TypeError) as e:
             logger.warning("Evidence refresh failed: %s", e)
             return 0, None
 
@@ -745,7 +745,7 @@ class ContentProcessor:
 
         except ImportError:
             logger.debug("[rlm] REPL adapter not available for knowledge queries")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError, KeyError) as e:
             logger.warning("[rlm] Failed to create knowledge REPL: %s", e)
 
         return None

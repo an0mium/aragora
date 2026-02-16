@@ -1719,7 +1719,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_execute_with_no_votes(self):
-        """Execute works with no votes."""
+        """Execute works with no votes — auto-calibration still records."""
         tracker = MagicMock()
         phase = FeedbackPhase(calibration_tracker=tracker)
         ctx = MockDebateContext()
@@ -1727,7 +1727,13 @@ class TestEdgeCases:
 
         await phase.execute(ctx)
 
-        tracker.record_prediction.assert_not_called()
+        # Auto-calibration still records selection_feedback for participating
+        # agents even without explicit votes (uses default confidence=0.5)
+        for call_args in tracker.record_prediction.call_args_list:
+            assert call_args.kwargs.get("prediction_type") in (
+                "selection_feedback",
+                "consensus_alignment",
+            )
 
     @pytest.mark.asyncio
     async def test_execute_with_no_winner(self):
@@ -2311,3 +2317,220 @@ class TestIngestKnowledgeOutcomeExtended:
         await phase._ingest_knowledge_outcome(ctx)
 
         ingest_fn.assert_called_once_with(ctx.result)
+
+
+# ===========================================================================
+# Calibration Feedback Loop Tests (Item 1)
+# ===========================================================================
+
+
+class TestUpdateCalibrationFeedback:
+    """Tests for _update_calibration_feedback closing the calibration loop."""
+
+    def test_skips_without_tracker(self):
+        """Returns early when no calibration tracker."""
+        phase = FeedbackPhase()
+        ctx = MockDebateContext()
+
+        # Should not raise
+        phase._update_calibration_feedback(ctx)
+
+    def test_skips_without_consensus(self):
+        """Skips when consensus was not reached."""
+        tracker = MagicMock()
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.consensus_reached = False
+
+        phase._update_calibration_feedback(ctx)
+
+        tracker.record_prediction.assert_not_called()
+
+    def test_skips_without_winner(self):
+        """Skips when no winner."""
+        tracker = MagicMock()
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.winner = None
+
+        phase._update_calibration_feedback(ctx)
+
+        tracker.record_prediction.assert_not_called()
+
+    def test_updates_brier_for_all_agents(self):
+        """Records calibration prediction for each participating agent."""
+        tracker = MagicMock()
+        tracker.get_brier_score = MagicMock(return_value=0.3)
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+        ctx.result.votes = [
+            MockVote("claude", "claude", 0.9),
+            MockVote("gpt4", "gpt4", 0.7),
+        ]
+
+        phase._update_calibration_feedback(ctx)
+
+        # Should call record_prediction for each agent
+        assert tracker.record_prediction.call_count == 2
+
+        # First agent (claude) predicted correctly
+        call1 = tracker.record_prediction.call_args_list[0]
+        assert call1[1]["agent"] == "claude"
+        assert call1[1]["correct"] is True
+        assert call1[1]["prediction_type"] == "selection_feedback"
+
+        # Second agent (gpt4) predicted incorrectly
+        call2 = tracker.record_prediction.call_args_list[1]
+        assert call2[1]["agent"] == "gpt4"
+        assert call2[1]["correct"] is False
+
+    def test_stores_deltas_in_knowledge_mound(self):
+        """Stores calibration deltas in KnowledgeMound when available."""
+        tracker = MagicMock()
+        tracker.get_brier_score = MagicMock(return_value=0.25)
+        knowledge_mound = MagicMock()
+
+        phase = FeedbackPhase(
+            calibration_tracker=tracker,
+            knowledge_mound=knowledge_mound,
+        )
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+        ctx.result.votes = [MockVote("claude", "claude", 0.9)]
+
+        with patch(
+            "aragora.debate.phases.feedback_phase.FeedbackPhase._store_calibration_in_mound"
+        ) as mock_store:
+            phase._update_calibration_feedback(ctx)
+            mock_store.assert_called_once()
+            # Verify deltas dict was passed
+            call_args = mock_store.call_args
+            deltas = call_args[0][1]  # second positional arg
+            assert "claude" in deltas
+            assert "brier_before" in deltas["claude"]
+            assert "brier_after" in deltas["claude"]
+            assert "brier_delta" in deltas["claude"]
+
+    def test_handles_missing_get_brier_score(self):
+        """Works when calibration tracker has no get_brier_score method."""
+        tracker = MagicMock(spec=["record_prediction"])
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+        ctx.result.votes = [MockVote("claude", "claude", 0.8)]
+
+        # Should not raise -- falls back to default brier baseline
+        phase._update_calibration_feedback(ctx)
+        # Called once per agent (claude + gpt4 from MockDebateContext)
+        assert tracker.record_prediction.call_count == 2
+
+    def test_handles_errors_gracefully(self):
+        """Gracefully handles errors during calibration feedback."""
+        tracker = MagicMock()
+        tracker.record_prediction.side_effect = RuntimeError("Test error")
+
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.votes = [MockVote("claude", "claude", 0.9)]
+
+        # Should not raise
+        phase._update_calibration_feedback(ctx)
+
+    def test_uses_choice_mapping(self):
+        """Uses choice_mapping to canonicalize vote choices."""
+        tracker = MagicMock()
+        tracker.get_brier_score = MagicMock(return_value=0.4)
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+        ctx.choice_mapping = {"Agent-Claude": "claude"}
+        # Use agents matching the ctx.agents list (claude and gpt4)
+        ctx.result.votes = [MockVote("claude", "Agent-Claude", 0.9)]
+
+        phase._update_calibration_feedback(ctx)
+
+        # The claude agent voted for "Agent-Claude" which maps to "claude" (the winner)
+        call = tracker.record_prediction.call_args_list[0]
+        assert call[1]["agent"] == "claude"
+        assert call[1]["correct"] is True
+
+    def test_default_confidence_when_no_vote(self):
+        """Uses default 0.5 confidence for agents without votes."""
+        tracker = MagicMock()
+        tracker.get_brier_score = MagicMock(return_value=0.3)
+        phase = FeedbackPhase(calibration_tracker=tracker)
+        ctx = MockDebateContext()
+        ctx.result.winner = "claude"
+        ctx.result.votes = []  # No votes at all
+
+        phase._update_calibration_feedback(ctx)
+
+        # Should still record for both agents (claude and gpt4 from MockDebateContext)
+        assert tracker.record_prediction.call_count == 2
+        for call in tracker.record_prediction.call_args_list:
+            assert call[1]["confidence"] == 0.5
+
+
+class TestStoreCalibrationInMound:
+    """Tests for _store_calibration_in_mound helper."""
+
+    def test_stores_via_store_calibration_feedback(self):
+        """Uses store_calibration_feedback when available."""
+        knowledge_mound = MagicMock()
+        knowledge_mound.store_calibration_feedback = MagicMock()
+
+        phase = FeedbackPhase(
+            calibration_tracker=MagicMock(),
+            knowledge_mound=knowledge_mound,
+        )
+        ctx = MockDebateContext()
+        deltas = {"claude": {"brier_before": 0.3, "brier_after": 0.25, "brier_delta": -0.05}}
+
+        phase._store_calibration_in_mound(ctx, deltas)
+
+        knowledge_mound.store_calibration_feedback.assert_called_once()
+        record = knowledge_mound.store_calibration_feedback.call_args[0][0]
+        assert record["debate_id"] == ctx.debate_id
+        assert record["type"] == "calibration_feedback"
+        assert "claude" in record["agent_deltas"]
+
+    def test_falls_back_to_store(self):
+        """Falls back to store() when store_calibration_feedback missing."""
+        knowledge_mound = MagicMock(spec=["store"])
+
+        phase = FeedbackPhase(
+            calibration_tracker=MagicMock(),
+            knowledge_mound=knowledge_mound,
+        )
+        ctx = MockDebateContext()
+        deltas = {"claude": {"brier_delta": -0.05}}
+
+        phase._store_calibration_in_mound(ctx, deltas)
+
+        knowledge_mound.store.assert_called_once()
+        call_kwargs = knowledge_mound.store.call_args[1]
+        assert call_kwargs["category"] == "calibration_feedback"
+        assert "calibration:" in call_kwargs["key"]
+
+    def test_skips_without_knowledge_mound(self):
+        """Skips storage when no knowledge mound."""
+        phase = FeedbackPhase(calibration_tracker=MagicMock())
+        ctx = MockDebateContext()
+
+        # Should not raise
+        phase._store_calibration_in_mound(ctx, {})
+
+    def test_handles_storage_error(self):
+        """Gracefully handles storage errors."""
+        knowledge_mound = MagicMock()
+        knowledge_mound.store_calibration_feedback.side_effect = RuntimeError("DB error")
+
+        phase = FeedbackPhase(
+            calibration_tracker=MagicMock(),
+            knowledge_mound=knowledge_mound,
+        )
+        ctx = MockDebateContext()
+
+        # Should not raise
+        phase._store_calibration_in_mound(ctx, {"agent": {"delta": 0.1}})

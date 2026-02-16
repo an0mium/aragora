@@ -200,9 +200,15 @@ data:
       # Grace period before revoking old credentials
       grace_period_hours: 24
 
+      # GitHub Secrets sync (push to GitHub after rotation)
+      github_sync:
+        repo: "aragora-ai/aragora"
+
       # Secrets to rotate
       secrets:
-        # Database credentials
+        # ================================================================
+        # Database credentials (90-day rotation)
+        # ================================================================
         - id: postgres_aragora_rw
           type: database
           rotation_interval_days: 90
@@ -212,14 +218,90 @@ data:
             database: aragora
             username: aragora_rw
 
-        # OAuth tokens (refresh automatically)
+        - id: DATABASE_URL
+          type: database
+          rotation_interval_days: 90
+          metadata:
+            db_type: postgresql
+            github_secret_name: DATABASE_URL
+
+        - id: REDIS_URL
+          type: database
+          rotation_interval_days: 90
+          metadata:
+            db_type: redis
+            github_secret_name: REDIS_URL
+
+        - id: SUPABASE_DB_PASSWORD
+          type: database
+          rotation_interval_days: 90
+          metadata:
+            db_type: supabase
+            github_secret_name: SUPABASE_DB_PASSWORD
+
+        # ================================================================
+        # OAuth tokens (refresh automatically, 7-day rotation)
+        # ================================================================
         - id: google_oauth
           type: oauth
           rotation_interval_days: 7
           metadata:
             provider: google
 
-        # Encryption keys
+        - id: GOOGLE_OAUTH_CLIENT_SECRET
+          type: oauth
+          rotation_interval_days: 7
+          metadata:
+            provider: google
+            github_secret_name: GOOGLE_OAUTH_CLIENT_SECRET
+
+        # ================================================================
+        # Self-generated secrets (no external API needed)
+        # ================================================================
+
+        # JWT secrets (30-day rotation)
+        - id: ARAGORA_JWT_SECRET
+          type: encryption_key
+          rotation_interval_days: 30
+          metadata:
+            key_type: jwt
+            jwt_algorithm: HS256
+            github_secret_name: ARAGORA_JWT_SECRET
+
+        - id: OAUTH_JWT_SECRET
+          type: encryption_key
+          rotation_interval_days: 30
+          metadata:
+            key_type: jwt
+            jwt_algorithm: HS256
+            github_secret_name: OAUTH_JWT_SECRET
+
+        # Encryption keys (90-day rotation)
+        - id: ARAGORA_ENCRYPTION_KEY
+          type: encryption_key
+          rotation_interval_days: 90
+          metadata:
+            key_type: aes256
+            data_stores:
+              - integrations
+              - webhooks
+              - gmail_tokens
+            github_secret_name: ARAGORA_ENCRYPTION_KEY
+
+        - id: ARAGORA_RECEIPT_SIGNING_KEY
+          type: encryption_key
+          rotation_interval_days: 90
+          metadata:
+            key_type: hmac
+            github_secret_name: ARAGORA_RECEIPT_SIGNING_KEY
+
+        - id: ARAGORA_SECRET_KEY
+          type: encryption_key
+          rotation_interval_days: 90
+          metadata:
+            key_type: aes256
+            github_secret_name: ARAGORA_SECRET_KEY
+
         - id: encryption_key_primary
           type: encryption_key
           rotation_interval_days: 90
@@ -229,30 +311,95 @@ data:
               - integrations
               - webhooks
 
-        # API keys (manual rotation, notifications only)
+        # ================================================================
+        # API keys with programmatic rotation
+        # ================================================================
         - id: ANTHROPIC_API_KEY
           type: api_key
           rotation_interval_days: 90
           metadata:
             provider: anthropic
+            github_secret_name: ANTHROPIC_API_KEY
 
         - id: OPENAI_API_KEY
           type: api_key
           rotation_interval_days: 90
           metadata:
             provider: openai
+            github_secret_name: OPENAI_API_KEY
 
+        - id: STRIPE_SECRET_KEY
+          type: api_key
+          rotation_interval_days: 60
+          metadata:
+            provider: stripe
+            github_secret_name: STRIPE_SECRET_KEY
+
+        - id: CLOUDFLARE_API_TOKEN
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: cloudflare
+            github_secret_name: CLOUDFLARE_API_TOKEN
+
+        # ================================================================
+        # API keys requiring manual rotation (notification-based)
+        # ================================================================
         - id: MISTRAL_API_KEY
           type: api_key
           rotation_interval_days: 90
           metadata:
             provider: mistral
+            github_secret_name: MISTRAL_API_KEY
+
+        - id: GEMINI_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: google
+            github_secret_name: GEMINI_API_KEY
+
+        - id: XAI_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: xai
+            github_secret_name: XAI_API_KEY
+
+        - id: OPENROUTER_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: openrouter
+            github_secret_name: OPENROUTER_API_KEY
+
+        - id: DEEPSEEK_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: deepseek
+            github_secret_name: DEEPSEEK_API_KEY
+
+        - id: ELEVENLABS_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: elevenlabs
+            github_secret_name: ELEVENLABS_API_KEY
 
         - id: SUPERMEMORY_API_KEY
           type: api_key
           rotation_interval_days: 90
           metadata:
             provider: supermemory
+            github_secret_name: SUPERMEMORY_API_KEY
+
+        - id: NPM_TOKEN
+          type: api_key
+          rotation_interval_days: 180
+          metadata:
+            provider: npm
+            github_secret_name: NPM_TOKEN
 
       # Notification channels
       notifications:

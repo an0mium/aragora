@@ -58,7 +58,7 @@ class EloFeedback:
             # Emit MATCH_RECORDED event
             self._emit_match_recorded_event(ctx, participants)
 
-        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 - graceful degradation, ELO update is non-critical
             from aragora.agents.errors import _build_error_action
 
             _, msg, exc_info = _build_error_action(e, "elo")

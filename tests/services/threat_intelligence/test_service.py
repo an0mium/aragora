@@ -921,7 +921,7 @@ class TestBatchLookups:
         def mock_post(*args, **kwargs):
             url = args[0] if args else ""
             if "phishtank" in str(url):
-                raise Exception("PhishTank API down")
+                raise ConnectionError("PhishTank API down")
             else:
                 # URLhaus returns clean
                 return AsyncMock(

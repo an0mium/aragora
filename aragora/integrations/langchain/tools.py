@@ -230,7 +230,7 @@ class AragoraDebateTool(BaseTool):
             else:
                 return f"No consensus reached after {result.get('rounds', max_rounds)} rounds."
 
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
             logger.error(f"[AragoraDebateTool] connection error: {type(e).__name__}: {e}")
             return f"Error running debate (connection): {e}"
         except (RuntimeError, ValueError, TypeError) as e:
@@ -331,7 +331,7 @@ class AragoraKnowledgeTool(BaseTool):
 
             return "\n".join(formatted)
 
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
             logger.error(f"[AragoraKnowledgeTool] connection error: {type(e).__name__}: {e}")
             return f"Error querying knowledge (connection): {e}"
         except (RuntimeError, ValueError, TypeError) as e:
@@ -434,7 +434,7 @@ class AragoraDecisionTool(BaseTool):
                 f"Receipt ID: {receipt_id}"
             )
 
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
             logger.error(f"[AragoraDecisionTool] connection error: {type(e).__name__}: {e}")
             return f"Error making decision (connection): {e}"
         except (RuntimeError, ValueError, TypeError) as e:

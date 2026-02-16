@@ -544,7 +544,7 @@ class TestCheckUserRateLimit:
 
         # Patch at the actual import location in billing.jwt_auth
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.side_effect = Exception("Auth failed")
+            mock_extract.side_effect = RuntimeError("Auth failed")
 
             result = check_user_rate_limit(handler, user_store, action="default")
 

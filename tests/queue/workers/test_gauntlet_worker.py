@@ -306,7 +306,7 @@ class TestGauntletWorkerLifecycle:
             worker._store,
             "dequeue",
             new_callable=AsyncMock,
-            side_effect=Exception("pool is closed"),
+            side_effect=RuntimeError("pool is closed"),
         ):
             task = asyncio.create_task(worker.start())
             await asyncio.wait_for(task, timeout=2.0)

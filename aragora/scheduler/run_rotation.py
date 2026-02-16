@@ -174,6 +174,66 @@ async def store_new_secret(
         return False
 
 
+async def sync_to_github(
+    github_secret_name: str,
+    secret_value: str,
+    config: dict[str, Any],
+) -> bool:
+    """
+    Sync a rotated secret to GitHub repository secrets.
+
+    This is a post-rotation hook that pushes the new value to GitHub.
+    Failures are logged and notified but don't fail the rotation
+    (AWS Secrets Manager is the source of truth).
+
+    Args:
+        github_secret_name: Name of the secret in GitHub
+        secret_value: The new secret value to push
+        config: Rotation config (contains repo info)
+
+    Returns:
+        True if sync succeeded, False otherwise
+    """
+    github_config = config.get("github_sync", {})
+    repo = github_config.get("repo") or os.environ.get("GITHUB_REPO")
+    if not repo:
+        logger.debug("No GitHub repo configured, skipping sync for %s", github_secret_name)
+        return False
+
+    try:
+        from aragora.scheduler.rotation_handlers.github_sync import GitHubSecretsSyncBackend
+
+        token = github_config.get("token") or os.environ.get("GITHUB_ROTATION_TOKEN")
+        backend = GitHubSecretsSyncBackend(repo=repo, token=token)
+        success = await backend.sync_secret(github_secret_name, secret_value)
+
+        if success:
+            logger.info("Synced %s to GitHub Secrets", github_secret_name)
+        else:
+            logger.warning("Failed to sync %s to GitHub Secrets", github_secret_name)
+            await send_notification(
+                github_secret_name,
+                "warning",
+                f"Secret rotated in AWS but GitHub sync failed for {github_secret_name}",
+                config,
+            )
+
+        return success
+
+    except ImportError as e:
+        logger.warning("GitHub sync unavailable (missing dependency): %s", e)
+        return False
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.error("GitHub sync error for %s: %s", github_secret_name, e)
+        await send_notification(
+            github_secret_name,
+            "warning",
+            f"Secret rotated in AWS but GitHub sync failed: {e}",
+            config,
+        )
+        return False
+
+
 async def send_notification(
     secret_id: str,
     status: str,
@@ -268,6 +328,12 @@ async def rotate_secret(
             result["status"] = "success"
             result["message"] = f"Rotated successfully (version: {rotation_result.new_version})"
             result["new_version"] = rotation_result.new_version
+
+            # Sync to GitHub if configured
+            github_name = metadata.get("github_secret_name")
+            if github_name and new_value:
+                github_ok = await sync_to_github(github_name, new_value, config)
+                result["github_synced"] = github_ok
 
             await send_notification(secret_id, "success", result["message"], config)
 

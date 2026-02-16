@@ -387,7 +387,7 @@ class TestDebatePhaseGenerateProposals:
         """Should continue if one agent fails."""
         from aragora.nomic.phases.debate import DebatePhase
 
-        mock_agents[1].generate = AsyncMock(side_effect=Exception("API error"))
+        mock_agents[1].generate = AsyncMock(side_effect=RuntimeError("API error"))
 
         phase = DebatePhase(
             aragora_path=mock_aragora_path,
@@ -797,7 +797,7 @@ class TestDebatePhaseAgentProbing:
         """Should handle probing failure gracefully."""
         from aragora.nomic.phases.debate import DebatePhase
 
-        mock_nomic_integration.probe_agents = AsyncMock(side_effect=Exception("Probe failed"))
+        mock_nomic_integration.probe_agents = AsyncMock(side_effect=RuntimeError("Probe failed"))
 
         phase = DebatePhase(
             aragora_path=mock_aragora_path,
@@ -1010,7 +1010,7 @@ class TestDebatePhaseErrorHandling:
         from aragora.nomic.phases.debate import DebatePhase
 
         mock_arena = MagicMock()
-        mock_arena.run = AsyncMock(side_effect=Exception("Arena crashed"))
+        mock_arena.run = AsyncMock(side_effect=RuntimeError("Arena crashed"))
         mock_arena_factory.return_value = mock_arena
 
         phase = DebatePhase(
@@ -1040,7 +1040,7 @@ class TestDebatePhaseErrorHandling:
         from aragora.nomic.phases.debate import DebatePhase
 
         mock_nomic_integration.list_checkpoints = AsyncMock(
-            side_effect=Exception("Checkpoint load failed")
+            side_effect=RuntimeError("Checkpoint load failed")
         )
 
         phase = DebatePhase(

@@ -543,6 +543,7 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_exploration_bonus=False,
         )
         selector = TeamSelector(elo_system=mock_elo_system, config=config)
 
@@ -561,6 +562,7 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_exploration_bonus=False,
         )
         selector = TeamSelector(elo_system=elo_system, config=config)
 
@@ -653,6 +655,7 @@ class TestAgentScoring:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_exploration_bonus=False,
         )
         selector = TeamSelector(elo_system=elo_system, config=config)
 
@@ -1519,6 +1522,7 @@ class TestEdgeCases:
             enable_km_expertise=False,
             enable_pattern_selection=False,
             enable_cv_selection=False,
+            enable_exploration_bonus=False,
         )
         selector = TeamSelector(elo_system=elo_system, config=config)
 

@@ -64,7 +64,7 @@ def get_audio_backend() -> TTSBackend:
             try:
                 _tts_backend = get_tts_backend(forced)
                 logger.info(f"Using forced TTS backend: {forced}")
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Failed to use forced backend '{forced}': {e}")
                 _tts_backend = get_fallback_backend()
         else:
@@ -162,7 +162,7 @@ async def _generate_edge_tts(
             # edge-tts not installed - no point retrying
             logger.debug("edge-tts not found in PATH")
             return False
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.debug(f"edge-tts generation failed (attempt {attempt + 1}/{max_retries}): {e}")
             last_error = e
 
@@ -190,7 +190,7 @@ def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
         engine.save_to_file(text, str(output_path))
         engine.runAndWait()
         return output_path.exists()
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.debug("pyttsx3 fallback TTS failed: %s", e)
         return False
 
@@ -224,7 +224,7 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Pa
     text_hash = hashlib.sha256(segment.text.encode("utf-8")).hexdigest()[:12]
     try:
         backend = get_audio_backend()
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning("TTS backend initialization failed: %s", e)
         backend = None
 
@@ -241,7 +241,7 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Pa
                 voice=segment.voice_id or segment.speaker,
                 output_path=output_path,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("Primary TTS backend failed: %s", e)
             result = None
 
@@ -320,7 +320,7 @@ class AudioEngine:
                 data = result.read_bytes()
                 result.unlink()  # Clean up temp file
                 return data
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"TTS synthesis failed: {e}")
 
         return None
@@ -354,7 +354,7 @@ class AudioEngine:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(audio_data)
                 return output_path
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Segment audio generation failed: {e}")
 
         return None

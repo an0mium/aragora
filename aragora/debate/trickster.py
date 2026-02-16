@@ -726,6 +726,62 @@ class EvidencePoweredTrickster:
             ],
         }
 
+    def get_elo_adjustments(self) -> dict[str, float]:
+        """Compute ELO adjustment recommendations based on trickster signals.
+
+        Agents targeted by interventions receive negative adjustments
+        (penalties for building hollow consensus, lacking evidence, or
+        creating echo chambers). The penalty scales with frequency and
+        severity of interventions.
+
+        Returns:
+            Dict of agent_name → ELO adjustment score (-1.0 to 0.0).
+            Negative = penalty. Agents not targeted get no entry.
+        """
+        agent_penalties: dict[str, float] = {}
+        intervention_type_weights = {
+            InterventionType.EVIDENCE_GAP: -0.3,       # Missing evidence
+            InterventionType.ECHO_CHAMBER: -0.2,        # Citing same sources
+            InterventionType.CHALLENGE_PROMPT: -0.15,    # Hollow consensus
+            InterventionType.QUALITY_ROLE: -0.1,         # Assigned quality role
+            InterventionType.NOVELTY_CHALLENGE: -0.1,    # Stale proposals
+            InterventionType.EXTENDED_ROUND: -0.05,      # Needed more time
+            InterventionType.BREAKPOINT: -0.4,           # Human review needed
+        }
+
+        for intervention in self._state.interventions:
+            weight = intervention_type_weights.get(
+                intervention.intervention_type, -0.1
+            )
+            # Scale by priority (0-1)
+            penalty = weight * intervention.priority
+            for agent in intervention.target_agents:
+                agent_penalties[agent] = agent_penalties.get(agent, 0.0) + penalty
+
+        # Clamp penalties to [-1.0, 0.0]
+        return {
+            agent: max(penalty, -1.0)
+            for agent, penalty in agent_penalties.items()
+        }
+
+    def get_evidence_quality_scores(self) -> dict[str, float]:
+        """Get average evidence quality per agent across all rounds.
+
+        Returns:
+            Dict of agent_name → average evidence quality (0.0-1.0).
+            Higher = better evidence quality. Can be used as ELO bonus.
+        """
+        agent_totals: dict[str, list[float]] = {}
+        for round_scores in self._state.quality_history:
+            for agent, score in round_scores.items():
+                agent_totals.setdefault(agent, []).append(score.overall_quality)
+
+        return {
+            agent: sum(scores) / len(scores)
+            for agent, scores in agent_totals.items()
+            if scores
+        }
+
     def reset(self) -> None:
         """Reset trickster state for a new debate."""
         self._state = TricksterState()

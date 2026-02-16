@@ -27,7 +27,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SubTask:
-    """A subtask extracted from a larger task."""
+    """A subtask extracted from a larger task.
+
+    Supports hierarchical goal trees via parent_id/depth:
+    - parent_id: ID of the parent subtask (None for root-level)
+    - depth: Nesting level (0 = root, 1 = child of root, etc.)
+    - children: Populated by TaskDecomposition.build_tree()
+    """
 
     id: str
     title: str
@@ -35,11 +41,21 @@ class SubTask:
     dependencies: list[str] = field(default_factory=list)
     estimated_complexity: str = "low"  # low, medium, high
     file_scope: list[str] = field(default_factory=list)
+    success_criteria: dict[str, Any] = field(default_factory=dict)
+    """Measurable success criteria, e.g. {"test_pass_rate": ">0.95", "lint_errors": "==0"}.
+    Keys map to MetricSnapshot fields. Values are targets like ">0.9", "==0", "<=10"."""
+    parent_id: str | None = None
+    depth: int = 0
+    children: list[SubTask] = field(default_factory=list)
 
 
 @dataclass
 class TaskDecomposition:
-    """Result of task decomposition analysis."""
+    """Result of task decomposition analysis.
+
+    Supports both flat (subtasks list) and hierarchical (tree) views.
+    Call build_tree() to populate children on SubTask objects.
+    """
 
     original_task: str
     complexity_score: int  # 1-10
@@ -47,6 +63,45 @@ class TaskDecomposition:
     should_decompose: bool
     subtasks: list[SubTask] = field(default_factory=list)
     rationale: str = ""
+
+    def build_tree(self) -> list[SubTask]:
+        """Build hierarchical tree from flat subtask list using parent_id.
+
+        Returns root-level subtasks with children populated recursively.
+        The flat subtasks list is not modified.
+        """
+        by_id: dict[str, SubTask] = {s.id: s for s in self.subtasks}
+        roots: list[SubTask] = []
+        for subtask in self.subtasks:
+            subtask.children = []  # Reset before building
+        for subtask in self.subtasks:
+            if subtask.parent_id and subtask.parent_id in by_id:
+                by_id[subtask.parent_id].children.append(subtask)
+            else:
+                roots.append(subtask)
+        return roots
+
+    def get_roots(self) -> list[SubTask]:
+        """Get root-level subtasks (parent_id is None)."""
+        return [s for s in self.subtasks if s.parent_id is None]
+
+    def get_children(self, parent_id: str) -> list[SubTask]:
+        """Get direct children of a subtask."""
+        return [s for s in self.subtasks if s.parent_id == parent_id]
+
+    def max_depth(self) -> int:
+        """Get maximum depth in the goal tree."""
+        return max((s.depth for s in self.subtasks), default=0)
+
+    def flatten_tree(self, roots: list[SubTask] | None = None) -> list[SubTask]:
+        """Flatten a tree back into an ordered list (depth-first)."""
+        if roots is None:
+            roots = self.build_tree()
+        result: list[SubTask] = []
+        for root in roots:
+            result.append(root)
+            result.extend(self.flatten_tree(root.children))
+        return result
 
 
 @dataclass

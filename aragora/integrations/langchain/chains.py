@@ -182,7 +182,7 @@ class AragoraDebateChain(_ChainBase):
                                 for item in items
                             )
                             reasoning_steps.append(f"Found {len(items)} relevant knowledge items")
-                except (ConnectionError, TimeoutError, OSError) as e:
+                except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
                         f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}"
                     )
@@ -224,7 +224,7 @@ class AragoraDebateChain(_ChainBase):
                         f"No consensus after {debate_result.get('rounds', self.max_rounds)} rounds"
                     )
 
-            except (ConnectionError, TimeoutError, OSError) as e:
+            except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                 logger.error(
                     f"[AragoraDebateChain] Debate connection error: {type(e).__name__}: {e}"
                 )
@@ -342,7 +342,7 @@ class AragoraResearchDebateChain(_ChainBase):
                                         for i in items[:3]
                                     )
                                 )
-                except (ConnectionError, TimeoutError, OSError) as e:
+                except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                     logger.warning(
                         f"[AragoraResearchDebateChain] {source} search connection error: "
                         f"{type(e).__name__}: {e}"
@@ -378,7 +378,7 @@ class AragoraResearchDebateChain(_ChainBase):
                     f"Rounds: {debate_result.get('rounds', 0)}"
                 )
 
-            except (ConnectionError, TimeoutError, OSError) as e:
+            except (ConnectionError, TimeoutError, OSError, httpx.HTTPError) as e:
                 conclusion = f"Research completed but debate connection failed: {e}"
                 debate_summary = f"Debate connection error: {type(e).__name__}"
             except (RuntimeError, ValueError, TypeError) as e:

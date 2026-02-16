@@ -211,6 +211,14 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         # Canary token: random hex injected into system prompts
         self._canary_token: str = f"CANARY-{secrets.token_hex(8)}" if enable_canary_tokens else ""
 
+        # Measurement layer: objective improvement tracking
+        self._metrics_collector: Any | None = None
+        self._enable_measurement: bool = True
+
+        # Gauntlet constraints: accumulated from past gauntlet findings
+        # to feed back into the next cycle's debate context
+        self._gauntlet_constraints: list[str] = []
+
     def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
         """Initialize BudgetManager integration."""
         try:
@@ -530,9 +538,28 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         self._spectate_events.clear()
         self._receipts.clear()
 
+        # Inject gauntlet constraints from previous iterations into context
+        if self._gauntlet_constraints:
+            context = context or {}
+            existing_constraints = context.get("gauntlet_constraints", [])
+            context["gauntlet_constraints"] = existing_constraints + self._gauntlet_constraints
+            logger.info(
+                "injecting_gauntlet_constraints count=%d into execution context",
+                len(self._gauntlet_constraints),
+            )
+
         self._emit_event("orchestration_started", goal=goal[:200])
 
+        # Measurement: collect baseline metrics before execution
+        baseline_snapshot = None
+        if self._enable_measurement:
+            baseline_snapshot = await self._collect_baseline_metrics(goal)
+
         result = await super().execute_goal(goal, tracks, max_cycles, context)
+
+        # Measurement: collect after metrics and compute delta
+        if self._enable_measurement and baseline_snapshot is not None:
+            await self._measure_improvement(goal, result, baseline_snapshot)
 
         # Audit reconciliation after all assignments complete
         if self.hardened_config.enable_audit_reconciliation:
@@ -546,9 +573,83 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             success=result.success,
             completed=result.completed_subtasks,
             failed=result.failed_subtasks,
+            improvement_score=result.improvement_score,
+            success_criteria_met=result.success_criteria_met,
         )
 
         return result
+
+    async def _collect_baseline_metrics(self, goal: str) -> Any:
+        """Collect pre-improvement baseline metrics."""
+        try:
+            from aragora.nomic.metrics_collector import MetricsCollector
+
+            if self._metrics_collector is None:
+                self._metrics_collector = MetricsCollector()
+
+            # Infer file scope from goal keywords (best-effort)
+            snapshot = await self._metrics_collector.collect_baseline(goal)
+            logger.info(
+                "baseline_metrics_collected tests=%d/%d lint=%d",
+                snapshot.tests_passed,
+                snapshot.tests_total,
+                snapshot.lint_errors,
+            )
+            return snapshot
+        except (ImportError, OSError, RuntimeError) as e:
+            logger.debug("baseline_metrics_error: %s", e)
+            return None
+
+    async def _measure_improvement(
+        self,
+        goal: str,
+        result: OrchestrationResult,
+        baseline_snapshot: Any,
+    ) -> None:
+        """Collect post-improvement metrics and compute improvement delta."""
+        try:
+            from aragora.nomic.metrics_collector import MetricsCollector
+
+            if self._metrics_collector is None:
+                self._metrics_collector = MetricsCollector()
+
+            after_snapshot = await self._metrics_collector.collect_after(goal)
+            delta = self._metrics_collector.compare(baseline_snapshot, after_snapshot)
+
+            # Populate result with measurement data
+            result.baseline_metrics = baseline_snapshot.to_dict()
+            result.after_metrics = after_snapshot.to_dict()
+            result.metrics_delta = delta.to_dict()
+            result.improvement_score = delta.improvement_score
+
+            # Check success criteria from subtasks
+            all_criteria: dict[str, Any] = {}
+            for assignment in result.assignments:
+                if assignment.subtask.success_criteria:
+                    all_criteria.update(assignment.subtask.success_criteria)
+
+            if all_criteria:
+                met, unmet = self._metrics_collector.check_success_criteria(
+                    after_snapshot, all_criteria,
+                )
+                result.success_criteria_met = met
+                if not met:
+                    logger.info(
+                        "success_criteria_unmet: %s", "; ".join(unmet)
+                    )
+            else:
+                result.success_criteria_met = None
+
+            logger.info(
+                "improvement_measured goal=%s score=%.2f improved=%s summary=%s",
+                goal[:60],
+                delta.improvement_score,
+                delta.improved,
+                delta.summary,
+            )
+
+        except (ImportError, OSError, RuntimeError) as e:
+            logger.debug("measurement_error: %s", e)
 
     async def _record_orchestration_outcome(
         self,
@@ -558,7 +659,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         """Record orchestration outcome in KnowledgeMound for cross-cycle learning.
 
         Stores the goal, decomposition, assignment outcomes, agent performance,
-        and what worked/failed so future runs can learn from this cycle.
+        metrics delta, and what worked/failed so future runs can learn from this cycle.
         """
         try:
             from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
@@ -612,16 +713,21 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 what_failed=what_failed[:10],
                 agents_used=sorted(agents_used),
                 tracks_affected=sorted(tracks_affected),
+                # Measurement data
+                metrics_delta=result.metrics_delta or {},
+                improvement_score=result.improvement_score,
+                success_criteria_met=result.success_criteria_met,
             )
 
             await adapter.ingest_cycle_outcome(outcome)
 
             logger.info(
-                "cross_cycle_recorded goal=%s success=%s completed=%d failed=%d",
+                "cross_cycle_recorded goal=%s success=%s completed=%d failed=%d improvement=%.2f",
                 goal[:80],
                 result.success,
                 result.completed_subtasks,
                 result.failed_subtasks,
+                result.improvement_score,
             )
 
         except ImportError:
@@ -1989,7 +2095,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     # Generate receipt after successful merge
                     self._generate_assignment_receipt(assignment)
 
-        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(
                 "worktree_execution_failed subtask=%s: %s",
                 assignment.subtask.id,
@@ -2003,7 +2109,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             if ctx is not None:
                 try:
                     await manager.cleanup_worktree(ctx)
-                except (OSError, subprocess.SubprocessError, RuntimeError):
+                except (OSError, RuntimeError):
                     logger.exception("worktree_cleanup_error subtask=%s", assignment.subtask.id)
 
     # =========================================================================
@@ -2045,6 +2151,12 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     "gauntlet_findings": [str(f) for f in critical[:5]],
                 }
 
+                # Feed findings back as constraints for next iteration
+                new_constraints = self._extract_gauntlet_constraints(
+                    critical, assignment.subtask.description
+                )
+                self._gauntlet_constraints.extend(new_constraints)
+
         except ImportError:
             logger.debug("Gauntlet unavailable, skipping validation")
         except (RuntimeError, OSError, ValueError) as e:
@@ -2065,6 +2177,57 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             if isinstance(workflow_result, str):
                 parts.append(f"Output: {workflow_result[:2000]}")
         return "\n".join(parts)
+
+    def _extract_gauntlet_constraints(
+        self,
+        findings: list[Any],
+        subtask_description: str,
+    ) -> list[str]:
+        """Convert gauntlet findings into debate constraints for the next iteration.
+
+        Each finding is transformed into a natural-language constraint that the
+        MetaPlanner / ContextInit phase can inject into the next cycle's debate,
+        ensuring agents address vulnerabilities discovered by the Gauntlet.
+
+        Args:
+            findings: List of GauntletFinding objects (or similar) with
+                description/severity attributes.
+            subtask_description: Description of the subtask that was validated.
+
+        Returns:
+            List of constraint strings suitable for injection into debate context.
+        """
+        constraints: list[str] = []
+
+        for finding in findings[:10]:  # Cap at 10 to avoid context bloat
+            description = getattr(finding, "description", str(finding))
+            severity = getattr(finding, "severity", "unknown")
+            category = getattr(finding, "category", "")
+
+            # Truncate long descriptions
+            if len(description) > 300:
+                description = description[:297] + "..."
+
+            constraint = (
+                f"Previous iteration found [{severity}]: {description}. "
+                f"Address this in the new design."
+            )
+            if category:
+                constraint = (
+                    f"Previous iteration found [{severity}/{category}]: "
+                    f"{description}. Address this in the new design."
+                )
+
+            constraints.append(constraint)
+
+        if constraints:
+            logger.info(
+                "gauntlet_constraints_extracted count=%d subtask=%s",
+                len(constraints),
+                subtask_description[:80],
+            )
+
+        return constraints
 
     # =========================================================================
     # F. Audit Reconciliation

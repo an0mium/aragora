@@ -930,7 +930,7 @@ class TestProcessCritiqueResult:
     def test_handles_recorder_errors_gracefully(self):
         """Handles recorder errors without raising."""
         recorder = MagicMock()
-        recorder.record_turn.side_effect = Exception("Recorder error")
+        recorder.record_turn.side_effect = RuntimeError("Recorder error")
 
         gen = CritiqueGenerator(recorder=recorder)
 

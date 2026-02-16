@@ -465,7 +465,7 @@ class TestValidationFlow:
         ) as mock_create:
             mock_agent = MagicMock()
             mock_agent.name = "agent"
-            mock_agent.generate = AsyncMock(side_effect=Exception("Failed"))
+            mock_agent.generate = AsyncMock(side_effect=RuntimeError("Failed"))
             mock_create.return_value = mock_agent
 
             config = ArenaValidatorConfig(agent_types=["test"])

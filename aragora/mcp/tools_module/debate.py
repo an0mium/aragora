@@ -67,7 +67,7 @@ async def run_debate_tool(
                 role=role,
             )
             agent_list.append(agent)
-        except (ImportError, RuntimeError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, skip agent on creation failure
             logger.warning(f"Could not create agent {agent_name}: {e}")
 
     if not agent_list:
@@ -138,7 +138,7 @@ async def get_debate_tool(debate_id: str) -> dict[str, Any]:
             debate = db.get(debate_id)
             if debate:
                 return debate
-    except (RuntimeError, ValueError, OSError, ImportError) as e:
+    except Exception as e:  # noqa: BLE001 - graceful degradation, return not found on error
         logger.warning(f"Could not fetch debate from storage: {e}")
 
     return {"error": f"Debate {debate_id} not found"}

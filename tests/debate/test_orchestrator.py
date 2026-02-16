@@ -2833,17 +2833,17 @@ class TestBeliefNetwork:
     def agents(self):
         return [MockAgent(name="a1"), MockAgent(name="a2")]
 
-    def test_belief_guidance_disabled_by_default(self, environment, agents):
-        """Belief guidance is disabled by default."""
+    def test_belief_guidance_enabled_by_default(self, environment, agents):
+        """Belief guidance is enabled by default for cross-debate learning."""
         arena = Arena(environment, agents)
 
-        assert arena.enable_belief_guidance is False
-
-    def test_belief_guidance_can_be_enabled(self, environment, agents):
-        """Belief guidance can be enabled."""
-        arena = Arena(environment, agents, enable_belief_guidance=True)
-
         assert arena.enable_belief_guidance is True
+
+    def test_belief_guidance_can_be_disabled(self, environment, agents):
+        """Belief guidance can be disabled."""
+        arena = Arena(environment, agents, enable_belief_guidance=False)
+
+        assert arena.enable_belief_guidance is False
 
     def test_setup_belief_network_method_exists(self, environment, agents):
         """_setup_belief_network method exists."""

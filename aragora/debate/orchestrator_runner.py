@@ -674,6 +674,36 @@ async def handle_debate_completion(
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Post-debate workflow fallback setup failed: {e}")
 
+    # Run post-debate coordinator pipeline (opt-in via post_debate_config)
+    post_debate_config = getattr(arena, "post_debate_config", None)
+    if post_debate_config is not None and ctx.result:
+        try:
+            from aragora.debate.post_debate_coordinator import PostDebateCoordinator
+
+            coordinator = PostDebateCoordinator(config=post_debate_config)
+            task = getattr(ctx.env, "task", "") if ctx.env else ""
+            confidence = getattr(ctx.result, "confidence", 0.0)
+            post_result = coordinator.run(
+                debate_id=state.debate_id,
+                debate_result=ctx.result,
+                agents=arena.agents,
+                confidence=confidence,
+                task=task,
+            )
+            if not post_result.success:
+                logger.warning(
+                    "post_debate_coordinator_errors debate_id=%s errors=%s",
+                    state.debate_id,
+                    post_result.errors,
+                )
+            else:
+                logger.info(
+                    "post_debate_coordinator_complete debate_id=%s",
+                    state.debate_id,
+                )
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.debug(f"Post-debate coordinator pipeline failed (non-critical): {e}")
+
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)
 

@@ -466,6 +466,13 @@ class ContextInitializer:
                     len(knowledge_context),
                 )
 
+                # Track which KM items were used for outcome validation
+                km_ops = getattr(self._fetch_knowledge_context, "__self__", None)
+                if km_ops and hasattr(km_ops, "_last_km_item_ids"):
+                    km_ids = km_ops._last_km_item_ids
+                    if km_ids:
+                        ctx._km_item_ids_used = km_ids  # type: ignore[attr-defined]
+
         except asyncio.TimeoutError:
             logger.warning("[knowledge_mound] Knowledge context fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
@@ -581,17 +588,39 @@ class ContextInitializer:
         Uses DissentRetriever to find relevant contrarian perspectives
         from previous debates on similar topics. This helps prevent
         groupthink and surfaces minority viewpoints that may be valuable.
+
+        Dissents are structured by type with confidence scores:
+        - WARNINGS FROM PAST DEBATES (risk_warning, edge_case_concern)
+        - ALTERNATIVE APPROACHES CONSIDERED (alternative_approach)
+        - FUNDAMENTAL DISAGREEMENTS (fundamental_disagreement)
         """
         if not self.dissent_retriever:
             return
 
         try:
-            # Get debate preparation context with similar debates and dissents
             topic = ctx.env.task
             domain = getattr(ctx, "domain", None)
             if domain == "general":
                 domain = None
 
+            # Try structured injection via retrieve_for_new_debate
+            structured = self._build_structured_dissent_context(topic, domain)
+
+            if structured and len(structured.strip()) >= 50:
+                historical_section = f"\n\n{structured}"
+                if ctx.env.context:
+                    ctx.env.context += historical_section
+                else:
+                    ctx.env.context = historical_section.strip()
+
+                logger.info(
+                    "[consensus_memory] Injected structured dissent context "
+                    "(%d chars) from similar debates",
+                    len(structured),
+                )
+                return
+
+            # Fallback: use the plain text preparation context
             historical = self.dissent_retriever.get_debate_preparation_context(
                 topic=topic,
                 domain=domain,
@@ -600,7 +629,6 @@ class ContextInitializer:
             if not historical or len(historical.strip()) < 50:
                 return
 
-            # Inject as context for all phases
             historical_section = f"\n\n{historical}"
             if ctx.env.context:
                 ctx.env.context += historical_section
@@ -613,8 +641,106 @@ class ContextInitializer:
                 len(historical),
             )
 
-        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001 - phase isolation
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"Historical dissent injection error: {e}")
+
+    def _build_structured_dissent_context(
+        self,
+        topic: str,
+        domain: str | None,
+    ) -> str:
+        """Build structured dissent context organized by dissent type.
+
+        Separates dissents into three categories with confidence scores:
+        1. WARNINGS FROM PAST DEBATES (risk_warning + edge_case_concern)
+        2. ALTERNATIVE APPROACHES CONSIDERED (alternative_approach)
+        3. FUNDAMENTAL DISAGREEMENTS (fundamental_disagreement)
+
+        Returns:
+            Formatted context string, or empty string if no structured
+            data is available.
+        """
+        if not hasattr(self.dissent_retriever, "retrieve_for_new_debate"):
+            return ""
+
+        try:
+            context_data = self.dissent_retriever.retrieve_for_new_debate(
+                topic=topic,
+                domain=domain,
+            )
+        except (ValueError, KeyError, TypeError, RuntimeError):
+            return ""
+
+        dissent_by_type = context_data.get("dissent_by_type", {})
+        if not dissent_by_type:
+            return ""
+
+        sections: list[str] = []
+        sections.append(f"# Historical Dissent Analysis for: {topic}\n")
+
+        # Section 1: Warnings (risk_warning + edge_case_concern)
+        warnings = dissent_by_type.get("risk_warning", []) + dissent_by_type.get(
+            "edge_case_concern", []
+        )
+        if warnings:
+            sections.append("## WARNINGS FROM PAST DEBATES")
+            sections.append(
+                "These risks and edge cases were raised in similar past debates:"
+            )
+            for d in warnings[:5]:
+                confidence = d.get("confidence", 0.0)
+                content = d.get("content", "")[:300]
+                agent = d.get("agent_id", "unknown")
+                sections.append(
+                    f"- [{confidence:.0%} confidence] {content} (raised by {agent})"
+                )
+            sections.append("")
+
+        # Section 2: Alternative approaches
+        alternatives = dissent_by_type.get("alternative_approach", [])
+        if alternatives:
+            sections.append("## ALTERNATIVE APPROACHES CONSIDERED")
+            sections.append(
+                "Previous debates explored these alternative approaches:"
+            )
+            for d in alternatives[:5]:
+                confidence = d.get("confidence", 0.0)
+                content = d.get("content", "")[:300]
+                agent = d.get("agent_id", "unknown")
+                reasoning = d.get("reasoning", "")[:200]
+                entry = f"- [{confidence:.0%} confidence] {content} (by {agent})"
+                if reasoning:
+                    entry += f"\n  Reasoning: {reasoning}"
+                sections.append(entry)
+            sections.append("")
+
+        # Section 3: Fundamental disagreements
+        disagreements = dissent_by_type.get("fundamental_disagreement", [])
+        if disagreements:
+            sections.append("## FUNDAMENTAL DISAGREEMENTS")
+            sections.append(
+                "These core disagreements remain unresolved from past debates:"
+            )
+            for d in disagreements[:5]:
+                confidence = d.get("confidence", 0.0)
+                content = d.get("content", "")[:300]
+                agent = d.get("agent_id", "unknown")
+                acknowledged = d.get("acknowledged", False)
+                status = "addressed" if acknowledged else "UNRESOLVED"
+                sections.append(
+                    f"- [{confidence:.0%} confidence, {status}] {content} (by {agent})"
+                )
+            sections.append("")
+
+        # Only return if we built at least one typed section
+        if len(sections) <= 1:
+            return ""
+
+        sections.append(
+            "Consider addressing these points explicitly in your arguments."
+        )
+
+        return "\n".join(sections)
 
     def _inject_belief_cruxes(self, ctx: DebateContext) -> None:
         """Inject belief cruxes from similar past debates.

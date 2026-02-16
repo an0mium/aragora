@@ -3378,7 +3378,7 @@ class TestAlertGenerationAndEventEmission:
         results = []
 
         def failing_handler(event_type, data):
-            raise Exception("Handler failed")
+            raise RuntimeError("Handler failed")
 
         def working_handler(event_type, data):
             results.append(data)

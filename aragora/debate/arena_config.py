@@ -216,6 +216,10 @@ class ArenaConfigBuilder:
         """Set power sampling configuration for inference-time reasoning."""
         return self._merge(kwargs)
 
+    def with_post_debate(self, **kwargs: Any) -> ArenaConfigBuilder:
+        """Set post-debate coordinator pipeline configuration."""
+        return self._merge(kwargs)
+
     def build(self) -> ArenaConfig:
         """Build the ArenaConfig from accumulated settings."""
         return ArenaConfig(**self._kwargs)
@@ -504,6 +508,9 @@ class ArenaConfig:
         self.enable_privacy_anonymization = enable_privacy_anonymization
         self.anonymization_method = anonymization_method
 
+        # Post-debate coordinator pipeline (opt-in structured pipeline)
+        self.post_debate_config = kwargs.pop("post_debate_config", None)
+
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)
 
@@ -756,6 +763,8 @@ class ArenaConfig:
             "post_debate_workflow": self.post_debate_workflow,
             "enable_post_debate_workflow": self.enable_post_debate_workflow,
             "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
+            # Post-debate coordinator pipeline
+            "post_debate_config": self.post_debate_config,
             "loop_id": self.loop_id,
             "strict_loop_scoping": self.strict_loop_scoping,
             "circuit_breaker": self.circuit_breaker,

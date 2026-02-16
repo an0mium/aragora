@@ -182,7 +182,7 @@ class TestVersionHeaderExceptionHandling:
         # so we patch at the source: aragora.server.middleware.versioning.get_api_version
         with patch(
             "aragora.server.middleware.versioning.get_api_version",
-            side_effect=RuntimeError("versioning module broken"),
+            side_effect=ValueError("versioning module broken"),
         ):
             # Should NOT raise
             handler._add_version_headers()

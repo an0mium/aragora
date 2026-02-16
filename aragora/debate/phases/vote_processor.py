@@ -404,7 +404,7 @@ class VoteProcessor:
                     )
                 else:
                     adjusted_votes.append(vote)
-            except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+            except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
                 logger.debug(f"Calibration adjustment failed for {vote.agent}: {e}")
                 adjusted_votes.append(vote)
 

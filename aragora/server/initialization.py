@@ -273,8 +273,7 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
 
         logger.info("[init] SQLite InsightStore loaded/created for API access")
         return store
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors during store creation - server continues without insights
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without insights
         logger.warning("[init] InsightStore initialization failed: %s", e)
         return None
 
@@ -305,8 +304,7 @@ def init_elo_system(nomic_dir: Path) -> Any | None:
 
         logger.info("[init] EloSystem loaded/created for leaderboard API")
         return system
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors during ELO DB creation - server continues without rankings
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without rankings
         logger.warning("[init] EloSystem initialization failed: %s", e)
         return None
 
@@ -337,8 +335,7 @@ def init_flip_detector(nomic_dir: Path) -> Any | None:
 
         logger.info("[init] FlipDetector loaded/created for position reversal API")
         return detector
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors - server continues without flip detection
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without flip detection
         logger.warning("[init] FlipDetector initialization failed: %s", e)
         return None
 
@@ -364,8 +361,7 @@ def init_position_ledger(nomic_dir: Path) -> Any | None:
         ledger = PositionLedger(db_path=str(ledger_path))
         logger.info("[init] PositionLedger loaded for truth-grounded personas")
         return ledger
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors - server continues without position ledger
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without position ledger
         logger.warning("[init] PositionLedger initialization failed: %s", e)
         return None
 
@@ -380,8 +376,7 @@ def init_debate_embeddings(nomic_dir: Path) -> Any | None:
         db = DebateEmbeddingsDatabase(str(embeddings_path))
         logger.info("[init] DebateEmbeddings loaded for historical memory")
         return db
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors - server continues without embeddings
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without embeddings
         logger.warning("[init] DebateEmbeddings initialization failed: %s", e)
         return None
 
@@ -410,8 +405,7 @@ def init_consensus_memory() -> tuple[Any | None, Any | None]:
         retriever = DissentRetriever(memory)
         logger.info("[init] DissentRetriever loaded for historical minority views")
         return memory, retriever
-    except (OSError, PermissionError, sqlite3.Error, TypeError, ValueError) as e:
-        # Storage or configuration errors - server continues without consensus memory
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without consensus memory
         logger.warning("[init] DissentRetriever initialization failed: %s", e)
         return None, None
 
@@ -431,8 +425,7 @@ def init_moment_detector(
         )
         logger.info("[init] MomentDetector loaded for agent moments API")
         return detector
-    except (TypeError, ValueError, AttributeError) as e:
-        # Configuration errors with dependencies - server continues without moments
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without moments
         logger.warning("[init] MomentDetector initialization failed: %s", e)
         return None
 
@@ -447,8 +440,7 @@ def init_position_tracker(nomic_dir: Path) -> Any | None:
         tracker = PositionTracker(str(positions_path))
         logger.info("[init] PositionTracker loaded for agent positions")
         return tracker
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors - server continues without position tracking
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without position tracking
         logger.warning("[init] PositionTracker initialization failed: %s", e)
         return None
 
@@ -476,8 +468,7 @@ def init_continuum_memory(nomic_dir: Path) -> Any | None:
 
         logger.info("[init] ContinuumMemory loaded for multi-tier memory")
         return memory
-    except (OSError, PermissionError, sqlite3.Error) as e:
-        # File system or SQLite errors - server continues without continuum memory
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without continuum memory
         logger.warning("[init] ContinuumMemory initialization failed: %s", e)
         return None
 
@@ -491,8 +482,7 @@ def init_verification_manager() -> Any | None:
         manager = FormalVerificationManager()
         logger.info("[init] FormalVerificationManager loaded")
         return manager
-    except (OSError, RuntimeError, ValueError) as e:
-        # Z3/Lean backend or configuration errors - server continues without verification
+    except Exception as e:  # noqa: BLE001 - graceful degradation, server continues without verification
         logger.warning("[init] FormalVerificationManager initialization failed: %s", e)
         return None
 

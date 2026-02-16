@@ -493,7 +493,7 @@ class TestConflictResolution:
 
     def test_failed_item_retried(self, mock_env_enabled, mock_supabase_client):
         """Failed items are re-queued for retry."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Network error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Network error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -510,7 +510,7 @@ class TestConflictResolution:
 
     def test_item_dropped_after_max_retries(self, mock_env_enabled, mock_supabase_client):
         """Items are dropped after max_retries."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Persistent error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Persistent error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -533,7 +533,7 @@ class TestConflictResolution:
         async def alternating_save(artifact):
             call_count[0] += 1
             if call_count[0] % 2 == 0:
-                raise Exception("Every other fails")
+                raise RuntimeError("Every other fails")
             return "id_123"
 
         mock_supabase_client.save_debate = AsyncMock(side_effect=alternating_save)
@@ -556,7 +556,7 @@ class TestConflictResolution:
 
     def test_retry_preserves_item_data(self, mock_env_enabled, mock_supabase_client):
         """Retry preserves original item data."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Temp error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Temp error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -572,7 +572,7 @@ class TestConflictResolution:
     def test_error_message_captured(self, mock_env_enabled, mock_supabase_client):
         """Error message is captured on failure."""
         mock_supabase_client.save_debate = AsyncMock(
-            side_effect=Exception("Specific error message")
+            side_effect=RuntimeError("Specific error message")
         )
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
@@ -586,10 +586,10 @@ class TestConflictResolution:
 
     def test_all_item_types_can_fail_and_retry(self, mock_env_enabled, mock_supabase_client):
         """All item types can fail and be retried."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Debate error"))
-        mock_supabase_client.save_cycle = AsyncMock(side_effect=Exception("Cycle error"))
-        mock_supabase_client.save_event = AsyncMock(side_effect=Exception("Event error"))
-        mock_supabase_client.save_metrics = AsyncMock(side_effect=Exception("Metrics error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Debate error"))
+        mock_supabase_client.save_cycle = AsyncMock(side_effect=RuntimeError("Cycle error"))
+        mock_supabase_client.save_event = AsyncMock(side_effect=RuntimeError("Event error"))
+        mock_supabase_client.save_metrics = AsyncMock(side_effect=RuntimeError("Metrics error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -611,7 +611,7 @@ class TestConflictResolution:
         async def failing_after_first(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] > 1:
-                raise Exception("Failed")
+                raise RuntimeError("Failed")
             return "id"
 
         mock_supabase_client.save_debate = AsyncMock(side_effect=failing_after_first)
@@ -632,7 +632,7 @@ class TestConflictResolution:
 
     def test_retry_count_incremented_correctly(self, mock_env_enabled, mock_supabase_client):
         """Retry count is incremented on each failure."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -815,7 +815,7 @@ class TestStatusTracking:
 
     def test_status_reflects_failed_count(self, mock_env_enabled, mock_supabase_client):
         """Status reflects failed count."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -837,7 +837,7 @@ class TestStatusTracking:
 
     def test_status_reflects_last_error(self, mock_env_enabled, mock_supabase_client):
         """Status reflects last_error."""
-        mock_supabase_client.save_debate = AsyncMock(side_effect=Exception("Test error"))
+        mock_supabase_client.save_debate = AsyncMock(side_effect=RuntimeError("Test error"))
 
         with patch.object(SupabaseSyncService, "_get_client", return_value=mock_supabase_client):
             service = SupabaseSyncService()
@@ -927,7 +927,7 @@ class TestErrorHandling:
             with patch.object(
                 SupabaseSyncService,
                 "_get_batch",
-                side_effect=Exception("Unexpected error"),
+                side_effect=RuntimeError("Unexpected error"),
             ):
                 service = SupabaseSyncService()
                 service._stop_event = threading.Event()
@@ -945,7 +945,7 @@ class TestErrorHandling:
         async def failing_then_succeeding(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                raise Exception("Transient failure")
+                raise RuntimeError("Transient failure")
             return "id_123"
 
         mock_supabase_client.save_debate = AsyncMock(side_effect=failing_then_succeeding)

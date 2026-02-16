@@ -789,7 +789,7 @@ class TestEventListenerGetContractEvents:
         provider.get_web3.return_value = mock_w3
 
         mock_contract = MagicMock()
-        mock_contract.events.Registered.create_filter.side_effect = Exception("RPC error")
+        mock_contract.events.Registered.create_filter.side_effect = ConnectionError("RPC error")
 
         # Mock a second event type that succeeds
         mock_filter = MagicMock()

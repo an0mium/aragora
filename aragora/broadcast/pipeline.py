@@ -110,7 +110,7 @@ class BroadcastPipeline:
                 return None
 
             return DebateTrace.load(trace_path)
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"Failed to load trace {debate_id}: {e}")
             return None
 
@@ -188,7 +188,7 @@ class BroadcastPipeline:
                 )
                 result.audio_path = stored_path
                 result.steps_completed.append("storage")
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Failed to persist to audio store: {e}")
 
         result.success = "audio" in result.steps_completed
@@ -209,7 +209,7 @@ class BroadcastPipeline:
         except ImportError:
             logger.error("Broadcast module not available")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Audio generation failed: {e}")
             return None
 
@@ -240,7 +240,7 @@ class BroadcastPipeline:
         except ImportError:
             logger.warning("Video generation module not available")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Video generation failed: {e}")
             return None
 
@@ -290,7 +290,7 @@ class BroadcastPipeline:
 
             self.rss_generator.add_episode(episode)
             return episode.guid
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning(f"Failed to create RSS episode: {e}")
             return None
 
@@ -329,7 +329,7 @@ class BroadcastPipeline:
         except ImportError:
             logger.debug("mutagen not available for duration extraction")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.debug(f"Failed to get audio duration: {e}")
             return None
 
@@ -339,7 +339,7 @@ class BroadcastPipeline:
             return None
         try:
             return self.rss_generator.generate()
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.error(f"Failed to generate RSS feed: {e}")
             return None
 

@@ -1049,7 +1049,7 @@ class TestEdgeCases:
         ) as mock_create:
             attacker = MagicMock()
             attacker.name = "attacker"
-            attacker.generate = AsyncMock(side_effect=Exception("API error"))
+            attacker.generate = AsyncMock(side_effect=RuntimeError("API error"))
             mock_create.return_value = attacker
 
             config = RedTeamValidatorConfig(

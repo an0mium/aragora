@@ -51,7 +51,7 @@ class PersonaFeedback:
 
             # Check for trait emergence after performance updates
             self.check_trait_emergence(ctx)
-        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 - graceful degradation, persona update is non-critical
             from aragora.agents.errors import _build_error_action
 
             _, msg, exc_info = _build_error_action(e, "persona")

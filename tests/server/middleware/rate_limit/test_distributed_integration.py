@@ -266,7 +266,7 @@ class TestRedisFailover:
         # Start with working Redis mock
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
-        mock_redis.evalsha.side_effect = Exception("Redis connection lost")
+        mock_redis.evalsha.side_effect = ConnectionError("Redis connection lost")
 
         with patch(
             "aragora.server.middleware.rate_limit.distributed.get_redis_client",

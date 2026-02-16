@@ -142,7 +142,7 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
     except PermissionError as e:
         logger.error(f"Permission denied mixing audio: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError) as e:
         # Catch pydub errors and other unexpected issues
         logger.error(f"Unexpected error mixing audio: {type(e).__name__}: {e}")
         return False
@@ -247,6 +247,6 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
     except OSError as e:
         logger.error(f"File I/O error in FFmpeg mixing: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError) as e:
         logger.error(f"Unexpected error in FFmpeg mixing: {type(e).__name__}: {e}")
         return False

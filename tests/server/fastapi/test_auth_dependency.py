@@ -78,7 +78,7 @@ class TestGetAuthContext:
         with patch(
             "aragora.server.handlers.utils.auth.get_auth_context",
             new_callable=AsyncMock,
-            side_effect=Exception("Token verification failed"),
+            side_effect=RuntimeError("Token verification failed"),
         ):
             result = await get_auth_context(mock_request)
             assert result.user_id == "anonymous"

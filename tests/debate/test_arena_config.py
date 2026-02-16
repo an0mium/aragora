@@ -1190,7 +1190,7 @@ class TestKnowledgeConfig:
         assert c.enable_knowledge_ingestion is True
         assert c.enable_knowledge_extraction is False
         assert c.extraction_min_confidence == 0.3
-        assert c.enable_belief_guidance is False
+        assert c.enable_belief_guidance is True
 
     def test_extraction_enabled(self):
         c = KnowledgeConfig(enable_knowledge_extraction=True, extraction_min_confidence=0.5)

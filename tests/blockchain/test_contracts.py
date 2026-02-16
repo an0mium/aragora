@@ -240,7 +240,7 @@ class TestIdentityRegistryContract:
         mock_w3 = mock_provider.get_web3.return_value
         mock_contract = MagicMock()
         mock_w3.eth.contract.return_value = mock_contract
-        mock_contract.functions.ownerOf.return_value.call.side_effect = Exception("RPC error")
+        mock_contract.functions.ownerOf.return_value.call.side_effect = ConnectionError("RPC error")
 
         contract = IdentityRegistryContract(mock_provider)
         with pytest.raises(RuntimeError, match="Failed to get agent"):

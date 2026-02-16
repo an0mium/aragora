@@ -1066,7 +1066,7 @@ class TestCheckpointing:
             integration.checkpoint_mgr,
             "create_checkpoint",
             new_callable=AsyncMock,
-            side_effect=Exception("Storage error"),
+            side_effect=RuntimeError("Storage error"),
         ):
             result = await integration.checkpoint(
                 phase="verify",
@@ -1145,7 +1145,7 @@ class TestCheckpointing:
             integration.checkpoint_mgr,
             "resume_from_checkpoint",
             new_callable=AsyncMock,
-            side_effect=Exception("Not found"),
+            side_effect=RuntimeError("Not found"),
         ):
             result = await integration.resume_from_checkpoint("invalid-id")
 

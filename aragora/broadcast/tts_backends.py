@@ -664,7 +664,7 @@ class PollyBackend(TTSBackend):
                 import boto3
 
                 self._client = boto3.client("polly", region_name=self.config.polly_region)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 raise ExternalServiceError(
                     service="Amazon Polly", reason=f"Failed to initialize client: {e}"
                 ) from e

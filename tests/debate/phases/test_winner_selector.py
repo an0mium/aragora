@@ -559,7 +559,7 @@ class TestAnalyzeBeliefNetwork:
         ctx.result.messages = [mock_message]
 
         def get_analyzer():
-            bn_class = MagicMock(side_effect=Exception("Belief error"))
+            bn_class = MagicMock(side_effect=RuntimeError("Belief error"))
             return (bn_class, MagicMock())
 
         selector = WinnerSelector(get_belief_analyzer=get_analyzer)

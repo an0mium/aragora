@@ -38,6 +38,7 @@ import importlib
 import logging
 import os
 import re
+import sqlite3
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -489,7 +490,7 @@ class MigrationRunner:
         try:
             cursor = conn.execute("SELECT version, checksum FROM _migration_checksums")
             return {row[0]: row[1] for row in cursor.fetchall()}
-        except (OSError, RuntimeError, ValueError) as e:
+        except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
             logger.debug(f"Failed to get applied checksums: {type(e).__name__}: {e}")
             return {}
 
@@ -508,7 +509,7 @@ class MigrationRunner:
                 )
                 for row in cursor.fetchall()
             }
-        except (OSError, RuntimeError, ValueError) as e:
+        except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
             logger.debug(f"Failed to get applied migration details: {type(e).__name__}: {e}")
             return {}
 
@@ -635,7 +636,7 @@ class MigrationRunner:
 
                     logger.info(f"[{db_name}] Applied migration {migration.version} successfully")
 
-                except (OSError, RuntimeError, ValueError) as e:
+                except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                     conn.rollback()
                     errors.append(
                         {
@@ -830,7 +831,7 @@ class MigrationRunner:
                             (migration.version,),
                         )
                         conn.commit()
-                    except (OSError, RuntimeError, ValueError) as e:
+                    except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                         logger.warning(
                             "Failed to remove migration checksum for version %s: %s",
                             migration.version,
@@ -840,7 +841,7 @@ class MigrationRunner:
                     rolled_back.append(migration.version)
                     logger.info(f"[{db_name}] Rolled back migration {migration.version}")
 
-                except (OSError, RuntimeError, ValueError) as e:
+                except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                     conn.rollback()
                     errors.append(
                         {
@@ -985,7 +986,7 @@ class MigrationRunner:
                     "rolled_back": migration.version,
                 }
 
-            except (OSError, RuntimeError, ValueError) as e:
+            except (OSError, RuntimeError, ValueError, sqlite3.OperationalError) as e:
                 conn.rollback()
                 logger.error(f"[{db_name}] Rollback failed: {e}")
                 return {

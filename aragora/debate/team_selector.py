@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from aragora.debate.delegation import DelegationStrategy
     from aragora.debate.hierarchy import AgentHierarchy
     from aragora.debate.protocol import CircuitBreaker
+    from aragora.memory.continuum.core import ContinuumMemory
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.pattern_matcher import TaskPatternMatcher
 
@@ -136,8 +137,18 @@ class TeamSelectionConfig:
     budget_warn_max_agents: int | None = None  # Max agents under WARN (None = no limit)
     budget_soft_limit_max_agents: int = 3  # Max agents under SOFT_LIMIT
     # Feedback loop integration
-    enable_feedback_weights: bool = False  # Enable selection feedback loop scoring
+    enable_feedback_weights: bool = True  # Enable selection feedback loop scoring
     feedback_weight: float = 0.3  # Weight for feedback-based score adjustment
+    # Specialist registry (domain experts from ELO + Genesis breeding)
+    enable_specialist_bonus: bool = True  # Enable specialist registry scoring
+    specialist_weight: float = 0.25  # Weight for specialist bonus
+    # Exploration bonus (UCB1-style)
+    enable_exploration_bonus: bool = True  # Boost underexplored agents
+    exploration_weight: float = 0.15  # Weight for exploration bonus
+    exploration_min_debates: int = 50  # Total debates before exploration decays significantly
+    # ContinuumMemory-informed selection
+    memory_weight: float = 0.15  # Weight for memory-based score contribution
+    enable_memory_selection: bool = True  # Enable ContinuumMemory-based agent scoring
 
 
 class TeamSelector:
@@ -173,6 +184,7 @@ class TeamSelector:
         config: TeamSelectionConfig | None = None,
         performance_adapter: Any | None = None,
         feedback_loop: Any | None = None,
+        continuum_memory: ContinuumMemory | None = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
@@ -189,6 +201,8 @@ class TeamSelector:
         self.config = config or TeamSelectionConfig()
         self.performance_adapter = performance_adapter
         self.feedback_loop = feedback_loop
+        self.continuum_memory = continuum_memory
+        self.specialist_registry: Any = None  # Set externally or via Arena
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
@@ -804,7 +818,6 @@ class TeamSelector:
         cache_key = task_type.lower()
         if cache_key not in self._culture_recommendations_cache:
             try:
-                # Get culture-based recommendations (sync wrapper for async call)
                 import asyncio
 
                 try:
@@ -812,11 +825,16 @@ class TeamSelector:
                 except RuntimeError:
                     loop = None
                 if loop is not None and loop.is_running():
-                    # Already in async context, can't block
-                    # Use cached recommendations or skip
+                    # Already in async context — schedule cache warm-up
+                    # and return 0.0 this time. Next call will use cache.
+                    future = asyncio.ensure_future(
+                        self._warm_culture_cache(cache_key, task_type)
+                    )
+                    # Suppress unhandled exception warnings
+                    future.add_done_callback(lambda f: f.exception() if not f.cancelled() else None)
                     return 0.0
                 else:
-                    recommendations = loop.run_until_complete(
+                    recommendations = asyncio.run(
                         self.knowledge_mound.recommend_agents(task_type)
                     )
                     self._culture_recommendations_cache[cache_key] = recommendations or []
@@ -855,7 +873,7 @@ class TeamSelector:
             try:
                 recommendations = await self.knowledge_mound.recommend_agents(task_type)
                 self._culture_recommendations_cache[cache_key] = recommendations or []
-            except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError, OSError, KeyError, Exception) as e:
                 logger.debug(f"Culture recommendation failed for {task_type}: {e}")
                 self._culture_recommendations_cache[cache_key] = []
 
@@ -870,6 +888,126 @@ class TeamSelector:
                 return max(0.0, position_score)
 
         return 0.0
+
+    def _compute_exploration_bonus(
+        self,
+        agent: Agent,
+        domain: str | None = None,
+    ) -> float:
+        """Compute UCB1-style exploration bonus for underexplored agents.
+
+        Agents with fewer debates get a temporary score boost to ensure
+        they are tested.  The bonus decays as sqrt(ln(N) / n_i) where
+        N is total debates across all agents and n_i is this agent's
+        debate count.  This is the classic Upper Confidence Bound formula
+        from multi-armed bandit theory.
+
+        Returns:
+            Score bonus (0.0 to 1.0), higher for less-tested agents.
+        """
+        import math
+
+        try:
+            rating = self.elo_system.get_rating(agent.name)
+            agent_debates = getattr(rating, "total_matches", 0)
+            if isinstance(rating, (int, float)):
+                agent_debates = 0
+            elif not isinstance(agent_debates, (int, float)):
+                agent_debates = 0
+        except (KeyError, AttributeError, TypeError):
+            # No data = maximum exploration bonus
+            return 1.0
+
+        if agent_debates <= 0:
+            return 1.0  # Never tested → max exploration
+
+        # Total debates across all agents (approximate from config)
+        total_debates = max(self.config.exploration_min_debates, agent_debates * 3)
+
+        # UCB1: sqrt(ln(N) / n_i), normalized to [0, 1]
+        ucb = math.sqrt(math.log(total_debates) / agent_debates)
+        return min(1.0, ucb)
+
+    def _compute_memory_score(
+        self,
+        agent: Any,
+        domain: str,
+        task: str,
+    ) -> float:
+        """Score bonus based on ContinuumMemory of agent performance.
+
+        Queries slow/glacial memory tiers for patterns matching this agent
+        on similar tasks, computing weighted average success rate.
+
+        Args:
+            agent: Agent to score
+            domain: Task domain for query context
+            task: Task description for query context
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on historical memory data
+        """
+        if not self.continuum_memory or not self.config.enable_memory_selection:
+            return 0.0
+
+        try:
+            agent_name = getattr(agent, "name", str(agent))
+            query = f"{agent_name} {domain} {task}"
+
+            memories = self.continuum_memory.retrieve(
+                query=query,
+                limit=20,
+                min_importance=0.3,
+            )
+
+            if not memories:
+                return 0.0
+
+            # Filter to memories about this specific agent
+            agent_memories = [
+                m for m in memories
+                if m.metadata.get("agent_name") == agent_name
+            ]
+
+            if not agent_memories:
+                return 0.0
+
+            # Weighted average success rate
+            total_weight = 0.0
+            weighted_success = 0.0
+            for mem in agent_memories:
+                weight = mem.importance * getattr(mem, "consolidation_score", 1.0)
+                weighted_success += mem.success_rate * weight
+                total_weight += weight
+
+            avg_success = weighted_success / total_weight if total_weight > 0 else 0.5
+
+            # Confidence scaling based on observation count
+            total_obs = sum(getattr(m, "update_count", 1) for m in agent_memories)
+            confidence = min(1.0, total_obs / 20.0)
+
+            # Scale to 0-1 range centered at 0.5
+            score = (avg_success - 0.5) * 2.0 * confidence
+            return max(0.0, min(1.0, 0.5 + score * 0.5))
+
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
+            logger.debug(f"Memory score failed for {getattr(agent, 'name', agent)}: {e}")
+            return 0.0
+
+    async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
+        """Warm culture recommendation cache from async context.
+
+        Called via ensure_future when _compute_culture_score detects an
+        already-running event loop.  The first call returns 0.0 while
+        this fires in the background; subsequent calls in the same
+        debate will hit the warm cache.
+        """
+        try:
+            recommendations = await self.knowledge_mound.recommend_agents(task_type)
+            self._culture_recommendations_cache[cache_key] = recommendations or []
+        except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
+            logger.debug(f"Culture cache warm-up failed for {task_type}: {e}")
+            self._culture_recommendations_cache[cache_key] = []
 
     def _get_km_domain_experts(self, domain: str) -> list[Any]:
         """Get domain experts from KM with caching.
@@ -1375,6 +1513,28 @@ class TeamSelector:
                 score += adjustment * self.config.feedback_weight
             except (AttributeError, TypeError) as e:
                 logger.debug(f"Feedback adjustment failed for {agent.name}: {e}")
+
+        # Specialist registry bonus (domain experts from ELO + Genesis breeding)
+        if self.specialist_registry and self.config.enable_specialist_bonus and domain:
+            try:
+                specialist_bonus = self.specialist_registry.score_bonus(
+                    agent.name, domain, weight=self.config.specialist_weight,
+                )
+                score += specialist_bonus
+            except (AttributeError, TypeError) as e:
+                logger.debug("Specialist bonus failed for %s: %s", agent.name, e)
+
+        # UCB1 exploration bonus (agents with fewer debates get a temporary
+        # score boost so the system explores new/underused agents rather than
+        # always exploiting known winners.  Decays as data accumulates.)
+        if self.elo_system and self.config.enable_exploration_bonus:
+            exploration_bonus = self._compute_exploration_bonus(agent, domain)
+            score += exploration_bonus * self.config.exploration_weight
+
+        # ContinuumMemory contribution (historical agent performance on similar tasks)
+        if self.continuum_memory and self.config.enable_memory_selection and domain:
+            memory_score = self._compute_memory_score(agent, domain, task)
+            score += memory_score * self.config.memory_weight
 
         # Soft domain filter penalty (non-preferred agents get penalized)
         if agent.name in self._domain_non_preferred:

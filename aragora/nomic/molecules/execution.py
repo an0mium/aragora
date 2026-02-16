@@ -134,7 +134,7 @@ class ParallelStepExecutor(StepExecutor):
                 try:
                     result = await agent.generate(task)
                     return {"agent": agent.name, "result": result, "success": True}
-                except (OSError, subprocess.SubprocessError) as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     logger.warning("Agent %s execution failed: %s", agent.name, e)
                     return {"agent": agent.name, "error": f"Agent execution failed: {type(e).__name__}", "success": False}
 
@@ -153,7 +153,7 @@ class ParallelStepExecutor(StepExecutor):
         except ImportError as e:
             logger.warning(f"Agent modules not available: {e}")
             return {"status": "skipped", "reason": "Agent modules not available"}
-        except (OSError, subprocess.SubprocessError) as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Parallel execution failed: {e}")
             raise
 
@@ -503,7 +503,7 @@ class MoleculeEngine:
             step.error_message = f"Timeout after {step.timeout_seconds}s"
             raise
 
-        except (OSError, subprocess.SubprocessError) as e:
+        except (RuntimeError, OSError, ValueError) as e:
             step.status = StepStatus.FAILED
             step.error_message = f"Step execution failed: {type(e).__name__}"
             raise
@@ -600,7 +600,7 @@ class MoleculeEngine:
                             execution_failed = True
                             failure_reason = f"Deadlock detected while executing {step.name}"
                             raise
-                        except (OSError, subprocess.SubprocessError) as e:
+                        except (RuntimeError, OSError, ValueError) as e:
                             logger.warning("Step %s failed: %s", step.name, e)
                             if step.can_retry():
                                 step.status = StepStatus.PENDING
@@ -645,7 +645,7 @@ class MoleculeEngine:
                 await self._checkpoint(molecule)
                 logger.warning("Molecule %s failed: %s", molecule.id, e)
 
-            except (OSError, subprocess.SubprocessError) as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 molecule.status = MoleculeStatus.FAILED
                 molecule.error_message = f"Molecule execution failed: {type(e).__name__}"
                 molecule.completed_at = datetime.now(timezone.utc)
@@ -883,7 +883,7 @@ class MoleculeEngine:
                     )
                     results[txn_id] = False
 
-            except (OSError, subprocess.SubprocessError) as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Error processing transaction log {log_file}: {e}")
                 results[str(log_file)] = False
 

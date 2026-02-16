@@ -430,7 +430,7 @@ class ArenaInitializer:
         enable_knowledge_ingestion: bool = True,
         enable_knowledge_extraction: bool = False,
         extraction_min_confidence: float = 0.3,
-        enable_belief_guidance: bool = False,
+        enable_belief_guidance: bool = True,
         vertical=None,
         vertical_persona_manager=None,
         auto_detect_vertical: bool = True,

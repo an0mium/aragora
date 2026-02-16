@@ -306,7 +306,7 @@ class TestEmitSynthesisEvents:
     def test_hook_errors_handled(self):
         """Hook errors are handled gracefully."""
         ctx = MockDebateContext()
-        bad_hook = MagicMock(side_effect=Exception("Hook error"))
+        bad_hook = MagicMock(side_effect=RuntimeError("Hook error"))
 
         gen = SynthesisGenerator(hooks={"on_synthesis": bad_hook})
 
@@ -419,7 +419,7 @@ class TestGenerateMandatorySynthesis:
         gen = SynthesisGenerator()
 
         with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
-            mock_agent_class.side_effect = Exception("All agents failed")
+            mock_agent_class.side_effect = RuntimeError("All agents failed")
 
             result = await gen.generate_mandatory_synthesis(ctx)
 

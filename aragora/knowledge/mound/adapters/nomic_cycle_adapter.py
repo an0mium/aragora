@@ -109,6 +109,8 @@ class GoalOutcome:
     tests_passed: int = 0
     tests_failed: int = 0
     learnings: list[str] = field(default_factory=list)
+    # Per-goal measurement delta (from MetricsCollector)
+    metrics_delta: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -122,6 +124,7 @@ class GoalOutcome:
             "tests_passed": self.tests_passed,
             "tests_failed": self.tests_failed,
             "learnings": self.learnings,
+            "metrics_delta": self.metrics_delta,
         }
 
     @classmethod
@@ -137,6 +140,7 @@ class GoalOutcome:
             tests_passed=data.get("tests_passed", 0),
             tests_failed=data.get("tests_failed", 0),
             learnings=data.get("learnings", []),
+            metrics_delta=data.get("metrics_delta", {}),
         )
 
 
@@ -169,6 +173,14 @@ class NomicCycleOutcome:
     tracks_affected: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # Measurement layer: objective improvement tracking
+    metrics_delta: dict[str, Any] = field(default_factory=dict)
+    """Baseline vs after metrics comparison from MetricsCollector.
+    Keys: tests_passed_delta, tests_failed_delta, test_pass_rate_delta,
+    lint_errors_delta, improvement_score, improved, summary."""
+    improvement_score: float = 0.0  # 0.0-1.0 overall improvement score
+    success_criteria_met: bool | None = None
+
     # Curriculum learning data (optional)
     curriculum_outcome: CurriculumOutcome | None = None
 
@@ -193,6 +205,9 @@ class NomicCycleOutcome:
             "agents_used": self.agents_used,
             "tracks_affected": self.tracks_affected,
             "metadata": self.metadata,
+            "metrics_delta": self.metrics_delta,
+            "improvement_score": self.improvement_score,
+            "success_criteria_met": self.success_criteria_met,
         }
         if self.curriculum_outcome:
             result["curriculum_outcome"] = self.curriculum_outcome.to_dict()
@@ -224,6 +239,9 @@ class NomicCycleOutcome:
             agents_used=data.get("agents_used", []),
             tracks_affected=data.get("tracks_affected", []),
             metadata=data.get("metadata", {}),
+            metrics_delta=data.get("metrics_delta", {}),
+            improvement_score=data.get("improvement_score", 0.0),
+            success_criteria_met=data.get("success_criteria_met"),
             curriculum_outcome=curriculum_outcome,
         )
 

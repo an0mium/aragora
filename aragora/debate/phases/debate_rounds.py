@@ -659,7 +659,7 @@ class DebateRoundsPhase:
                     skipped = [c.name for c in critics if c not in available]
                     logger.info("circuit_breaker_skip_critics skipped=%s", skipped)
                 critics = available
-            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001 - graceful degradation, use unfiltered critics on error
                 logger.error("Circuit breaker filter error for critics: %s", e)
 
         return critics

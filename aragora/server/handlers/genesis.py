@@ -231,7 +231,7 @@ class GenesisHandler(BaseHandler):
                     "merkle_root": ledger.get_merkle_root()[:32] + "...",
                 }
             )
-        except (KeyError, ValueError, AttributeError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - handler catch-all returns 500
             return error_response(_safe_error_message(e, "genesis_stats"), 500)
 
     def _get_genesis_events(
@@ -392,7 +392,7 @@ class GenesisHandler(BaseHandler):
                                 enriched_node["event_type"] = "crossover"
                                 enriched_node["created_at"] = event.timestamp
                                 break
-                except (KeyError, ValueError, AttributeError) as e:
+                except Exception as e:  # noqa: BLE001 - graceful degradation, lineage works without event details
                     logger.debug(
                         f"Optional event lookup failed for genome lineage: {type(e).__name__}"
                     )
@@ -407,7 +407,7 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, AttributeError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - handler catch-all returns 500
             return error_response(_safe_error_message(e, "genome_lineage"), 500)
 
     def _get_debate_tree(self, nomic_dir: Path | None, debate_id: str) -> HandlerResult:

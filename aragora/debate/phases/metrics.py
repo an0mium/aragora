@@ -97,7 +97,7 @@ class MetricsHelper:
             # Map 0-1 to configured range (default: 0.5-1.5)
             range_size = self._max_cal_weight - self._min_cal_weight
             return self._min_cal_weight + (cal_score * range_size)
-        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
             logger.debug(f"Calibration weight lookup failed for {agent_name}: {e}")
             return 1.0
 
@@ -129,7 +129,7 @@ class MetricsHelper:
 
             # Weighted combination
             return (elo_normalized * self._elo_weight) + (cal_score * self._calibration_weight)
-        except (ValueError, KeyError, TypeError) as e:  # noqa: BLE001
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001
             logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
             return 0.0
 

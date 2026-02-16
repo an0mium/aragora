@@ -639,7 +639,7 @@ class TestSecretsRotationScheduler:
         )
 
         assert result.status == RotationStatus.FAILED
-        assert "Auth failed" in result.error_message
+        assert result.error_message == "Secret rotation failed"
 
     @pytest.mark.asyncio
     async def test_rotate_secret_handler_exception(self, scheduler):
@@ -658,7 +658,7 @@ class TestSecretsRotationScheduler:
         )
 
         assert result.status == RotationStatus.FAILED
-        assert "Connection refused" in result.error_message
+        assert result.error_message == "Secret rotation failed"
 
     @pytest.mark.asyncio
     async def test_rotate_secret_with_verification(self, scheduler):

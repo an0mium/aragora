@@ -267,7 +267,7 @@ class TestWeightCalculator:
     def test_memory_error_handling(self):
         """Memory errors are handled gracefully."""
         memory = MagicMock()
-        memory.get_vote_weight.side_effect = Exception("Memory error")
+        memory.get_vote_weight.side_effect = RuntimeError("Memory error")
 
         calculator = WeightCalculator(memory=memory)
         weight = calculator.get_weight("agent1")
@@ -278,7 +278,7 @@ class TestWeightCalculator:
     def test_flip_detector_error_handling(self):
         """FlipDetector errors are handled gracefully."""
         flip_detector = MagicMock()
-        flip_detector.get_agent_consistency.side_effect = Exception("FD error")
+        flip_detector.get_agent_consistency.side_effect = RuntimeError("FD error")
 
         calculator = WeightCalculator(flip_detector=flip_detector)
         weight = calculator.get_weight("agent1")
@@ -288,7 +288,7 @@ class TestWeightCalculator:
 
     def test_calibration_callback_error_handling(self):
         """Calibration callback errors are handled gracefully."""
-        get_cal = MagicMock(side_effect=Exception("Cal error"))
+        get_cal = MagicMock(side_effect=RuntimeError("Cal error"))
 
         calculator = WeightCalculator(get_calibration_weight=get_cal)
         weight = calculator.get_weight("agent1")

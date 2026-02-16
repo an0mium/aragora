@@ -1066,7 +1066,7 @@ class SubsystemCoordinator:
                     agreeing_agents=participants,  # Simplified: assume all agree at consensus
                     metadata={"debate_id": ctx.debate_id},
                 )
-            except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
+            except Exception as e:  # noqa: BLE001 - graceful degradation, consensus memory update is non-critical
                 logger.warning("Consensus memory update failed: %s", e)
 
         # Update calibration if agents made predictions
@@ -1099,9 +1099,12 @@ class SubsystemCoordinator:
 
         # SDPO retrospective learning from debate trajectory
         if self.sdpo_learner and result:
-            trajectory = self._build_sdpo_trajectory(ctx, result)
-            if trajectory is not None:
-                self._schedule_async(self._process_sdpo_trajectory(trajectory))
+            try:
+                trajectory = self._build_sdpo_trajectory(ctx, result)
+                if trajectory is not None:
+                    self._schedule_async(self._process_sdpo_trajectory(trajectory))
+            except Exception as e:  # noqa: BLE001 - graceful degradation, SDPO learning is non-critical
+                logger.debug("SDPO trajectory processing failed: %s", e)
 
         # Update continuum memory with debate outcome
         if self.continuum_memory and result:
@@ -1126,7 +1129,7 @@ class SubsystemCoordinator:
                         "confidence": confidence,
                     },
                 )
-            except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
+            except Exception as e:  # noqa: BLE001 - graceful degradation, continuum memory update is non-critical
                 logger.debug("Continuum memory update failed: %s", e)
 
         # Update selection feedback loop with debate outcome
@@ -1280,7 +1283,7 @@ class SubsystemCoordinator:
             # Extract relevant dissents from the result dict
             dissents = result.get("relevant_dissents", [])
             return dissents[:limit]
-        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, return empty on error
             logger.debug("Dissent retrieval failed: %s", e)
             return []
 
@@ -1309,7 +1312,7 @@ class SubsystemCoordinator:
                 calibration_quality = 1.0 - min(summary.brier_score, 0.5)
                 return 0.5 + calibration_quality  # Range: 0.5 to 1.5
             return 1.0
-        except (KeyError, AttributeError, TypeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, return default weight on error
             logger.debug(f"Could not get calibration weight for {agent_name}: {e}")
             return 1.0
 
@@ -1340,7 +1343,7 @@ class SubsystemCoordinator:
                 content = summary or mem.content
                 lines.append(f"- {content}")
             return "\n".join(lines)
-        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, return empty on error
             logger.debug("Continuum context retrieval failed: %s", e)
             return ""
 

@@ -220,7 +220,7 @@ async def get_audio_duration(audio_path: Path) -> int | None:
         if process:
             process.kill()
             await process.wait()
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Failed to get audio duration: {e}")
 
     return None
@@ -301,7 +301,7 @@ async def generate_thumbnail(
             output_path.write_bytes(png_data)
             return True
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, OverflowError) as e:
             logger.error(f"Failed to create thumbnail: {e}")
             return False
 
@@ -358,7 +358,7 @@ async def generate_thumbnail(
             process.kill()
             await process.wait()
         return False
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Failed to generate thumbnail with ImageMagick: {e}")
         return False
 
@@ -495,7 +495,7 @@ class VideoGenerator:
                 process.kill()
                 await process.wait()
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Video generation failed: {e}")
 
         finally:
@@ -603,7 +603,7 @@ class VideoGenerator:
                 process.kill()
                 await process.wait()
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Waveform video generation failed: {e}")
 
         return None
@@ -664,7 +664,7 @@ class VideoGenerator:
         except subprocess.TimeoutExpired:
             logger.error(f"ffprobe timed out after {FFPROBE_TIMEOUT}s for {video_path}")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Failed to get video metadata: {e}")
             return None
 
@@ -772,7 +772,7 @@ async def generate_video(
                 process.kill()
                 await process.wait()
             return False
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"Video generation failed: {e}")
             return False
 

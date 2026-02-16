@@ -795,6 +795,10 @@ class TestInjectHistoricalDissents:
         ctx = MockDebateContext()
 
         dissent_retriever = MagicMock()
+        # Return empty structured data so it falls back to text blob
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "dissent_by_type": {},
+        }
         dissent_retriever.get_debate_preparation_context.return_value = (
             "## HISTORICAL DISSENTS\n"
             "In previous debates, Agent-X argued for alternative approach with reasoning..."
@@ -811,6 +815,9 @@ class TestInjectHistoricalDissents:
         ctx = MockDebateContext()
 
         dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "dissent_by_type": {},
+        }
         dissent_retriever.get_debate_preparation_context.return_value = "Short"
 
         init = ContextInitializer(dissent_retriever=dissent_retriever)
@@ -832,6 +839,7 @@ class TestInjectHistoricalDissents:
         ctx = MockDebateContext()
 
         dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.side_effect = RuntimeError("DB error")
         dissent_retriever.get_debate_preparation_context.side_effect = RuntimeError("Error")
 
         init = ContextInitializer(dissent_retriever=dissent_retriever)
@@ -1313,3 +1321,242 @@ class TestFullInitializeFlow:
 
 # Import required for time-based tests
 import time
+
+
+# =============================================================================
+# Structured Dissent Injection Tests (Item 3)
+# =============================================================================
+
+
+class TestStructuredDissentInjection:
+    """Tests for structured dissent injection by type."""
+
+    def test_injects_structured_dissent_by_type(self):
+        """Injects dissents organized by type when structured data available."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {
+                "risk_warning": [
+                    {
+                        "content": "Deploying without rollback plan is risky",
+                        "confidence": 0.85,
+                        "agent_id": "claude",
+                        "acknowledged": False,
+                    }
+                ],
+                "alternative_approach": [
+                    {
+                        "content": "Consider event-driven architecture instead",
+                        "confidence": 0.7,
+                        "agent_id": "gpt4",
+                        "reasoning": "Better scalability for this pattern",
+                        "acknowledged": True,
+                    }
+                ],
+                "fundamental_disagreement": [
+                    {
+                        "content": "Microservices add unnecessary complexity here",
+                        "confidence": 0.9,
+                        "agent_id": "gemini",
+                        "acknowledged": False,
+                    }
+                ],
+            },
+            "unacknowledged_dissents": [],
+            "total_similar": 2,
+            "total_dissents": 3,
+        }
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "WARNINGS FROM PAST DEBATES" in ctx.env.context
+        assert "rollback plan is risky" in ctx.env.context
+        assert "85%" in ctx.env.context  # confidence
+
+        assert "ALTERNATIVE APPROACHES CONSIDERED" in ctx.env.context
+        assert "event-driven architecture" in ctx.env.context
+        assert "Better scalability" in ctx.env.context  # reasoning
+
+        assert "FUNDAMENTAL DISAGREEMENTS" in ctx.env.context
+        assert "Microservices add unnecessary complexity" in ctx.env.context
+        assert "UNRESOLVED" in ctx.env.context  # not acknowledged
+
+    def test_falls_back_to_text_blob_when_no_structured_data(self):
+        """Falls back to get_debate_preparation_context when structured is empty."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {},
+            "unacknowledged_dissents": [],
+            "total_similar": 0,
+            "total_dissents": 0,
+        }
+        dissent_retriever.get_debate_preparation_context.return_value = (
+            "## HISTORICAL DISSENTS\n"
+            "In previous debates, Agent-X argued for a different approach with reasoning..."
+        )
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "HISTORICAL DISSENTS" in ctx.env.context
+
+    def test_falls_back_when_retrieve_for_new_debate_missing(self):
+        """Falls back to text blob when retrieve_for_new_debate not available."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock(spec=["get_debate_preparation_context"])
+        dissent_retriever.get_debate_preparation_context.return_value = (
+            "## HISTORICAL DISSENTS\n"
+            "In previous debates, long context with lots of detail about prior dissents."
+        )
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "HISTORICAL DISSENTS" in ctx.env.context
+
+    def test_structured_dissent_shows_acknowledged_status(self):
+        """Shows UNRESOLVED vs addressed status for fundamental disagreements."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {
+                "fundamental_disagreement": [
+                    {
+                        "content": "Resolved issue from past",
+                        "confidence": 0.8,
+                        "agent_id": "claude",
+                        "acknowledged": True,
+                    },
+                    {
+                        "content": "Open issue still debated",
+                        "confidence": 0.6,
+                        "agent_id": "gpt4",
+                        "acknowledged": False,
+                    },
+                ],
+            },
+            "unacknowledged_dissents": [],
+            "total_similar": 1,
+            "total_dissents": 2,
+        }
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "addressed" in ctx.env.context
+        assert "UNRESOLVED" in ctx.env.context
+
+    def test_structured_dissent_combines_warnings(self):
+        """Combines risk_warning and edge_case_concern into warnings section."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {
+                "risk_warning": [
+                    {
+                        "content": "Production risk",
+                        "confidence": 0.8,
+                        "agent_id": "claude",
+                    }
+                ],
+                "edge_case_concern": [
+                    {
+                        "content": "Edge case when input is empty",
+                        "confidence": 0.6,
+                        "agent_id": "gpt4",
+                    }
+                ],
+            },
+            "unacknowledged_dissents": [],
+            "total_similar": 1,
+            "total_dissents": 2,
+        }
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "WARNINGS FROM PAST DEBATES" in ctx.env.context
+        assert "Production risk" in ctx.env.context
+        assert "Edge case when input is empty" in ctx.env.context
+
+    def test_structured_dissent_error_falls_back(self):
+        """Falls back to text blob when retrieve_for_new_debate raises."""
+        ctx = MockDebateContext()
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.side_effect = RuntimeError("DB error")
+        dissent_retriever.get_debate_preparation_context.return_value = (
+            "## HISTORICAL DISSENTS\n"
+            "Fallback text with enough content to meet the 50-char minimum length threshold."
+        )
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert "Fallback text" in ctx.env.context
+
+    def test_structured_dissent_appends_to_existing_context(self):
+        """Appends structured dissent to existing context."""
+        ctx = MockDebateContext()
+        ctx.env.context = "Some existing context here."
+
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {
+                "risk_warning": [
+                    {
+                        "content": "Important warning about this approach",
+                        "confidence": 0.9,
+                        "agent_id": "claude",
+                    }
+                ],
+            },
+            "unacknowledged_dissents": [],
+            "total_similar": 1,
+            "total_dissents": 1,
+        }
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        init._inject_historical_dissents(ctx)
+
+        assert ctx.env.context.startswith("Some existing context here.")
+        assert "WARNINGS FROM PAST DEBATES" in ctx.env.context
+
+    def test_build_structured_returns_empty_for_no_typed_dissents(self):
+        """Returns empty when dissent_by_type has only unsupported types."""
+        dissent_retriever = MagicMock()
+        dissent_retriever.retrieve_for_new_debate.return_value = {
+            "similar_debates": [],
+            "relevant_dissents": [],
+            "dissent_by_type": {
+                "minor_quibble": [
+                    {"content": "Small issue", "confidence": 0.3, "agent_id": "a"}
+                ],
+            },
+            "unacknowledged_dissents": [],
+            "total_similar": 0,
+            "total_dissents": 1,
+        }
+
+        init = ContextInitializer(dissent_retriever=dissent_retriever)
+        result = init._build_structured_dissent_context("test topic", None)
+
+        assert result == ""

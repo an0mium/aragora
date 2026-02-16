@@ -1803,7 +1803,7 @@ class TestAuditGitDiff:
             call_count += 1
             if call_count == 1:
                 return diff_result
-            raise Exception("failed")
+            raise OSError("failed")
 
         with patch("subprocess.run", side_effect=mock_run):
             result = await auditor.audit_git_diff(include_untracked=True)

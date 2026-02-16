@@ -770,7 +770,7 @@ class TestEscalationStoreHandlers:
     @pytest.mark.asyncio
     async def test_handler_exception_logged(self, store):
         """Should log handler exceptions without failing."""
-        handler = MagicMock(side_effect=Exception("Handler error"))
+        handler = MagicMock(side_effect=RuntimeError("Handler error"))
         store.register_handler(EscalationLevel.WARN, handler)
 
         # Should not raise

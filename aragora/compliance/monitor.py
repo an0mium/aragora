@@ -289,7 +289,7 @@ class ComplianceMonitor:
                     fs.score = max(0, 100 - penalty)
                 fs.last_check = datetime.now(timezone.utc)
 
-        except (RuntimeError, OSError, ValueError, KeyError, AttributeError) as e:
+        except (RuntimeError, OSError, ValueError, KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Error updating from policy store: {e}")
 
     def _fetch_audit_context(self, status: ComplianceStatus) -> dict[str, Any] | None:

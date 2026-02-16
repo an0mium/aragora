@@ -82,7 +82,7 @@ class TestBlockchainIdentityBridge:
     @pytest.mark.asyncio
     async def test_link_agent_verification_fails(self, bridge, mock_identity_contract):
         """Test linking when on-chain verification fails."""
-        mock_identity_contract.get_agent.side_effect = Exception("Contract error")
+        mock_identity_contract.get_agent.side_effect = RuntimeError("Contract error")
 
         with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
             with pytest.raises(ValueError, match="Failed to verify"):
@@ -117,7 +117,7 @@ class TestBlockchainIdentityBridge:
     async def test_get_blockchain_identity_contract_error(self, bridge, mock_identity_contract):
         """Test getting identity when contract call fails."""
         await bridge.link_agent("agent_123", token_id=42, verify=False)
-        mock_identity_contract.get_agent.side_effect = Exception("RPC error")
+        mock_identity_contract.get_agent.side_effect = ConnectionError("RPC error")
 
         with patch.object(bridge, "_get_identity_contract", return_value=mock_identity_contract):
             identity = await bridge.get_blockchain_identity(aragora_agent_id="agent_123")
@@ -256,7 +256,7 @@ class TestBlockchainIdentityBridgeLinks:
         await bridge.link_agent("agent_1", token_id=42, verify=False)
 
         mock_contract = MagicMock()
-        mock_contract.get_agent.side_effect = Exception("RPC error")
+        mock_contract.get_agent.side_effect = ConnectionError("RPC error")
 
         with patch.object(bridge, "_get_identity_contract", return_value=mock_contract):
             result = await bridge.verify_link("agent_1")

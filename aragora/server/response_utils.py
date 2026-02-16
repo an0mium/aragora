@@ -95,7 +95,7 @@ class ResponseHelpersMixin:
 
                 version = get_api_version(path)
                 self.send_header("X-API-Version", version.value)
-        except (ImportError, AttributeError, ValueError) as e:
+        except (ImportError, AttributeError, ValueError, OSError) as e:
             logger.debug("Version header injection failed: %s", e)
 
     def _add_v1_deprecation_headers(self) -> None:

@@ -54,6 +54,7 @@ class KnowledgeMoundOperations:
         self.enable_ingestion = enable_ingestion
         self._notify_callback = notify_callback
         self._metrics = metrics
+        self._last_km_item_ids: list[str] = []  # IDs of KM items used in last fetch
 
     async def fetch_knowledge_context(
         self,
@@ -147,7 +148,15 @@ class KnowledgeMoundOperations:
                 items = results.items
 
             if not items:
+                self._last_km_item_ids = []
                 return None
+
+            # Track item IDs for outcome validation feedback loop
+            self._last_km_item_ids = [
+                getattr(item, "id", None) or getattr(item, "item_id", "")
+                for item in items[:limit]
+                if getattr(item, "id", None) or getattr(item, "item_id", "")
+            ]
 
             # Format knowledge for agent context
             lines = ["## KNOWLEDGE MOUND CONTEXT"]

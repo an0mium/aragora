@@ -212,6 +212,12 @@ class OrchestrationResult:
     success: bool
     error: str | None = None
     summary: str = ""
+    # Measurement layer: objective improvement tracking
+    baseline_metrics: dict[str, Any] | None = None
+    after_metrics: dict[str, Any] | None = None
+    metrics_delta: dict[str, Any] | None = None
+    improvement_score: float = 0.0  # 0.0-1.0, from MetricsDelta
+    success_criteria_met: bool | None = None  # True if all criteria satisfied
 
 
 class AgentRouter:
@@ -974,6 +980,11 @@ class AutonomousOrchestrator:
                 assignment.status = "completed"
                 assignment.result = {"workflow_result": result.final_output}
                 await self._update_bead_status(subtask.id, "done")
+
+                # Record agent success in ELO + KM for learning
+                await self._record_agent_outcome(
+                    assignment, success=True, domain=assignment.track.value,
+                )
             else:
                 # Handle failure with feedback loop
                 feedback = self.feedback_loop.analyze_failure(
@@ -987,6 +998,9 @@ class AutonomousOrchestrator:
                     assignment.status = "failed"
                     assignment.result = {"error": result.error, "feedback": feedback}
                     await self._update_bead_status(subtask.id, "failed", error=result.error)
+                    await self._record_agent_outcome(
+                        assignment, success=False, domain=assignment.track.value,
+                    )
                 elif feedback["action"] == "reassign_agent":
                     # Anti-fragile: try a different agent type
                     alt_agent = self._select_alternative_agent(assignment)
@@ -1027,6 +1041,53 @@ class AutonomousOrchestrator:
                 self._active_assignments.remove(assignment)
             except ValueError:
                 pass  # Already removed (e.g., during retry)
+
+    async def _record_agent_outcome(
+        self,
+        assignment: AgentAssignment,
+        success: bool,
+        domain: str,
+    ) -> None:
+        """Record agent implementation performance in ELO and Knowledge Mound.
+
+        This closes the self-improvement feedback loop: agents that succeed
+        at implementation tasks get ELO boosts, agents that fail get penalties.
+        Over time, the system learns which agents are best for which tracks.
+        """
+        agent_name = assignment.agent_type
+
+        # Record in ELO system
+        try:
+            from aragora.ranking.elo import get_elo_system
+
+            elo = get_elo_system()
+            # Use a synthetic match: agent vs "baseline" where success = win
+            elo.record_match(
+                debate_id=f"impl-{assignment.subtask.id}",
+                participants=[agent_name, "_baseline"],
+                scores={agent_name: 1.0 if success else 0.0, "_baseline": 0.5},
+                domain=domain,
+            )
+            logger.info(f"agent_outcome_elo agent={agent_name} success={success} domain={domain}")
+        except (ImportError, RuntimeError, TypeError, ValueError) as e:
+            logger.debug(f"ELO recording failed for {agent_name}: {e}")
+
+        # Record in Knowledge Mound
+        try:
+            from aragora.knowledge.mound.adapters.factory import get_adapter
+
+            adapter = get_adapter("nomic_cycle")
+            if adapter and hasattr(adapter, "record"):
+                await adapter.record({
+                    "type": "agent_implementation_outcome",
+                    "agent": agent_name,
+                    "track": domain,
+                    "subtask_id": assignment.subtask.id,
+                    "success": success,
+                    "attempt": assignment.attempt_count,
+                })
+        except (ImportError, RuntimeError, TypeError, ValueError) as e:
+            logger.debug(f"KM recording failed for {agent_name}: {e}")
 
     def _select_alternative_agent(self, assignment: AgentAssignment) -> str | None:
         """Select an alternative agent type for reassignment on failure.

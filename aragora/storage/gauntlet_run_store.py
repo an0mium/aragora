@@ -44,10 +44,12 @@ if TYPE_CHECKING:
 
 # redis.exceptions.ConnectionError does NOT inherit from builtins.ConnectionError
 # (it inherits from redis.RedisError -> Exception), so we need to catch it explicitly.
+_RedisError: type[Exception] = OSError  # overwritten below if redis is available
 try:
-    from redis.exceptions import RedisError as _RedisError  # noqa: F401
+    from redis.exceptions import RedisError
+    _RedisError = RedisError
 except ImportError:
-    _RedisError = OSError  # type: ignore[misc,assignment]
+    pass  # _RedisError stays as OSError fallback
 
 logger = logging.getLogger(__name__)
 

@@ -658,7 +658,7 @@ class TestErrorHandling:
         """Test unexpected exception returns server as unavailable."""
         detector = LocalLLMDetector()
 
-        mock_pool = create_mock_pool(error=Exception("Unexpected error"))
+        mock_pool = create_mock_pool(error=RuntimeError("Unexpected error"))
 
         with patch("aragora.agents.local_llm_detector.get_http_pool", return_value=mock_pool):
             server = await detector.detect_ollama()

@@ -225,7 +225,7 @@ class AgentRankingsMixin:
                 try:
                     h2h = elo.get_head_to_head(agents[0], agents[1])
                     head_to_head = h2h
-                except (KeyError, ValueError, AttributeError, TypeError) as e:
+                except Exception as e:  # noqa: BLE001 - graceful degradation, return comparison without h2h
                     logger.warning(
                         "Head-to-head lookup failed for %s vs %s: %s: %s",
                         agents[0],
