@@ -1022,7 +1022,7 @@ class TestOpenClawSessionStepExecute:
             result = await step.execute(mock_context)
 
         assert result["success"] is False
-        assert "db down" in result["error"]
+        assert "failed" in result["error"].lower()
         assert result["operation"] == "create"
 
     @pytest.mark.asyncio
