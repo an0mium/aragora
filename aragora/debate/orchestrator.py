@@ -471,6 +471,7 @@ class Arena(ArenaDelegatesMixin):
         enable_post_debate_workflow: bool = False,
         post_debate_workflow_threshold: float = 0.7,
         post_debate_config: Any | None = None,
+        disable_post_debate_pipeline: bool = False,
         fabric: Any = None,
         fabric_config: Any = None,
         mode_sequence: list[str] | None = None,
@@ -736,6 +737,7 @@ class Arena(ArenaDelegatesMixin):
         )
         # Store post-debate coordinator config (opt-in pipeline)
         self.post_debate_config = post_debate_config
+        self.disable_post_debate_pipeline = disable_post_debate_pipeline
         _setup_init_agent_hierarchy(self, cfg.enable_agent_hierarchy, cfg.hierarchy_config)
         _setup_init_rlm_limiter(
             self,
