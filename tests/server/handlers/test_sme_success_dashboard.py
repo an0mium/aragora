@@ -134,6 +134,8 @@ def _build_handler_with_mocks(
 
     dashboard._get_cost_tracker = MagicMock(return_value=mock_cost_tracker)
     dashboard._get_roi_calculator = MagicMock(return_value=mock_roi_calc)
+    # Prevent real DebateAnalytics from hitting SQLite
+    dashboard._get_debate_analytics = MagicMock(return_value=None)
 
     return dashboard, mock_cost_tracker, mock_roi_calc
 

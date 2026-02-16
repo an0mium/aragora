@@ -114,7 +114,7 @@ class TestMembershipValidation:
     def test_store_error_allows_header_through(self):
         """On store errors, allow header through (graceful degradation)."""
         store = MagicMock()
-        store.get_user_workspaces.side_effect = RuntimeError("DB unavailable")
+        store.get_user_workspaces.side_effect = OSError("DB unavailable")
         request = _make_request(workspace_id="ws-600", workspace_store=store)
         result = _extract_workspace_id(request, user_id="user-1")
         assert result == "ws-600"
