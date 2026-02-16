@@ -244,7 +244,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to list policies: {e}")
             return error_response("Failed to list policies", 500)
 
@@ -262,7 +262,7 @@ class PolicyHandler(BaseHandler):
 
             return json_response({"policy": policy.to_dict()})
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get policy {policy_id}: {e}")
             return error_response("Failed to retrieve policy", 500)
 
@@ -330,7 +330,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to create policy: {e}")
             return error_response("Policy creation failed", 500)
 
@@ -376,7 +376,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to update policy {policy_id}: {e}")
             return error_response("Policy update failed", 500)
 
@@ -406,7 +406,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to delete policy {policy_id}: {e}")
             return error_response("Policy deletion failed", 500)
 
@@ -457,7 +457,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to toggle policy {policy_id}: {e}")
             return error_response("Policy toggle failed", 500)
 
@@ -495,7 +495,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get violations for policy {policy_id}: {e}")
             return error_response("Failed to retrieve violations", 500)
 
@@ -538,7 +538,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to list violations: {e}")
             return error_response("Failed to list violations", 500)
 
@@ -556,7 +556,7 @@ class PolicyHandler(BaseHandler):
 
             return json_response({"violation": violation.to_dict()})
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get violation {violation_id}: {e}")
             return error_response("Failed to retrieve violation", 500)
 
@@ -614,7 +614,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to update violation {violation_id}: {e}")
             return error_response("Violation update failed", 500)
 
@@ -694,7 +694,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to check compliance: {e}")
             return error_response("Compliance check failed", 500)
 
@@ -747,7 +747,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get compliance stats: {e}")
             return error_response("Failed to retrieve statistics", 500)
 

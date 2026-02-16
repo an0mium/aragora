@@ -233,7 +233,7 @@ class IntegrationsHandler(BaseHandler):
 
             return _legacy_error_response("Not found", 404, code="NOT_FOUND")
 
-        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.exception(f"Error handling integration request: {e}")
             return _legacy_error_response(
                 f"Internal error: {safe_error_message(e, 'integration management')}",

@@ -930,7 +930,7 @@ class TestPolicyHandlerEdgeCases:
     async def test_exception_handling_in_list_policies(self, handler):
         """Test exception handling in list policies."""
         mock_store = MagicMock()
-        mock_store.list_policies.side_effect = Exception("Database error")
+        mock_store.list_policies.side_effect = RuntimeError("Database error")
 
         mock_http = MagicMock()
         mock_http.path = "/api/v1/policies"

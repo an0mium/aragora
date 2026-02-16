@@ -185,7 +185,7 @@ class SLOHandler(BaseHandler):
             else:
                 return error_response(f"Unknown SLO endpoint: {path}", 404, code="UNKNOWN_ENDPOINT")
 
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Error handling SLO request: {e}")
             return error_response("Internal server error", 500, code="INTERNAL_ERROR")
 
@@ -194,7 +194,7 @@ class SLOHandler(BaseHandler):
         try:
             status_json = get_slo_status_json()
             return json_response(status_json)
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get SLO status: {e}")
             return error_response(
                 "Internal server error", 500, code="SLO_STATUS_ERROR"
@@ -227,7 +227,7 @@ class SLOHandler(BaseHandler):
                     },
                 }
             )
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get SLO detail for {slo_name}: {e}")
             return error_response(
                 "Internal server error", 500, code="SLO_DETAIL_ERROR"
@@ -268,7 +268,7 @@ class SLOHandler(BaseHandler):
                     "budgets": budgets,
                 }
             )
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get error budget: {e}")
             return error_response(
                 "Internal server error", 500, code="ERROR_BUDGET_ERROR"
@@ -303,7 +303,7 @@ class SLOHandler(BaseHandler):
                     "overall_healthy": status.overall_healthy,
                 }
             )
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get violations: {e}")
             return error_response(
                 "Internal server error", 500, code="VIOLATIONS_ERROR"
@@ -332,7 +332,7 @@ class SLOHandler(BaseHandler):
                     "targets": targets_response,
                 }
             )
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get targets: {e}")
             return error_response("Failed to retrieve targets", 500, code="TARGETS_ERROR")
 
@@ -399,7 +399,7 @@ class SLOHandler(BaseHandler):
                     f"Unknown sub-route: {sub_route}", 404, code="UNKNOWN_ENDPOINT"
                 )
 
-        except (KeyError, ValueError, AttributeError, TypeError) as e:
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Failed to get SLO sub-route {slo_name}/{sub_route}: {e}")
             return error_response("Operation failed", 500, code="SLO_SUB_ROUTE_ERROR")
 

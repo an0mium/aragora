@@ -121,7 +121,7 @@ class TestListAgents:
         from aragora.server.handlers.base import clear_cache
 
         clear_cache()
-        mock_elo.get_leaderboard.side_effect = RuntimeError("db locked")
+        mock_elo.get_leaderboard.side_effect = OSError("db locked")
         result = handler._list_agents(include_stats=False)
         assert result.status_code == 200
         body = _body(result)

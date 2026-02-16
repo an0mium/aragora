@@ -1225,7 +1225,7 @@ class TestErrorHandling:
 
     def test_handles_store_exceptions(self, knowledge_handler, mock_fact_store):
         """Test handler gracefully handles store exceptions."""
-        mock_fact_store.list_facts.side_effect = Exception("Database error")
+        mock_fact_store.list_facts.side_effect = RuntimeError("Database error")
         handler = create_handler()
 
         result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)

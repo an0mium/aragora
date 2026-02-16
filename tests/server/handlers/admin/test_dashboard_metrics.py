@@ -201,7 +201,7 @@ class TestGetSummaryMetricsSql:
         from aragora.server.handlers.admin.dashboard_metrics import get_summary_metrics_sql
 
         storage, cursor = mock_storage
-        storage.connection.side_effect = RuntimeError("connection failed")
+        storage.connection.side_effect = OSError("connection failed")
 
         result = _call_bypassing_decorators(get_summary_metrics_sql, storage, "test")
 
@@ -284,7 +284,7 @@ class TestGetRecentActivitySql:
         from aragora.server.handlers.admin.dashboard_metrics import get_recent_activity_sql
 
         storage, _ = mock_storage
-        storage.connection.side_effect = RuntimeError("timeout")
+        storage.connection.side_effect = OSError("timeout")
 
         result = _call_bypassing_decorators(get_recent_activity_sql, storage, 24)
 
@@ -363,10 +363,10 @@ class TestGetSummaryMetricsLegacy:
                 return True
 
             def __iter__(self):
-                raise RuntimeError("oops")
+                raise TypeError("oops")
 
             def __len__(self):
-                raise RuntimeError("oops")
+                raise TypeError("oops")
 
         result = _call_bypassing_decorators(get_summary_metrics_legacy, None, BrokenList())
 

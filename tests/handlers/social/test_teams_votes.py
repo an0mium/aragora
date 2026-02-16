@@ -84,7 +84,7 @@ class TestTeamsVoteRecording:
 
         with patch("aragora.server.storage.get_debates_db") as mock_get_db:
             mock_db = MagicMock()
-            mock_db.record_vote.side_effect = Exception("DB connection failed")
+            mock_db.record_vote.side_effect = OSError("DB connection failed")
             mock_get_db.return_value = mock_db
 
             # Should not raise, just log warning

@@ -994,7 +994,7 @@ class TeamsIntegrationHandler(BaseHandler):
                     source="teams",
                 )
                 logger.info(f"Vote recorded in DB: {debate_id} -> {vote_value}")
-        except (TypeError, ValueError, OSError, KeyError) as e:
+        except (TypeError, ValueError, OSError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to record vote in storage: {e}")
 
         # Record in vote aggregator if available

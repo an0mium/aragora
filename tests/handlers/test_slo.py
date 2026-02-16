@@ -129,7 +129,7 @@ class TestSLOStatusEndpoint:
         with patch("aragora.server.handlers.slo._slo_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             with patch("aragora.server.handlers.slo.get_slo_status_json") as mock_get:
-                mock_get.side_effect = Exception("Database error")
+                mock_get.side_effect = ValueError("Database error")
                 result = handler.handle("/api/slos/status", {}, mock_handler)
 
         assert result.status_code == 500
@@ -235,7 +235,7 @@ class TestErrorBudgetEndpoint:
         with patch("aragora.server.handlers.slo._slo_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             with patch("aragora.server.handlers.slo.get_slo_status") as mock_get:
-                mock_get.side_effect = Exception("Metrics error")
+                mock_get.side_effect = ValueError("Metrics error")
                 result = handler.handle("/api/slos/error-budget", {}, mock_handler)
 
         assert result.status_code == 500
@@ -255,7 +255,7 @@ class TestViolationsEndpoint:
         with patch("aragora.server.handlers.slo._slo_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             with patch("aragora.server.handlers.slo.get_slo_status") as mock_get:
-                mock_get.side_effect = Exception("Database error")
+                mock_get.side_effect = ValueError("Database error")
                 result = handler.handle("/api/slos/violations", {}, mock_handler)
 
         assert result.status_code == 500
@@ -275,7 +275,7 @@ class TestTargetsEndpoint:
         with patch("aragora.server.handlers.slo._slo_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             with patch("aragora.server.handlers.slo.get_slo_targets") as mock_get:
-                mock_get.side_effect = Exception("Config error")
+                mock_get.side_effect = ValueError("Config error")
                 result = handler.handle("/api/slos/targets", {}, mock_handler)
 
         assert result.status_code == 500

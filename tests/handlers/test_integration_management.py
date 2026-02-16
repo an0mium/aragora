@@ -307,7 +307,7 @@ class TestInternalError:
         mock_handler.headers = {}
 
         with patch.object(handler, "_get_slack_store") as mock_store:
-            mock_store.side_effect = Exception("Database error")
+            mock_store.side_effect = RuntimeError("Database error")
             result = await handler.handle(
                 "/api/v2/integrations/slack/health",
                 {"workspace_id": "ws123"},

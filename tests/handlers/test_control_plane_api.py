@@ -1047,7 +1047,7 @@ class TestControlPlaneEventEmission:
 
     def test_emit_event_with_retries(self, handler, mock_stream):
         """_emit_event retries on failure."""
-        mock_stream.emit_test = MagicMock(side_effect=[Exception("fail"), None])
+        mock_stream.emit_test = MagicMock(side_effect=[RuntimeError("fail"), None])
 
         # Should not raise even on first failure
         handler._emit_event("emit_test", arg1="value")
