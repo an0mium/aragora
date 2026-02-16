@@ -12,6 +12,7 @@ development pipeline, which can:
 - Enforce mode constraints (architect/coder/reviewer) per phase
 - Scan for prompt injection before execution
 - Track budget and reconcile cross-agent file overlaps
+- Route through the DecisionPlan pipeline for risk registers, receipts, and KM ingestion
 
 Usage:
     # Dry run with heuristic decomposition (fast, needs concrete goals)
@@ -28,6 +29,12 @@ Usage:
 
     # Use MetaPlanner for debate-driven prioritization before execution
     python scripts/self_develop.py --goal "Maximize utility" --meta-plan --debate
+
+    # Route through the DecisionPlan pipeline (risk registers, receipts, KM)
+    python scripts/self_develop.py --goal "Improve error handling" --use-pipeline
+
+    # Use pipeline with hybrid execution mode (Claude + Codex)
+    python scripts/self_develop.py --goal "Refactor auth" --use-pipeline --pipeline-mode hybrid
 
     # Fall back to base orchestrator (no hardening)
     python scripts/self_develop.py --goal "Simple fix" --standard
@@ -98,6 +105,106 @@ def run_heuristic_decomposition(goal: str) -> TaskDecomposition:
     """Run fast heuristic decomposition."""
     decomposer = TaskDecomposer()
     return decomposer.analyze(goal)
+
+
+async def run_pipeline_execution(
+    goal: str,
+    use_debate: bool = False,
+    pipeline_mode: str = "hybrid",
+    budget_limit: float | None = None,
+) -> Any:
+    """Decompose goal and execute via the DecisionPlan pipeline.
+
+    This routes through NomicPipelineBridge -> DecisionPlanFactory ->
+    PlanExecutor, giving self-improvement access to risk registers,
+    verification plans, execution receipts, and KM ingestion.
+
+    Args:
+        goal: The high-level goal.
+        use_debate: Use debate-based decomposition.
+        pipeline_mode: Execution mode for PlanExecutor.
+        budget_limit: Optional budget cap in USD.
+
+    Returns:
+        A PlanOutcome from PlanExecutor.
+    """
+    from pathlib import Path
+
+    from aragora.nomic.pipeline_bridge import NomicPipelineBridge
+
+    # Step 1: Decompose
+    if use_debate:
+        decomposition = await run_debate_decomposition(goal)
+    else:
+        decomposition = run_heuristic_decomposition(goal)
+
+    print_decomposition(decomposition)
+
+    if not decomposition.subtasks:
+        print("\nNo subtasks to execute via pipeline.")
+        return None
+
+    # Step 2: Route through the pipeline
+    bridge = NomicPipelineBridge(
+        repo_path=Path.cwd(),
+        budget_limit_usd=budget_limit,
+        execution_mode=pipeline_mode,
+    )
+
+    print_header("PIPELINE EXECUTION")
+    print(f"Execution mode: {pipeline_mode}")
+    print(f"Subtasks: {len(decomposition.subtasks)}")
+    if budget_limit:
+        print(f"Budget limit: ${budget_limit:.2f}")
+
+    plan = bridge.build_decision_plan(
+        goal=goal,
+        subtasks=decomposition.subtasks,
+    )
+
+    print(f"\nDecisionPlan: {plan.id}")
+    print(f"Status: {plan.status.value}")
+    if plan.risk_register:
+        print(f"Risks: {len(plan.risk_register.risks)}")
+        for risk in plan.risk_register.risks[:5]:
+            print(f"  [{risk.level.value}] {risk.title}")
+    if plan.verification_plan:
+        test_count = len(plan.verification_plan.test_cases)
+        print(f"Verification cases: {test_count}")
+    if plan.implement_plan:
+        print(f"Implementation tasks: {len(plan.implement_plan.tasks)}")
+
+    print("\nExecuting plan...")
+
+    outcome = await bridge.execute_via_pipeline(
+        goal=goal,
+        subtasks=decomposition.subtasks,
+        execution_mode=pipeline_mode,
+    )
+
+    return outcome
+
+
+def print_pipeline_outcome(outcome: Any) -> None:
+    """Print pipeline execution outcome."""
+    print_header("PIPELINE EXECUTION COMPLETE")
+    print(f"Status: {'SUCCESS' if outcome.success else 'FAILED'}")
+    print(f"Tasks completed: {outcome.tasks_completed}/{outcome.tasks_total}")
+    if outcome.verification_passed or outcome.verification_total:
+        print(
+            f"Verification: {outcome.verification_passed}/{outcome.verification_total} passed"
+        )
+    if outcome.total_cost_usd > 0:
+        print(f"Cost: ${outcome.total_cost_usd:.4f}")
+    print(f"Duration: {outcome.duration_seconds:.1f}s")
+    if outcome.receipt_id:
+        print(f"Receipt: {outcome.receipt_id}")
+    if outcome.lessons:
+        print("\nLessons learned:")
+        for lesson in outcome.lessons:
+            print(f"  - {lesson}")
+    if outcome.error:
+        print(f"\nError: {outcome.error}")
 
 
 def print_result(result: OrchestrationResult) -> None:
@@ -331,6 +438,18 @@ Examples:
         help="Maximum cost in USD for the entire run (requires --hardened or --parallel)",
     )
     parser.add_argument(
+        "--use-pipeline",
+        action="store_true",
+        help="Route subtasks through the DecisionPlan pipeline (risk registers, receipts, KM ingestion)",
+    )
+    parser.add_argument(
+        "--pipeline-mode",
+        type=str,
+        default="hybrid",
+        choices=["workflow", "hybrid", "fabric", "computer_use"],
+        help="Execution mode when --use-pipeline is enabled (default: hybrid)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -371,6 +490,32 @@ Examples:
 
         print_decomposition(result)
         return 0
+
+    # Pipeline mode: decompose then execute via DecisionPlan pipeline
+    if args.use_pipeline:
+        try:
+            outcome = asyncio.run(
+                run_pipeline_execution(
+                    goal=args.goal,
+                    use_debate=args.debate,
+                    pipeline_mode=args.pipeline_mode,
+                    budget_limit=args.budget_limit,
+                )
+            )
+            if outcome is None:
+                print("\nNo outcome (no subtasks generated).")
+                return 0
+            print_pipeline_outcome(outcome)
+            return 0 if outcome.success else 1
+
+        except KeyboardInterrupt:
+            print("\n\nPipeline execution cancelled by user.")
+            return 130
+
+        except Exception as e:
+            logger.exception("Pipeline execution failed with error")
+            print(f"\nError: {e}")
+            return 1
 
     # Resolve gauntlet flag (--no-gauntlet overrides --gauntlet)
     enable_gauntlet = not args.no_gauntlet

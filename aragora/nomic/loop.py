@@ -549,6 +549,11 @@ class NomicLoop:
             if debate.get("consensus", False):
                 self._current_record.consensus_reached = self._current_record.topics_debated
 
+            # Extract rich debate metadata from the debate result object
+            debate_result_obj = debate.get("_debate_result")
+            if debate_result_obj is not None:
+                self._extract_debate_metadata(debate_result_obj)
+
             # Mark complete and save
             self._current_record.mark_complete(success=success, error=error)
             self._get_cycle_store().save_cycle(self._current_record)
@@ -558,6 +563,75 @@ class NomicLoop:
             )
         except OSError as e:
             logger.warning(f"Failed to save cycle record: {e}")
+
+    def _extract_debate_metadata(self, debate_result: Any) -> None:
+        """Extract rich debate metadata from a DebateResult into the cycle record.
+
+        Captures proposals, critiques, votes, evidence quality scores,
+        trickster interventions, and receipt ID from the full debate result
+        so the cycle record preserves the complete debate context.
+
+        Args:
+            debate_result: DebateResult object from Arena.run()
+        """
+        if not self._current_record:
+            return
+
+        try:
+            # Extract proposals (agent -> proposal text)
+            proposals = getattr(debate_result, "proposals", {})
+            if proposals:
+                self._current_record.debate_proposals = [
+                    {"agent": agent, "proposal": text[:500]}
+                    for agent, text in proposals.items()
+                ]
+
+            # Extract critiques
+            critiques = getattr(debate_result, "critiques", [])
+            if critiques:
+                self._current_record.debate_critiques = [
+                    {
+                        "critic": getattr(c, "critic", ""),
+                        "target": getattr(c, "target", ""),
+                        "severity": getattr(c, "severity", 0),
+                        "content": getattr(c, "content", "")[:300],
+                    }
+                    for c in critiques[:20]
+                ]
+
+            # Extract votes
+            votes = getattr(debate_result, "votes", [])
+            if votes:
+                self._current_record.debate_votes = [
+                    {
+                        "voter": getattr(v, "voter", ""),
+                        "choice": getattr(v, "choice", ""),
+                        "reasoning": getattr(v, "reasoning", "")[:200],
+                    }
+                    for v in votes[:20]
+                ]
+
+            # Extract evidence quality scores (from verification_results)
+            verification = getattr(debate_result, "verification_results", {})
+            if verification:
+                self._current_record.evidence_quality_scores = {
+                    k: float(v) for k, v in verification.items()
+                    if isinstance(v, (int, float))
+                }
+
+            # Extract trickster intervention count from metadata
+            metadata = getattr(debate_result, "metadata", {})
+            trickster_count = metadata.get("trickster_interventions", 0)
+            if trickster_count:
+                self._current_record.trickster_interventions = int(trickster_count)
+
+            # Extract receipt ID if present
+            receipt_id = metadata.get("receipt_id")
+            if receipt_id:
+                self._current_record.debate_receipt_id = str(receipt_id)
+
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug("Failed to extract debate metadata: %s", e)
 
     def _get_cross_cycle_context(self) -> dict[str, Any]:
         """

@@ -336,6 +336,10 @@ def __getattr__(name):
         from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
         return HardenedOrchestrator
+    elif name == "NomicPipelineBridge":
+        from aragora.nomic.pipeline_bridge import NomicPipelineBridge
+
+        return NomicPipelineBridge
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -451,6 +455,7 @@ __all__ = [
     "get_task_decomposer",
     # Autonomous orchestration
     "HardenedOrchestrator",
+    "NomicPipelineBridge",
     "AutonomousOrchestrator",
     "ParallelOrchestrator",
     "AgentRouter",

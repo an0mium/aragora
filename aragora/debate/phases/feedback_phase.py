@@ -431,6 +431,9 @@ class FeedbackPhase:
         # 31. Validate KM entries used in debate against outcome
         await self._validate_km_outcome(ctx)
 
+        # 31b. Direct KM confidence reinforcement for used items
+        await self._reinforce_km_confidence(ctx)
+
         # 32. Update introspection data based on debate performance
         self._update_introspection_feedback(ctx)
 
@@ -889,6 +892,46 @@ class FeedbackPhase:
             logger.debug("[km_outcome] KMOutcomeBridge not available")
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug("[km_outcome] KM outcome validation failed: %s", e)
+
+    async def _reinforce_km_confidence(self, ctx: DebateContext) -> None:
+        """Reinforce Knowledge Mound item confidence based on debate outcome.
+
+        Implements the backward flow of the KM feedback loop: items that
+        contributed to high-confidence consensus get a confidence boost,
+        while items associated with low-confidence outcomes get a slight
+        decrease.  This creates a reinforcement signal that makes the
+        organizational knowledge self-improving over time.
+
+        This is complementary to ``_validate_km_outcome`` which uses the
+        KMOutcomeBridge (when available).  This method provides a direct,
+        lightweight fallback that always works when a KnowledgeMound and
+        MemoryManager are available.
+        """
+        if not self.knowledge_mound:
+            return
+
+        km_item_ids: list[str] = getattr(ctx, "_km_item_ids_used", [])
+        if not km_item_ids:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            from aragora.debate.memory_manager import MemoryManager
+
+            # Create a minimal MemoryManager just for the confidence update
+            mm = MemoryManager()
+            await mm.update_km_item_confidence(
+                result=result,
+                km_item_ids=km_item_ids,
+                knowledge_mound=self.knowledge_mound,
+            )
+        except ImportError:
+            logger.debug("[km_feedback] MemoryManager not available for confidence reinforcement")
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
+            logger.debug("[km_feedback] KM confidence reinforcement failed: %s", e)
 
     async def _execute_coordinated_writes(self, ctx: DebateContext) -> None:
         """Execute coordinated atomic writes to all memory systems.

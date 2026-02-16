@@ -967,6 +967,134 @@ class MemoryManager:
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error updating memory outcomes: %s", msg)
 
+    async def update_km_item_confidence(
+        self,
+        result: "DebateResult",
+        km_item_ids: list[str],
+        knowledge_mound: Any | None = None,
+    ) -> None:
+        """Update Knowledge Mound item confidence based on debate outcome.
+
+        Creates a reinforcement signal for the feedback loop: KM items that
+        were used in debates reaching high-confidence consensus get a confidence
+        boost, while items associated with low-confidence or failed debates
+        get a slight decrease.
+
+        This is called from the feedback phase after debate completion.
+
+        Args:
+            result: The completed debate result.
+            km_item_ids: List of KM item IDs that were used in this debate
+                (tracked via ``ctx._km_item_ids_used``).
+            knowledge_mound: The KnowledgeMound instance to update.
+        """
+        if not knowledge_mound or not km_item_ids:
+            return
+
+        if not hasattr(knowledge_mound, "update_confidence"):
+            logger.debug("[km_feedback] KnowledgeMound lacks update_confidence, skipping")
+            return
+
+        if not hasattr(knowledge_mound, "get"):
+            return
+
+        try:
+            consensus_reached = getattr(result, "consensus_reached", False)
+            confidence = getattr(result, "confidence", 0.0)
+
+            # Determine adjustment direction and magnitude
+            # High-confidence consensus => boost KM items (max +0.1)
+            # Low-confidence or no consensus => slight decrease (max -0.05)
+            if consensus_reached and confidence >= 0.7:
+                # Strong positive signal: boost items that contributed to consensus
+                adjustment = min(0.1, (confidence - 0.7) * 0.33)
+            elif consensus_reached and confidence >= 0.5:
+                # Weak positive signal: very small boost
+                adjustment = 0.02
+            elif not consensus_reached and confidence < 0.4:
+                # Negative signal: decrease confidence of items that didn't help
+                adjustment = -0.05
+            else:
+                # Neutral zone: no meaningful adjustment
+                return
+
+            updated_count = 0
+            for item_id in km_item_ids:
+                try:
+                    # Fetch current item to read its confidence
+                    item = await knowledge_mound.get(item_id)
+                    if item is None:
+                        continue
+
+                    # Map confidence level to float for adjustment
+                    current_confidence = self._confidence_level_to_float(
+                        getattr(item, "confidence", None)
+                    )
+                    new_confidence = max(0.05, min(1.0, current_confidence + adjustment))
+
+                    # Only update if meaningful change
+                    if abs(new_confidence - current_confidence) < 0.01:
+                        continue
+
+                    await knowledge_mound.update_confidence(item_id, new_confidence)
+                    updated_count += 1
+
+                except (AttributeError, TypeError, ValueError, KeyError) as e:
+                    logger.debug(
+                        "  [km_feedback] Failed to update KM item %s: %s", item_id, e
+                    )
+                except (OSError, RuntimeError) as e:
+                    logger.warning(
+                        "  [km_feedback] Unexpected error updating KM item %s: %s", item_id, e
+                    )
+
+            if updated_count > 0:
+                direction = "boosted" if adjustment > 0 else "decreased"
+                logger.info(
+                    "  [km_feedback] %s confidence of %d KM items (adjustment=%+.2f, "
+                    "debate_confidence=%.0f%%, consensus=%s)",
+                    direction,
+                    updated_count,
+                    adjustment,
+                    confidence * 100,
+                    consensus_reached,
+                )
+
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.warning("  [km_feedback] Failed to update KM item confidence: %s", e)
+        except (OSError, RuntimeError) as e:
+            _, msg, _ = _build_error_action(e, "km_feedback")
+            logger.exception("  [km_feedback] Unexpected error: %s", msg)
+
+    @staticmethod
+    def _confidence_level_to_float(confidence_level: Any) -> float:
+        """Convert a ConfidenceLevel enum to a float value.
+
+        Args:
+            confidence_level: A ConfidenceLevel enum or float value.
+
+        Returns:
+            Float between 0 and 1.
+        """
+        if confidence_level is None:
+            return 0.5
+
+        # If it's already a float, return directly
+        if isinstance(confidence_level, (int, float)):
+            return float(confidence_level)
+
+        # Map ConfidenceLevel enum values to floats
+        level_map = {
+            "verified": 0.95,
+            "high": 0.8,
+            "medium": 0.6,
+            "low": 0.35,
+            "unverified": 0.2,
+        }
+
+        level_value = getattr(confidence_level, "value", str(confidence_level)).lower()
+        return level_map.get(level_value, 0.5)
+
     async def fetch_historical_context(self, task: str, limit: int = 3) -> str:
         """Fetch similar past debates for historical context.
 

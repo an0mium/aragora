@@ -88,6 +88,14 @@ from aragora.debate.convergence.analyzer import AdvancedConvergenceAnalyzer
 # Convergence detector
 from aragora.debate.convergence.detector import ConvergenceDetector
 
+# Convergence history store
+from aragora.debate.convergence.history import (
+    ConvergenceHistoryStore,
+    get_convergence_history_store,
+    init_convergence_history_store,
+    set_convergence_history_store,
+)
+
 __all__ = [
     # Cache (re-exported)
     "EmbeddingCache",
@@ -126,4 +134,9 @@ __all__ = [
     "AdvancedConvergenceMetrics",
     "AdvancedConvergenceAnalyzer",
     "ConvergenceDetector",
+    # Convergence history
+    "ConvergenceHistoryStore",
+    "get_convergence_history_store",
+    "set_convergence_history_store",
+    "init_convergence_history_store",
 ]

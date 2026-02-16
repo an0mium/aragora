@@ -549,6 +549,221 @@ class ContextInitializer:
             del _knowledge_cache[query_hash]
         return None
 
+    async def _inject_receipt_conclusions(self, ctx: DebateContext) -> None:
+        """Fetch and inject past decision conclusions from Knowledge Mound.
+
+        Queries the Knowledge Mound for items tagged as receipt conclusions
+        (ingested by the ReceiptAdapter) that are semantically relevant to the
+        current debate topic. This closes the backward flow of the feedback
+        loop: decisions made in past debates inform future ones.
+
+        Uses the same TTL-based caching pattern as ``_inject_knowledge_context``
+        to reduce redundant semantic searches.
+        """
+        global _receipt_conclusions_cache
+
+        if not self.knowledge_mound or not self.enable_knowledge_retrieval:
+            return
+
+        try:
+            task = ctx.env.task
+            query_hash = hashlib.md5(
+                f"receipt_conclusions:{task}".encode(), usedforsecurity=False
+            ).hexdigest()
+
+            # Check cache first
+            if query_hash in _receipt_conclusions_cache:
+                cached_text, cached_ts = _receipt_conclusions_cache[query_hash]
+                if time.time() - cached_ts < _RECEIPT_CONCLUSIONS_CACHE_TTL:
+                    if cached_text:
+                        self._set_receipt_conclusions_on_context(ctx, cached_text)
+                        logger.info(
+                            "[receipt_feedback] Used cached receipt conclusions (%d chars)",
+                            len(cached_text),
+                        )
+                    return
+
+            # Query the KM for receipt-derived items relevant to this topic
+            if not hasattr(self.knowledge_mound, "query"):
+                return
+
+            from aragora.knowledge.mound.types import QueryFilters
+
+            filters = QueryFilters(tags=["decision_receipt"])
+
+            results = await asyncio.wait_for(
+                self.knowledge_mound.query(
+                    query=task,
+                    filters=filters,
+                    limit=5,
+                ),
+                timeout=8.0,
+            )
+
+            items = results.items if hasattr(results, "items") else []
+            if not items:
+                _receipt_conclusions_cache[query_hash] = ("", time.time())
+                return
+
+            # Format the conclusions for injection
+            lines: list[str] = [
+                "## PAST DECISION CONCLUSIONS",
+                "The following decisions were reached in previous debates on related topics.",
+                "Consider them as institutional precedent but challenge if new evidence warrants:\n",
+            ]
+            for item in items:
+                confidence_label = item.confidence.value if hasattr(item.confidence, "value") else str(item.confidence)
+                verdict = item.metadata.get("verdict", "")
+                verdict_str = f" [{verdict}]" if verdict else ""
+                content_preview = item.content[:400]
+                lines.append(
+                    f"- **{confidence_label} confidence{verdict_str}**: {content_preview}"
+                )
+
+            conclusions_text = "\n".join(lines)
+            _receipt_conclusions_cache[query_hash] = (conclusions_text, time.time())
+
+            self._set_receipt_conclusions_on_context(ctx, conclusions_text)
+            logger.info(
+                "[receipt_feedback] Injected %d past decision conclusions into debate context",
+                len(items),
+            )
+
+        except asyncio.TimeoutError:
+            logger.warning("[receipt_feedback] Receipt conclusions fetch timed out")
+        except (RuntimeError, AttributeError, ImportError, TypeError, ValueError) as e:  # noqa: BLE001 - phase isolation
+            logger.debug(f"[receipt_feedback] Receipt conclusions injection error: {e}")
+
+    def _set_receipt_conclusions_on_context(
+        self,
+        ctx: DebateContext,
+        conclusions_text: str,
+    ) -> None:
+        """Set receipt conclusions on PromptBuilder or env.context.
+
+        Args:
+            ctx: The debate context.
+            conclusions_text: The formatted receipt conclusions string.
+        """
+        prompt_builder = getattr(ctx, "_prompt_builder", None)
+        if prompt_builder and hasattr(prompt_builder, "set_knowledge_context"):
+            # Append to existing knowledge context rather than replacing it
+            existing = getattr(prompt_builder, "_knowledge_context", "") or ""
+            if existing:
+                prompt_builder.set_knowledge_context(existing + "\n\n" + conclusions_text)
+            else:
+                prompt_builder.set_knowledge_context(conclusions_text)
+        else:
+            if ctx.env.context:
+                ctx.env.context += "\n\n" + conclusions_text
+            else:
+                ctx.env.context = conclusions_text
+
+    def _inject_convergence_history(self, ctx: DebateContext) -> None:
+        """Inject past convergence metrics for similar topics.
+
+        Queries the convergence history store for debates on similar topics
+        and injects a suggested round count based on historical convergence
+        speed. This helps the protocol set expectations and enables early
+        termination when past data indicates quick convergence.
+
+        Uses TTL-based caching to avoid repeated lookups.
+        """
+        global _convergence_history_cache
+
+        try:
+            from aragora.debate.convergence.history import get_convergence_history_store
+
+            store = get_convergence_history_store()
+            if store is None:
+                return
+
+            task = ctx.env.task
+            query_hash = hashlib.md5(
+                f"convergence_history:{task}".encode(), usedforsecurity=False
+            ).hexdigest()
+
+            # Check cache first
+            if query_hash in _convergence_history_cache:
+                cached_data, cached_ts = _convergence_history_cache[query_hash]
+                if time.time() - cached_ts < _CONVERGENCE_HISTORY_CACHE_TTL:
+                    if cached_data:
+                        self._apply_convergence_hint(ctx, cached_data)
+                    return
+
+            # Query for similar topics
+            similar_records = store.find_similar(task, limit=5)
+            if not similar_records:
+                _convergence_history_cache[query_hash] = ({}, time.time())
+                return
+
+            # Compute average convergence round from past debates
+            total_convergence_round = 0
+            total_rounds = 0
+            total_final_similarity = 0.0
+            count = len(similar_records)
+
+            for record in similar_records:
+                total_convergence_round += record.get("convergence_round", 0)
+                total_rounds += record.get("total_rounds", 0)
+                total_final_similarity += record.get("final_similarity", 0.0)
+
+            summary = {
+                "avg_convergence_round": total_convergence_round / count if count else 0,
+                "avg_total_rounds": total_rounds / count if count else 0,
+                "avg_final_similarity": total_final_similarity / count if count else 0.0,
+                "sample_count": count,
+            }
+
+            _convergence_history_cache[query_hash] = (summary, time.time())
+            self._apply_convergence_hint(ctx, summary)
+
+            logger.info(
+                "[convergence_history] Injected convergence hint: avg %.1f rounds to converge "
+                "(from %d similar debates)",
+                summary["avg_convergence_round"],
+                count,
+            )
+
+        except ImportError:
+            pass  # Convergence history store not available yet
+        except (TypeError, ValueError, AttributeError, RuntimeError, KeyError) as e:  # noqa: BLE001 - phase isolation
+            logger.debug("[convergence_history] Convergence history injection error: %s", e)
+
+    def _apply_convergence_hint(self, ctx: DebateContext, summary: dict) -> None:
+        """Apply convergence hint to debate context.
+
+        Sets a ``_convergence_hint`` attribute on the context so the round
+        controller can consider it when deciding whether to run additional
+        rounds.  Also injects a brief note into ``env.context`` so agents
+        are aware of historical convergence speed.
+
+        Args:
+            ctx: The debate context.
+            summary: Dict with avg_convergence_round, avg_total_rounds,
+                     avg_final_similarity, sample_count.
+        """
+        if not summary or summary.get("sample_count", 0) == 0:
+            return
+
+        ctx._convergence_hint = summary  # type: ignore[attr-defined]
+
+        avg_rounds = summary["avg_convergence_round"]
+        avg_sim = summary["avg_final_similarity"]
+        sample_n = summary["sample_count"]
+
+        hint_text = (
+            f"\n\n## CONVERGENCE HINT (from {sample_n} similar past debates)\n"
+            f"Similar topics typically converge in ~{avg_rounds:.1f} rounds "
+            f"with {avg_sim:.0%} final similarity. "
+            f"Focus arguments early to avoid diminishing returns in later rounds."
+        )
+
+        if ctx.env.context:
+            ctx.env.context += hint_text
+        else:
+            ctx.env.context = hint_text.strip()
+
     async def _inject_insight_patterns(self, ctx: DebateContext) -> None:
         """Inject learned patterns and high-confidence insights from past debates.
 

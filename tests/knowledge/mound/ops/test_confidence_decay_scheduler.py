@@ -366,6 +366,15 @@ class TestDecayMetrics:
 
         mock_mound = MagicMock()
         mock_mound.list_workspaces = AsyncMock(return_value=["ws1"])
+        mock_mound.apply_confidence_decay = AsyncMock(
+            return_value=MagicMock(
+                items_processed=50,
+                items_decayed=10,
+                items_boosted=2,
+                average_confidence_change=-0.03,
+                duration_ms=150.0,
+            )
+        )
 
         # Create a mock decay operation
         mock_decay_ops = MagicMock()

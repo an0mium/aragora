@@ -356,6 +356,48 @@ class ConvergenceDetector:
             consecutive_stable_rounds=self.consecutive_stable_count,
         )
 
+    def record_convergence_metrics(
+        self,
+        topic: str,
+        convergence_round: int,
+        total_rounds: int,
+        final_similarity: float,
+        per_round_similarity: list[float] | None = None,
+    ) -> None:
+        """Record convergence metrics for a completed debate.
+
+        Stores convergence speed data in the ConvergenceHistoryStore so
+        that future debates on similar topics can estimate optimal round
+        counts and benefit from historical convergence patterns.
+
+        Args:
+            topic: The debate task/topic string.
+            convergence_round: Round at which convergence was detected (0 = never).
+            total_rounds: Total rounds executed in the debate.
+            final_similarity: Final average similarity between agents.
+            per_round_similarity: Optional list of avg similarity per round.
+        """
+        try:
+            from aragora.debate.convergence.history import get_convergence_history_store
+
+            store = get_convergence_history_store()
+            if store is None:
+                return
+
+            store.store(
+                topic=topic,
+                convergence_round=convergence_round,
+                total_rounds=total_rounds,
+                final_similarity=final_similarity,
+                per_round_similarity=per_round_similarity,
+                debate_id=self.debate_id or "",
+            )
+
+        except ImportError:
+            pass  # History store not available
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("Failed to record convergence metrics: %s", e)
+
     def cleanup(self) -> None:
         """Cleanup resources when debate session ends.
 
