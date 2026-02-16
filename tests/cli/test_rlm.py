@@ -3,7 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import argparse
 
 import pytest
@@ -16,6 +16,59 @@ from aragora.cli.rlm import (
     cmd_rlm,
     create_rlm_parser,
 )
+
+
+def _make_mock_compression():
+    """Create a mock CompressionResult with realistic data."""
+    from aragora.rlm.types import AbstractionLevel
+
+    mock = MagicMock()
+    mock.original_tokens = 100
+    mock.compressed_tokens = {
+        AbstractionLevel.SUMMARY: 20,
+        AbstractionLevel.ABSTRACT: 5,
+    }
+    mock.compression_ratio = {
+        AbstractionLevel.SUMMARY: 0.2,
+        AbstractionLevel.ABSTRACT: 0.05,
+    }
+    mock.estimated_fidelity = 0.85
+    mock.sub_calls_made = 2
+    mock.cache_hits = 0
+    mock.time_seconds = 0.5
+    mock.key_topics_extracted = ["hello", "world"]
+    mock.levels = {}
+    return mock
+
+
+def _make_mock_query_result():
+    """Create a mock query result."""
+    mock = MagicMock()
+    mock.answer = "This is a test answer."
+    mock.ready = True
+    mock.confidence = 0.9
+    mock.iteration = 1
+    mock.tokens_processed = 50
+    mock.sub_calls_made = 1
+    return mock
+
+
+@pytest.fixture()
+def _mock_rlm():
+    """Fixture that patches AragoraRLM to avoid hitting real APIs."""
+    mock_compression = _make_mock_compression()
+    mock_query_result = _make_mock_query_result()
+
+    mock_compressor = MagicMock()
+    mock_compressor.compress = AsyncMock(return_value=mock_compression)
+
+    mock_rlm_instance = MagicMock()
+    mock_rlm_instance._compressor = mock_compressor
+    mock_rlm_instance.query = AsyncMock(return_value=mock_query_result)
+    mock_rlm_instance.query_with_refinement = AsyncMock(return_value=mock_query_result)
+
+    with patch("aragora.rlm.bridge.AragoraRLM", return_value=mock_rlm_instance):
+        yield mock_rlm_instance
 
 
 class TestCmdStats:
@@ -69,6 +122,7 @@ class TestCmdCompress:
         assert result == 1
         assert "File not found" in captured.out
 
+    @pytest.mark.usefixtures("_mock_rlm")
     def test_compress_detects_code_type(self, capsys):
         """Test that compress detects code file type."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
@@ -93,6 +147,7 @@ class TestCmdCompress:
         finally:
             Path(temp_path).unlink()
 
+    @pytest.mark.usefixtures("_mock_rlm")
     def test_compress_saves_output(self, capsys):
         """Test that compress saves output to file."""
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as f:
@@ -172,6 +227,7 @@ class TestCmdQuery:
         finally:
             Path(temp_path).unlink()
 
+    @pytest.mark.usefixtures("_mock_rlm")
     def test_query_with_valid_context(self, capsys):
         """Test query with valid context file."""
         context_data = {
