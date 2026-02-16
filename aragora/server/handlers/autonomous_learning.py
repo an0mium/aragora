@@ -552,7 +552,7 @@ class AutonomousLearningHandler(BaseHandler):
                 "Learning service temporarily unavailable",
                 503,
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Error handling learning GET request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -629,7 +629,7 @@ class AutonomousLearningHandler(BaseHandler):
                 "Learning service temporarily unavailable",
                 503,
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception("Error handling learning POST request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()

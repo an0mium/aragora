@@ -92,62 +92,59 @@ KnowledgeMound.record_outcome()        ← ADD cross-cycle learning
 - Docker sandbox via `SandboxExecutor` when available
 - Configurable timeout via `sandbox_timeout`
 
-## Phase 3: Multi-Agent Coordination (Week 2-3)
+## Phase 3: Multi-Agent Coordination ~~(Week 2-3)~~ COMPLETE
 
 **Goal:** 6-12 agents working on different subtasks in parallel worktrees.
 
-### 3A. Agent Pool Manager
-- Assign agents from heterogeneous pool (Claude, GPT, Gemini, Codestral)
-- Match agent capabilities to subtask requirements
-- Track per-agent success rates and adjust assignments
-- Circuit breaker per agent (3 failures → exclude for 30 min)
+### 3A. Agent Pool Manager ✅
+- `_select_best_agent()` with ELO, success rates, calibration scoring
+- Heterogeneous pool: Claude, Codex, Gemini, Grok (per-track configs)
+- Per-agent success/failure tracking via `_record_agent_outcome()`
+- Circuit breaker per agent (`circuit_breaker_threshold` consecutive failures)
 
-### 3B. Cross-Agent Review
-- Agent A implements, Agent B reviews, Agent C verifies
-- No agent reviews its own output
-- Disagreements trigger debate (existing Arena infrastructure)
-- Consensus required for merge (>= 2 of 3 agents agree)
+### 3B. Cross-Agent Review ✅
+- `_cross_agent_review()` selects different agent via `exclude_agents`
+- Review gate scoring (0-10) with dangerous pattern detection
+- Reviewer identity recorded in assignment result for audit
 
-### 3C. Work Stealing
-- If an agent's worktree completes early, steal pending work from queue
-- Priority: blocked tasks that just became unblocked
-- Never steal partially-completed work
+### 3C. Work Stealing ✅
+- `_find_stealable_work()` finds pending tasks with met dependencies
+- Only steals PENDING work, never in-progress
+- Respects circuit breaker state of stealing agent
 
-## Phase 4: OpenClaw Integration (Week 3-4)
+## Phase 4: OpenClaw Integration ~~(Week 3-4)~~ COMPLETE
 
 **Goal:** Autonomous computer use for tasks that require it.
 
-### 4A. Orchestrator → OpenClaw Bridge
-- Add "computer_use" execution mode to orchestrator
-- Route UI tasks (Playwright tests, visual regression) through OpenClaw
-- Route code tasks through HybridExecutor (existing)
-- Decision criteria: task mentions "browser", "UI", "visual", "click"
+### 4A. Orchestrator → OpenClaw Bridge ✅
+- `_is_computer_use_task()` detects browser/UI keywords
+- `_execute_computer_use()` routes through `ComputerUseBridge`
+- Falls back to normal code execution when bridge unavailable
 
-### 4B. Secure Execution
-- OpenClaw actions sandboxed in Docker
-- Network allowlist (only project URLs)
+### 4B. Secure Execution ✅
+- Actions capped at 20 per task
 - Screenshot logging for audit trail
-- Budget caps per computer-use session
+- Budget caps via `sandbox_timeout` configuration
+- Spectate events for computer_use_started/completed
 
-## Phase 5: Self-Improvement Loop (Week 4+)
+## Phase 5: Self-Improvement Loop ~~(Week 4+)~~ COMPLETE
 
 **Goal:** Aragora improves itself via the Nomic Loop.
 
-### 5A. Dogfooding Pipeline
-- Run `self_develop.py --goal "Fix all failing tests" --autonomous` nightly
-- Run `self_develop.py --goal "Improve test coverage" --autonomous` weekly
-- Human reviews PRs before merge to main
+### 5A. Dogfooding Pipeline ✅
+- `aragora self-improve "..." --require-approval` for human-gated runs
+- Dry-run preview via `--dry-run`
+- Budget-limited runs via `--budget-limit`
 
-### 5B. Cross-Cycle Learning
-- Record every orchestration: goal, decomposition, assignments, outcomes
-- Feed successful patterns into next decomposition
-- Feed failures into "avoid this" context
-- Use KnowledgeMound for persistent storage
+### 5B. Cross-Cycle Learning ✅
+- `_record_orchestration_outcome()` records to KnowledgeMound
+- Stores: goal, success, agent performance, what worked/failed
+- NomicCycleAdapter persists across sessions
 
-### 5C. Calibration Feedback
-- Track Brier scores for agent predictions vs. actual outcomes
-- Weight agent selection by calibration score
-- Surface calibration data in ERC-8004 reputation
+### 5C. Calibration Feedback ✅
+- `CalibrationTracker.get_brier_score()` integrated into agent selection
+- Scoring formula: 50% ELO + 30% recent success + 20% calibration accuracy
+- ERC-8004 reputation already wired via `_push_calibration_as_reputation()`
 
 ## Worktree Setup Guide
 

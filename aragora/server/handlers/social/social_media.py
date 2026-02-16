@@ -422,7 +422,7 @@ class SocialMediaHandler(BaseHandler):
                     status=400,
                 )
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
             logger.error(f"YouTube OAuth callback failed: {e}")
             return error_response(_safe_error_message(e, "youtube_callback"), status=500)
 

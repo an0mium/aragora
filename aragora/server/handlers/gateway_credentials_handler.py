@@ -411,7 +411,7 @@ class GatewayCredentialsHandler(BaseHandler):
         if proxy is not None:
             try:
                 proxy.delete(credential_id)
-            except Exception as e:
+            except (RuntimeError, OSError, AttributeError) as e:
                 logger.error("Failed to delete credential via proxy: %s", e)
 
         del credentials[credential_id]
@@ -467,7 +467,7 @@ class GatewayCredentialsHandler(BaseHandler):
                     expires_at=old_meta.get("expires_at"),
                     metadata=old_meta.get("metadata"),
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, AttributeError, TypeError) as e:
                 logger.error("Failed to store rotated credential via proxy: %s", e)
                 # Revert old credential status
                 old_meta["status"] = "active"

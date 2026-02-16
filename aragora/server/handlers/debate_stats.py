@@ -84,7 +84,7 @@ class DebateStatsHandler(BaseHandler):
                     "count": len(agent_stats),
                 }
             )
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
             logger.error("Failed to get agent stats: %s", exc)
             return error_response("Failed to get agent stats", 500)
 

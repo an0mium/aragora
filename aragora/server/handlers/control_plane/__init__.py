@@ -166,7 +166,7 @@ class ControlPlaneHandler(
                 try:
                     await method(*args, **kwargs)
                     return  # Success
-                except Exception as e:
+                except (OSError, RuntimeError, TimeoutError, ValueError, ConnectionError) as e:
                     last_error = e
                     if attempt < max_retries - 1:
                         delay = base_delay * (2**attempt)
@@ -188,7 +188,7 @@ class ControlPlaneHandler(
             # No running event loop - use _run_async as fallback (single attempt)
             try:
                 _run_async(method(*args, **kwargs))
-            except Exception as e:
+            except (OSError, RuntimeError, TimeoutError, ValueError, ConnectionError) as e:
                 logger.warning(f"Stream emission failed (no event loop): {e}")
 
     def can_handle(self, path: str) -> bool:

@@ -58,7 +58,7 @@ class ContextBudgetHandler(BaseHandler):
                     "section_limits": DEFAULT_SECTION_LIMITS,
                 }
             )
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
             logger.error("Failed to get context budget: %s", exc)
             return error_response("Failed to get context budget", 500)
 
@@ -127,7 +127,7 @@ class ContextBudgetHandler(BaseHandler):
                     "total_estimated_tokens": total,
                 }
             )
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as exc:
             logger.error("Failed to estimate context budget: %s", exc)
             return error_response("Failed to estimate context budget", 500)
 

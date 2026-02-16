@@ -216,7 +216,7 @@ class TelegramRBACMixin:
                 )
                 return False
             return True
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Telegram RBAC check failed: %s", e)
             return True
 

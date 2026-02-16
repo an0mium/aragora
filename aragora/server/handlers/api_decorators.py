@@ -339,7 +339,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
                                     status=429,
                                 )
 
-                except Exception as e:
+                except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
                     # Log but don't block on quota check failure
                     logger.warning(f"Quota check failed for org {user_ctx.org_id}: {e}")
 
@@ -362,7 +362,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable[..., Any]], Calla
                             logger.debug(
                                 f"Incremented usage for org {user_ctx.org_id} by {debate_count}"
                             )
-                    except Exception as e:
+                    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
                         logger.warning(f"Usage increment failed for org {user_ctx.org_id}: {e}")
 
             return result

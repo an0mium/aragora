@@ -264,7 +264,7 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
             }
         )
 
-    except Exception as e:
+    except (KeyError, TypeError, ValueError, sqlite3.Error) as e:
         logger.error(f"Error submitting NPS feedback: {e}")
         return error_response("Internal server error", status=500)
 
