@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -264,7 +265,7 @@ class KnowledgeGraphStore(SQLiteStore):
                         json.dumps(metadata),
                     ),
                 )
-            except (ValueError, KeyError, TypeError) as e:
+            except (ValueError, KeyError, TypeError, sqlite3.IntegrityError) as e:
                 if "UNIQUE constraint" in str(e):
                     # Link already exists, return existing ID
                     row = self.fetch_one(

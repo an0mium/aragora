@@ -94,7 +94,7 @@ class ThreatCacheMixin:
             self._cache_conn.commit()
             logger.info(f"Threat intel cache initialized: {self.config.cache_db_path}")
 
-        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError, sqlite3.OperationalError) as e:
             logger.warning(f"Failed to initialize threat cache: {e}")
 
     def _get_ttl_for_type(self, target_type: str) -> int:
