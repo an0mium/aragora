@@ -500,7 +500,7 @@ class TestShortCaller:
     def test_handles_empty_stack(self):
         """Test _short_caller handles edge cases."""
         # This tests the except branch
-        with patch("traceback.extract_stack", side_effect=RuntimeError("error")):
+        with patch("traceback.extract_stack", side_effect=IndexError("error")):
             result = _short_caller()
 
             assert result == "unknown"

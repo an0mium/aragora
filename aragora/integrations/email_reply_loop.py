@@ -1220,7 +1220,7 @@ async def handle_email_reply(email_data: InboundEmail) -> bool:
         try:
             if handler(email_data):
                 return True
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Reply handler error ({type(e).__name__}): {e}")
 
     # Default processing
@@ -1281,7 +1281,7 @@ async def send_debate_result_email(
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(f"Debate result email connection error: {type(e).__name__}: {e}")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         logger.error(f"Failed to send debate result email: {type(e).__name__}: {e}")
         return None
 
@@ -1398,8 +1398,7 @@ Reply to this email to continue the discussion.
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(f"SES connection error: {type(e).__name__}: {e}")
         return None
-    except Exception as e:
-        # botocore exceptions (ClientError, etc.) may not be importable
+    except Exception as e:  # noqa: BLE001 - botocore exceptions (ClientError, etc.) may not be importable
         logger.error(f"SES error ({type(e).__name__}): {e}")
         return None
 

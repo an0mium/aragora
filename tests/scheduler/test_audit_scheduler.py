@@ -793,7 +793,7 @@ class TestAuditScheduler:
             run = await scheduler.trigger_job(job.job_id)
 
         assert run.status == "error"
-        assert run.error_message == "Auditor failed"
+        assert run.error_message == "Audit job execution failed"
         failed_callback.assert_called_once()
 
     @pytest.mark.asyncio
