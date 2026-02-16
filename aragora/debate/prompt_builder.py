@@ -295,6 +295,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         claims_kernel: Any | None = None,
         include_prior_claims: bool = False,
         enable_introspection: bool = True,
+        knowledge_context: str | None = None,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -312,6 +313,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
             elo_system: Optional ELO system for agent ranking context
             domain: Debate domain for domain-specific ELO lookup
             supermemory_adapter: Optional adapter for external memory context injection
+            knowledge_context: Optional pre-fetched Knowledge Mound context string
         """
         self.protocol = protocol
         self.env = env
@@ -371,6 +373,10 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self.supermemory_adapter = supermemory_adapter
         self._supermemory_context: ContextInjectionResult | None = None
         self._supermemory_context_cache: str = ""
+
+        # Knowledge Mound structured context (organizational knowledge)
+        self._knowledge_context: str = knowledge_context or ""
+        self._km_item_ids: list[str] = []
 
         # Mode-based phase prompts (set externally by Arena via mode_sequence)
         self.mode_sequence: list[str] | None = None
