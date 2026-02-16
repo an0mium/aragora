@@ -378,7 +378,7 @@ class HumanCheckpointStep(BaseStep):
                         status="timeout",
                         rejection_reason="Approval request timed out",
                     )
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to persist timeout status: {e}")
 
             # Trigger escalation
@@ -447,7 +447,7 @@ class HumanCheckpointStep(BaseStep):
                                 f"from governance store: {record.status}"
                             )
                             break
-                    except Exception as e:
+                    except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
                         logger.debug(f"Error polling governance store: {e}")
 
         # Validate checklist if approved
@@ -491,7 +491,7 @@ class HumanCheckpointStep(BaseStep):
                     status="escalated",
                     rejection_reason=f"Escalated to: {', '.join(request.escalation_emails)}",
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.warning(f"Failed to persist escalation status: {e}")
 
         # Send escalation notifications via Slack/Email
@@ -509,7 +509,7 @@ class HumanCheckpointStep(BaseStep):
             )
         except ImportError:
             logger.debug("Notification service not available for escalation")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             logger.warning(f"Failed to send escalation notification: {e}")
 
     def _build_description(self, config: dict[str, Any], context: WorkflowContext) -> str:
@@ -568,7 +568,7 @@ class HumanCheckpointStep(BaseStep):
             )
         except ImportError:
             logger.debug("Notification service not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             logger.warning(f"Failed to send approval notification: {e}")
 
         # Send interactive chat approval request (best-effort)
@@ -630,7 +630,7 @@ class HumanCheckpointStep(BaseStep):
                 thread_id=thread_id,
                 thread_id_by_platform=thread_id_by_platform,
             )
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             logger.debug("Chat approval notification skipped: %s", e)
 
     def _build_action_url(self, request: ApprovalRequest) -> str | None:
@@ -694,7 +694,7 @@ def resolve_approval(
                 approved_by=responder_id if status == ApprovalStatus.APPROVED else None,
                 rejection_reason=rejection_reason,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"Failed to update approval in store: {e}")
 
     # Send resolution notification (async in background)
@@ -722,7 +722,7 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
             )
         except ImportError:
             pass  # Notification service not available
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             logger.warning(f"Failed to send resolution notification: {e}")
 
     # Try to schedule in existing event loop or create new one
@@ -735,7 +735,7 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
             asyncio.run(_send())
         except (RuntimeError, asyncio.CancelledError) as e:
             logger.debug(f"Resolution notification send failed (event loop): {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
             logger.warning(f"Unexpected error sending resolution notification: {e}")
 
 
@@ -815,7 +815,7 @@ def get_approval_request(request_id: str) -> ApprovalRequest | None:
                 _pending_approvals[request_id] = request
                 logger.debug(f"Recovered approval {request_id} from governance store")
                 return request
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.debug(f"Could not recover approval {request_id}: {e}")
 
     return None

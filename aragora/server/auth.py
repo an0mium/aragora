@@ -710,7 +710,7 @@ def check_auth(
                         "Check JWT_DEBUG logs for details."
                     )
                     return False, -1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Must catch ConfigurationError, SecretNotFoundError from AWS Secrets Manager
                 # Log the exception and reject - JWT tokens shouldn't fall through to HMAC.
                 # Must catch broadly: ConfigurationError, SecretNotFoundError, and other
                 # failures from the billing/secrets stack can occur in production

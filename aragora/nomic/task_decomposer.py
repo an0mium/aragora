@@ -76,6 +76,8 @@ COMPLEXITY_INDICATORS = {
         "architectural",
         "system-wide",
         "cross-cutting",
+        "harden",
+        "consolidate",
     ],
     "medium": [
         "integrate",
@@ -317,7 +319,7 @@ class TaskDecomposer:
         # mentions, no technical keywords, and no concept terms is almost
         # certainly a broad directive like "maximize utility for SMEs".
         vagueness_bonus = 0.0
-        if file_score == 0 and keyword_score < 1 and concept_score == 0:
+        if file_score == 0 and keyword_score < 2 and concept_score <= 1:
             # Check for strategic/broad language that signals high-level goals
             strategic_terms = {
                 "maximize", "minimise", "minimize", "optimise", "optimize",

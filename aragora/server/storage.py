@@ -783,7 +783,7 @@ def get_debates_db() -> DebateStorage | None:
             db_path = get_default_data_dir() / "aragora_debates.db"
             _debate_storage = DebateStorage(str(db_path))
             logger.info(f"Initialized DebateStorage: {db_path}")
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to initialize DebateStorage: {e}")
             return None
     return _debate_storage
