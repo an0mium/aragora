@@ -205,6 +205,9 @@ class ArenaBuilder:
         self._supermemory_context_container_tag: str | None = None
         self._supermemory_max_context_items: int | None = None
         self._enable_belief_guidance: bool | None = None
+        self._enable_cartographer: bool | None = None
+        self._enable_introspection: bool | None = None
+        self._enable_auto_execution: bool | None = None
 
         # Loop configuration
         self._loop_id: str = ""
@@ -420,6 +423,22 @@ class ArenaBuilder:
             self._supermemory_max_context_items = supermemory_max_context_items
         if enable_belief_guidance is not None:
             self._enable_belief_guidance = enable_belief_guidance
+        return self
+
+    def with_feature_flags(
+        self,
+        *,
+        enable_cartographer: bool | None = None,
+        enable_introspection: bool | None = None,
+        enable_auto_execution: bool | None = None,
+    ) -> ArenaBuilder:
+        """Set optional feature flags for debate behavior."""
+        if enable_cartographer is not None:
+            self._enable_cartographer = enable_cartographer
+        if enable_introspection is not None:
+            self._enable_introspection = enable_introspection
+        if enable_auto_execution is not None:
+            self._enable_auto_execution = enable_auto_execution
         return self
 
     # =========================================================================
@@ -1193,6 +1212,12 @@ class ArenaBuilder:
             arena_kwargs["supermemory_max_context_items"] = self._supermemory_max_context_items
         if self._enable_belief_guidance is not None:
             arena_kwargs["enable_belief_guidance"] = self._enable_belief_guidance
+        if self._enable_cartographer is not None:
+            arena_kwargs["enable_cartographer"] = self._enable_cartographer
+        if self._enable_introspection is not None:
+            arena_kwargs["enable_introspection"] = self._enable_introspection
+        if self._enable_auto_execution is not None:
+            arena_kwargs["enable_auto_execution"] = self._enable_auto_execution
 
         return Arena(**arena_kwargs)
 

@@ -436,6 +436,36 @@ class PromptContextMixin:
         """Get cached supermemory context for prompt injection."""
         return self._supermemory_context_cache
 
+    def get_knowledge_mound_context(self) -> str:
+        """Get structured Knowledge Mound context for prompt injection.
+
+        Returns the organizational knowledge context that was set via
+        set_knowledge_context(). This is injected as a dedicated prompt
+        section (parallel to supermemory) rather than appended to env.context.
+
+        Returns:
+            Formatted knowledge context string, or empty string if not set.
+        """
+        return self._knowledge_context
+
+    def set_knowledge_context(
+        self, context: str, item_ids: list[str] | None = None
+    ) -> None:
+        """Set structured Knowledge Mound context for prompt injection.
+
+        This allows the context initializer to provide KM content as a
+        dedicated prompt section rather than appending to env.context.
+        The content will be injected with a clear "Organizational Knowledge"
+        header so agents know it represents institutional memory.
+
+        Args:
+            context: The knowledge context string to inject into prompts.
+            item_ids: Optional list of KM item IDs used (for outcome tracking).
+        """
+        self._knowledge_context = context or ""
+        if item_ids is not None:
+            self._km_item_ids = list(item_ids)
+
     def get_prior_claims_context(self, limit: int = 5) -> str:
         """Get prior claims related to the current topic for context injection.
 

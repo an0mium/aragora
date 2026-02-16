@@ -121,6 +121,9 @@ class DebateConfig:
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
     context: str | None = None  # Optional context for the debate
     budget_limit_usd: float | None = None  # Per-debate budget cap (USD)
+    enable_cartographer: bool | None = None  # Enable argument cartography
+    enable_introspection: bool | None = None  # Enable agent introspection
+    enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
@@ -678,6 +681,21 @@ class DebateFactory:
 
         # Enable position ledger auto-creation for truth grounding
         builder = builder.with_enable_position_ledger(True)
+
+        # Pass feature flags from config if specified
+        if any(
+            v is not None
+            for v in (
+                config.enable_cartographer,
+                config.enable_introspection,
+                config.enable_auto_execution,
+            )
+        ):
+            builder = builder.with_feature_flags(
+                enable_cartographer=config.enable_cartographer,
+                enable_introspection=config.enable_introspection,
+                enable_auto_execution=config.enable_auto_execution,
+            )
 
         arena = builder.build()
 

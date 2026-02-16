@@ -188,7 +188,7 @@ class BroadcastPipeline:
                 )
                 result.audio_path = stored_path
                 result.steps_completed.append("storage")
-            except (RuntimeError, OSError, ValueError) as e:
+            except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without storage
                 logger.warning(f"Failed to persist to audio store: {e}")
 
         result.success = "audio" in result.steps_completed
@@ -209,7 +209,7 @@ class BroadcastPipeline:
         except ImportError:
             logger.error("Broadcast module not available")
             return None
-        except (RuntimeError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without audio
             logger.error(f"Audio generation failed: {e}")
             return None
 
@@ -240,7 +240,7 @@ class BroadcastPipeline:
         except ImportError:
             logger.warning("Video generation module not available")
             return None
-        except (RuntimeError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, pipeline continues without video
             logger.warning(f"Video generation failed: {e}")
             return None
 
@@ -290,7 +290,7 @@ class BroadcastPipeline:
 
             self.rss_generator.add_episode(episode)
             return episode.guid
-        except (RuntimeError, ValueError, TypeError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, RSS episode creation is non-critical
             logger.warning(f"Failed to create RSS episode: {e}")
             return None
 

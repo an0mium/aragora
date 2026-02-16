@@ -140,6 +140,10 @@ class MergedConfig:
         "power_sampling_config",
         "initial_messages",
         "protocol",
+        "enable_auto_execution",
+        "auto_execution_mode",
+        "auto_approval_mode",
+        "auto_max_risk",
     )
 
     # Type annotations for all slots (required by mypy for __slots__ classes)
@@ -252,6 +256,10 @@ class MergedConfig:
     post_debate_workflow_threshold: float
     power_sampling_config: Any
     initial_messages: Any
+    enable_auto_execution: bool
+    auto_execution_mode: str
+    auto_approval_mode: str
+    auto_max_risk: str
 
 
 def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
@@ -377,6 +385,10 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     post_debate_workflow_threshold: float,
     power_sampling_config: Any = None,
     initial_messages: Any = None,
+    enable_auto_execution: bool = False,
+    auto_execution_mode: str = "workflow",
+    auto_approval_mode: str = "risk_based",
+    auto_max_risk: str = "low",
 ) -> MergedConfig:
     """Merge config objects with individual parameters.
 
@@ -758,5 +770,9 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.post_debate_workflow_threshold = post_debate_workflow_threshold
     cfg.power_sampling_config = power_sampling_config
     cfg.initial_messages = initial_messages
+    cfg.enable_auto_execution = enable_auto_execution
+    cfg.auto_execution_mode = auto_execution_mode
+    cfg.auto_approval_mode = auto_approval_mode
+    cfg.auto_max_risk = auto_max_risk
 
     return cfg

@@ -1059,6 +1059,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
         spectate_fmt = getattr(args, "spectate_format", "auto")
         spectate_kwargs["spectator"] = SpectatorStream(enabled=True, format=spectate_fmt)
 
+    # CLI flag overrides for ArenaConfig (explicit flags take precedence over presets)
+    cli_config_kwargs: dict[str, Any] = {}
+    if hasattr(args, "enable_cartographer"):
+        cli_config_kwargs["enable_cartographer"] = args.enable_cartographer
+    if hasattr(args, "enable_introspection"):
+        cli_config_kwargs["enable_introspection"] = args.enable_introspection
+    if getattr(args, "auto_execute", False):
+        cli_config_kwargs["enable_auto_execution"] = True
+
     debate_timeout = getattr(args, "timeout", 300)
 
     async def _run_with_timeout():
@@ -1083,6 +1092,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 auto_explain=explain,
                 **preset_kwargs,
                 **spectate_kwargs,
+                **cli_config_kwargs,
             ),
             timeout=debate_timeout,
         )

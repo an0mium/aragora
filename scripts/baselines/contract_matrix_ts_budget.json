@@ -66,11 +66,13 @@
     "repository",
     "rlm",
     "routing",
+    "scim",
     "security",
     "skills",
     "teams",
     "transcription",
     "unified-inbox",
+    "vector-index",
     "voice",
     "webhooks",
     "workflow-templates"

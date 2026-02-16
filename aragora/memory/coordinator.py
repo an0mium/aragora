@@ -436,7 +436,7 @@ class MemoryCoordinator:
                 reason="transaction_rollback",
             )
             return result.get("deleted", False)
-        except (KeyError, TypeError, ValueError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, rollback is best-effort
             logger.error("[coordinator] Continuum rollback failed: %s", e)
             return False
 
@@ -451,7 +451,7 @@ class MemoryCoordinator:
                 consensus_id=op.result,
                 cascade_dissents=True,
             )
-        except (KeyError, TypeError, ValueError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, rollback is best-effort
             logger.error("[coordinator] Consensus rollback failed: %s", e)
             return False
 
@@ -466,7 +466,7 @@ class MemoryCoordinator:
                 debate_id=op.result,
                 cascade_critiques=True,
             )
-        except (KeyError, TypeError, ValueError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, rollback is best-effort
             logger.error("[coordinator] Critique rollback failed: %s", e)
             return False
 
@@ -488,7 +488,7 @@ class MemoryCoordinator:
             else:
                 logger.warning("[coordinator] Mound has no delete method")
                 return False
-        except (KeyError, TypeError, ValueError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, rollback is best-effort
             logger.error("[coordinator] Mound rollback failed: %s", e)
             return False
 
@@ -661,7 +661,7 @@ class MemoryCoordinator:
                 if op.status == WriteStatus.PENDING:
                     op.mark_failed("timeout")
 
-        except (ValueError, TypeError, KeyError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001 - graceful degradation, mark remaining ops as failed
             logger.error("Transaction %s failed: %s", transaction.id, e)
             for op in transaction.operations:
                 if op.status == WriteStatus.PENDING:
@@ -1030,7 +1030,7 @@ class MemoryCoordinator:
                         op.target,
                         op.id,
                     )
-            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+            except Exception as e:  # noqa: BLE001 - graceful degradation, rollback is best-effort
                 logger.error("[coordinator] Rollback failed for %s: %s", op.id, e)
 
         transaction.rolled_back = True

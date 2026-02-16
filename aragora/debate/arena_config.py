@@ -68,6 +68,7 @@ from aragora.type_protocols import (
 
 from .arena_sub_configs import (
     AuditTrailConfig,
+    AutoExecutionConfig,
     BudgetSubConfig,
     CheckpointMemoryConfig,
     CrossPollinationConfig,
@@ -109,6 +110,7 @@ _SUB_CONFIG_ATTRS: list[tuple[str, type]] = [
     ("supermemory_sub_config", SupermemorySubConfig),
     ("budget_sub_config", BudgetSubConfig),
     ("power_sampling_config", PowerSamplingConfig),
+    ("auto_execution_config", AutoExecutionConfig),
 ]
 
 for _attr_name, _cls in _SUB_CONFIG_ATTRS:
@@ -218,6 +220,10 @@ class ArenaConfigBuilder:
 
     def with_post_debate(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set post-debate coordinator pipeline configuration."""
+        return self._merge(kwargs)
+
+    def with_auto_execution(self, **kwargs: Any) -> ArenaConfigBuilder:
+        """Set auto-execution configuration for decision pipeline."""
         return self._merge(kwargs)
 
     def build(self) -> ArenaConfig:
@@ -430,6 +436,7 @@ class ArenaConfig:
         supermemory_sub_config: SupermemorySubConfig | None = None,
         budget_sub_config: BudgetSubConfig | None = None,
         power_sampling_config: PowerSamplingConfig | None = None,
+        auto_execution_config: AutoExecutionConfig | None = None,
         # ---- Flat kwargs that belong to sub-configs (backward compat) ----
         **kwargs: Any,
     ) -> None:
@@ -517,6 +524,9 @@ class ArenaConfig:
         # Agent introspection (self-awareness in prompts)
         self.enable_introspection = kwargs.pop("enable_introspection", True)
 
+        # Argument cartography (debate graph visualization)
+        self.enable_cartographer = kwargs.pop("enable_cartographer", True)
+
         # Decision pipeline (auto-create GitHub issues from plans)
         self.auto_execute_plan = kwargs.pop("auto_execute_plan", False)
 
@@ -561,6 +571,9 @@ class ArenaConfig:
         self.budget_sub_config = self._build_sub_config(BudgetSubConfig, budget_sub_config, kwargs)
         self.power_sampling_config = self._build_sub_config(
             PowerSamplingConfig, power_sampling_config, kwargs
+        )
+        self.auto_execution_config = self._build_sub_config(
+            AutoExecutionConfig, auto_execution_config, kwargs
         )
 
         # Any remaining kwargs are unknown fields

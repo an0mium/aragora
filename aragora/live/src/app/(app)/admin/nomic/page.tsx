@@ -21,6 +21,36 @@ interface NomicStatus {
   };
 }
 
+interface ImprovementMetrics {
+  cycle_id: string;
+  goal: string;
+  improvement_score: number;
+  tests_passed_delta: number;
+  tests_failed_delta: number;
+  lint_errors_delta: number;
+  test_pass_rate_before: number;
+  test_pass_rate_after: number;
+  success_criteria_met: boolean;
+  timestamp: string;
+}
+
+interface SpecialistAgent {
+  agent_name: string;
+  domain: string;
+  elo_rating: number;
+  match_count: number;
+  win_rate: number;
+  promoted_at: string;
+}
+
+interface EpistemicStats {
+  total_beliefs: number;
+  total_edges: number;
+  domains: string[];
+  avg_confidence: number;
+  by_type: { consensus: number; claim: number; dissent: number };
+}
+
 interface CircuitBreakerStatus {
   name: string;
   state: 'closed' | 'open' | 'half_open';
@@ -92,6 +122,9 @@ export default function NomicAdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<number>(5000);
   const [resetPhase, setResetPhase] = useState<string>('context');
+  const [improvements, setImprovements] = useState<ImprovementMetrics[]>([]);
+  const [specialists, setSpecialists] = useState<SpecialistAgent[]>([]);
+  const [epistemicStats, setEpistemicStats] = useState<EpistemicStats | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -119,6 +152,33 @@ export default function NomicAdminPage() {
         const data = await cbRes.json();
         setCircuitBreakers(data.circuit_breakers || []);
       }
+
+      // Fetch self-improvement metrics
+      try {
+        const metricsRes = await fetch(`${backendConfig.api}/api/v1/admin/nomic/improvements`, { headers });
+        if (metricsRes.ok) {
+          const data = await metricsRes.json();
+          setImprovements(data.improvements || []);
+        }
+      } catch { /* endpoint may not exist yet */ }
+
+      // Fetch specialist registry
+      try {
+        const specRes = await fetch(`${backendConfig.api}/api/v1/admin/nomic/specialists`, { headers });
+        if (specRes.ok) {
+          const data = await specRes.json();
+          setSpecialists(data.specialists || []);
+        }
+      } catch { /* endpoint may not exist yet */ }
+
+      // Fetch epistemic graph stats
+      try {
+        const epiRes = await fetch(`${backendConfig.api}/api/v1/admin/nomic/epistemic-stats`, { headers });
+        if (epiRes.ok) {
+          const data = await epiRes.json();
+          setEpistemicStats(data);
+        }
+      } catch { /* endpoint may not exist yet */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch nomic data');
     } finally {
@@ -459,6 +519,159 @@ export default function NomicAdminPage() {
                 <span className="text-text">{formatTimeAgo(status.state_machine.last_transition)}</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Self-Improvement Metrics */}
+        <div className="card p-4">
+          <h2 className="text-lg font-mono text-text mb-4">Self-Improvement Metrics</h2>
+          {improvements.length === 0 ? (
+            <div className="text-sm font-mono text-text-muted">No improvement cycles recorded yet</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="p-3 bg-surface rounded border border-border">
+                  <div className="text-xs font-mono text-text-muted mb-1">Total Cycles</div>
+                  <div className="text-2xl font-mono text-acid-green">{improvements.length}</div>
+                </div>
+                <div className="p-3 bg-surface rounded border border-border">
+                  <div className="text-xs font-mono text-text-muted mb-1">Avg Improvement</div>
+                  <div className="text-2xl font-mono text-acid-cyan">
+                    {(improvements.reduce((sum, m) => sum + m.improvement_score, 0) / improvements.length * 100).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="p-3 bg-surface rounded border border-border">
+                  <div className="text-xs font-mono text-text-muted mb-1">Success Rate</div>
+                  <div className="text-2xl font-mono text-acid-green">
+                    {(improvements.filter(m => m.success_criteria_met).length / improvements.length * 100).toFixed(0)}%
+                  </div>
+                </div>
+                <div className="p-3 bg-surface rounded border border-border">
+                  <div className="text-xs font-mono text-text-muted mb-1">Net Tests Added</div>
+                  <div className="text-2xl font-mono text-acid-magenta">
+                    +{improvements.reduce((sum, m) => sum + m.tests_passed_delta, 0)}
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm font-mono">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-text-muted font-normal">Goal</th>
+                      <th className="text-left py-2 text-text-muted font-normal">Score</th>
+                      <th className="text-left py-2 text-text-muted font-normal">Tests</th>
+                      <th className="text-left py-2 text-text-muted font-normal">Lint</th>
+                      <th className="text-left py-2 text-text-muted font-normal">Criteria</th>
+                      <th className="text-left py-2 text-text-muted font-normal">When</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {improvements.slice(-10).reverse().map((m) => (
+                      <tr key={m.cycle_id} className="border-b border-border/50 hover:bg-surface/50">
+                        <td className="py-2 text-text max-w-xs truncate">{m.goal}</td>
+                        <td className="py-2">
+                          <span className={m.improvement_score > 0.5 ? 'text-acid-green' : m.improvement_score > 0 ? 'text-acid-yellow' : 'text-acid-red'}>
+                            {(m.improvement_score * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                        <td className="py-2 text-text">
+                          <span className={m.tests_passed_delta >= 0 ? 'text-acid-green' : 'text-acid-red'}>
+                            {m.tests_passed_delta >= 0 ? '+' : ''}{m.tests_passed_delta}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          <span className={m.lint_errors_delta <= 0 ? 'text-acid-green' : 'text-acid-red'}>
+                            {m.lint_errors_delta <= 0 ? '' : '+'}{m.lint_errors_delta}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          {m.success_criteria_met ? (
+                            <span className="text-acid-green">MET</span>
+                          ) : (
+                            <span className="text-acid-red">MISS</span>
+                          )}
+                        </td>
+                        <td className="py-2 text-text-muted">{formatTimeAgo(m.timestamp)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Specialist Registry */}
+        <div className="card p-4">
+          <h2 className="text-lg font-mono text-text mb-4">Domain Specialists</h2>
+          {specialists.length === 0 ? (
+            <div className="text-sm font-mono text-text-muted">No specialists promoted yet. Agents are promoted after 5+ domain matches with ELO 150+ above baseline.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {specialists.map((s) => (
+                <div key={`${s.agent_name}-${s.domain}`} className="p-3 bg-surface rounded border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-acid-cyan text-sm">{s.agent_name}</span>
+                    <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-magenta/20 text-acid-magenta border-acid-magenta/40">
+                      {s.domain}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                    <div>
+                      <span className="text-text-muted">ELO</span>
+                      <div className="text-acid-green">{Math.round(s.elo_rating)}</div>
+                    </div>
+                    <div>
+                      <span className="text-text-muted">Matches</span>
+                      <div className="text-text">{s.match_count}</div>
+                    </div>
+                    <div>
+                      <span className="text-text-muted">Win Rate</span>
+                      <div className="text-text">{(s.win_rate * 100).toFixed(0)}%</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Epistemic Graph */}
+        {epistemicStats && (
+          <div className="card p-4">
+            <h2 className="text-lg font-mono text-text mb-4">Epistemic Graph</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="p-3 bg-surface rounded border border-border">
+                <div className="text-xs font-mono text-text-muted mb-1">Total Beliefs</div>
+                <div className="text-xl font-mono text-acid-green">{epistemicStats.total_beliefs}</div>
+              </div>
+              <div className="p-3 bg-surface rounded border border-border">
+                <div className="text-xs font-mono text-text-muted mb-1">Edges</div>
+                <div className="text-xl font-mono text-acid-cyan">{epistemicStats.total_edges}</div>
+              </div>
+              <div className="p-3 bg-surface rounded border border-border">
+                <div className="text-xs font-mono text-text-muted mb-1">Avg Confidence</div>
+                <div className="text-xl font-mono text-acid-yellow">{(epistemicStats.avg_confidence * 100).toFixed(0)}%</div>
+              </div>
+              <div className="p-3 bg-surface rounded border border-border">
+                <div className="text-xs font-mono text-text-muted mb-1">Consensus</div>
+                <div className="text-xl font-mono text-acid-green">{epistemicStats.by_type.consensus}</div>
+              </div>
+              <div className="p-3 bg-surface rounded border border-border">
+                <div className="text-xs font-mono text-text-muted mb-1">Dissent</div>
+                <div className="text-xl font-mono text-acid-red">{epistemicStats.by_type.dissent}</div>
+              </div>
+            </div>
+            {epistemicStats.domains.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="text-xs font-mono text-text-muted">Domains:</span>
+                {epistemicStats.domains.map((d) => (
+                  <span key={d} className="px-2 py-0.5 text-xs font-mono rounded border bg-surface text-text border-border">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

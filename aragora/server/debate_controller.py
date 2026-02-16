@@ -161,6 +161,9 @@ class DebateRequest:
     context: str | None = None  # Optional context for the debate
     template_name: str | None = None  # Optional deliberation template name
     budget_limit_usd: float | None = None  # Per-debate budget cap
+    enable_cartographer: bool | None = None  # Enable argument cartography
+    enable_introspection: bool | None = None  # Enable agent introspection
+    enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -254,6 +257,9 @@ class DebateRequest:
             context=data.get("context"),
             template_name=template_name,
             budget_limit_usd=_parse_budget_limit(data.get("budget_limit_usd")),
+            enable_cartographer=data.get("enable_cartographer"),
+            enable_introspection=data.get("enable_introspection"),
+            enable_auto_execution=data.get("enable_auto_execution"),
         )
 
 
@@ -633,6 +639,9 @@ Return JSON with these exact fields:
             enable_verticals=request.enable_verticals,
             vertical_id=request.vertical_id,
             budget_limit_usd=request.budget_limit_usd,
+            enable_cartographer=request.enable_cartographer,
+            enable_introspection=request.enable_introspection,
+            enable_auto_execution=request.enable_auto_execution,
         )
 
         # Submit to thread pool

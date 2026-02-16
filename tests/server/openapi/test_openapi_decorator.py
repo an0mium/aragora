@@ -1142,7 +1142,7 @@ class TestSchemaExtractionEdgeCases:
         """Should handle exceptions during schema extraction."""
         # Create a mock that raises an exception
         mock_model = MagicMock()
-        mock_model.model_json_schema.side_effect = Exception("Schema error")
+        mock_model.model_json_schema.side_effect = ValueError("Schema error")
 
         with patch(
             "aragora.server.handlers.openapi_decorator._is_pydantic_model",

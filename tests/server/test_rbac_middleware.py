@@ -212,16 +212,16 @@ class TestUnifiedServerRBACIntegration:
         from aragora.server.unified_server import UnifiedHandler
 
         # Check RBAC is configured with route permissions
-        assert hasattr(UnifiedHandler, "rbac")
-        assert UnifiedHandler.rbac is not None
-        assert len(UnifiedHandler.rbac.config.route_permissions) > 0
+        rbac = UnifiedHandler._get_rbac()
+        assert rbac is not None
+        assert len(rbac.config.route_permissions) > 0
 
     def test_server_rbac_has_default_permissions(self):
         """Verify server RBAC includes default route permissions."""
         from aragora.server.unified_server import UnifiedHandler
 
         # Check specific permissions are configured
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
 
         # Debates endpoints
         assert rbac.get_required_permission("/api/debates", "POST") == "debates.create"
@@ -238,7 +238,7 @@ class TestUnifiedServerRBACIntegration:
         """Verify health endpoints bypass RBAC."""
         from aragora.server.unified_server import UnifiedHandler
 
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
 
         # Health endpoints should bypass
         allowed, reason, _ = rbac.check_request("/health", "GET", None)
@@ -252,7 +252,7 @@ class TestUnifiedServerRBACIntegration:
         """Verify RBAC blocks unauthenticated access to protected routes."""
         from aragora.server.unified_server import UnifiedHandler
 
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
 
         # Protected route without auth should be blocked
         allowed, reason, perm = rbac.check_request("/api/debates", "POST", None)

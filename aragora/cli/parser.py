@@ -324,8 +324,8 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument(
         "--preset",
-        choices=["sme", "enterprise", "minimal", "audit"],
-        help="Apply a configuration preset (sme, enterprise, minimal, audit)",
+        choices=["sme", "enterprise", "minimal", "audit", "visual", "compliance", "research", "healthcare", "financial"],
+        help="Apply a configuration preset (sme, enterprise, minimal, audit, visual, compliance, research, healthcare, financial)",
     )
     ask_parser.add_argument(
         "--spectate",
@@ -337,6 +337,25 @@ def _add_ask_parser(subparsers) -> None:
         choices=["auto", "ansi", "plain", "json"],
         default="auto",
         help="Spectator output format (default: auto)",
+    )
+    ask_parser.add_argument(
+        "--no-cartographer",
+        dest="enable_cartographer",
+        action="store_false",
+        default=True,
+        help="Disable argument graph visualization",
+    )
+    ask_parser.add_argument(
+        "--no-introspection",
+        dest="enable_introspection",
+        action="store_false",
+        default=True,
+        help="Disable agent self-awareness in prompts",
+    )
+    ask_parser.add_argument(
+        "--auto-execute",
+        action="store_true",
+        help="Auto-execute approved plans from debate results",
     )
     ask_parser.add_argument(
         "--timeout",

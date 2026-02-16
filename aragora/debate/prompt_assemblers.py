@@ -46,6 +46,7 @@ class PromptAssemblyMixin:
     get_rlm_context_hint: Any
     get_continuum_context: Any
     get_supermemory_context: Any
+    get_knowledge_mound_context: Any
     get_prior_claims_context: Any
     format_pulse_context: Any
     get_language_constraint: Any
@@ -158,6 +159,12 @@ class PromptAssemblyMixin:
         if supermemory_context:
             supermemory_section = f"{supermemory_context}"
 
+        # Knowledge Mound organizational knowledge (structured KM section)
+        km_section = ""
+        km_context = self.get_knowledge_mound_context()
+        if km_context:
+            km_section = f"## Organizational Knowledge\n{km_context}"
+
         belief_section = ""
         belief_context = self._inject_belief_context(limit=3)
         if belief_context:
@@ -244,6 +251,7 @@ class PromptAssemblyMixin:
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
             ContextSection("supermemory", supermemory_section.strip()),
+            ContextSection("knowledge_mound", km_section.strip()),
             ContextSection("belief", belief_section.strip()),
             ContextSection("dissent", dissent_section.strip()),
             ContextSection("patterns", patterns_section.strip()),
@@ -318,6 +326,12 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if patterns:
             patterns_section = patterns
 
+        # Knowledge Mound organizational knowledge (structured KM section)
+        km_section = ""
+        km_context = self.get_knowledge_mound_context()
+        if km_context:
+            km_section = f"## Organizational Knowledge\n{km_context}"
+
         belief_section = ""
         belief_context = self._inject_belief_context(limit=2)
         if belief_context:
@@ -355,6 +369,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             mode_section = mode_prompt
 
         sections = [
+            ContextSection("knowledge_mound", km_section.strip()),
             ContextSection("patterns", patterns_section.strip()),
             ContextSection("belief", belief_section.strip()),
             ContextSection("calibration", calibration_section.strip()),

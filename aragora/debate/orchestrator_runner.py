@@ -262,6 +262,10 @@ async def initialize_debate_context(
     ctx.molecule_orchestrator = arena.molecule_orchestrator
     ctx.checkpoint_bridge = arena.checkpoint_bridge
 
+    # Wire PromptBuilder onto context so ContextInitializer can inject
+    # Knowledge Mound context as a structured prompt section
+    ctx._prompt_builder = arena.prompt_builder  # type: ignore[attr-defined]
+
     # Initialize BeliefNetwork with KM seeding if enabled
     if getattr(arena.protocol, "enable_km_belief_sync", False):
         ctx.belief_network = arena._setup_belief_network(
@@ -748,5 +752,84 @@ async def cleanup_debate_resources(
     # Translate conclusions if multi-language support is enabled
     if result and getattr(arena.protocol, "enable_translation", False):
         await arena._translate_conclusions(result)
+
+    # Auto-execute decision plan if enabled
+    if result and getattr(arena, "enable_auto_execution", False):
+        result = await _auto_execute_plan(arena, result)
+
+    return result
+
+
+async def _auto_execute_plan(
+    arena: Arena,
+    result: DebateResult,
+) -> DebateResult:
+    """Generate and optionally execute a DecisionPlan from debate result.
+
+    Creates a DecisionPlan via DecisionPlanFactory.from_debate_result(),
+    stores plan metadata on the result, and executes the plan through
+    PlanExecutor if no human approval is required.
+
+    Args:
+        arena: Arena instance with auto-execution config attributes.
+        result: The finalized DebateResult from the debate.
+
+    Returns:
+        The DebateResult with plan metadata attached.
+    """
+    try:
+        from aragora.pipeline.decision_plan import DecisionPlanFactory
+        from aragora.pipeline.decision_plan.core import ApprovalMode
+        from aragora.pipeline.executor import PlanExecutor
+        from aragora.pipeline.risk_register import RiskLevel
+
+        approval_mode_map = {
+            "always": ApprovalMode.ALWAYS,
+            "risk_based": ApprovalMode.RISK_BASED,
+            "confidence_based": ApprovalMode.CONFIDENCE_BASED,
+            "never": ApprovalMode.NEVER,
+        }
+        risk_level_map = {
+            "low": RiskLevel.LOW,
+            "medium": RiskLevel.MEDIUM,
+            "high": RiskLevel.HIGH,
+            "critical": RiskLevel.CRITICAL,
+        }
+
+        approval_mode_str = getattr(arena, "auto_approval_mode", "risk_based")
+        max_risk_str = getattr(arena, "auto_max_risk", "low")
+        execution_mode = getattr(arena, "auto_execution_mode", "workflow")
+
+        plan = DecisionPlanFactory.from_debate_result(
+            result,
+            approval_mode=approval_mode_map.get(approval_mode_str, ApprovalMode.RISK_BASED),
+            max_auto_risk=risk_level_map.get(max_risk_str, RiskLevel.LOW),
+        )
+
+        # Store plan reference on result metadata
+        if not isinstance(result.metadata, dict):
+            result.metadata = {}
+        result.metadata["decision_plan_id"] = plan.id
+        result.metadata["decision_plan_status"] = (
+            plan.status.value if hasattr(plan.status, "value") else str(plan.status)
+        )
+
+        # Execute if auto-approved or no approval needed
+        if not plan.requires_human_approval:
+            executor = PlanExecutor(execution_mode=execution_mode)
+            outcome = await executor.execute(plan)
+            result.metadata["plan_outcome"] = {
+                "success": outcome.success,
+                "tasks_completed": outcome.tasks_completed,
+                "tasks_total": outcome.tasks_total,
+            }
+
+        logger.info(f"auto_execution plan_id={plan.id} status={plan.status} debate_id={result.debate_id}")
+
+    except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
+        logger.warning(f"auto_execution_failed error={type(e).__name__}: {e}")
+        if not isinstance(result.metadata, dict):
+            result.metadata = {}
+        result.metadata["auto_execution_error"] = type(e).__name__
 
     return result

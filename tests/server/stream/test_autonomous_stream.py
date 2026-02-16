@@ -1078,7 +1078,7 @@ class TestConcurrentBroadcasting:
         ws_good1 = MagicMock()
         ws_good1.send_str = AsyncMock()
         ws_bad = MagicMock()
-        ws_bad.send_str = AsyncMock(side_effect=Exception("Failed"))
+        ws_bad.send_str = AsyncMock(side_effect=ConnectionError("Failed"))
         ws_good2 = MagicMock()
         ws_good2.send_str = AsyncMock()
 

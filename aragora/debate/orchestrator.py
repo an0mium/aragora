@@ -341,6 +341,10 @@ class Arena(ArenaDelegatesMixin):
     rlm_max_recent_messages: int
     rlm_summary_level: str
     rlm_compression_round_threshold: int
+    enable_auto_execution: bool
+    auto_execution_mode: str
+    auto_approval_mode: str
+    auto_max_risk: str
 
     def __init__(
         self,
@@ -470,6 +474,10 @@ class Arena(ArenaDelegatesMixin):
         fabric: Any = None,
         fabric_config: Any = None,
         mode_sequence: list[str] | None = None,
+        enable_auto_execution: bool = False,
+        auto_execution_mode: str = "workflow",
+        auto_approval_mode: str = "risk_based",
+        auto_max_risk: str = "low",
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
         self.mode_sequence = mode_sequence
@@ -595,6 +603,10 @@ class Arena(ArenaDelegatesMixin):
             enable_post_debate_workflow=enable_post_debate_workflow,
             post_debate_workflow_threshold=post_debate_workflow_threshold,
             initial_messages=initial_messages,
+            enable_auto_execution=enable_auto_execution,
+            auto_execution_mode=auto_execution_mode,
+            auto_approval_mode=auto_approval_mode,
+            auto_max_risk=auto_max_risk,
         )
 
         # Handle fabric integration - get agents from fabric pool if configured
@@ -657,6 +669,7 @@ class Arena(ArenaDelegatesMixin):
             quality_gate_threshold=cfg.quality_gate_threshold,
             enable_consensus_estimation=cfg.enable_consensus_estimation,
             consensus_early_termination_threshold=cfg.consensus_early_termination_threshold,
+            enable_cartographer=getattr(self, "enable_cartographer", True),
         )
         # Pass autotune_config to core for BudgetCoordinator integration
         core.autotune_config = getattr(cfg, "autotune_config", None)

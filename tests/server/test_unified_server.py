@@ -419,7 +419,7 @@ class TestAuthContextPropagation:
         """Test that RBAC middleware has bypass paths configured."""
         from aragora.server.unified_server import UnifiedHandler
 
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
         assert rbac.config.bypass_paths is not None
         assert "/health" in rbac.config.bypass_paths
         assert "/healthz" in rbac.config.bypass_paths
@@ -428,14 +428,14 @@ class TestAuthContextPropagation:
         """Test that RBAC middleware bypasses OPTIONS method."""
         from aragora.server.unified_server import UnifiedHandler
 
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
         assert "OPTIONS" in rbac.config.bypass_methods
 
     def test_default_authenticated_enabled(self):
         """Test that default_authenticated is enabled for security."""
         from aragora.server.unified_server import UnifiedHandler
 
-        rbac = UnifiedHandler.rbac
+        rbac = UnifiedHandler._get_rbac()
         assert rbac.config.default_authenticated is True
 
 

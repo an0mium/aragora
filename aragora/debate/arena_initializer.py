@@ -209,6 +209,7 @@ class ArenaInitializer:
         stability_min_rounds: int = 2,
         stability_agreement_threshold: float = 0.75,
         stability_conflict_confidence: float = 0.7,
+        enable_cartographer: bool = True,
     ) -> CoreComponents:
         """Initialize core Arena components.
 
@@ -309,7 +310,7 @@ class ArenaInitializer:
             breakpoint_manager = self._auto_init_breakpoint_manager(protocol)
 
         # ArgumentCartographer for debate graph visualization
-        AC = OptionalImports.get_argument_cartographer()
+        AC = OptionalImports.get_argument_cartographer() if enable_cartographer else None
         cartographer = AC() if AC else None
 
         # Event bridge for coordinating spectator/websocket/cartographer

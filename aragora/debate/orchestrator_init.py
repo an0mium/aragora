@@ -209,6 +209,11 @@ def store_post_tracker_config(
     # Cross-debate institutional memory
     arena.cross_debate_memory = cfg.cross_debate_memory
     arena.enable_cross_debate_memory = cfg.enable_cross_debate_memory
+    # Auto-execution of debate results via the Decision Pipeline
+    arena.enable_auto_execution = getattr(cfg, "enable_auto_execution", False)
+    arena.auto_execution_mode = getattr(cfg, "auto_execution_mode", "workflow")
+    arena.auto_approval_mode = getattr(cfg, "auto_approval_mode", "risk_based")
+    arena.auto_max_risk = getattr(cfg, "auto_max_risk", "low")
 
 
 def init_skills_and_propulsion(arena: Arena, cfg: Any) -> None:

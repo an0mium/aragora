@@ -1263,7 +1263,7 @@ class TestHelperMethods:
 
     def test_get_wisdom_fallback_exception(self, mock_wisdom_store):
         """Test wisdom fallback handles exceptions."""
-        mock_wisdom_store.get_relevant_wisdom.side_effect = Exception("DB error")
+        mock_wisdom_store.get_relevant_wisdom.side_effect = RuntimeError("DB error")
         executor = AutonomicExecutor(wisdom_store=mock_wisdom_store, loop_id="test-loop")
         result = executor._get_wisdom_fallback("agent")
         assert result is None

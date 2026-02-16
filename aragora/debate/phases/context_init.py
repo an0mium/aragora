@@ -418,6 +418,12 @@ class ContextInitializer:
         knowledge items that can inform the debate. This provides agents with
         organizational memory and previously learned conclusions.
 
+        When a PromptBuilder is available (via ctx._prompt_builder), the knowledge
+        context is set as a structured prompt section rather than appended to
+        env.context. This gives agents a dedicated "Organizational Knowledge"
+        section in their prompts. Falls back to env.context injection for
+        backward compatibility.
+
         Uses TTL-based caching to reduce redundant semantic searches for
         similar tasks within a short time window.
         """
@@ -437,10 +443,7 @@ class ContextInitializer:
             cached = self._get_cached_knowledge(query_hash)
             if cached is not None:
                 if cached:  # Non-empty cached result
-                    if ctx.env.context:
-                        ctx.env.context += "\n\n" + cached
-                    else:
-                        ctx.env.context = cached
+                    self._set_knowledge_on_builder_or_env(ctx, cached)
                     logger.info(
                         "[knowledge_mound] Used cached knowledge context (%d chars)",
                         len(cached),
@@ -457,26 +460,53 @@ class ContextInitializer:
             _knowledge_cache[query_hash] = (knowledge_context or "", time.time())
 
             if knowledge_context:
-                if ctx.env.context:
-                    ctx.env.context += "\n\n" + knowledge_context
-                else:
-                    ctx.env.context = knowledge_context
+                # Track which KM items were used for outcome validation
+                item_ids: list[str] = []
+                km_ops = getattr(self._fetch_knowledge_context, "__self__", None)
+                if km_ops and hasattr(km_ops, "_last_km_item_ids"):
+                    km_ids = km_ops._last_km_item_ids
+                    if km_ids:
+                        item_ids = list(km_ids)
+                        ctx._km_item_ids_used = km_ids  # type: ignore[attr-defined]
+
+                self._set_knowledge_on_builder_or_env(ctx, knowledge_context, item_ids)
                 logger.info(
                     "[knowledge_mound] Injected knowledge context into debate (%d chars)",
                     len(knowledge_context),
                 )
 
-                # Track which KM items were used for outcome validation
-                km_ops = getattr(self._fetch_knowledge_context, "__self__", None)
-                if km_ops and hasattr(km_ops, "_last_km_item_ids"):
-                    km_ids = km_ops._last_km_item_ids
-                    if km_ids:
-                        ctx._km_item_ids_used = km_ids  # type: ignore[attr-defined]
-
         except asyncio.TimeoutError:
             logger.warning("[knowledge_mound] Knowledge context fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
+
+    def _set_knowledge_on_builder_or_env(
+        self,
+        ctx: DebateContext,
+        knowledge_context: str,
+        item_ids: list[str] | None = None,
+    ) -> None:
+        """Set knowledge context on PromptBuilder if available, else env.context.
+
+        Prefers the structured PromptBuilder injection path so that knowledge
+        appears as a dedicated "Organizational Knowledge" section in agent
+        prompts. Falls back to appending to env.context for backward
+        compatibility when no PromptBuilder is wired in.
+
+        Args:
+            ctx: The debate context.
+            knowledge_context: The knowledge context string to inject.
+            item_ids: Optional list of KM item IDs used for outcome tracking.
+        """
+        prompt_builder = getattr(ctx, "_prompt_builder", None)
+        if prompt_builder and hasattr(prompt_builder, "set_knowledge_context"):
+            prompt_builder.set_knowledge_context(knowledge_context, item_ids)
+        else:
+            # Fallback: append to env.context (backward compatible)
+            if ctx.env.context:
+                ctx.env.context += "\n\n" + knowledge_context
+            else:
+                ctx.env.context = knowledge_context
 
     async def _inject_supermemory_context(self, ctx: DebateContext) -> None:
         """Inject external Supermemory context via orchestrator callback."""
@@ -643,6 +673,62 @@ class ContextInitializer:
 
         except (ValueError, KeyError, TypeError, RuntimeError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"Historical dissent injection error: {e}")
+
+        # Also inject epistemic graph priors (inherited beliefs from past debates)
+        self._inject_epistemic_priors(ctx)
+
+    def _inject_epistemic_priors(self, ctx: DebateContext) -> None:
+        """Inject inherited beliefs from the cross-debate epistemic graph.
+
+        Queries the EpistemicGraph for beliefs relevant to the debate topic,
+        enabling belief inheritance: high-confidence conclusions from past
+        debates seed new debates as prior knowledge.
+        """
+        try:
+            from aragora.reasoning.epistemic_graph import get_epistemic_graph
+
+            graph = get_epistemic_graph()
+            topic = ctx.env.task
+            domain = getattr(ctx, "domain", None) or ""
+
+            priors = graph.inject_priors(topic=topic, domain=domain, limit=5)
+            if not priors:
+                return
+
+            # Build context section
+            lines = ["## INHERITED BELIEFS FROM PAST DEBATES"]
+            lines.append(
+                "These beliefs were established in prior debates on similar topics. "
+                "Consider them as priors but challenge them if evidence warrants:"
+            )
+            for prior in priors:
+                conf_pct = f"{prior.effective_confidence * 100:.0f}%"
+                source = prior.source_type.upper()
+                lines.append(
+                    f"- [{conf_pct} confidence, {source}] {prior.statement}"
+                )
+                if prior.dissenting_agents:
+                    lines.append(
+                        f"  (Dissent from: {', '.join(prior.dissenting_agents[:3])})"
+                    )
+
+            section = "\n\n" + "\n".join(lines)
+            if ctx.env.context:
+                ctx.env.context += section
+            else:
+                ctx.env.context = section.strip()
+
+            # Store priors on context for feedback phase tracking
+            ctx._epistemic_priors = priors  # type: ignore[attr-defined]
+
+            logger.info(
+                "[epistemic] Injected %d inherited beliefs as priors",
+                len(priors),
+            )
+        except ImportError:
+            pass  # EpistemicGraph not available
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("Epistemic prior injection error: %s", e)
 
     def _build_structured_dissent_context(
         self,
@@ -837,7 +923,7 @@ class ContextInitializer:
         and belief cruxes (which focus on key disagreement points). Cross-debate
         memory provides a broader view of what the system has learned.
         """
-        if not self.cross_debate_memory:
+        if not self.cross_debate_memory or not self.enable_cross_debate_memory:
             return
 
         try:

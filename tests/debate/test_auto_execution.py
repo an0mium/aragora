@@ -18,6 +18,11 @@ import pytest
 
 from aragora.core_types import DebateResult
 from aragora.debate.arena_sub_configs import AutoExecutionConfig
+from aragora.debate.orchestrator_runner import _auto_execute_plan
+from aragora.pipeline.decision_plan import DecisionPlanFactory
+from aragora.pipeline.decision_plan.core import ApprovalMode, PlanStatus
+from aragora.pipeline.executor import PlanExecutor
+from aragora.pipeline.risk_register import RiskLevel
 
 
 # ===========================================================================
@@ -103,7 +108,7 @@ class TestAutoExecutionArenaConfig:
 
 
 # ===========================================================================
-# _auto_execute_plan Function
+# Helpers
 # ===========================================================================
 
 
@@ -131,198 +136,119 @@ def _make_arena(**overrides) -> MagicMock:
     return arena
 
 
+def _make_mock_plan(
+    *,
+    plan_id: str = "plan-abc",
+    status_value: str = "approved",
+    requires_approval: bool = True,
+) -> MagicMock:
+    """Create a mock DecisionPlan."""
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.status = MagicMock(value=status_value)
+    plan.requires_human_approval = requires_approval
+    return plan
+
+
+# ===========================================================================
+# _auto_execute_plan Function
+# ===========================================================================
+
+
 class TestAutoExecutePlan:
     """Tests for the _auto_execute_plan function."""
 
     @pytest.mark.asyncio
     async def test_creates_plan_from_result(self):
         """Plan is created and its ID is stored in result metadata."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-abc"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = True  # Don't execute
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.debate.orchestrator_runner.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            # Patch imports inside the function
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(
-                            RISK_BASED="risk_based",
-                            ALWAYS="always",
-                            CONFIDENCE_BASED="confidence_based",
-                            NEVER="never",
-                        ),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(
-                            LOW="low",
-                            MEDIUM="medium",
-                            HIGH="high",
-                            CRITICAL="critical",
-                        ),
-                    ),
-                },
-            ):
-                arena = _make_arena()
-                result = _make_result()
-
-                updated = await _auto_execute_plan(arena, result)
-
-                assert updated.metadata["decision_plan_id"] == "plan-abc"
-                assert updated.metadata["decision_plan_status"] == "approved"
+            assert updated.metadata["decision_plan_id"] == "plan-abc"
+            assert updated.metadata["decision_plan_status"] == "approved"
 
     @pytest.mark.asyncio
     async def test_plan_stored_in_metadata(self):
         """Plan ID and status are stored in result.metadata."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+        mock_plan = _make_mock_plan(
+            plan_id="plan-xyz", status_value="awaiting_approval", requires_approval=True
+        )
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-xyz"
-        mock_plan.status = MagicMock(value="awaiting_approval")
-        mock_plan.requires_human_approval = True
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(
-                            RISK_BASED="risk_based",
-                        ),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena()
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
-
-                assert "decision_plan_id" in updated.metadata
-                assert "decision_plan_status" in updated.metadata
-                assert updated.metadata["decision_plan_id"] == "plan-xyz"
+            assert "decision_plan_id" in updated.metadata
+            assert "decision_plan_status" in updated.metadata
+            assert updated.metadata["decision_plan_id"] == "plan-xyz"
+            assert updated.metadata["decision_plan_status"] == "awaiting_approval"
 
     @pytest.mark.asyncio
     async def test_execution_skipped_when_approval_required(self):
         """Executor is NOT called when plan requires human approval."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-needs-approval"
-        mock_plan.status = MagicMock(value="awaiting_approval")
-        mock_plan.requires_human_approval = True
+        with (
+            patch.object(
+                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+            ),
+            patch.object(PlanExecutor, "execute", new_callable=AsyncMock) as mock_exec,
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-        mock_executor_cls = MagicMock()
-
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(RISK_BASED="risk_based"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(
-                        PlanExecutor=mock_executor_cls,
-                    ),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena()
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
-
-                # Executor should NOT have been called
-                mock_executor_cls.return_value.execute.assert_not_called()
-                # plan_outcome should NOT be in metadata
-                assert "plan_outcome" not in updated.metadata
+            mock_exec.assert_not_called()
+            assert "plan_outcome" not in updated.metadata
 
     @pytest.mark.asyncio
     async def test_execution_runs_when_auto_approved(self):
         """Executor IS called when plan does not require human approval."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
-
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-auto"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = False
+        mock_plan = _make_mock_plan(requires_approval=False)
 
         mock_outcome = MagicMock()
         mock_outcome.success = True
         mock_outcome.tasks_completed = 3
         mock_outcome.tasks_total = 3
 
-        mock_executor = MagicMock()
-        mock_executor.execute = AsyncMock(return_value=mock_outcome)
+        with (
+            patch.object(
+                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+            ),
+            patch(
+                "aragora.pipeline.executor.PlanExecutor",
+            ) as mock_executor_cls,
+        ):
+            mock_executor_instance = MagicMock()
+            mock_executor_instance.execute = AsyncMock(return_value=mock_outcome)
+            mock_executor_cls.return_value = mock_executor_instance
 
-        mock_executor_cls = MagicMock(return_value=mock_executor)
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(RISK_BASED="risk_based"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(
-                        PlanExecutor=mock_executor_cls,
-                    ),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena()
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
-
-                mock_executor.execute.assert_awaited_once_with(mock_plan)
-                assert updated.metadata["plan_outcome"]["success"] is True
-                assert updated.metadata["plan_outcome"]["tasks_completed"] == 3
-                assert updated.metadata["plan_outcome"]["tasks_total"] == 3
+            mock_executor_instance.execute.assert_awaited_once_with(mock_plan)
+            assert updated.metadata["plan_outcome"]["success"] is True
+            assert updated.metadata["plan_outcome"]["tasks_completed"] == 3
+            assert updated.metadata["plan_outcome"]["tasks_total"] == 3
 
     @pytest.mark.asyncio
     async def test_graceful_failure_on_import_error(self):
         """ImportError is caught and recorded in metadata."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
-
-        with patch.dict("sys.modules", {"aragora.pipeline.decision_plan": None}):
+        with patch.object(
+            DecisionPlanFactory,
+            "from_debate_result",
+            side_effect=ImportError("Module not found"),
+        ):
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
@@ -332,52 +258,64 @@ class TestAutoExecutePlan:
     @pytest.mark.asyncio
     async def test_graceful_failure_on_executor_error(self):
         """RuntimeError during execution is caught and recorded."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+        mock_plan = _make_mock_plan(requires_approval=False)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-fail"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = False
+        with (
+            patch.object(
+                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+            ),
+            patch(
+                "aragora.pipeline.executor.PlanExecutor",
+            ) as mock_executor_cls,
+        ):
+            mock_executor_instance = MagicMock()
+            mock_executor_instance.execute = AsyncMock(
+                side_effect=RuntimeError("Connection lost")
+            )
+            mock_executor_cls.return_value = mock_executor_instance
 
-        mock_executor = MagicMock()
-        mock_executor.execute = AsyncMock(side_effect=RuntimeError("Connection lost"))
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-        mock_executor_cls = MagicMock(return_value=mock_executor)
+            assert updated.metadata["auto_execution_error"] == "RuntimeError"
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
+    @pytest.mark.asyncio
+    async def test_graceful_failure_on_value_error(self):
+        """ValueError during plan creation is caught and recorded."""
+        with patch.object(
+            DecisionPlanFactory,
+            "from_debate_result",
+            side_effect=ValueError("Invalid result"),
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
 
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(RISK_BASED="risk_based"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(
-                        PlanExecutor=mock_executor_cls,
-                    ),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena()
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
+            assert updated.metadata["auto_execution_error"] == "ValueError"
 
-                assert updated.metadata["auto_execution_error"] == "RuntimeError"
+    @pytest.mark.asyncio
+    async def test_graceful_failure_on_os_error(self):
+        """OSError during execution is caught and recorded."""
+        with patch.object(
+            DecisionPlanFactory,
+            "from_debate_result",
+            side_effect=OSError("Disk full"),
+        ):
+            arena = _make_arena()
+            result = _make_result()
+            updated = await _auto_execute_plan(arena, result)
+
+            assert updated.metadata["auto_execution_error"] == "OSError"
 
     @pytest.mark.asyncio
     async def test_result_always_returned(self):
         """Result is always returned even on failure."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
-
-        with patch.dict("sys.modules", {"aragora.pipeline.decision_plan": None}):
+        with patch.object(
+            DecisionPlanFactory,
+            "from_debate_result",
+            side_effect=ImportError("Not available"),
+        ):
             arena = _make_arena()
             result = _make_result()
             updated = await _auto_execute_plan(arena, result)
@@ -386,11 +324,13 @@ class TestAutoExecutePlan:
             assert updated.task == "Design a rate limiter"
 
     @pytest.mark.asyncio
-    async def test_metadata_initialized_if_missing(self):
+    async def test_metadata_initialized_if_not_dict(self):
         """If result.metadata is not a dict, it gets initialized."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
-
-        with patch.dict("sys.modules", {"aragora.pipeline.decision_plan": None}):
+        with patch.object(
+            DecisionPlanFactory,
+            "from_debate_result",
+            side_effect=ImportError("Not available"),
+        ):
             arena = _make_arena()
             result = _make_result()
             result.metadata = None  # type: ignore[assignment]
@@ -410,48 +350,43 @@ class TestApprovalModeMapping:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "mode_str",
-        ["always", "risk_based", "confidence_based", "never"],
+        "mode_str,expected_enum",
+        [
+            ("always", ApprovalMode.ALWAYS),
+            ("risk_based", ApprovalMode.RISK_BASED),
+            ("confidence_based", ApprovalMode.CONFIDENCE_BASED),
+            ("never", ApprovalMode.NEVER),
+        ],
     )
-    async def test_approval_modes(self, mode_str):
-        """All valid approval mode strings are handled."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+    async def test_approval_modes(self, mode_str, expected_enum):
+        """All valid approval mode strings are mapped to correct enum values."""
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-mode"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = True
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ) as mock_factory:
+            arena = _make_arena(auto_approval_mode=mode_str)
+            result = _make_result()
+            await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
+            # Verify the correct ApprovalMode enum was passed
+            call_kwargs = mock_factory.call_args
+            assert call_kwargs[1]["approval_mode"] == expected_enum
 
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(
-                            ALWAYS="always",
-                            RISK_BASED="risk_based",
-                            CONFIDENCE_BASED="confidence_based",
-                            NEVER="never",
-                        ),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena(auto_approval_mode=mode_str)
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
+    @pytest.mark.asyncio
+    async def test_unknown_approval_mode_falls_back(self):
+        """Unknown approval mode string falls back to RISK_BASED."""
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-                assert "decision_plan_id" in updated.metadata
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ) as mock_factory:
+            arena = _make_arena(auto_approval_mode="unknown_mode")
+            result = _make_result()
+            await _auto_execute_plan(arena, result)
+
+            call_kwargs = mock_factory.call_args
+            assert call_kwargs[1]["approval_mode"] == ApprovalMode.RISK_BASED
 
 
 # ===========================================================================
@@ -464,85 +399,42 @@ class TestRiskLevelMapping:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "risk_str",
-        ["low", "medium", "high", "critical"],
+        "risk_str,expected_enum",
+        [
+            ("low", RiskLevel.LOW),
+            ("medium", RiskLevel.MEDIUM),
+            ("high", RiskLevel.HIGH),
+            ("critical", RiskLevel.CRITICAL),
+        ],
     )
-    async def test_risk_levels(self, risk_str):
-        """All valid risk level strings are handled."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+    async def test_risk_levels(self, risk_str, expected_enum):
+        """All valid risk level strings are mapped to correct enum values."""
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-risk"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = True
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ) as mock_factory:
+            arena = _make_arena(auto_max_risk=risk_str)
+            result = _make_result()
+            await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(RISK_BASED="risk_based"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(
-                            LOW="low",
-                            MEDIUM="medium",
-                            HIGH="high",
-                            CRITICAL="critical",
-                        ),
-                    ),
-                },
-            ):
-                arena = _make_arena(auto_max_risk=risk_str)
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
-
-                assert "decision_plan_id" in updated.metadata
+            call_kwargs = mock_factory.call_args
+            assert call_kwargs[1]["max_auto_risk"] == expected_enum
 
     @pytest.mark.asyncio
     async def test_unknown_risk_falls_back(self):
         """Unknown risk level falls back to RiskLevel.LOW."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
+        mock_plan = _make_mock_plan(requires_approval=True)
 
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-unknown-risk"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = True
+        with patch.object(
+            DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+        ) as mock_factory:
+            arena = _make_arena(auto_max_risk="unknown_level")
+            result = _make_result()
+            await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(RISK_BASED="risk_based"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena(auto_max_risk="unknown_level")
-                result = _make_result()
-                updated = await _auto_execute_plan(arena, result)
-
-                # Should still succeed using the fallback
-                assert "decision_plan_id" in updated.metadata
+            call_kwargs = mock_factory.call_args
+            assert call_kwargs[1]["max_auto_risk"] == RiskLevel.LOW
 
 
 # ===========================================================================
@@ -557,53 +449,30 @@ class TestExecutionModePassthrough:
     @pytest.mark.parametrize("mode", ["workflow", "hybrid", "fabric"])
     async def test_execution_mode_passed(self, mode):
         """Execution mode from config is passed to PlanExecutor constructor."""
-        from aragora.debate.orchestrator_runner import _auto_execute_plan
-
-        mock_plan = MagicMock()
-        mock_plan.id = "plan-mode-pass"
-        mock_plan.status = MagicMock(value="approved")
-        mock_plan.requires_human_approval = False
+        mock_plan = _make_mock_plan(requires_approval=False)
 
         mock_outcome = MagicMock()
         mock_outcome.success = True
         mock_outcome.tasks_completed = 1
         mock_outcome.tasks_total = 1
 
-        mock_executor = MagicMock()
-        mock_executor.execute = AsyncMock(return_value=mock_outcome)
+        with (
+            patch.object(
+                DecisionPlanFactory, "from_debate_result", return_value=mock_plan
+            ),
+            patch(
+                "aragora.pipeline.executor.PlanExecutor",
+            ) as mock_executor_cls,
+        ):
+            mock_executor_instance = MagicMock()
+            mock_executor_instance.execute = AsyncMock(return_value=mock_outcome)
+            mock_executor_cls.return_value = mock_executor_instance
 
-        mock_executor_cls = MagicMock(return_value=mock_executor)
+            arena = _make_arena(auto_execution_mode=mode)
+            result = _make_result()
+            await _auto_execute_plan(arena, result)
 
-        with patch(
-            "aragora.pipeline.decision_plan.DecisionPlanFactory"
-        ) as mock_factory_cls:
-            mock_factory_cls.from_debate_result.return_value = mock_plan
-
-            with patch.dict(
-                "sys.modules",
-                {
-                    "aragora.pipeline.decision_plan": MagicMock(
-                        DecisionPlanFactory=mock_factory_cls,
-                    ),
-                    "aragora.pipeline.decision_plan.core": MagicMock(
-                        ApprovalMode=MagicMock(NEVER="never"),
-                    ),
-                    "aragora.pipeline.executor": MagicMock(
-                        PlanExecutor=mock_executor_cls,
-                    ),
-                    "aragora.pipeline.risk_register": MagicMock(
-                        RiskLevel=MagicMock(LOW="low"),
-                    ),
-                },
-            ):
-                arena = _make_arena(
-                    auto_execution_mode=mode,
-                    auto_approval_mode="never",
-                )
-                result = _make_result()
-                await _auto_execute_plan(arena, result)
-
-                mock_executor_cls.assert_called_once_with(execution_mode=mode)
+            mock_executor_cls.assert_called_once_with(execution_mode=mode)
 
 
 # ===========================================================================

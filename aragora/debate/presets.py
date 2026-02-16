@@ -98,6 +98,61 @@ _PRESETS: dict[str, dict[str, Any]] = {
         # Budget
         "budget_downgrade_models": True,
     },
+    "visual": {
+        # Full observability: see the debate unfold
+        "enable_cartographer": True,
+        "enable_spectator": True,
+        "enable_position_ledger": True,
+        "enable_introspection": True,
+        # Minimal audit overhead
+        "enable_stability_detection": True,
+    },
+    "compliance": {
+        # EU AI Act and regulatory compliance
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        "enable_compliance_artifacts": True,
+        "enable_position_ledger": True,
+        "enable_telemetry": True,
+        # Knowledge extraction for audit trails
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        # Privacy
+        "enable_privacy_anonymization": True,
+    },
+    "research": {
+        # Deep analysis: all cognitive features enabled
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        "enable_supermemory": True,
+        "enable_stability_detection": True,
+        "enable_position_ledger": True,
+        "enable_introspection": True,
+        "enable_cartographer": True,
+        # Power sampling for better consensus
+        "enable_power_sampling": True,
+        # Forking for exploring alternatives
+        "enable_debate_forking": True,
+    },
+    "financial": {
+        # SOX compliance and financial risk
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        "enable_compliance_artifacts": True,
+        "enable_position_ledger": True,
+        "enable_telemetry": True,
+        # Knowledge
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        # Vertical
+        "vertical": "financial_audit",
+        # Budget
+        "budget_downgrade_models": True,
+    },
 }
 
 _PRESET_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +161,10 @@ _PRESET_DESCRIPTIONS: dict[str, str] = {
     "minimal": "Lightweight preset: stability detection and budget controls only (fast & cheap)",
     "audit": "Maximum traceability: receipts, provenance, beads, compliance, position ledger, telemetry",
     "healthcare": "HIPAA-compliant preset: full audit trail, privacy anonymization, healthcare vertical weight profiles",
+    "visual": "Full observability: argument cartography, spectator streaming, position tracking, introspection",
+    "compliance": "EU AI Act and regulatory: receipts, provenance, compliance artifacts, privacy anonymization",
+    "research": "Deep analysis: knowledge extraction, supermemory, power sampling, debate forking, cartography",
+    "financial": "SOX-compliant: full audit trail, financial vertical weight profiles, budget controls",
 }
 
 

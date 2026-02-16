@@ -588,6 +588,43 @@ class PowerSamplingConfig:
     sample_timeout: float = 30.0
 
 
+@dataclass
+class AutoExecutionConfig:
+    """Auto-execution of debate results via the Decision Pipeline.
+
+    When enabled, the Arena will automatically generate a DecisionPlan from
+    the debate result and optionally execute it through the PlanExecutor.
+
+    The approval mode controls whether the plan is auto-executed or held
+    for human review. Risk-based approval (default) will auto-execute only
+    plans whose highest risk level is at or below ``auto_max_risk``.
+
+    Example::
+
+        exec_cfg = AutoExecutionConfig(
+            enable_auto_execution=True,
+            auto_execution_mode="workflow",
+            auto_approval_mode="risk_based",
+            auto_max_risk="low",
+        )
+    """
+
+    # Master switch (opt-in, disabled by default)
+    enable_auto_execution: bool = False
+
+    # Execution mode passed to PlanExecutor
+    # One of: "workflow", "hybrid", "fabric"
+    auto_execution_mode: str = "workflow"
+
+    # Maps to ApprovalMode on DecisionPlanFactory.from_debate_result
+    # One of: "always", "risk_based", "confidence_based", "never"
+    auto_approval_mode: str = "risk_based"
+
+    # Maximum risk level for auto-execution without human approval
+    # One of: "low", "medium", "high", "critical"
+    auto_max_risk: str = "low"
+
+
 __all__ = [
     "HookConfig",
     "TrackingConfig",
@@ -604,4 +641,5 @@ __all__ = [
     "SupermemorySubConfig",
     "BudgetSubConfig",
     "PowerSamplingConfig",
+    "AutoExecutionConfig",
 ]

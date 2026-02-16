@@ -609,7 +609,7 @@ class SocialMediaHandler(BaseHandler):
             if video_generator:
                 try:
                     video_path = _run_async(video_generator.generate_waveform_video(audio_path))
-                except (OSError, RuntimeError, ValueError) as e:
+                except Exception as e:  # noqa: BLE001 - graceful degradation, fall back to static video
                     logger.debug(f"Waveform video generation failed, using static fallback: {e}")
                     video_path = _run_async(
                         video_generator.generate_static_video(audio_path, task, agents)

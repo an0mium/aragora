@@ -83,7 +83,7 @@ async def get_agent_history_tool(
             result["wins"] = agent_rating.wins
             result["losses"] = agent_rating.losses
             result["total_debates"] = agent_rating.debates_count
-    except (ImportError, RuntimeError, ValueError) as e:
+    except Exception as e:  # noqa: BLE001 - graceful degradation, ELO lookup is non-critical
         logger.debug(f"Could not get ELO: {e}")
 
     # Get performance stats from storage
@@ -123,7 +123,7 @@ async def get_agent_history_tool(
                 }
                 for d in filtered_debates[:limit]
             ]
-    except (ImportError, RuntimeError, ValueError, OSError) as e:
+    except Exception as e:  # noqa: BLE001 - graceful degradation, history lookup is non-critical
         logger.debug(f"Could not get agent history: {e}")
 
     return result
