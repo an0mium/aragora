@@ -491,7 +491,7 @@ class AnalyticsHandler(BaseHandler):
 
             except ImportError:
                 pass
-            except Exception as e:
+            except (RuntimeError, AttributeError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to get cross-subscriber stats: {e}")
 
             # Calculate derived metrics
@@ -520,7 +520,7 @@ class AnalyticsHandler(BaseHandler):
 
             return json_response(learning_stats)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get learning stats: {e}")
             return error_response("Failed to get learning stats", 500)
 

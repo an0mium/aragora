@@ -131,7 +131,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
                                 "text": f"Permission denied: {decision.reason}",
                             }
                         )
-            except Exception as e:
+            except (PermissionError, ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.debug("RBAC check failed for interaction: %s", e)
             return None
 

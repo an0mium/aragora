@@ -607,7 +607,7 @@ class UnifiedMetricsHandler(BaseHandler):
                 body=json.dumps(summary, indent=2).encode("utf-8"),
             )
 
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, RuntimeError) as e:
             logger.error("Failed to get metrics summary: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get metrics summary"), 500)
 

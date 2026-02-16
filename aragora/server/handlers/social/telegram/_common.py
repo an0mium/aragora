@@ -148,7 +148,7 @@ class TelegramRBACMixin:
                 roles={"telegram_user"},
                 org_id=None,
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.debug("Could not create Telegram user context: %s", e)
             return None
 
@@ -168,7 +168,7 @@ class TelegramRBACMixin:
             if not decision.allowed:
                 logger.warning("Permission denied: %s for user %s", permission_key, context.user_id)
                 return error_response(f"Permission denied: {decision.reason}", 403)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("RBAC check failed: %s", e)
             return None
 

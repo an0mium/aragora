@@ -150,7 +150,7 @@ class PolicyHandlerMixin:
                     "offset": offset,
                 }
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Error listing policy violations: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
@@ -187,7 +187,7 @@ class PolicyHandlerMixin:
                 return error_response(f"Violation not found: {violation_id}", 404)
 
             return json_response({"violation": violation})
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Error getting policy violation {violation_id}: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
@@ -233,7 +233,7 @@ class PolicyHandlerMixin:
                     "open_by_type": open_counts,
                 }
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Error getting policy violation stats: {e}")
             return error_response(safe_error_message(e, "policy"), 500)
 
@@ -298,6 +298,6 @@ class PolicyHandlerMixin:
                     "message": f"Violation status updated to {status}",
                 }
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Error updating policy violation {violation_id}: {e}")
             return error_response(safe_error_message(e, "policy"), 500)

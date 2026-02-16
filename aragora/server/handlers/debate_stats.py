@@ -62,7 +62,7 @@ class DebateStatsHandler(BaseHandler):
             service = DebateAnalytics(storage)
             stats = service.get_debate_stats(period=period)
             return json_response(stats.to_dict())
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
             logger.error("Failed to get debate stats: %s", exc)
             return error_response("Failed to get debate stats", 500)
 

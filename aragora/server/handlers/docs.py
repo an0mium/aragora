@@ -96,7 +96,7 @@ class DocsHandler(BaseHandler):
             )
         except ImportError:
             return error_response("OpenAPI module not available", 503)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.exception(f"OpenAPI generation failed: {e}")
             return error_response(safe_error_message(e, "OpenAPI generation"), 500)
 
@@ -183,7 +183,7 @@ class DocsHandler(BaseHandler):
                     "Content-Disposition": "attachment; filename=aragora.postman_collection.json"
                 },
             )
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Error generating Postman collection: {e}")
             return error_response(safe_error_message(e, "Postman export"), 500)
 

@@ -297,7 +297,7 @@ class GatewayCredentialsHandler(BaseHandler):
                     expires_at=expires_at,
                     metadata=meta,
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, AttributeError, TypeError) as e:
                 logger.error("Failed to store credential via proxy: %s", e)
                 return error_response("Failed to store credential", 500)
 
