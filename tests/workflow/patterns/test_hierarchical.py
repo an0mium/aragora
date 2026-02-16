@@ -654,7 +654,7 @@ class TestHierarchicalDispatchHandler:
 
         with patch("aragora.agents.create_agent") as mock_create:
             mock_agent = AsyncMock()
-            mock_agent.generate.side_effect = Exception("API Error")
+            mock_agent.generate.side_effect = RuntimeError("API Error")
             mock_create.return_value = mock_agent
 
             result = await handler(context, worker_agents=["claude"], timeout=30.0)

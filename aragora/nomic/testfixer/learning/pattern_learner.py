@@ -154,7 +154,7 @@ class PatternLearner:
                     len(self.patterns),
                     self.store_path,
                 )
-            except OSError as e:
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
                 logger.warning(
                     "pattern_learner.load_failed path=%s: %s",
                     self.store_path,

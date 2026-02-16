@@ -10,6 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_rlm_context(monkeypatch):
+    """Disable RLM context gathering to avoid calling real LLM APIs in tests."""
+    monkeypatch.setenv("ARAGORA_NOMIC_CONTEXT_RLM", "false")
+
+
 @pytest.fixture
 def mock_aragora_path(tmp_path: Path) -> Path:
     """Create a mock aragora project structure."""

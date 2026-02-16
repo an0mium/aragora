@@ -709,7 +709,7 @@ class BranchCoordinator:
             assignment.status = "completed"
             assignment.result = result
 
-        except (RuntimeError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - external callback; must not crash coordinator
             logger.warning("Assignment failed: %s", e)
             assignment.status = "failed"
             assignment.error = f"Failed: {type(e).__name__}"

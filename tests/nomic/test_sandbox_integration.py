@@ -95,12 +95,12 @@ class TestBuildWorktreeDockerArgs:
 class TestHybridExecutorSandboxMode:
     """Tests for HybridExecutor with sandbox_mode."""
 
-    def test_sandbox_mode_default_off(self):
-        """sandbox_mode should default to False."""
+    def test_sandbox_mode_default_on(self):
+        """sandbox_mode should default to True for security."""
         from aragora.implement.executor import HybridExecutor
 
         executor = HybridExecutor(repo_path=Path("/tmp/test"))
-        assert executor.sandbox_mode is False
+        assert executor.sandbox_mode is True
 
     def test_sandbox_mode_on(self):
         """sandbox_mode should be configurable."""

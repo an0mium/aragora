@@ -102,7 +102,7 @@ class TestNomicContextBuilder:
 
     @pytest.mark.asyncio
     async def test_build_debate_context(self, sample_tree):
-        builder = NomicContextBuilder(aragora_path=sample_tree)
+        builder = NomicContextBuilder(aragora_path=sample_tree, full_corpus=False)
         context = await builder.build_debate_context()
         assert "Aragora Codebase Context" in context
         assert "files" in context
@@ -128,6 +128,7 @@ class TestNomicContextBuilder:
         builder = NomicContextBuilder(
             aragora_path=sample_tree,
             knowledge_mound=mock_mound,
+            full_corpus=False,
         )
         context = await builder.build_debate_context()
         assert isinstance(context, str)

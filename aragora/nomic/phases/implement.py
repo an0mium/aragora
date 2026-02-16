@@ -594,7 +594,7 @@ class ImplementPhase:
                     diff_summary=diff[:2000] if diff else "",
                 )
 
-        except OSError as e:
+        except (OSError, RuntimeError) as e:
             logger.warning("Catastrophic implementation failure: %s", e)
             self._log("  Rolling back changes...")
             await self._git_stash_pop(stash_ref)

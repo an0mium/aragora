@@ -649,7 +649,7 @@ class TestDebateStepProtocolConfig:
                     with patch_debate_protocol():
                         with patch(
                             "aragora.debate.arena_config.ArenaConfig",
-                            side_effect=Exception("Bad config"),
+                            side_effect=TypeError("Bad config"),
                         ):
                             with patch(
                                 "aragora.workflow.nodes.debate.dataclasses.fields",
@@ -1502,7 +1502,7 @@ class TestQuickDebateStepExecution:
         # Force an exception by making asyncio.gather fail
         with patch(
             "asyncio.gather",
-            side_effect=Exception("Unexpected failure"),
+            side_effect=RuntimeError("Unexpected failure"),
         ):
             with patch("aragora.agents.create_agent"):
                 result = await step.execute(ctx)

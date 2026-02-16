@@ -1204,7 +1204,7 @@ class TestMoleculeEngineExecution:
             async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
                 execution_count["count"] += 1
                 if execution_count["count"] == 1:
-                    raise Exception("First attempt fails")
+                    raise RuntimeError("First attempt fails")
                 return {"status": "success"}
 
         engine.register_executor("fail_once", FailOnceExecutor())
@@ -1839,7 +1839,7 @@ class TestStepStatusTransitions:
             async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
                 attempt_counts.append(step.attempt_count)
                 if len(attempt_counts) < 2:
-                    raise Exception("Retry needed")
+                    raise RuntimeError("Retry needed")
                 return {}
 
         engine.register_executor("attempts", AttemptTracker())
