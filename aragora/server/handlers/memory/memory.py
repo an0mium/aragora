@@ -107,6 +107,27 @@ class MemoryHandler(
         "/api/v1/memory/entries",
         "/api/v1/memory/viewer",
         "/api/v1/memory/critiques",
+        # Advanced operations (SDK parity)
+        "/api/v1/memory/compact",
+        "/api/v1/memory/context",
+        "/api/v1/memory/cross-debate",
+        "/api/v1/memory/cross-debate/inject",
+        "/api/v1/memory/export",
+        "/api/v1/memory/import",
+        "/api/v1/memory/prune",
+        "/api/v1/memory/query",
+        "/api/v1/memory/rebuild-index",
+        "/api/v1/memory/semantic-search",
+        "/api/v1/memory/snapshots",
+        "/api/v1/memory/snapshots/*",
+        "/api/v1/memory/snapshots/*/restore",
+        "/api/v1/memory/sync",
+        "/api/v1/memory/tier/*",
+        "/api/v1/memory/vacuum",
+        "/api/v1/memory/*",
+        "/api/v1/memory/*/demote",
+        "/api/v1/memory/*/move",
+        "/api/v1/memory/*/promote",
     ]
 
     @staticmethod
@@ -120,12 +141,9 @@ class MemoryHandler(
         normalized = self._normalize_path(path)
         if normalized in self.ROUTES:
             return True
-        # Handle /api/memory/continuum/{id} pattern for DELETE
-        if normalized.startswith("/api/v1/memory/continuum/") and normalized.count("/") == 5:
-            # Exclude known routes like /api/memory/continuum/retrieve
-            segment = normalized.split("/")[-1]
-            if segment not in ("retrieve", "consolidate", "cleanup"):
-                return True
+        # Handle dynamic path segments under /api/v1/memory/
+        if normalized.startswith("/api/v1/memory/"):
+            return True
         return False
 
     def _get_user_store(self) -> Any:

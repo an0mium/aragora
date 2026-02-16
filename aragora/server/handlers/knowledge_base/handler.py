@@ -75,8 +75,19 @@ class KnowledgeHandler(
     ROUTES = [
         "/api/v1/knowledge/query",
         "/api/v1/knowledge/facts",
+        "/api/v1/knowledge/facts/relations",
+        "/api/v1/knowledge/facts/*",
+        "/api/v1/knowledge/facts/*/verify",
+        "/api/v1/knowledge/facts/*/contradictions",
+        "/api/v1/knowledge/facts/*/relations",
         "/api/v1/knowledge/search",
         "/api/v1/knowledge/stats",
+        "/api/v1/knowledge/embeddings",
+        "/api/v1/knowledge/entries/*/embeddings",
+        "/api/v1/knowledge/entries/*/sources",
+        "/api/v1/knowledge/export",
+        "/api/v1/knowledge/refresh",
+        "/api/v1/knowledge/validate",
         # Aliases: SDK expects /api/v1/facts/* without the /knowledge/ prefix
         "/api/v1/facts",
     ]

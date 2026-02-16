@@ -411,6 +411,8 @@ class KnowledgeChatHandler(BaseHandler):
         "/api/v1/chat/knowledge/search",
         "/api/v1/chat/knowledge/inject",
         "/api/v1/chat/knowledge/store",
+        "/api/v1/chat/knowledge/channel/*",
+        "/api/v1/chat/knowledge/channel/*/summary",
     ]
 
     ROUTE_PREFIXES = [
