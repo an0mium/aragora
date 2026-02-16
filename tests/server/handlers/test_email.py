@@ -237,12 +237,17 @@ class TestHandlePrioritizeEmail:
 
     @pytest.mark.asyncio
     async def test_error_propagation(self):
+        import inspect
+
+        # Unwrap decorators (require_permission, rate_limit, track_handler)
+        # to test the handler's own error-handling logic directly.
+        unwrapped = inspect.unwrap(handle_prioritize_email)
         with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.score_email = AsyncMock(side_effect=ValueError("scoring exploded"))
             mock_gp.return_value = mock_prioritizer
 
-            result = await handle_prioritize_email({"id": "x"})
+            result = await unwrapped({"id": "x"})
             assert result["success"] is False
             assert result["error"]  # Sanitized error message present
 

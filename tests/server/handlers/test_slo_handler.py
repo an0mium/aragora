@@ -229,7 +229,7 @@ class TestSLOStatus:
     ):
         """Test error handling in SLO status endpoint."""
         mock_limiter.is_allowed.return_value = True
-        mock_get_status.side_effect = RuntimeError("Database connection failed")
+        mock_get_status.side_effect = ValueError("Database connection failed")
 
         result = slo_handler.handle("/api/slos/status", {}, mock_handler)
 

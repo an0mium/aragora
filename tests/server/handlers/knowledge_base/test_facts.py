@@ -1226,7 +1226,7 @@ class TestErrorHandling:
         fresh_store = MockFactStore()
         fresh_engine = MockQueryEngine()
         fresh_handler = FactsHandler(fact_store=fresh_store, query_engine=fresh_engine)
-        fresh_store.list_facts.side_effect = ValueError("Database error")
+        fresh_store.list_facts.side_effect = OSError("Database error")
 
         result = fresh_handler._handle_list_facts({})
 

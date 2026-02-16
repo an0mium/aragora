@@ -187,5 +187,5 @@ class ParallelOrchestrator:
             try:
                 self._branch_coordinator.cleanup_all_worktrees()
                 logger.info("Worktrees cleaned up")
-            except (OSError, subprocess.SubprocessError):
+            except (OSError, RuntimeError, subprocess.SubprocessError):
                 logger.warning("Failed to clean up worktrees", exc_info=True)

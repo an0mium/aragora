@@ -339,12 +339,18 @@ Examples:
 
     args = parser.parse_args()
 
-    # Configure logging
+    # Configure logging — only enable DEBUG for aragora loggers, NOT third-party
+    # libraries like botocore which dump secrets in HTTP response bodies at DEBUG level
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
-        level=log_level,
+        level=logging.WARNING,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+    # Set aragora loggers to requested level
+    logging.getLogger("aragora").setLevel(log_level)
+    # Suppress noisy/sensitive third-party loggers
+    for noisy in ("botocore", "boto3", "urllib3", "asyncio", "websockets"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     # Dry run: just show decomposition
     if args.dry_run:

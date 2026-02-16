@@ -910,7 +910,7 @@ class TestErrorHandling:
         """Test error handling in ApprovalHandler."""
         with patch(
             "aragora.server.handlers.autonomous.approvals.get_approval_flow",
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             request = MagicMock()
             response = await ApprovalHandler.list_pending(request)
@@ -925,7 +925,7 @@ class TestErrorHandling:
         """Test error handling in AlertHandler."""
         with patch(
             "aragora.server.handlers.autonomous.alerts.get_alert_analyzer",
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             request = MagicMock()
             response = await AlertHandler.list_active(request)
@@ -940,7 +940,7 @@ class TestErrorHandling:
         """Test error handling in TriggerHandler."""
         with patch(
             "aragora.server.handlers.autonomous.triggers.get_scheduled_trigger",
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             request = MagicMock()
             response = await TriggerHandler.list_triggers(request)
@@ -955,7 +955,7 @@ class TestErrorHandling:
         """Test error handling in MonitoringHandler."""
         with patch(
             "aragora.server.handlers.autonomous.monitoring.get_trend_monitor",
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             request = MagicMock()
             request.json = AsyncMock(return_value={"metric_name": "test", "value": 1.0})
@@ -972,7 +972,7 @@ class TestErrorHandling:
         """Test error handling in LearningHandler."""
         with patch(
             "aragora.server.handlers.autonomous.learning.get_continuous_learner",
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             request = MagicMock()
             response = await LearningHandler.get_agent_ratings(request)

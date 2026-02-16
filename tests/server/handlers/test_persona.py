@@ -1294,7 +1294,7 @@ class TestPersonaErrorHandling:
     def test_get_domains_exception(self, persona_handler, mock_http_handler):
         """Test error handling when get_best_domains raises exception."""
         mock_elo = MagicMock()
-        mock_elo.get_best_domains.side_effect = RuntimeError("ELO error")
+        mock_elo.get_best_domains.side_effect = ValueError("ELO error")
         persona_handler.get_elo_system = MagicMock(return_value=mock_elo)
 
         with patch(
