@@ -427,11 +427,12 @@ class BudgetManager:
     CREATE INDEX IF NOT EXISTS idx_transactions_budget ON budget_transactions(budget_id);
     """
 
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, event_emitter: Any | None = None):
         """Initialize budget manager.
 
         Args:
             db_path: Path to SQLite database
+            event_emitter: Optional event emitter for COST_ANOMALY events
         """
         db_path = db_path or "budgets.db"
         self._db_path = resolve_db_path(db_path)
@@ -443,6 +444,7 @@ class BudgetManager:
         self._initialized = False
         self._alert_callbacks: list[Callable[[BudgetAlert], None]] = []
         self._alert_cooldowns: dict[str, float] = {}  # budget_id -> last alert time
+        self._event_emitter = event_emitter
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get context-local database connection."""
@@ -667,6 +669,26 @@ class BudgetManager:
             f"due to {severity} {anomaly_type} anomaly "
             f"(actual={amount}, expected={expected})"
         )
+
+        # Emit COST_ANOMALY event
+        if self._event_emitter:
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                self._event_emitter.emit(StreamEvent(
+                    type=StreamEventType.COST_ANOMALY,
+                    data={
+                        "org_id": org_id,
+                        "anomaly_type": anomaly_type,
+                        "severity": severity,
+                        "actual_amount": amount,
+                        "expected_amount": expected,
+                        "budgets_suspended": len(budgets),
+                    },
+                ))
+            except (ImportError, AttributeError, TypeError):
+                pass
+
         return True
 
     def is_budget_suspended(self, org_id: str) -> bool:
