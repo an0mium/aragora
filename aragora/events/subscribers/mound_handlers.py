@@ -106,7 +106,7 @@ class MoundHandlersMixin:
                 latency_ms = (time.time() - start) * 1000
                 slo_checker("km_mound_to_memory", latency_ms)
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Mound -> Memory handler error: %s", e)
             self.stats["mound_to_memory"]["errors"] += 1
 
@@ -159,7 +159,7 @@ class MoundHandlersMixin:
                 latency_ms = (time.time() - start) * 1000
                 slo_checker("km_memory_to_mound", latency_ms)
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Memory -> Mound handler error: %s", e)
             self.stats["memory_to_mound"]["errors"] += 1
 
@@ -199,7 +199,7 @@ class MoundHandlersMixin:
 
             self.stats["belief_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Belief -> Mound handler error: %s", e)
             self.stats["belief_to_mound"]["errors"] += 1
 

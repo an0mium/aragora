@@ -169,7 +169,7 @@ class ContextInitializer:
                         "[rlm] RLM compression enabled for context initialization "
                         "(compression fallback - install rlm for TRUE RLM)"
                     )
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                 logger.warning(f"[rlm] Failed to initialize AragoraRLM: {e}")
 
         # Callbacks
@@ -341,7 +341,7 @@ class ContextInitializer:
                 ctx.env.context = topic_context + "\n\n" + ctx.env.context
             else:
                 ctx.env.context = topic_context
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"Trending topic injection failed: {e}")
 
     async def _inject_pulse_context(self, ctx: DebateContext) -> None:
@@ -381,7 +381,7 @@ class ContextInitializer:
 
         except asyncio.TimeoutError:
             logger.warning("[pulse] Trending topic fetch timed out")
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[pulse] Trending topic fetch failed: {e}")
 
     def _start_recorder(self) -> None:

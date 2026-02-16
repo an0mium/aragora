@@ -490,7 +490,7 @@ def setup_otel(config: OTelConfig | None = None) -> bool:
         )
         return True
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - observability must not crash app
         logger.error("Failed to initialize OpenTelemetry: %s", e)
         return False
 
@@ -553,7 +553,7 @@ def shutdown_otel() -> None:
         if _tracer_provider is not None and hasattr(_tracer_provider, "shutdown"):
             _tracer_provider.shutdown()
             logger.info("OpenTelemetry shutdown complete")
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error("Error during OpenTelemetry shutdown: %s", e)
     finally:
         _initialized = False
@@ -604,7 +604,7 @@ def get_tracer(
             otel_tracer = trace.get_tracer(instrumentation_name, version)
             _tracers[cache_key] = otel_tracer
             return otel_tracer
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
             logger.debug("Failed to get OTel tracer: %s", e)
 
     noop_tracer: Any = _NoOpTracer()

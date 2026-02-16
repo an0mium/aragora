@@ -537,7 +537,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_by_template failed, using fallback: {e}")
             return await self._fallback.list_by_template(template_id)
 
@@ -549,7 +549,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             pending = await self.list_by_status("pending")
             running = await self.list_by_status("running")
             return pending + running
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis list_active failed, using fallback: {e}")
             return await self._fallback.list_active()
 
@@ -586,7 +586,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             pipe.sadd(f"{self.REDIS_INDEX_STATUS}{status}", run_id)
             pipe.execute()
             return True
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis update_status failed: {e}")
             return result
 

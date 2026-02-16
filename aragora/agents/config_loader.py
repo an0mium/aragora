@@ -271,7 +271,7 @@ class AgentConfigLoader:
             try:
                 config = self.load_yaml(yaml_file)
                 configs[config.name] = config
-            except (ConfigValidationError, Exception) as e:
+            except (ConfigValidationError, ValueError, OSError, TypeError) as e:
                 logger.error(f"Failed to load config {yaml_file}: {e}")
                 continue
 
@@ -279,7 +279,7 @@ class AgentConfigLoader:
             try:
                 config = self.load_yaml(yml_file)
                 configs[config.name] = config
-            except (ConfigValidationError, Exception) as e:
+            except (ConfigValidationError, ValueError, OSError, TypeError) as e:
                 logger.error(f"Failed to load config {yml_file}: {e}")
                 continue
 
@@ -399,7 +399,7 @@ class AgentConfigLoader:
             try:
                 agent = self.create_agent(config)
                 agents.append(agent)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, KeyError) as e:
                 logger.error(f"Failed to create agent from config: {e}")
 
         return agents

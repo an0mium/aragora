@@ -319,7 +319,7 @@ class AirlockProxy:
                     return fallback
                 raise
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional catch-all: airlock is a resilience layer that must contain ANY agent failure to keep debates alive
                 # Unknown errors - log and treat as retryable
                 logger.error(
                     f"airlock_error agent={self._agent.name} "
