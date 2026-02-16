@@ -437,7 +437,7 @@ class AragoraDecisionTool(BaseTool):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"[AragoraDecisionTool] connection error: {type(e).__name__}: {e}")
             return f"Error making decision (connection): {e}"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.error(f"[AragoraDecisionTool] error: {type(e).__name__}: {e}")
             return f"Error making decision: {e}"
 

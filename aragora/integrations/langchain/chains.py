@@ -187,7 +187,7 @@ class AragoraDebateChain(_ChainBase):
                         f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}"
                     )
                     reasoning_steps.append(f"Research skipped (connection error): {e}")
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(f"[AragoraDebateChain] Research failed: {type(e).__name__}: {e}")
                     reasoning_steps.append(f"Research skipped: {e}")
 
