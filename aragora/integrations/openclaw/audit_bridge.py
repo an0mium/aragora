@@ -211,7 +211,7 @@ class OpenClawAuditBridge:
             try:
                 self._store_record_sync(record)
                 self._stats["events_stored"] += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Failed to store audit record: {e}")
                 self._stats["events_failed"] += 1
 
@@ -271,7 +271,7 @@ class OpenClawAuditBridge:
                 await self._store_record(record)
                 self._stats["events_stored"] += 1
                 count += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Failed to store audit record: {e}")
                 self._stats["events_failed"] += 1
 
@@ -351,7 +351,7 @@ class OpenClawAuditBridge:
         try:
             results = await self._km.query(filters, limit=limit)
             return [self._result_to_record(r) for r in results]
-        except Exception as e:
+        except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Audit trail query failed: {e}")
             return []
 

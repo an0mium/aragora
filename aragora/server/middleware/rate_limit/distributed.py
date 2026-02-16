@@ -326,6 +326,15 @@ class DistributedRateLimiter:
             if self.enable_metrics:
                 record_fallback_request(self.instance_id)
             result = self._memory_limiter.allow(client_ip, endpoint, token, tenant_id)
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.* don't inherit builtins.ConnectionError
+            if "redis" in type(e).__module__:
+                logger.warning(f"Rate limit check failed (redis), using fallback: {e}")
+                self._fallback_requests += 1
+                if self.enable_metrics:
+                    record_fallback_request(self.instance_id)
+                result = self._memory_limiter.allow(client_ip, endpoint, token, tenant_id)
+            else:
+                raise
 
         # Record metrics
         self._total_requests += 1
