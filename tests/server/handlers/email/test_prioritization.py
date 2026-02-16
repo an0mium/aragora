@@ -123,7 +123,7 @@ class TestHandlePrioritizeEmail:
 
     @pytest.mark.asyncio
     async def test_exception_returns_error(self, mock_prioritizer):
-        mock_prioritizer.score_email.side_effect = RuntimeError("scoring failed")
+        mock_prioritizer.score_email.side_effect = ValueError("scoring failed")
         with patch(
             "aragora.server.handlers.email.prioritization.get_prioritizer",
             return_value=mock_prioritizer,
@@ -170,7 +170,7 @@ class TestHandleRankInbox:
 
     @pytest.mark.asyncio
     async def test_exception_returns_error(self, mock_prioritizer):
-        mock_prioritizer.rank_inbox.side_effect = RuntimeError("rank failed")
+        mock_prioritizer.rank_inbox.side_effect = ValueError("rank failed")
         with patch(
             "aragora.server.handlers.email.prioritization.get_prioritizer",
             return_value=mock_prioritizer,
@@ -212,7 +212,7 @@ class TestHandleEmailFeedback:
 
     @pytest.mark.asyncio
     async def test_exception_returns_error(self, mock_prioritizer):
-        mock_prioritizer.record_user_action.side_effect = RuntimeError("db error")
+        mock_prioritizer.record_user_action.side_effect = ValueError("db error")
         with patch(
             "aragora.server.handlers.email.prioritization.get_prioritizer",
             return_value=mock_prioritizer,

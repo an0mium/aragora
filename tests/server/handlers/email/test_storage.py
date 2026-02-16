@@ -120,7 +120,7 @@ class TestCheckEmailPermission:
         ctx = FakeAuthContext()
         with (
             patch.object(storage_mod, "RBAC_AVAILABLE", True),
-            patch.object(storage_mod, "check_permission", side_effect=RuntimeError("boom")),
+            patch.object(storage_mod, "check_permission", side_effect=TypeError("boom")),
         ):
             result = storage_mod._check_email_permission(ctx, "email:read")
         assert result is None  # fail-open
@@ -233,7 +233,7 @@ class TestPersistentStoreHelpers:
 
     def test_load_returns_empty_on_store_exception(self):
         mock_store = MagicMock()
-        mock_store.get_user_config.side_effect = RuntimeError("db down")
+        mock_store.get_user_config.side_effect = OSError("db down")
         with self._patch_store(mock_store):
             result = storage_mod._load_config_from_store("u1")
         assert result == {}
@@ -246,7 +246,7 @@ class TestPersistentStoreHelpers:
 
     def test_save_does_not_raise_on_exception(self):
         mock_store = MagicMock()
-        mock_store.save_user_config.side_effect = RuntimeError("db down")
+        mock_store.save_user_config.side_effect = OSError("db down")
         with self._patch_store(mock_store):
             storage_mod._save_config_to_store("u1", {"key": "val"})
         # no exception raised

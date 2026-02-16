@@ -106,7 +106,7 @@ class TestHandleGetContext:
 
     @pytest.mark.asyncio
     async def test_exception_returns_error(self, mock_context_service):
-        mock_context_service.get_user_context.side_effect = RuntimeError("service down")
+        mock_context_service.get_user_context.side_effect = ConnectionError("service down")
         with patch(
             "aragora.server.handlers.email.context.get_context_service",
             return_value=mock_context_service,
@@ -146,7 +146,7 @@ class TestHandleGetEmailContextBoost:
 
     @pytest.mark.asyncio
     async def test_exception_returns_error(self, mock_context_service):
-        mock_context_service.get_email_context.side_effect = RuntimeError("boom")
+        mock_context_service.get_email_context.side_effect = ValueError("boom")
         with patch(
             "aragora.server.handlers.email.context.get_context_service",
             return_value=mock_context_service,
