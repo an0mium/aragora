@@ -708,7 +708,7 @@ def with_platform_resilience(
                 )
                 return None
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - generic decorator must catch all to record circuit failure
                 circuit.record_failure(str(e))
                 logger.error(f"Error in {func.__name__} for {platform}: {e}")
                 if use_dlq and args:

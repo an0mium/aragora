@@ -841,8 +841,7 @@ class MemoryCoordinator:
                     await asyncio.sleep(opts.retry_delay_seconds)
                 else:
                     op.mark_failed(str(e))
-            except (OSError, ConnectionError, TimeoutError) as e:
-                # Database/network errors - don't retry
+            except Exception as e:  # noqa: BLE001 - coordinator boundary must catch all subsystem failures
                 op.mark_failed(str(e))
                 return
 

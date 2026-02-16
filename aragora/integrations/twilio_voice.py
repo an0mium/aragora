@@ -454,9 +454,7 @@ class TwilioVoiceIntegration:
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Twilio outbound call connection error: {type(e).__name__}: {e}")
             return None
-        except Exception as e:
-            # Twilio SDK raises its own exception hierarchy (TwilioRestException,
-            # TwilioException) which may not be importable if SDK is not installed.
+        except Exception as e:  # noqa: BLE001 - Twilio SDK exception hierarchy may not be importable
             error_name = type(e).__name__
             if "Twilio" in error_name or "Auth" in error_name:
                 logger.error(f"Twilio API/auth error: {error_name}: {e}")

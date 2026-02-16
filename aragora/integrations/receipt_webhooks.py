@@ -110,7 +110,7 @@ class ReceiptWebhookNotifier:
             logger.debug(
                 f"Emitted receipt webhook: {payload.event_type} for receipt {payload.receipt_id}"
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
             logger.warning(f"Failed to emit receipt webhook: {e}")
 
     def notify_receipt_generated(
