@@ -76,18 +76,6 @@ function agentColor(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Example topics
-// ---------------------------------------------------------------------------
-
-const EXAMPLE_TOPICS = [
-  'Should we use Kubernetes or stick with VMs?',
-  'Kafka vs RabbitMQ for our event system?',
-  'Should we adopt a microservices architecture?',
-  'Is it worth migrating to TypeScript?',
-  'Should we build or buy our auth system?',
-];
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -176,20 +164,6 @@ export default function Playground() {
             className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
             disabled={loading}
           />
-
-          {/* Example chips */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            {EXAMPLE_TOPICS.map((ex) => (
-              <button
-                key={ex}
-                onClick={() => setTopic(ex)}
-                disabled={loading}
-                className="text-xs px-2 py-1 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)] transition-colors disabled:opacity-50"
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
 
           {/* Settings row */}
           <div className="flex items-center gap-6 mt-4">

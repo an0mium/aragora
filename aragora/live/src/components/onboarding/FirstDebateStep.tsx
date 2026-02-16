@@ -5,13 +5,6 @@ import { API_BASE_URL } from '@/config';
 import { useOnboardingStore } from '@/store';
 import { useDebateWebSocket } from '@/hooks/debate-websocket/useDebateWebSocket';
 
-const EXAMPLE_TOPICS = [
-  'Should we adopt TypeScript for our frontend?',
-  'Which CRM should we use: Salesforce or HubSpot?',
-  'Should we implement a 4-day work week?',
-  'Should we build a monolith or use microservices?',
-];
-
 type ReceiptListItem = {
   receipt_id?: string;
   id?: string;
@@ -269,11 +262,6 @@ export function FirstDebateStep() {
     updateProgress,
   ]);
 
-  const handleUseExample = (topic: string) => {
-    setFirstDebateTopic(topic);
-    setLocalError(null);
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -307,25 +295,6 @@ export function FirstDebateStep() {
       </div>
 
       {/* Example Topics */}
-      {debateStatus === 'idle' && (
-        <div>
-          <label className="block text-xs font-mono text-text-muted mb-2">
-            Or try an example:
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLE_TOPICS.map((topic) => (
-              <button
-                key={topic}
-                onClick={() => handleUseExample(topic)}
-                className="px-3 py-1 text-xs border border-acid-green/20 rounded hover:border-acid-green/50 hover:bg-acid-green/5 text-text-muted hover:text-text transition-colors"
-              >
-                {topic.length > 40 ? `${topic.slice(0, 40)}...` : topic}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Debate Status */}
       {debateStatus === 'creating' && (
         <div className="text-center py-4">

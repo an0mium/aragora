@@ -87,15 +87,6 @@ const STATS = [
   { value: '100%', label: 'AUDIT TRAIL' },
 ];
 
-const EXAMPLE_TOPICS = [
-  'Should we use Kubernetes or stick with VMs?',
-  'Kafka vs RabbitMQ for our event system?',
-  'Should we build or buy our auth system?',
-  'Is it worth migrating to TypeScript?',
-  'How should we handle PII in our analytics pipeline?',
-  'Monorepo or polyrepo for our microservices?',
-];
-
 const FOOTER_LINKS = [
   { href: 'https://github.com/an0mium/aragora', label: 'GitHub' },
   { href: '/about', label: 'Docs' },
@@ -206,21 +197,6 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               rows={2}
               className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors resize-none disabled:opacity-50"
             />
-
-            {/* Example topic chips */}
-            <div className="flex flex-wrap gap-2 mt-3">
-              {EXAMPLE_TOPICS.map((ex) => (
-                <button
-                  key={ex}
-                  type="button"
-                  onClick={() => { setQuestion(ex); runDebate(ex); }}
-                  disabled={isRunning}
-                  className="text-xs px-2 py-1 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)] transition-colors disabled:opacity-50 font-mono"
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
 
             <div className="flex justify-center mt-6">
               <button
