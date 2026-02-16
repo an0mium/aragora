@@ -708,7 +708,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                         user_id=str(user_id),
                         metadata={"username": str(user_id), "topic": topic},
                     )
-                except Exception as exc:
+                except (RuntimeError, KeyError, AttributeError, OSError, ImportError) as exc:
                     logger.debug("Failed to register Telegram debate origin: %s", exc)
 
                 # Route through DecisionRouter (handles deduplication, caching)
@@ -726,7 +726,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                             user_id=str(user_id),
                             metadata={"username": str(user_id), "topic": topic},
                         )
-                    except Exception as exc:
+                    except (RuntimeError, KeyError, AttributeError, OSError, ImportError) as exc:
                         logger.debug("Failed to register dedup Telegram origin: %s", exc)
 
                 if result.debate_id:
@@ -904,5 +904,5 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.warning("httpx not available for Telegram messaging")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to send Telegram message: {e}")

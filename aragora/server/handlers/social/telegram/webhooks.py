@@ -119,7 +119,7 @@ class TelegramWebhooksMixin:
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, OSError) as e:
             logger.error("Failed to set webhook: %s", e)
             return error_response("Webhook setup failed", 500)
 
@@ -150,7 +150,7 @@ class TelegramWebhooksMixin:
                     logger.info("Telegram webhook set to: %s", webhook_url)
                 else:
                     logger.error("Failed to set webhook: %s", result)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.error("Error setting Telegram webhook: %s", e)
 
     @auto_error_response("handle telegram webhook")

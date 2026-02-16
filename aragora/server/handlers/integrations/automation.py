@@ -143,7 +143,7 @@ class AutomationHandler(SecureHandler):
                 return error_response(f"Permission denied: {decision.reason}", status=403)
 
             return None  # Allowed
-        except Exception as e:
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return error_response("Authentication required", status=401)
 
@@ -348,7 +348,7 @@ class AutomationHandler(SecureHandler):
         """Create a new webhook subscription."""
         try:
             body = self._get_request_body(handler)
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError, AttributeError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request body", status=400)
 
@@ -401,7 +401,7 @@ class AutomationHandler(SecureHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"[AutomationHandler] Subscribe failed: {e}")
             return error_response("Subscription creation failed", status=500)
 
@@ -464,7 +464,7 @@ class AutomationHandler(SecureHandler):
         """Dispatch an event to matching subscriptions (internal)."""
         try:
             body = self._get_request_body(handler)
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError, AttributeError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request body", status=400)
 

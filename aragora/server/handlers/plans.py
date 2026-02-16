@@ -325,7 +325,7 @@ class PlansHandler(BaseHandler):
                 bridge.schedule_execution(plan_id)
                 execution_scheduled = True
                 logger.info("Auto-execution scheduled for plan %s", plan_id)
-            except Exception as exc:
+            except (ImportError, RuntimeError, AttributeError) as exc:
                 logger.warning("Auto-execution scheduling failed for plan %s: %s", plan_id, exc)
 
         return json_response(
@@ -439,7 +439,7 @@ class PlansHandler(BaseHandler):
                 plan_id,
                 execution_mode=execution_mode,
             )
-        except Exception as exc:
+        except (ImportError, RuntimeError, AttributeError) as exc:
             logger.error("Failed to schedule execution for plan %s: %s", plan_id, exc)
             return error_response(f"Failed to schedule execution: {exc}", 500)
 

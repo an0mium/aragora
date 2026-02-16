@@ -300,7 +300,7 @@ class AnalyticsHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get sharing stats: {e}")
             return error_response("Failed to get sharing stats", 500)
 
@@ -352,7 +352,7 @@ class AnalyticsHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get federation stats: {e}")
             return error_response("Failed to get federation stats", 500)
 

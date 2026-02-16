@@ -96,7 +96,7 @@ class TeamsOAuth:
         except ImportError:
             logger.warning("aiohttp not available for OAuth token request")
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
             logger.error("Error getting bot token: %s", e)
             return None
 
