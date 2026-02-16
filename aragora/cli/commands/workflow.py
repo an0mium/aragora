@@ -105,7 +105,7 @@ async def _cmd_list(args: argparse.Namespace) -> None:
                 print(f"    Tags: {', '.join(wf.tags[:5])}")
             print()
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError listing workflows: {e}")
 
 
@@ -197,7 +197,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
             icon = "+" if step.status.value == "completed" else "-"
             print(f"    [{icon}] {step.step_name}: {step.status.value} ({step.duration_ms:.0f}ms)")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.exception("Workflow execution failed")
         print(f"\nError: {e}")
 
@@ -267,7 +267,7 @@ async def _cmd_status(args: argparse.Namespace) -> None:
         if error:
             print(f"\n  Error: {error}")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError getting status: {e}")
 
 
@@ -313,7 +313,7 @@ async def _cmd_templates(args: argparse.Namespace) -> None:
         print(f"\n  Total: {len(templates)} templates")
         print("  Run with: aragora workflow run <template_id>")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError listing templates: {e}")
 
 
@@ -352,7 +352,7 @@ async def _cmd_patterns(args: argparse.Namespace) -> None:
 
     except ImportError:
         print("\n  Pattern factory not available.")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError listing patterns: {e}")
 
 
@@ -379,7 +379,7 @@ async def _cmd_categories(args: argparse.Namespace) -> None:
 
         print("\n  Filter templates: aragora workflow templates --category <category>")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError listing categories: {e}")
 
 

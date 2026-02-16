@@ -81,7 +81,7 @@ class LifecycleManager:
             for task in asyncio.all_tasks():
                 if self.is_arena_task(task):
                     await self.cancel_task(task)
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.debug(f"Error cancelling tasks during cleanup: {e}")
 
     async def close_checkpoint_manager(self) -> None:
@@ -92,7 +92,7 @@ class LifecycleManager:
             close_result = self.checkpoint_manager.close()
             if asyncio.iscoroutine(close_result):
                 await close_result
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.debug(f"Error closing checkpoint manager: {e}")
 
     def count_open_circuit_breakers(self) -> int:

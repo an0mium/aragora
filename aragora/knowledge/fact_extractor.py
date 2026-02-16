@@ -219,7 +219,7 @@ class FactExtractor:
                     metadata=metadata,
                 )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
             logger.exception(f"Fact extraction failed for chunk {chunk_id}")
             result.errors.append("Fact extraction failed")
 

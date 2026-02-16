@@ -184,7 +184,7 @@ def _open_receipt_in_browser(receipt_data: dict[str, Any]) -> str | None:
             f.write(html)
         webbrowser.open(f"file://{path}")
         return path
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.debug("Failed to open receipt in browser: %s", e)
         return None
 
@@ -314,7 +314,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             result = asyncio.run(_run_demo_debate(question, rounds))
         else:
             result = asyncio.run(_run_live_debate(question, detected[:4], rounds))
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         logger.debug("Debate failed: %s", e)
         print(f"\n[!] Debate failed: {e}")
         print("    Try: aragora quickstart --demo")

@@ -216,7 +216,7 @@ class ContextPhase:
                         f"=== CODEBASE STRUCTURE MAP (via RLM Context Builder) ===\n{rlm_context}",
                     )
                     self._log("  RLM context builder: added structured codebase map")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 self._log(f"  RLM context builder: failed ({e}), continuing without")
 
         gathered_context = "\n\n".join(combined_context)
@@ -232,7 +232,7 @@ class ContextPhase:
                     if rlm_context:
                         gathered_context = rlm_context
                         self._log("  [context] TRUE RLM context builder applied (deep index)")
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError) as e:
                     self._log(f"  [context] RLM context builder unavailable: {e}")
             else:
                 try:
@@ -265,7 +265,7 @@ class ContextPhase:
                     if rlm_result and rlm_result.answer:
                         gathered_context = rlm_result.answer
                         self._log("  [context] TRUE RLM context builder applied")
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, OSError) as e:
                     self._log(f"  [context] RLM context builder unavailable: {e}")
 
         phase_duration = time.perf_counter() - phase_start
@@ -428,7 +428,7 @@ CRITICAL RULES:
         except asyncio.TimeoutError:
             self._log(f"  {name}: timeout exceeded", agent=name)
             return (name, harness, "Error: timeout exceeded")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             self._log(f"  {name}: error - {type(e).__name__}: {e}", agent=name)
             return (name, harness, f"Error: {type(e).__name__}: {e}")
         finally:
@@ -487,7 +487,7 @@ CRITICAL RULES:
         except ImportError:
             self._log("  [context] cycle_store not available, skipping cycle context")
             return ""
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             self._log(f"  [context] Failed to get recent cycles: {e}")
             return ""
 

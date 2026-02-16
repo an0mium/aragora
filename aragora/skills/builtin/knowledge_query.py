@@ -140,7 +140,7 @@ class KnowledgeQuerySkill(Skill):
 
             return SkillResult.create_success(results)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Knowledge query failed: {e}")
             return SkillResult.create_failure(f"Query failed: {e}")
 
@@ -153,7 +153,7 @@ class KnowledgeQuerySkill(Skill):
         except ImportError:
             logger.debug("Knowledge Mound not available")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"Failed to get Knowledge Mound: {e}")
             return None
 
@@ -183,7 +183,7 @@ class KnowledgeQuerySkill(Skill):
                     }
                     for r in results
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Consensus query error: {e}")
         return []
 
@@ -213,7 +213,7 @@ class KnowledgeQuerySkill(Skill):
                     }
                     for r in results
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Evidence query error: {e}")
         return []
 
@@ -240,7 +240,7 @@ class KnowledgeQuerySkill(Skill):
                     }
                     for r in results
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Pattern query error: {e}")
         return []
 
@@ -267,7 +267,7 @@ class KnowledgeQuerySkill(Skill):
                     }
                     for r in results
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Insight query error: {e}")
         return []
 

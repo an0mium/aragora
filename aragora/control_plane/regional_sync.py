@@ -254,7 +254,7 @@ class RegionalEventBus:
         except ImportError:
             logger.warning("redis package not installed, regional sync disabled")
             return False
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect RegionalEventBus: {e}")
             return False
 
@@ -384,7 +384,7 @@ class RegionalEventBus:
             await self._redis.publish(channel, json.dumps(event.to_dict()))
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to publish regional event: {e}")
             # Buffer on failure
             if len(self._event_buffer) < self._config.max_event_buffer:
@@ -460,7 +460,7 @@ class RegionalEventBus:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Error in regional event listener: {e}")
                 await asyncio.sleep(1.0)
 
@@ -482,7 +482,7 @@ class RegionalEventBus:
 
         except json.JSONDecodeError as e:
             logger.warning(f"Invalid JSON in regional event: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"Error handling regional event: {e}")
 
     async def _dispatch_event(self, event: RegionalEvent) -> None:
@@ -492,14 +492,14 @@ class RegionalEventBus:
             for handler in self._handlers[event.event_type]:
                 try:
                     await handler(event)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
                     logger.error(f"Error in regional event handler: {e}")
 
         # Call global handlers
         for handler in self._global_handlers:
             try:
                 await handler(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
                 logger.error(f"Error in global regional event handler: {e}")
 
     async def _heartbeat_loop(self) -> None:
@@ -521,7 +521,7 @@ class RegionalEventBus:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Error sending region heartbeat: {e}")
                 await asyncio.sleep(self._config.heartbeat_interval)
 

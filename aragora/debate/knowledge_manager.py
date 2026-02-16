@@ -250,7 +250,7 @@ class ArenaKnowledgeManager:
                     )
             except ImportError as e:
                 logger.debug(f"[knowledge_mound] AdapterFactory unavailable: {e}")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"[knowledge_mound] Failed to initialize adapters: {e}")
 
         # Initialize Supermemory adapter (external memory persistence)
@@ -289,7 +289,7 @@ class ArenaKnowledgeManager:
             except ImportError as e:
                 logger.debug(f"[supermemory] Integration unavailable: {e}")
                 self.enable_supermemory = False
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, OSError, ConnectionError) as e:
                 logger.warning(f"[supermemory] Failed to initialize adapter: {e}")
                 self.enable_supermemory = False
         else:
@@ -297,7 +297,7 @@ class ArenaKnowledgeManager:
             if self._notify_callback and hasattr(self.supermemory_adapter, "set_event_callback"):
                 try:
                     self.supermemory_adapter.set_event_callback(self._notify_callback)
-                except Exception as e:
+                except (AttributeError, TypeError, RuntimeError) as e:
                     logger.debug(f"[supermemory] Failed to set event callback: {e}")
 
     async def init_context(
@@ -353,7 +353,7 @@ class ArenaKnowledgeManager:
 
         except ImportError:
             logger.debug("[arena] KM context initialization skipped (events not available)")
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
             logger.warning(f"[arena] Failed to initialize KM context: {e}")
 
     def get_culture_hints(self, debate_id: str) -> dict[str, Any]:
@@ -381,7 +381,7 @@ class ArenaKnowledgeManager:
 
         except ImportError:
             return {}
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
             logger.debug(f"[arena] Failed to get culture hints: {e}")
             return {}
 

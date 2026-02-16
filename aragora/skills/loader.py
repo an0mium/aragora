@@ -142,7 +142,7 @@ class SkillLoader:
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-        except Exception as e:
+        except (ImportError, RuntimeError, SyntaxError, OSError) as e:
             raise SkillLoadError(f"Failed to load file {path}: {e}") from e
 
         skills = self._extract_skills_from_module(module)
@@ -241,7 +241,7 @@ class SkillLoader:
                     skills.extend(result)
                 elif isinstance(result, Skill):
                     skills.append(result)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"register_skills() failed: {e}")
 
         # Check for SKILLS constant
@@ -269,7 +269,7 @@ class SkillLoader:
                     instance = obj()
                     if instance not in skills:
                         skills.append(instance)
-                except Exception as e:
+                except (TypeError, RuntimeError, ValueError) as e:
                     logger.debug(f"Could not instantiate {name}: {e}")
 
             # Check if it's already a Skill instance
@@ -329,7 +329,7 @@ class SkillLoader:
             logger.info(f"Loaded declarative skill from {path}: {manifest.name}")
             return skill
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError, ImportError) as e:
             raise SkillLoadError(f"Failed to load manifest {path}: {e}") from e
 
 

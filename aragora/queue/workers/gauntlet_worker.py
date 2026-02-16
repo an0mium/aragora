@@ -117,7 +117,7 @@ class GauntletWorker:
                     break
                 logger.error("[%s] Worker error: %s", self.worker_id, e, exc_info=True)
                 await asyncio.sleep(self.poll_interval)
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError) as e:  # noqa: BLE001 - worker isolation
                 # Check for pool/connection closure errors that indicate shutdown
                 err_msg = str(e).lower()
                 if any(
@@ -179,7 +179,7 @@ class GauntletWorker:
                 "[%s] Completed gauntlet %s in %.1fs", self.worker_id, gauntlet_id, duration
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
                 "[%s] Gauntlet %s failed: %s",
                 self.worker_id,
@@ -250,7 +250,7 @@ class GauntletWorker:
         # Update status to running
         try:
             storage.update_inflight_status(gauntlet_id, "running")
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.debug("Failed to update inflight status: %s", e)
 
         # Create agents
@@ -320,7 +320,7 @@ class GauntletWorker:
                         current_phase=progress.phase,
                         progress_percent=progress.percent,
                     )
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.warning(
                         "Failed to update inflight status for gauntlet %s: %s", gauntlet_id, e
                     )
@@ -354,7 +354,7 @@ class GauntletWorker:
             storage.save(result)
             storage.delete_inflight(gauntlet_id)
             logger.info("Gauntlet %s persisted to storage", gauntlet_id)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.warning("Failed to persist gauntlet %s: %s", gauntlet_id, e)
 
         # Feed gauntlet results back to ELO rankings

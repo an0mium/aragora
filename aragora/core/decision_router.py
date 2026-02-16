@@ -743,7 +743,7 @@ class DecisionRouter:
             from aragora.server.decision_integrity_utils import (
                 build_decision_integrity_payload,
             )
-        except Exception as exc:
+        except (ImportError, AttributeError) as exc:
             logger.debug("Decision integrity utilities unavailable: %s", exc)
             return None
 
@@ -772,7 +772,7 @@ class DecisionRouter:
         try:
             from aragora.server.documents import ParsedDocument, parse_document, parse_text
             import base64
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             logger.debug("Document ingestion unavailable: %s", e)
             return []
 
@@ -826,7 +826,7 @@ class DecisionRouter:
                     index=idx,
                     request=request,
                 )
-            except Exception as e:
+            except (ValueError, TypeError, OSError, KeyError) as e:
                 logger.debug("Failed to ingest attachment %s: %s", filename, e)
 
         return doc_ids
@@ -885,7 +885,7 @@ class DecisionRouter:
                 reliability_score=0.5,
                 metadata=metadata,
             )
-        except Exception as e:
+        except (ValueError, TypeError, OSError, KeyError) as e:
             logger.debug("Failed to store attachment evidence %s: %s", filename, e)
 
     def _format_attachment_context(
@@ -993,7 +993,7 @@ class DecisionRouter:
                     metadata=metadata,
                 )
                 saved_ids.append(saved_id)
-            except Exception as e:
+            except (ValueError, TypeError, OSError, KeyError) as e:
                 logger.debug("Failed to store request evidence %s: %s", evidence_id, e)
 
         return saved_ids

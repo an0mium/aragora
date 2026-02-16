@@ -30,6 +30,7 @@ from .convoy_store import (
     ConvoyStatus,
     ConvoyStore,
 )
+from .run_store import RunStatus, SelfImproveRun, SelfImproveRunStore
 from .specs import BeadSpec, ConvoySpec
 from .protocols import BeadRecord, ConvoyRecord
 from aragora.nomic.beads import create_bead_store, get_bead_store, reset_bead_store
@@ -54,6 +55,10 @@ __all__ = [
     # Cross-layer protocols
     "BeadRecord",
     "ConvoyRecord",
+    # Self-improve run store
+    "RunStatus",
+    "SelfImproveRun",
+    "SelfImproveRunStore",
     # Store helpers
     "create_bead_store",
     "get_bead_store",

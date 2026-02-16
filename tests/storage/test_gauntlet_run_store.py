@@ -885,7 +885,7 @@ class TestRedisGauntletRunStore:
         self, store_with_redis, mock_redis, sample_run_data
     ):
         """Test that get falls back to SQLite on Redis error."""
-        mock_redis.get.side_effect = Exception("Redis connection error")
+        mock_redis.get.side_effect = ConnectionError("Redis connection error")
 
         # First save to fallback
         await store_with_redis._fallback.save(sample_run_data)

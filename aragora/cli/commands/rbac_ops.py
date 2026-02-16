@@ -114,7 +114,7 @@ async def _cmd_roles(args: argparse.Namespace) -> None:
     except httpx.HTTPStatusError as e:
         print(f"\nError: API request failed ({e.response.status_code})")
         _print_api_error(e)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -157,7 +157,7 @@ async def _cmd_permissions(args: argparse.Namespace) -> None:
     except httpx.HTTPStatusError as e:
         print(f"\nError: API request failed ({e.response.status_code})")
         _print_api_error(e)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -200,7 +200,7 @@ async def _cmd_assign(args: argparse.Namespace) -> None:
     except httpx.HTTPStatusError as e:
         print(f"\nError: API request failed ({e.response.status_code})")
         _print_api_error(e)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -246,7 +246,7 @@ async def _cmd_check(args: argparse.Namespace) -> None:
     except httpx.HTTPStatusError as e:
         print(f"\nError: API request failed ({e.response.status_code})")
         _print_api_error(e)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 

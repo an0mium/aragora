@@ -331,7 +331,7 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
                 checks_passed += 1
             else:
                 print("  [FAIL] cryptographic signature invalid")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             print(f"  [FAIL] signature verification error: {e}")
 
     print("")

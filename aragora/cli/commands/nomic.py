@@ -186,7 +186,7 @@ async def _cmd_run(args: argparse.Namespace) -> None:
     except ImportError as e:
         print(f"\nError: Failed to import Nomic Loop components: {e}")
         print("Make sure aragora is installed correctly.")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.exception("Nomic loop failed")
         print(f"\nError: {e}")
 
@@ -222,7 +222,7 @@ def _cmd_run_api(args: argparse.Namespace, client: Any) -> None:
             print("  Approval: auto")
         if "pid" in result:
             print(f"  PID: {result.get('pid')}")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError starting nomic loop via API: {e}")
 
 
@@ -301,7 +301,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
                 count = stats.get("success_count", 0) + stats.get("fail_count", 0)
                 print(f"    {pattern_type}: {success_rate:.0%} ({count} attempts)")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError getting status: {e}")
 
 
@@ -345,7 +345,7 @@ def _cmd_status_api(args: argparse.Namespace, client: Any) -> None:
                 print(f"    Phase:          {stuck.get('phase')}")
             if stuck.get("idle_seconds") is not None:
                 print(f"    Idle seconds:   {stuck.get('idle_seconds')}")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError getting status via API: {e}")
 
 
@@ -412,7 +412,7 @@ def _cmd_history(args: argparse.Namespace) -> None:
 
             print()
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError getting history: {e}")
 
 
@@ -464,7 +464,7 @@ async def _cmd_resume(args: argparse.Namespace) -> None:
         if not result.get("success"):
             print(f"  Error: {result.get('error', 'Unknown')}")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError resuming: {e}")
 
 

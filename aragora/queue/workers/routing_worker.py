@@ -113,7 +113,7 @@ class RoutingWorker:
             except asyncio.CancelledError:
                 logger.info(f"[{self.worker_id}] Worker cancelled")
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
                 logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
                 await asyncio.sleep(self.poll_interval)
 
@@ -178,7 +178,7 @@ class RoutingWorker:
                         f"(attempt {job.attempts}/{job.max_attempts})"
                     )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
                 f"[{self.worker_id}] Job {job.id} failed: {e}",
                 exc_info=True,
@@ -310,7 +310,7 @@ async def recover_interrupted_routing() -> int:
             logger.info(f"Recovered {stale_recovered} stale jobs")
             recovered = stale_recovered
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError) as e:
         logger.error(f"Error recovering routing jobs: {e}", exc_info=True)
 
     if recovered:

@@ -159,7 +159,7 @@ async def _cmd_search(args: argparse.Namespace) -> None:
             print(f"  {error_data.get('error', 'Unknown error')}")
         except (ValueError, KeyError):
             print(f"  {e.response.text}")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -199,7 +199,7 @@ async def _cmd_list(args: argparse.Namespace) -> None:
             print("Set ARAGORA_API_TOKEN environment variable or log in.")
         else:
             print(f"\nError: API request failed ({e.response.status_code})")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -241,7 +241,7 @@ async def _cmd_install(args: argparse.Namespace) -> None:
             print(f"\nError: Skill '{skill_id}' not found in marketplace.")
         else:
             print(f"\nError: API request failed ({e.response.status_code})")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -277,7 +277,7 @@ async def _cmd_uninstall(args: argparse.Namespace) -> None:
             print(f"\nError: Skill '{skill_id}' not installed.")
         else:
             print(f"\nError: API request failed ({e.response.status_code})")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -337,7 +337,7 @@ async def _cmd_info(args: argparse.Namespace) -> None:
             print(f"\nError: Skill '{skill_id}' not found.")
         else:
             print(f"\nError: API request failed ({e.response.status_code})")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -381,7 +381,7 @@ async def _cmd_stats(args: argparse.Namespace) -> None:
         print("\nError: Could not connect to Aragora server.")
     except httpx.HTTPStatusError as e:
         print(f"\nError: API request failed ({e.response.status_code})")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError: {e}")
 
 
@@ -418,7 +418,7 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         try:
             text = target_path.read_text(encoding="utf-8")
             source = str(target_path)
-        except Exception as e:
+        except (OSError, IOError) as e:
             print(f"\nError reading file: {e}")
             sys.exit(3)
     else:

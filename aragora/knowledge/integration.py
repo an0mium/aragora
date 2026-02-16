@@ -150,13 +150,13 @@ async def process_document_async(
     if config.on_complete and result.success:
         try:
             config.on_complete(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning(f"on_complete callback failed: {e}")
 
     if config.on_error and not result.success:
         try:
             config.on_error(result.document_id, Exception(result.error or "Unknown error"))
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning(f"on_error callback failed: {e}")
 
     return result
@@ -241,13 +241,13 @@ async def process_text_async(
     if config.on_complete and result.success:
         try:
             config.on_complete(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning(f"on_complete callback failed: {e}")
 
     if config.on_error and not result.success:
         try:
             config.on_error(result.document_id, Exception(result.error or "Unknown error"))
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning(f"on_error callback failed: {e}")
 
     return result
@@ -333,7 +333,7 @@ def queue_text_processing(
                 f"chunks={result.chunk_count} facts={result.fact_count}"
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
             job.status = "failed"
             job.error = f"Processing failed: {type(e).__name__}"
             job.completed_at = datetime.now(timezone.utc)
@@ -405,7 +405,7 @@ def queue_document_processing(
                 f"chunks={result.chunk_count} facts={result.fact_count}"
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError, KeyError) as e:  # noqa: BLE001 - adapter isolation
             job.status = "failed"
             job.error = f"Processing failed: {type(e).__name__}"
             job.completed_at = datetime.now(timezone.utc)
@@ -491,7 +491,7 @@ async def shutdown_pipeline() -> None:
                 try:
                     await pipeline.stop()
                     logger.info("Knowledge pipeline shutdown complete for workspace %s", workspace_id)
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.warning("Failed to shutdown pipeline for workspace %s: %s", workspace_id, e)
             _pipelines.clear()
 

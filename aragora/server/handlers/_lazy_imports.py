@@ -244,6 +244,8 @@ HANDLER_MODULES: dict[str, str] = {
     "APAutomationHandler": "aragora.server.handlers.ap_automation",
     # RBAC management
     "RBACHandler": "aragora.server.handlers.rbac",
+    # Self-improvement
+    "SelfImproveHandler": "aragora.server.handlers.self_improve",
 }
 
 # List of all handler class names (in priority order for dispatch)
@@ -438,5 +440,6 @@ ALL_HANDLER_NAMES: list[str] = [
     "GmailLabelsHandler",
     "GmailThreadsHandler",
     "RBACHandler",
+    "SelfImproveHandler",
     "VoiceHandler",
 ]

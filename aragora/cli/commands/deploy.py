@@ -159,7 +159,7 @@ async def _cmd_validate(args: argparse.Namespace) -> None:
     except ImportError as e:
         print(f"\nError: Failed to import deployment validator: {e}")
         sys.exit(1)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.exception("Validation failed")
         print(f"\nError: {e}")
         sys.exit(1)
@@ -654,7 +654,7 @@ async def _cmd_status(args: argparse.Namespace) -> None:
 
         print()
 
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\nError getting status: {e}")
 
 

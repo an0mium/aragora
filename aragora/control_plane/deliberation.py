@@ -527,7 +527,7 @@ class DeliberationManager:
             if self._elo_callback:
                 try:
                     self._elo_callback(outcome)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided ELO callback
                     logger.error(f"ELO callback failed: {e}")
 
             return outcome
@@ -542,7 +542,7 @@ class DeliberationManager:
             self._emit_completion_notification(task, outcome)
             return outcome
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             task.status = DeliberationStatus.FAILED
             task.error = "Deliberation failed"
             task.metrics.completed_at = time.time()
@@ -646,7 +646,7 @@ class DeliberationManager:
             return
         try:
             self._notification_callback(event_type, data)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided notification callback
             logger.debug("deliberation_notification_failed: %s", str(e))
 
     def _emit_completion_notification(

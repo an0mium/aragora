@@ -133,7 +133,7 @@ class EvidenceFetchSkill(Skill):
 
             return SkillResult.create_success(results)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as e:
             logger.exception(f"Evidence fetch failed: {e}")
             return SkillResult.create_failure(f"Evidence fetch failed: {e}")
 
@@ -170,7 +170,7 @@ class EvidenceFetchSkill(Skill):
                     "title": self._extract_title(content),
                 }
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"URL fetch error: {e}")
             return {"url": url, "error": str(e)}
 
@@ -204,7 +204,7 @@ class EvidenceFetchSkill(Skill):
             extractor.feed(html)
             return " ".join(extractor.text_parts)
 
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             # Fall back to basic text extraction
             logger.debug(
                 f"HTML parsing failed, using fallback text extraction: {type(e).__name__}: {e}"
@@ -249,7 +249,7 @@ class EvidenceFetchSkill(Skill):
         except ImportError:
             logger.debug("duckduckgo-search not installed")
             return []
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Web search error: {e}")
             return []
 
@@ -298,7 +298,7 @@ class EvidenceFetchSkill(Skill):
                     )
                 return results
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.warning(f"Academic search error: {e}")
             return []
 
@@ -330,7 +330,7 @@ class EvidenceFetchSkill(Skill):
         except ImportError:
             logger.debug("duckduckgo-search not installed")
             return []
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"News search error: {e}")
             return []
 
@@ -383,7 +383,7 @@ class EvidenceFetchSkill(Skill):
                         return results
         except ImportError:
             logger.debug("http_client_pool not available for fact checking")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.debug(f"Google Fact Check API error: {e}")
 
         # 2. Fallback: check local fact store if available
@@ -407,7 +407,7 @@ class EvidenceFetchSkill(Skill):
                 )
         except (ImportError, AttributeError):
             logger.debug("Local fact store not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug(f"Local fact store query failed: {e}")
 
         return results

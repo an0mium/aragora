@@ -342,7 +342,7 @@ def _run_orchestration(
         print("\n\nOrchestration interrupted by user.")
         print("Active assignments may be left in progress.")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nOrchestration failed: {e}")
         if verbose:
             import traceback

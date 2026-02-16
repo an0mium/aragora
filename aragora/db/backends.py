@@ -508,7 +508,7 @@ class PostgresBackend(DatabaseBackend):
                 cursor = conn.cursor()
                 cursor.execute("SELECT 1")
             return True
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"PostgreSQL health check failed: {e}")
             return False
 
