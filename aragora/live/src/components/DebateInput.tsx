@@ -112,6 +112,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
   const [localError, setLocalError] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<{ total: number; breakdown: { model: string; subtotal: number }[] } | null>(null);
   const [costLoading, setCostLoading] = useState(false);
+  const [costError, setCostError] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const costDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -316,6 +317,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
 
     costDebounceRef.current = setTimeout(async () => {
       setCostLoading(true);
+      setCostError(false);
       try {
         const params = new URLSearchParams({
           num_agents: String(agentList.length),
@@ -332,9 +334,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
               subtotal: b.subtotal_usd ?? 0,
             })),
           });
+        } else {
+          setCostError(true);
         }
       } catch {
-        // Fail silently - cost estimate is optional
+        setCostError(true);
       } finally {
         setCostLoading(false);
       }
@@ -679,9 +683,17 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
           </div>
 
           {/* Compact cost indicator when options are collapsed */}
-          {!showAdvanced && costEstimate && !costLoading && (
-            <span className="text-xs font-mono text-text-muted">
-              ~${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
+          {!showAdvanced && (costEstimate || costLoading || costError) && (
+            <span className="text-xs font-mono">
+              {costLoading ? (
+                <span className="text-text-muted animate-pulse">estimating...</span>
+              ) : costError ? (
+                <span className="text-warning/60">cost N/A</span>
+              ) : costEstimate ? (
+                <span className="text-acid-green/70">
+                  ~${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
+                </span>
+              ) : null}
             </span>
           )}
 
@@ -880,30 +892,48 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
                   value={budgetLimit}
                   onChange={(e) => setBudgetLimit(e.target.value)}
                   placeholder="No limit"
-                  className="w-full bg-bg border border-acid-green/30 px-3 py-2
-                             font-mono text-sm text-text focus:border-acid-green
-                             focus:outline-none"
+                  className={`w-full bg-bg border px-3 py-2
+                             font-mono text-sm text-text focus:outline-none transition-colors
+                             ${budgetLimit && costEstimate && parseFloat(budgetLimit) > 0 && parseFloat(budgetLimit) < costEstimate.total
+                               ? 'border-warning/60 focus:border-warning'
+                               : 'border-acid-green/30 focus:border-acid-green'}`}
                 />
-                <p className="text-[10px] text-text-muted mt-1">
-                  Debate halts when cost reaches this limit
-                </p>
+                {budgetLimit && costEstimate && parseFloat(budgetLimit) > 0 && parseFloat(budgetLimit) < costEstimate.total ? (
+                  <p className="text-[10px] text-warning mt-1 font-mono">
+                    Budget ${parseFloat(budgetLimit).toFixed(2)} is below estimated cost ${costEstimate.total.toFixed(2)}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Debate halts when cost reaches this limit
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Cost Estimate Preview */}
-            {(costEstimate || costLoading) && (
-              <div className="border border-acid-cyan/30 p-3 bg-bg/50">
+            {(costEstimate || costLoading || costError) && (
+              <div className={`border p-3 bg-bg/50 transition-colors ${
+                costError ? 'border-warning/30' : 'border-acid-cyan/30'
+              }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono text-acid-cyan">ESTIMATED COST</span>
                   {costLoading ? (
-                    <span className="text-sm font-mono text-text-muted animate-pulse">calculating...</span>
+                    <span className="text-sm font-mono text-text-muted">
+                      <span className="inline-flex gap-0.5">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse" style={{ animationDelay: '150ms' }}>.</span>
+                        <span className="animate-pulse" style={{ animationDelay: '300ms' }}>.</span>
+                      </span>
+                    </span>
+                  ) : costError ? (
+                    <span className="text-xs font-mono text-warning/80">unavailable</span>
                   ) : costEstimate ? (
                     <span className="text-lg font-mono font-bold text-acid-green">
                       ${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
                     </span>
                   ) : null}
                 </div>
-                {costEstimate && costEstimate.breakdown.length > 0 && (
+                {!costError && costEstimate && costEstimate.breakdown.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {costEstimate.breakdown.map((b, i) => (
                       <div key={i} className="flex items-center justify-between text-[10px] font-mono text-text-muted">
@@ -914,7 +944,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
                   </div>
                 )}
                 <p className="text-[10px] text-text-muted/50 mt-1">
-                  Based on average token usage. Actual cost may vary.
+                  {costError
+                    ? 'Could not reach cost API. Debate will still work.'
+                    : 'Based on average token usage. Actual cost may vary.'}
                 </p>
               </div>
             )}

@@ -53,6 +53,8 @@ export default function DebateDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [copiedSummary, setCopiedSummary] = useState(false);
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -420,7 +422,9 @@ export default function DebateDetailPage() {
                     </div>
                   </button>
                   <button
+                    disabled={exporting === 'md'}
                     onClick={async () => {
+                      setExporting('md');
                       try {
                         const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/md`);
                         if (res.ok) {
@@ -434,16 +438,21 @@ export default function DebateDetailPage() {
                           URL.revokeObjectURL(url);
                         }
                       } catch { /* fail silently */ }
+                      setExporting(null);
                     }}
-                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 transition-colors text-left"
+                    className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                      exporting === 'md' ? 'opacity-50 cursor-wait' : 'hover:border-[var(--acid-green)]/40'
+                    }`}
                   >
-                    <div>MARKDOWN</div>
+                    <div>{exporting === 'md' ? 'EXPORTING...' : 'MARKDOWN'}</div>
                     <div className="text-[var(--text-muted)] mt-1">
                       Human-readable report
                     </div>
                   </button>
                   <button
+                    disabled={exporting === 'csv'}
                     onClick={async () => {
+                      setExporting('csv');
                       try {
                         const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/csv`);
                         if (res.ok) {
@@ -457,10 +466,13 @@ export default function DebateDetailPage() {
                           URL.revokeObjectURL(url);
                         }
                       } catch { /* fail silently */ }
+                      setExporting(null);
                     }}
-                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 transition-colors text-left"
+                    className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                      exporting === 'csv' ? 'opacity-50 cursor-wait' : 'hover:border-[var(--acid-green)]/40'
+                    }`}
                   >
-                    <div>CSV</div>
+                    <div>{exporting === 'csv' ? 'EXPORTING...' : 'CSV'}</div>
                     <div className="text-[var(--text-muted)] mt-1">
                       Spreadsheet format
                     </div>
@@ -478,12 +490,14 @@ export default function DebateDetailPage() {
                     onClick={() => {
                       const summary = `Decision: ${pkg.verdict}\n\nQuestion: ${pkg.question}\n\nConfidence: ${(pkg.confidence * 100).toFixed(0)}%\nConsensus: ${pkg.consensus_reached ? 'Yes' : 'No'}\nAgents: ${pkg.agents.join(', ')}\n\n${pkg.final_answer}`;
                       navigator.clipboard.writeText(summary);
+                      setCopiedSummary(true);
+                      setTimeout(() => setCopiedSummary(false), 2000);
                     }}
                     className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors text-left"
                   >
-                    <div>SUMMARY</div>
+                    <div>{copiedSummary ? 'COPIED' : 'SUMMARY'}</div>
                     <div className="text-[var(--text-muted)] mt-1">
-                      Copy text summary
+                      {copiedSummary ? 'Copied to clipboard!' : 'Copy text summary'}
                     </div>
                   </button>
                 </div>
