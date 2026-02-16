@@ -323,9 +323,13 @@ class DockerSandbox(SandboxBackend):
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            await proc.wait()
+            await asyncio.wait_for(proc.wait(), timeout=10)
             return proc.returncode == 0
         except FileNotFoundError:
+            return False
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
             return False
         except Exception as e:
             logger.debug(f"Docker availability check failed: {type(e).__name__}: {e}")
@@ -395,7 +399,12 @@ class DockerSandbox(SandboxBackend):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                raise RuntimeError("Container creation timed out")
 
             if proc.returncode != 0:
                 error = stderr.decode("utf-8", errors="replace")
@@ -531,7 +540,11 @@ class DockerSandbox(SandboxBackend):
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            await proc.wait()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=15)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
 
             del self._instances[instance_id]
             logger.info(f"Destroyed Docker sandbox: {instance_id}")
