@@ -1,7 +1,8 @@
-name: Publish SDK to npm (Legacy)
-
 # DEPRECATED: Use publish-sdk-typescript.yml instead.
 # This workflow is kept for backward compatibility with existing tag triggers.
+# Near-identical to publish-sdk-typescript.yml but lacks: multi-Node matrix testing,
+# dry-run support, concurrency control, and sdk-ts-v* tag convention.
+name: "[DEPRECATED] Publish SDK to npm"
 
 on:
   push:

@@ -1,8 +1,8 @@
-name: Publish Python SDK to PyPI (Legacy)
-
 # DEPRECATED: Use publish-sdk-python.yml instead.
 # This workflow is kept for backward compatibility with existing manual triggers.
-# It delegates to the canonical publish-sdk-python.yml workflow.
+# Near-identical to publish-sdk-python.yml but lacks: multi-Python matrix testing,
+# dry-run support, concurrency control, tag triggers, and trusted publishing fallback.
+name: "[DEPRECATED] Publish Python SDK to PyPI"
 
 on:
   workflow_dispatch:
