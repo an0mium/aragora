@@ -5,13 +5,33 @@
 
 # aragora-debate
 
-**Adversarial multi-model debate engine with decision receipts. Zero required dependencies.**
+**Pit LLMs against each other. Get decisions you can audit.**
 
-One model's opinion isn't enough when the decision matters. `aragora-debate`
-orchestrates structured adversarial debates across multiple LLM providers,
-detects consensus, tracks dissent, and produces cryptographic decision receipts.
+Single-model answers are unreliable. Models are [overconfident when wrong](https://arxiv.org/abs/2602.06176), agree with whatever you seem to want, and leave no audit trail. `aragora-debate` fixes this by running structured adversarial debates: multiple models propose, critique each other, vote, and produce a cryptographic decision receipt.
 
-> Part of the [Aragora Decision Integrity Platform](https://github.com/aragora/aragora).
+**Try it now** -- no API keys needed:
+
+```bash
+pip install aragora-debate
+python -c "
+import asyncio
+from aragora_debate import Arena, StyledMockAgent, DebateConfig
+
+async def demo():
+    agents = [StyledMockAgent('Analyst', style='supportive'),
+              StyledMockAgent('Critic', style='critical'),
+              StyledMockAgent('Judge', style='balanced')]
+    result = await Arena(question='Should we use Kubernetes or stay on VMs?',
+                         agents=agents, config=DebateConfig(rounds=2)).run()
+    print(f'Verdict: {result.verdict.value} ({result.confidence:.0%} confidence)')
+    print(f'Receipt: {result.receipt.receipt_id}')
+    print(f'Consensus: {result.consensus_reached} | Rounds: {result.rounds_used}')
+
+asyncio.run(demo())
+"
+```
+
+> Part of the [Aragora Decision Integrity Platform](https://github.com/an0mium/aragora).
 > This standalone package gives you the debate engine with no framework lock-in.
 
 ## Why adversarial debate?
@@ -20,7 +40,7 @@ detects consensus, tracks dissent, and produces cryptographic decision receipts.
 |---------|-----------------|
 | LLMs fail at compositional reasoning ([Song et al., 2026](https://arxiv.org/abs/2602.06176)) | Multiple models cross-check each other's reasoning |
 | Models are overconfident when wrong | Structured critique surfaces hidden weaknesses |
-| Agreement between models ≠ correctness | Heterogeneous models surface genuine uncertainty |
+| Agreement between models != correctness | Heterogeneous models surface genuine uncertainty |
 | No audit trail for AI-assisted decisions | Cryptographic decision receipts with dissent tracking |
 
 Multi-agent debate achieves **+13.8 percentage points** accuracy over single-model
@@ -32,54 +52,56 @@ baselines ([Harrasse et al., 2024](https://arxiv.org/abs/2410.04663)) and
 ```bash
 pip install aragora-debate
 
-# With provider SDKs
+# With provider SDKs (to use real models)
 pip install aragora-debate[anthropic]    # Claude
 pip install aragora-debate[openai]       # GPT
-pip install aragora-debate[mistral]      # Mistral
-pip install aragora-debate[gemini]       # Gemini
 pip install aragora-debate[all]          # All providers
 ```
 
-## Quick start
+## Quick start with real models
 
 ```python
 import asyncio
-from aragora_debate import Arena, Agent, DebateConfig, Critique, Vote, Message
+from aragora_debate import Arena, DebateConfig, create_agent
 
-# 1. Implement agents by wrapping your preferred LLM
-class MyAgent(Agent):
-    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        return await call_my_llm(self.model, prompt)  # your LLM call
-
-    async def critique(self, proposal: str, task: str, **kw) -> Critique:
-        resp = await call_my_llm(self.model, f"Critique this proposal:\n{proposal}")
-        return Critique(agent=self.name, target_agent=kw.get("target_agent", ""),
-                       target_content=proposal, issues=[resp], severity=5.0)
-
-    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
-        best = await call_my_llm(self.model, f"Pick the best:\n{proposals}")
-        return Vote(agent=self.name, choice=best, reasoning="Most thorough analysis")
-
-# 2. Run a debate
 async def main():
     agents = [
-        MyAgent("claude", model="claude-sonnet-4-5-20250929"),
-        MyAgent("gpt4", model="gpt-4o"),
-        MyAgent("mistral", model="mistral-large-latest"),
+        create_agent("anthropic", name="analyst"),     # Uses ANTHROPIC_API_KEY
+        create_agent("openai", name="challenger"),      # Uses OPENAI_API_KEY
+        create_agent("anthropic", name="devil-advocate", model="claude-haiku-4-5-20251001"),
     ]
 
-    arena = Arena(
+    result = await Arena(
         question="Should we migrate from REST to GraphQL?",
         agents=agents,
         config=DebateConfig(rounds=3, consensus_method="supermajority"),
-    )
-
-    result = await arena.run()
+    ).run()
 
     print(result.summary())
     print(result.receipt.to_markdown())
 
 asyncio.run(main())
+```
+
+## Custom agents
+
+Wrap any LLM by implementing three methods:
+
+```python
+from aragora_debate import Agent, Critique, Vote, Message
+
+class MyAgent(Agent):
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        return await call_my_llm(self.model, prompt)
+
+    async def critique(self, proposal: str, task: str, **kw) -> Critique:
+        resp = await call_my_llm(self.model, f"Critique this:\n{proposal}")
+        return Critique(agent=self.name, target_agent=kw.get("target_agent", ""),
+                       target_content=proposal, issues=[resp], severity=5.0)
+
+    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
+        best = await call_my_llm(self.model, f"Pick the best:\n{proposals}")
+        return Vote(agent=self.name, choice=best, reasoning="Most thorough")
 ```
 
 ## How it works
@@ -359,13 +381,13 @@ Decision receipts help satisfy:
 - **SOC 2 CC6.1** — Audit logging
 - **HIPAA 164.312(b)** — Audit controls
 
-See [EU_AI_ACT_COMPLIANCE.md](https://github.com/aragora/aragora/blob/main/docs/EU_AI_ACT_COMPLIANCE.md)
+See [EU_AI_ACT_COMPLIANCE.md](https://github.com/an0mium/aragora/blob/main/docs/EU_AI_ACT_COMPLIANCE.md)
 for the full mapping.
 
 ## Full platform
 
 `aragora-debate` is the standalone debate engine extracted from the
-[Aragora Decision Integrity Platform](https://github.com/aragora/aragora).
+[Aragora Decision Integrity Platform](https://github.com/an0mium/aragora).
 The full platform adds 42+ agent types, knowledge management, enterprise auth,
 compliance frameworks, and the Nomic Loop for autonomous self-improvement.
 
