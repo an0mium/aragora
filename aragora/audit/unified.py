@@ -331,18 +331,43 @@ class UnifiedAuditLogger:
                     category = cat
                     break
 
-            log.log(
-                category=category,
+            from aragora.audit.log import AuditCategory as ComplianceCategory
+            from aragora.audit.log import AuditEvent as ComplianceEvent
+            from aragora.audit.log import AuditOutcome as ComplianceOutcome
+
+            # Map string category to AuditCategory enum
+            cat_map = {
+                "AUTH": ComplianceCategory.AUTH,
+                "ACCESS": ComplianceCategory.ACCESS,
+                "DATA": ComplianceCategory.DATA,
+                "ADMIN": ComplianceCategory.ADMIN,
+                "SECURITY": ComplianceCategory.SECURITY,
+                "API": ComplianceCategory.API,
+                "DEBATE": ComplianceCategory.DEBATE,
+                "SYSTEM": ComplianceCategory.SYSTEM,
+            }
+            # Map outcome
+            outcome_map = {
+                "SUCCESS": ComplianceOutcome.SUCCESS,
+                "FAILURE": ComplianceOutcome.FAILURE,
+                "DENIED": ComplianceOutcome.DENIED,
+            }
+
+            compliance_event = ComplianceEvent(
+                category=cat_map.get(category, ComplianceCategory.SYSTEM),
                 action=event.action,
-                actor=event.actor_id,
-                resource_type=event.resource_type,
-                resource_id=event.resource_id,
-                outcome=event.outcome.value.upper(),
-                org_id=event.org_id,
-                ip_address=event.ip_address,
-                details=event.details,
+                actor_id=event.actor_id or "",
+                resource_type=event.resource_type or "",
+                resource_id=event.resource_id or "",
+                outcome=outcome_map.get(
+                    event.outcome.value.upper(), ComplianceOutcome.SUCCESS
+                ),
+                org_id=event.org_id or "",
+                ip_address=event.ip_address or "",
+                details=event.details or {},
             )
-        except (ValueError, RuntimeError, OSError) as e:
+            log.log(compliance_event)
+        except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
             logger.warning(f"Compliance audit dispatch error: {e}")
 
     def _dispatch_to_privacy(self, event: UnifiedAuditEvent) -> None:
@@ -421,7 +446,7 @@ class UnifiedAuditLogger:
                 resource=event.resource_id,
                 details=event.to_dict(),
             )
-        except (ValueError, RuntimeError, OSError) as e:
+        except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
             logger.warning(f"Immutable audit dispatch error: {e}")
 
     def _dispatch_to_middleware(self, event: UnifiedAuditEvent) -> None:
@@ -452,7 +477,7 @@ class UnifiedAuditLogger:
                 request_id=event.request_id,
                 ip_address=event.ip_address,
             )
-        except (ValueError, RuntimeError, OSError) as e:
+        except (ValueError, RuntimeError, OSError, TypeError, AttributeError) as e:
             logger.warning(f"Middleware audit dispatch error: {e}")
 
     # Convenience methods for common audit events
