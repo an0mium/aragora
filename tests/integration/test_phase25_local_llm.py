@@ -109,9 +109,10 @@ class TestLocalFallbackChain:
         """is_local_llm_available() returns False when no servers."""
         from aragora.agents.fallback import is_local_llm_available
 
-        with patch("aragora.agents.fallback.AgentRegistry") as mock_registry:
-            mock_registry.get_local_status.return_value = {"any_available": False}
+        mock_registry = MagicMock()
+        mock_registry.get_local_status.return_value = {"any_available": False}
 
+        with patch("aragora.agents.fallback._AgentRegistry", mock_registry):
             result = is_local_llm_available()
             assert result is False
 

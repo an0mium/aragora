@@ -300,6 +300,53 @@ class MetaPlanner:
         except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to load pipeline outcomes: {e}")
 
+        # --- Calibration data enrichment ---
+        try:
+            from aragora.ranking.elo import get_elo_store
+            from aragora.agents.calibration import CalibrationTracker
+
+            elo = get_elo_store()
+            calibration = CalibrationTracker()
+
+            # Get agents ranked by calibration quality
+            cal_leaders = calibration.get_leaderboard(metric="brier", limit=5)
+            if cal_leaders:
+                well_calibrated = [
+                    name for name, score in cal_leaders if score < 0.25
+                ]
+                if well_calibrated:
+                    context.past_successes_to_build_on.append(
+                        f"[calibration] Well-calibrated agents: "
+                        f"{', '.join(well_calibrated[:3])} (Brier < 0.25)"
+                    )
+
+            # Get domain-specific performance for relevant tracks
+            all_ratings = elo.get_all_ratings()
+            underperformers = []
+            for rating in all_ratings[:10]:  # Top 10 agents by ELO
+                if rating.calibration_total >= 5:
+                    brier = rating.calibration_brier_score
+                    if brier > 0.35:
+                        underperformers.append(
+                            f"{rating.agent_name} (Brier={brier:.2f})"
+                        )
+
+            if underperformers:
+                context.past_failures_to_avoid.append(
+                    f"[calibration] Overconfident agents needing "
+                    f"improvement: {', '.join(underperformers[:3])}"
+                )
+
+            logger.info(
+                "calibration_enrichment leaders=%d underperformers=%d",
+                len(cal_leaders) if cal_leaders else 0,
+                len(underperformers),
+            )
+        except ImportError:
+            logger.debug("Calibration subsystems not available")
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning(f"Failed to enrich with calibration data: {e}")
+
         return context
 
     def _create_agent(self, agent_type: str) -> Any:

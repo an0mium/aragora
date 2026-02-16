@@ -330,7 +330,7 @@ class TestCostKMFlow:
         from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
 
         mock_adapter = Mock(spec=CostAdapter)
-        mock_adapter.get_cost_patterns.side_effect = Exception("KM unavailable")
+        mock_adapter.get_cost_patterns.side_effect = ConnectionError("KM unavailable")
 
         tracker = CostTracker(km_adapter=mock_adapter)
 

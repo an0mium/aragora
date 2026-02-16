@@ -285,6 +285,9 @@ class StreamEventType(Enum):
     EXPLAINABILITY_NARRATIVE = "explainability_narrative"  # Narrative explanation ready
     EXPLAINABILITY_COMPLETE = "explainability_complete"  # Full explanation ready
 
+    # Argument Map Events (visualization graph updates)
+    ARGUMENT_MAP_UPDATED = "argument_map_updated"  # Debate argument graph exported
+
     # Compliance Artifact Events
     COMPLIANCE_ARTIFACT_GENERATED = (
         "compliance_artifact_generated"  # EU AI Act artifact bundle generated
