@@ -81,7 +81,7 @@ class TestContextInitializerInit:
         assert init.initial_messages == []
         assert init.trending_topic is None
         assert init.recorder is None
-        assert init.auto_fetch_trending is False
+        assert init.auto_fetch_trending is True
         assert init.enable_knowledge_retrieval is True
 
     def test_custom_init(self):
