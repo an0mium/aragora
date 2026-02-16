@@ -621,7 +621,7 @@ async def handle_debate_completion(
                 )
         except ImportError:
             logger.debug("Compliance module not available for auto-attach")
-        except (ValueError, TypeError, KeyError, AttributeError, OSError) as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.debug(f"Compliance auto-attach failed (non-critical): {e}")
 
     # Complete GUPP hook tracking for crash recovery
