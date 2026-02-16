@@ -582,7 +582,7 @@ class TranscriptionHandler(BaseHandler):
                         logger.warning(
                             "Knowledge pipeline not available, skipping transcript ingestion"
                         )
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, OSError) as e:
                         logger.warning("Transcript knowledge ingestion failed: %s", e)
 
         except Exception as e:

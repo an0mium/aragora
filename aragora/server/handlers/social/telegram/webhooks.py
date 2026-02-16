@@ -62,7 +62,7 @@ class TelegramWebhooksMixin:
         try:
             secret_header = handler.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
             return hmac.compare_digest(secret_header, telegram_module.TELEGRAM_WEBHOOK_SECRET)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.warning("Error verifying Telegram secret: %s", e)
             return False
 

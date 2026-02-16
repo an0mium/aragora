@@ -2001,7 +2001,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             if ctx is not None:
                 try:
                     await manager.cleanup_worktree(ctx)
-                except Exception:
+                except (OSError, subprocess.SubprocessError, RuntimeError):
                     logger.exception("worktree_cleanup_error subtask=%s", assignment.subtask.id)
 
     # =========================================================================

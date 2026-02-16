@@ -443,7 +443,7 @@ class TeamsWorkspaceHandler(SecureHandler):
             if not workspace.access_token or len(workspace.access_token) < 10:
                 connection_status = "invalid_token"
                 token_valid = False
-        except Exception as e:
+        except (TypeError, AttributeError) as e:
             logger.warning(f"Teams connection test failed for {tenant_id}: {e}")
             connection_status = "error"
             error_message = "Connection test failed"
@@ -590,7 +590,7 @@ class TeamsWorkspaceHandler(SecureHandler):
             ]
         except ImportError:
             logger.warning("Teams connector not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to list Teams channels: {e}")
 
         return json_response(

@@ -384,11 +384,11 @@ class TransactionManager:
                 self._stats.transactions_rolled_back += 1
                 raise
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional: rollback before re-raising
                 # Rollback on any exception
                 try:
                     await actual_conn.execute("ROLLBACK")
-                except Exception as rollback_error:
+                except Exception as rollback_error:  # noqa: BLE001 - Intentional: rollback before re-raising
                     logger.error(f"Rollback failed: {rollback_error}")
 
                 ctx.state = TransactionState.FAILED

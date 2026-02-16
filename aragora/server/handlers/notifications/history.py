@@ -115,7 +115,7 @@ class NotificationHistoryHandler(BaseHandler):
                     "channel": channel_filter,
                 }
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Notification history failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get notification history", 500)
 
@@ -172,6 +172,6 @@ class NotificationHistoryHandler(BaseHandler):
                     "by_channel": by_channel,
                 }
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Delivery stats failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get delivery stats", 500)

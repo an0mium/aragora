@@ -471,7 +471,7 @@ class SlackWorkspaceHandler(SecureHandler):
             if not workspace.access_token or not workspace.access_token.startswith("xoxb-"):
                 connection_status = "invalid_token"
                 token_valid = False
-        except Exception as e:
+        except (TypeError, AttributeError) as e:
             logger.warning(f"Slack connection test failed for {workspace_id}: {e}")
             connection_status = "error"
             error_message = "Connection test failed"
@@ -624,7 +624,7 @@ class SlackWorkspaceHandler(SecureHandler):
             ]
         except ImportError:
             logger.warning("Slack connector not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to list Slack channels: {e}")
 
         return json_response(

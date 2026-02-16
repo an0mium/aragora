@@ -157,7 +157,7 @@ class AnalyticsHandler(BaseHandler):
                 return err
             if user:
                 user_id = user.user_id
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError) as e:
             logger.warning(f"Authentication failed for knowledge analytics: {e}")
             return error_response("Authentication required", 401)
 
@@ -181,7 +181,7 @@ class AnalyticsHandler(BaseHandler):
                         f"Knowledge analytics access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning(f"RBAC check failed for knowledge analytics: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
@@ -247,7 +247,7 @@ class AnalyticsHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get mound stats: {e}")
             return error_response("Failed to get mound stats", 500)
 

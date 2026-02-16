@@ -62,7 +62,7 @@ async def send_text_message(to_number: str, text: str) -> None:
                 result = response.json()
                 logger.warning(f"WhatsApp API error: {result}")
                 status = "error"
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         logger.error(f"Error sending WhatsApp message: {e}")
         status = "error"
     finally:
@@ -134,7 +134,7 @@ async def send_interactive_buttons(
                 status = "error"
                 # Fall back to plain text if interactive fails
                 await send_text_message(to_number, body_text)
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         logger.error(f"Error sending WhatsApp interactive message: {e}")
         status = "error"
         # Fall back to plain text
@@ -182,7 +182,7 @@ async def send_voice_summary(
 
     except ImportError:
         logger.debug("TTS helper not available")
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         logger.warning(f"Failed to send WhatsApp voice summary: {e}")
 
 
@@ -270,5 +270,5 @@ async def send_voice_message(
             else:
                 logger.info(f"WhatsApp voice message sent to {to_number}")
 
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         logger.error(f"Error sending WhatsApp voice message: {e}")

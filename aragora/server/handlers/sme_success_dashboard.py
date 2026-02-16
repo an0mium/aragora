@@ -68,7 +68,7 @@ def _get_real_consensus_rate(
 
         # No data available, use default
         return default
-    except Exception as e:
+    except (ImportError, KeyError, ValueError, AttributeError, TypeError) as e:
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
 
@@ -325,9 +325,9 @@ class SMESuccessDashboardHandler(SecureHandler):
                     debate_stats = asyncio.run(
                         analytics.get_debate_stats(org_id=org_id, days_back=days_back)
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError) as e:
                     logger.debug(f"Failed to run async get_debate_stats: {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:
                 logger.debug(f"Failed to get debate stats from analytics: {e}")
 
         # Use real data if available, fall back to estimates

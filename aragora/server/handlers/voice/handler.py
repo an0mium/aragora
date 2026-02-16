@@ -244,7 +244,7 @@ class VoiceHandler:
                 logger.warning(f"Invalid Twilio signature for {url}")
 
             return is_valid
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Twilio signature verification failed: {e}")
             return False
 
@@ -253,7 +253,7 @@ class VoiceHandler:
         try:
             data = await request.post()
             return {k: str(v) for k, v in data.items()}
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             logger.debug(f"Failed to parse POST data: {e}")
             return {}
 
@@ -535,7 +535,7 @@ class VoiceHandler:
                 self.voice.mark_debate_started(call_sid, debate_id)
                 logger.info(f"Debate {debate_id} started from call {call_sid}")
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Failed to start debate from voice: {e}")
 
 

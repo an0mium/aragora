@@ -93,7 +93,7 @@ def _get_store() -> PersistentWorkflowStore:
         override = getattr(pkg, "_get_store", None) if pkg is not None else None
         if override is not None and override is not _get_store:
             return cast(PersistentWorkflowStore, override())
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug("Failed to resolve _get_store override: %s", e)
     return cast(PersistentWorkflowStore, get_workflow_store())
 
@@ -122,7 +122,7 @@ def _get_engine() -> WorkflowEngine:
         override = getattr(pkg, "_engine", None) if pkg is not None else None
         if override is not None and override is not _engine:
             return cast(WorkflowEngine, override)
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug("Failed to resolve _engine override: %s", e)
     if _engine is None:
         _engine = WorkflowEngine()

@@ -656,7 +656,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             if resp.status_code >= 200 and resp.status_code < 300:
                 return {"success": True, "status_code": resp.status_code}
             return {"success": False, "error": f"HTTP {resp.status_code}"}
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning("%s receipt delivery failed: %s", "Webhook", e)
             return {"success": False, "error": "Internal server error"}
 

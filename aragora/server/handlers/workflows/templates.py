@@ -363,7 +363,7 @@ async def load_yaml_templates_async() -> None:
             logger.info(f"Loaded {loaded} new YAML templates into database (async)")
     except ImportError as e:
         logger.debug(f"Template loader not available: {e}")
-    except Exception as e:
+    except (OSError, ValueError, KeyError, TypeError) as e:
         logger.warning(f"Failed to load YAML templates (async): {e}")
 
 
@@ -388,7 +388,7 @@ async def register_builtin_templates_async() -> None:
             if not existing:
                 await store.save_template(template)
                 logger.debug(f"Registered built-in template: {template.id}")
-    except Exception as e:
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
         logger.warning(f"Failed to register built-in templates (async): {e}")
 
 

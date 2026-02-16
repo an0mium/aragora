@@ -34,6 +34,7 @@ services:
       # Server config
       - ARAGORA_API_PORT=8080
       - ARAGORA_WS_PORT=8765
+      - ARAGORA_BIND_HOST=0.0.0.0
       - ARAGORA_ALLOWED_ORIGINS=*
       # Disable features that need external services
       - ARAGORA_DISABLE_TELEMETRY=true

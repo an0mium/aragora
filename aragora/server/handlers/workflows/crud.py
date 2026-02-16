@@ -26,7 +26,7 @@ def _get_workflow_definition_cls() -> Any:
         override = getattr(pkg, "WorkflowDefinition", None) if pkg is not None else None
         if override is not None and override is not WorkflowDefinition:
             return override
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug("Failed to resolve WorkflowDefinition override: %s", e)
     return WorkflowDefinition
 
@@ -38,7 +38,7 @@ def _get_audit_fn() -> Any:
         override = getattr(pkg, "audit_data", None) if pkg is not None else None
         if override is not None and override is not audit_data:
             return override
-    except Exception as e:
+    except (AttributeError, TypeError) as e:
         logger.debug("Failed to resolve audit_data override: %s", e)
     return audit_data
 

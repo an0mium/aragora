@@ -337,7 +337,7 @@ class BudgetControlsHandler(SecureHandler):
             )
             logger.info(f"Created budget {budget.budget_id} for org {org.id}")
             return json_response({"budget": budget.to_dict()}, status=201)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Failed to create budget: {e}")
             return error_response("Failed to create budget", 500)
 
@@ -436,7 +436,7 @@ class BudgetControlsHandler(SecureHandler):
                 return error_response("Failed to update budget", 500)
             logger.info(f"Updated budget {budget_id}")
             return json_response({"budget": updated.to_dict()})
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, OSError) as e:
             logger.error(f"Failed to update budget: {e}")
             return error_response("Failed to update budget", 500)
 

@@ -29,7 +29,7 @@ def _get_audit_logger() -> Any:
             from aragora.audit.slack_audit import get_slack_audit_logger
 
             _slack_audit = get_slack_audit_logger()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.debug(f"Slack audit logger not available: {e}")
             _slack_audit = None
     return _slack_audit
@@ -50,7 +50,7 @@ def _get_user_rate_limiter() -> Any:
             )
 
             _slack_user_limiter = get_user_rate_limiter()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.debug(f"User rate limiter not available: {e}")
             _slack_user_limiter = None
     return _slack_user_limiter
@@ -79,7 +79,7 @@ def _get_workspace_rate_limiter() -> Any:
                 _slack_workspace_limiter.action_limits["slack_workspace_command"] = (
                     SLACK_WORKSPACE_RATE_LIMIT_RPM
                 )
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.debug(f"Workspace rate limiter not available: {e}")
             _slack_workspace_limiter = None
     return _slack_workspace_limiter
@@ -156,7 +156,7 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
     def _run_in_thread() -> None:
         try:
             asyncio.run(coro)
-        except Exception as exc:  # pragma: no cover - safety net
+        except Exception as exc:  # pragma: no cover - safety net  # broad catch: last-resort handler
             logger.error(f"Task {name} failed with exception: {exc}", exc_info=exc)
 
     thread = threading.Thread(target=_run_in_thread, name=f"slack-task-{name}", daemon=True)
@@ -251,7 +251,7 @@ def get_slack_integration() -> Any | None:
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid Slack configuration: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected error initializing Slack integration: {e}")
             return None
     return _slack_integration

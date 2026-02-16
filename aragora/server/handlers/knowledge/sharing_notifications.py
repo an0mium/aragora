@@ -113,7 +113,7 @@ class SharingNotificationsHandler(BaseHandler):
                         f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning(f"RBAC check failed for knowledge notifications: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
@@ -169,7 +169,7 @@ class SharingNotificationsHandler(BaseHandler):
                         f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
@@ -233,7 +233,7 @@ class SharingNotificationsHandler(BaseHandler):
                         f"Knowledge write access denied for {user_id}: {decision.reason}"
                     )
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning(f"RBAC check failed for knowledge notifications write: {e}")
                 # Continue without RBAC if it fails (graceful degradation)
 
@@ -283,7 +283,7 @@ class SharingNotificationsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get notifications: {e}")
             return error_response("Failed to get notifications", 500)
 
@@ -296,7 +296,7 @@ class SharingNotificationsHandler(BaseHandler):
             count = get_unread_count(user_id)
             return json_response({"unread_count": count})
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get unread count: {e}")
             return error_response("Failed to get unread count", 500)
 
@@ -312,7 +312,7 @@ class SharingNotificationsHandler(BaseHandler):
             else:
                 return error_response("Notification not found", 404)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to mark notification read: {e}")
             return error_response("Failed to mark notification read", 500)
 
@@ -325,7 +325,7 @@ class SharingNotificationsHandler(BaseHandler):
             count = mark_all_notifications_read(user_id)
             return json_response({"success": True, "count": count})
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to mark all notifications read: {e}")
             return error_response("Failed to mark all notifications read", 500)
 
@@ -342,7 +342,7 @@ class SharingNotificationsHandler(BaseHandler):
             else:
                 return error_response("Notification not found", 404)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError, KeyError, ValueError) as e:
             logger.error(f"Failed to dismiss notification: {e}")
             return error_response("Failed to dismiss notification", 500)
 
@@ -367,7 +367,7 @@ class SharingNotificationsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError, KeyError, ValueError) as e:
             logger.error(f"Failed to get preferences: {e}")
             return error_response("Failed to get preferences", 500)
 
@@ -414,7 +414,7 @@ class SharingNotificationsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to update preferences: {e}")
             return error_response("Failed to update preferences", 500)
 
