@@ -1198,8 +1198,9 @@ class TestSBOMGeneration:
     @pytest.mark.asyncio
     async def test_generate_unsupported_format(self, analyzer, sample_dependency_tree):
         """Test unsupported format raises error."""
-        with pytest.raises(ValueError, match="Unsupported format"):
-            await analyzer.generate_sbom(sample_dependency_tree, format="invalid")
+        with patch.object(analyzer, "check_vulnerabilities", return_value=[]):
+            with pytest.raises(ValueError, match="Unsupported format"):
+                await analyzer.generate_sbom(sample_dependency_tree, format="invalid")
 
     @pytest.mark.asyncio
     async def test_cyclonedx_contains_components(self, analyzer, sample_dependency_tree):

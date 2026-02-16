@@ -9,7 +9,7 @@ Validates that:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -248,7 +248,11 @@ class TestAuditToCompliance:
             "source": "compliance_monitor",
         }
 
-        with patch.object(orchestrator, "_fetch_compliance_context", return_value=mock_compliance):
+        with (
+            patch.object(orchestrator, "_fetch_compliance_context", return_value=mock_compliance),
+            patch.object(orchestrator, "_run_parallel", new_callable=AsyncMock),
+            patch.object(orchestrator, "_run_serial", new_callable=AsyncMock),
+        ):
             session = AuditSession(
                 id="test-session",
                 name="test.pdf",

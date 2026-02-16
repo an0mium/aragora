@@ -347,7 +347,7 @@ class TestIntrospectionErrorHandling:
         import aragora.server.handlers.introspection as mod
 
         def raise_error(*args, **kwargs):
-            raise Exception("Introspection error")
+            raise ValueError("Introspection error")
 
         with patch.object(mod, "get_agent_introspection", raise_error):
             result = introspection_handler.handle("/api/introspection/agents/claude", {}, None)

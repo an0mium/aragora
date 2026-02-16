@@ -213,7 +213,7 @@ class TestEvolutionErrorHandling:
 
     def test_evolution_history_exception(self, evolution_handler):
         mock_evolver = Mock()
-        mock_evolver.get_evolution_history.side_effect = Exception("Database error")
+        mock_evolver.get_evolution_history.side_effect = OSError("Database error")
 
         with patch.object(handler_mod, "PromptEvolver", return_value=mock_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)

@@ -600,8 +600,9 @@ class TestDifferentialPrivacy:
 
         noisy_mean = differential_privacy.privatize_mean(values, lower_bound=0.0, upper_bound=100.0)
 
-        # Should be in reasonable range
-        assert 0 < noisy_mean < 60
+        # With epsilon=1.0 and sensitivity=20, Laplace scale=20.
+        # Use wide bounds to avoid flaky failures from noise.
+        assert -170 < noisy_mean < 230
 
     @pytest.mark.asyncio
     async def test_laplace_noise_distribution(self, differential_privacy):

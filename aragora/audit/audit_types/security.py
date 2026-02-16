@@ -198,6 +198,10 @@ class SecurityAuditor:
         """Initialize security auditor."""
         self.all_patterns = self.SECRET_PATTERNS + self.INJECTION_PATTERNS + self.CONFIG_PATTERNS
 
+    async def pre_audit_hook(self, context: Any) -> None:
+        """Called before the audit begins. No-op for security auditor."""
+        pass
+
     async def audit(
         self,
         chunks: list[dict[str, Any]],
