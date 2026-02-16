@@ -1,9 +1,18 @@
 # Changelog
 
 
-## [Unreleased] - since v2.7.4
+## [Unreleased]
+
+---
+
+## [2.8.0] - 2026-02-16
 
 ### Added
+- **LiftMode Shopify + Zendesk deployment:** Enabled Shopify order sync and Zendesk ticket sync in `deploy/liftmode/` with auto-connect, credential prompts, and expanded daily briefing with orders and tickets sections
+- **LiftMode smoke tests:** 14 tests validating briefing pipeline (inbox, orders, tickets), setup.sh JSON builder, and dry-run mode
+- **Workspace admin UI:** Settings tab with workspace info editing, access/security toggles (MFA, debate approval, self-signup), activity feed tab, and pending invites management
+- **TypeScript SDK parity:** Added `features.ts` and `vector-index.ts` namespaces, closing the Python/TypeScript SDK gap (158/158 namespaces)
+- **SDK cost estimation:** Added `estimate_cost` method to Python and TypeScript debate SDKs
 - **HardenedOrchestrator:** Gold path wiring with canary tokens, spectate events, work stealing, and OpenClaw computer-use integration
 - **HierarchicalCoordinator:** Planner/Worker/Judge multi-agent coordination cycle with revision loops (70 tests)
 - **ParallelOrchestrator:** Concurrent task execution with semaphore-based concurrency limits
@@ -40,7 +49,9 @@
 - **Transcription handler coverage:** Full test coverage for audio transcription endpoints
 
 ### Changed
-- **Exception handler narrowing:** 80+ additional handler files narrowed from `except Exception` to specific exception types; error messages sanitized to prevent information leakage
+- **Exception handler narrowing:** 130+ files narrowed from `except Exception` to specific exception types across server/, debate/, control_plane/, and workflow/; error messages sanitized to prevent information leakage
+- **CI workflow consolidation:** Deprecated 2 legacy publish workflows (`publish-sdk.yml`, `publish-python-sdk.yml`) in favor of canonical versions with multi-version matrix testing, dry-run support, and concurrency controls
+- **LiftMode setup.sh:** Fixed Python JSON builder injection vulnerability (bare `if '$VAR':` → `sys.argv` pairs), fixed 3 OAuth URLs (`/api/v2/` → `/api/v1/`)
 - **TypeScript SDK methods:** 37 HTTP method verb corrections (GET/POST/DELETE/PATCH alignment with server endpoints)
 - **Frontend sidebar:** Simplified to 5 items in simple mode; Knowledge, Agents, Analytics, Documents, Leaderboard gated behind `minMode: 'standard'`
 - **Deployment docs:** `deploy/README.md` rewritten with "which deployment should I use?" decision table; main README deployment section streamlined
