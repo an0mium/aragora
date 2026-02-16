@@ -245,6 +245,8 @@ class CrossDebateMemory:
             AragoraRLM instance. Will use TRUE RLM (REPL-based) if official
             library is installed, otherwise uses compression fallback.
         """
+        if not self.config.enable_rlm:
+            return None
         if not HAS_RLM_FACTORY or get_rlm is None:
             return None
 
