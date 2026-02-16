@@ -103,7 +103,7 @@ class GauntletStreamEmitter:
         if self.broadcast_fn:
             try:
                 self.broadcast_fn(event)
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Failed to broadcast event: {e}")
 
         logger.debug(f"Gauntlet event: {event_type.value} - {data.get('message', '')}")

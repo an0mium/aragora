@@ -221,7 +221,7 @@ class PostgresCheckpointStore:
         except asyncio.TimeoutError:
             logger.error(f"Timeout loading checkpoint {checkpoint_id}")
             return None
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
@@ -258,7 +258,7 @@ class PostgresCheckpointStore:
         except asyncio.TimeoutError:
             logger.error(f"Timeout loading latest checkpoint for {workflow_id}")
             return None
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
@@ -284,7 +284,7 @@ class PostgresCheckpointStore:
                 )
                 return [row["id"] for row in rows]
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
             return []
 
@@ -306,7 +306,7 @@ class PostgresCheckpointStore:
                 )
                 return "DELETE 0" not in result
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 
@@ -347,7 +347,7 @@ class PostgresCheckpointStore:
                     return int(parts[1])
                 return 0
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to cleanup checkpoints for {workflow_id}: {e}")
             return 0
 
