@@ -150,7 +150,7 @@ def get_checkpoint_store(
             if redis is not None:
                 logger.info("Using RedisCheckpointStore for checkpoints")
                 return _maybe_wrap_with_cache(store)
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError, ImportError) as e:
             logger.debug(f"Redis checkpoint store not available: {e}")
 
     # Try Postgres if preferred
@@ -178,7 +178,7 @@ def get_checkpoint_store(
                 except RuntimeError:
                     # No event loop
                     logger.debug("No event loop for Postgres initialization")
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError, ImportError) as e:
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
     # Fall back to file-based storage
@@ -296,7 +296,7 @@ async def get_checkpoint_store_async(
             if redis is not None:
                 logger.info("Using RedisCheckpointStore for checkpoints")
                 return _maybe_wrap_with_cache(store)
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError, ImportError) as e:
             logger.debug(f"Redis checkpoint store not available: {e}")
 
     # Try Postgres if preferred
@@ -309,7 +309,7 @@ async def get_checkpoint_store_async(
             await pg_store.initialize()
             logger.info("Using PostgresCheckpointStore for checkpoints")
             return _maybe_wrap_with_cache(pg_store)
-        except Exception as e:
+        except (RuntimeError, ConnectionError, OSError, ImportError) as e:
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
     # Fall back to file-based storage

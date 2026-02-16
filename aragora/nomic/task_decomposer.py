@@ -356,6 +356,7 @@ class TaskDecomposer:
         "add", "remove", "fix", "update", "refactor", "implement", "replace",
         "rename", "extract", "move", "split", "merge", "delete", "create",
         "migrate", "convert", "wrap", "inject", "enable", "disable",
+        "improve", "enhance", "optimize", "increase", "reduce", "test",
     }
 
     _SPECIFIC_TECHNICAL_TERMS = {
@@ -701,9 +702,17 @@ class TaskDecomposer:
                            "optimize", "optimise", "scale", "transform", "grow",
                            "utility", "value", "business"}
             is_broad = any(t in goal_lower for t in broad_terms)
-            if len(matched_tracks) <= 1 and is_broad:
-                # Broad goal — include top 4 tracks by relevance
+            # Also check if the goal mentions a specific path/directory
+            has_path = bool(re.search(r"aragora/\w+|tests/\w+|sdk/\w+|scripts/\w+", goal_lower))
+            if len(matched_tracks) == 0 and is_broad and not has_path:
+                # Truly broad goal with no specific track or path — all tracks
                 tracks_to_expand = list(DEFAULT_TRACK_CONFIGS.keys())[:4]
+            elif len(matched_tracks) == 1 and is_broad and not has_path:
+                # Broad but slightly focused — matched track + 2 adjacent
+                all_tracks = list(DEFAULT_TRACK_CONFIGS.keys())
+                idx = all_tracks.index(matched_tracks[0])
+                extra = [t for i, t in enumerate(all_tracks) if i != idx][:2]
+                tracks_to_expand = matched_tracks + extra
             else:
                 tracks_to_expand = matched_tracks
 

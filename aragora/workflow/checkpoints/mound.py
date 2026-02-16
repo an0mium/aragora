@@ -126,7 +126,7 @@ class KnowledgeMoundCheckpointStore:
             )
             return node_id
 
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to save checkpoint to KnowledgeMound: {e}")
             raise
 
@@ -154,7 +154,7 @@ class KnowledgeMoundCheckpointStore:
             checkpoint_dict = json.loads(node.content)
             return self._dict_to_checkpoint(checkpoint_dict)
 
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
@@ -187,7 +187,7 @@ class KnowledgeMoundCheckpointStore:
             checkpoint_dict = json.loads(latest_node.content)
             return self._dict_to_checkpoint(checkpoint_dict)
 
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Failed to load latest checkpoint for {workflow_id}: {e}")
             return None
 
@@ -212,7 +212,7 @@ class KnowledgeMoundCheckpointStore:
             )
             return [getattr(node, "id", "") for node in nodes]
 
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
             return []
 
@@ -231,7 +231,7 @@ class KnowledgeMoundCheckpointStore:
             delete_method: Callable[..., Any] = getattr(self.mound, "delete_node")
             result: bool = await delete_method(checkpoint_id)
             return result
-        except Exception as e:
+        except (AttributeError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 

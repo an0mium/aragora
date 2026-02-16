@@ -113,7 +113,7 @@ class TaskExecutor(ABC):
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning(f"Task execution failed: {e}")
             self._stats.tasks_failed += 1
             raise
@@ -361,7 +361,7 @@ class ExecutorPool:
                 await self._check_scaling()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.error(f"Scale loop error: {e}")
 
     async def _check_scaling(self) -> None:

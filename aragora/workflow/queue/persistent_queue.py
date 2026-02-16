@@ -186,7 +186,7 @@ class PersistentTaskQueue(TaskQueue):
                         f"Auto-recovered {recovered_count} tasks on queue start",
                         extra={"tenant_id": tenant_id, "recovered_count": recovered_count},
                     )
-            except Exception as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.error(f"Failed to auto-recover tasks on start: {e}")
                 # Don't fail start if recovery fails - queue is still functional
 
@@ -286,7 +286,7 @@ class PersistentTaskQueue(TaskQueue):
             conn.commit()
             logger.debug(f"Persisted task {task.id}")
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError, TypeError) as e:
             logger.error(f"Failed to persist task {task.id}: {e}")
 
     def _update_task_status(self, task: WorkflowTask) -> None:

@@ -216,7 +216,7 @@ class TaskQueue:
                 await asyncio.sleep(0.01)  # Small delay to prevent busy-waiting
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                 logger.error(f"Error in process loop: {e}")
                 await asyncio.sleep(0.1)
 
@@ -268,7 +268,7 @@ class TaskQueue:
                 self._add_to_ready_queue(task.id)
             logger.warning(f"Task {task.id} timed out")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             task.mark_failed("Task execution failed")
             logger.error(f"Task {task.id} failed: {e}")
 

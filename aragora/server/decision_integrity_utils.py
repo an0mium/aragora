@@ -163,7 +163,7 @@ async def build_decision_integrity_payload(
             build_decision_integrity_package,
             coerce_debate_result,
         )
-    except Exception as exc:
+    except (ImportError, AttributeError) as exc:
         logger.debug("Decision integrity pipeline unavailable: %s", exc)
         return None
 

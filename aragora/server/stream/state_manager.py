@@ -389,7 +389,7 @@ async def periodic_state_cleanup(
             cleaned = manager.cleanup_stale_entries()
             if cleaned > 0:
                 logger.info(f"Periodic cleanup: removed {cleaned} stale state entries")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Periodic state cleanup error: {e}")
 
 

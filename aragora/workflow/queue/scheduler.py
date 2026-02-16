@@ -445,7 +445,7 @@ class DependencyScheduler:
                 await self._rebalance()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.error(f"Rebalance error: {e}")
 
     async def _rebalance(self) -> None:
