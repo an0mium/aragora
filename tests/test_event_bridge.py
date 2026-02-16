@@ -155,8 +155,8 @@ class TestEmitToWebSocket:
         emitter = MagicMock()
         bridge = EventEmitterBridge(event_emitter=emitter, loop_id="test-loop")
 
-        with patch("aragora.server.stream.StreamEvent") as MockStreamEvent:
-            with patch("aragora.server.stream.StreamEventType") as MockStreamEventType:
+        with patch("aragora.events.types.StreamEvent") as MockStreamEvent:
+            with patch("aragora.events.types.StreamEventType") as MockStreamEventType:
                 MockStreamEventType.AGENT_MESSAGE = "AGENT_MESSAGE"
 
                 bridge._emit_to_websocket(
