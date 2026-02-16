@@ -221,7 +221,12 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
                 return stdout.decode("utf-8")
             logger.debug(f"gh command failed: {stderr.decode()}")
             return None
-        except (OSError, asyncio.TimeoutError, UnicodeDecodeError) as e:
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            logger.warning("gh command timed out")
+            return None
+        except (OSError, UnicodeDecodeError) as e:
             logger.warning(f"gh command error: {e}")
             return None
 

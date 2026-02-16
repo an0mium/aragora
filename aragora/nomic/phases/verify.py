@@ -387,7 +387,12 @@ Be concise - this is a quality gate, not a full review."""
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, _ = await proc.communicate()
+            try:
+                stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                return []
             if proc.returncode == 0 and stdout:
                 return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
         except (OSError, FileNotFoundError, asyncio.TimeoutError) as e:
