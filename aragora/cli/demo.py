@@ -74,13 +74,15 @@ def list_demos() -> list[str]:
 # Output formatting helpers
 # ---------------------------------------------------------------------------
 
-_PHASE_LABELS = {
-    EventType.DEBATE_START: "DEBATE STARTING",
-    EventType.ROUND_START: "ROUND",
-    EventType.ROUND_END: "ROUND COMPLETE",
-    EventType.CONSENSUS_CHECK: "CONSENSUS CHECK",
-    EventType.DEBATE_END: "DEBATE COMPLETE",
-}
+_PHASE_LABELS: dict[Any, str] = {}
+if EventType is not None:
+    _PHASE_LABELS = {
+        EventType.DEBATE_START: "DEBATE STARTING",
+        EventType.ROUND_START: "ROUND",
+        EventType.ROUND_END: "ROUND COMPLETE",
+        EventType.CONSENSUS_CHECK: "CONSENSUS CHECK",
+        EventType.DEBATE_END: "DEBATE COMPLETE",
+    }
 
 
 def _print_banner(topic: str, agents: list[str]) -> None:
