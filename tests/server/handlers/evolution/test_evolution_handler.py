@@ -333,7 +333,7 @@ class TestGetEvolutionHistory:
         assert data["count"] == 2
 
     def test_history_exception_returns_500(self):
-        mock_evolver_cls = MagicMock(side_effect=RuntimeError("broken"))
+        mock_evolver_cls = MagicMock(side_effect=OSError("broken"))
 
         h = _make_handler_instance()
         with (
