@@ -748,7 +748,7 @@ class CostForecaster:
 
         try:
             budget = self._cost_tracker.get_budget()
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             budget = None
 
         if not budget or not getattr(budget, "monthly_limit_usd", None):
@@ -766,7 +766,7 @@ class CostForecaster:
         history_start = now - timedelta(days=7)
         try:
             daily_costs = await self._get_daily_costs(workspace_id, history_start, now)
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError, OSError):
             daily_costs = []
 
         if daily_costs and len(daily_costs) > 0:

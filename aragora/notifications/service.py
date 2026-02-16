@@ -942,7 +942,7 @@ async def notify_budget_alert(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "budget.alert")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send budget alert notification", exc_info=True)
         return []
 
@@ -1002,7 +1002,7 @@ async def notify_cost_anomaly(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "cost.anomaly")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send cost anomaly notification", exc_info=True)
         return []
 
@@ -1058,7 +1058,7 @@ async def notify_compliance_finding(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "compliance.finding")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send compliance finding notification", exc_info=True)
         return []
 
@@ -1177,7 +1177,7 @@ async def notify_workflow_progress(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "workflow.progress")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send workflow progress notification", exc_info=True)
         return []
 
@@ -1238,7 +1238,7 @@ async def notify_gauntlet_completed(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "gauntlet.completed")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send gauntlet completed notification", exc_info=True)
         return []
 
@@ -1298,7 +1298,7 @@ async def notify_consensus_reached(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "consensus.reached")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send consensus reached notification", exc_info=True)
         return []
 
@@ -1343,7 +1343,7 @@ async def notify_learning_insight(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "learning.insight")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send learning insight notification", exc_info=True)
         return []
 
@@ -1403,6 +1403,6 @@ async def notify_health_degraded(
         results = await service.notify(notification)
         await service.notify_all_webhooks(notification, "health.degraded")
         return results
-    except Exception:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError):
         logger.debug("Failed to send health degraded notification", exc_info=True)
         return []

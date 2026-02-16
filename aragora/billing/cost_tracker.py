@@ -1118,7 +1118,7 @@ class CostTracker:
                             workspace_id=workspace_id,
                             details=anomaly_dict.get("description"),
                         )
-                    except Exception:
+                    except (ImportError, RuntimeError, OSError, TypeError, ValueError):
                         logger.debug(
                             "Failed to send cost anomaly notification",
                             exc_info=True,
