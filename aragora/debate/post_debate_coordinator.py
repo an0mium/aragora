@@ -40,6 +40,10 @@ class PostDebateConfig:
     pr_min_confidence: float = 0.8  # Higher confidence bar for PRs
     auto_build_integrity_package: bool = False
     auto_persist_receipt: bool = True
+    auto_gauntlet_validate: bool = False
+    gauntlet_min_confidence: float = 0.85
+    auto_queue_improvement: bool = False
+    improvement_min_confidence: float = 0.8
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
 
@@ -60,6 +64,8 @@ class PostDebateResult:
     pr_result: dict[str, Any] | None = None
     integrity_package: dict[str, Any] | None = None
     receipt_persisted: bool = False
+    gauntlet_result: dict[str, Any] | None = None
+    improvement_queued: bool = False
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -114,6 +120,12 @@ class PostDebateCoordinator:
         if self.config.auto_create_plan and confidence >= self.config.plan_min_confidence:
             result.plan = self._step_create_plan(debate_id, debate_result, task, result.explanation)
 
+        # Step 2.5: Gauntlet adversarial validation
+        if self.config.auto_gauntlet_validate and confidence >= self.config.gauntlet_min_confidence:
+            result.gauntlet_result = self._step_gauntlet_validate(
+                debate_id, debate_result, task, confidence
+            )
+
         # Step 3: Send notifications
         if self.config.auto_notify:
             result.notification_sent = self._step_notify(
@@ -141,6 +153,12 @@ class PostDebateCoordinator:
         # Step 6: Persist receipt to Knowledge Mound (the flywheel)
         if self.config.auto_persist_receipt:
             result.receipt_persisted = self._step_persist_receipt(
+                debate_id, debate_result, task, confidence
+            )
+
+        # Step 7: Queue improvement suggestion
+        if self.config.auto_queue_improvement and confidence >= self.config.improvement_min_confidence:
+            result.improvement_queued = self._step_queue_improvement(
                 debate_id, debate_result, task, confidence
             )
 
@@ -398,9 +416,111 @@ class PostDebateCoordinator:
             logger.warning("Receipt KM persistence failed: %s", e)
             return False
 
+    def _step_gauntlet_validate(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+    ) -> dict[str, Any] | None:
+        """Step 2.5: Run lightweight adversarial stress test on high-confidence decisions."""
+        try:
+            from aragora.gauntlet.runner import GauntletRunner
+
+            runner = GauntletRunner()
+            verdict = runner.run(
+                claim=str(getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))),
+                context=task,
+                categories=["logic", "assumptions"],
+                attacks_per_category=2,
+            )
+
+            logger.info("Gauntlet validation completed for %s: %s", debate_id, verdict.get("verdict", "unknown"))
+            return {
+                "debate_id": debate_id,
+                "verdict": verdict,
+            }
+        except ImportError:
+            logger.debug("GauntletRunner not available")
+            return None
+        except Exception as e:
+            logger.warning("Gauntlet validation failed: %s", e)
+            return None
+
+    def _step_queue_improvement(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+    ) -> bool:
+        """Step 7: Queue improvement suggestion for self-improvement pipeline."""
+        try:
+            from aragora.nomic.improvement_queue import (
+                ImprovementSuggestion,
+                get_improvement_queue,
+            )
+
+            consensus = str(
+                getattr(
+                    debate_result,
+                    "final_answer",
+                    getattr(debate_result, "consensus", ""),
+                )
+            )
+            if not consensus:
+                return False
+
+            category = self._classify_improvement_category(task)
+
+            suggestion = ImprovementSuggestion(
+                debate_id=debate_id,
+                task=task,
+                suggestion=consensus,
+                category=category,
+                confidence=confidence,
+            )
+
+            queue = get_improvement_queue()
+            queue.enqueue(suggestion)
+            logger.info("Improvement suggestion queued for %s (category=%s)", debate_id, category)
+            return True
+        except ImportError:
+            logger.debug("ImprovementQueue not available")
+            return False
+        except Exception as e:
+            logger.warning("Improvement queue failed: %s", e)
+            return False
+
+    @staticmethod
+    def _classify_improvement_category(task: str) -> str:
+        """Classify improvement category from task text."""
+        task_lower = task.lower()
+        if any(w in task_lower for w in ("test", "coverage", "assertion")):
+            return "test_coverage"
+        if any(w in task_lower for w in ("perf", "speed", "latency", "slow")):
+            return "performance"
+        if any(w in task_lower for w in ("reliab", "resilien", "fault", "retry")):
+            return "reliability"
+        if any(w in task_lower for w in ("doc", "readme", "comment")):
+            return "documentation"
+        return "code_quality"
+
+
+DEFAULT_POST_DEBATE_CONFIG = PostDebateConfig(
+    auto_explain=True,
+    auto_create_plan=False,
+    auto_notify=False,
+    auto_execute_plan=False,
+    auto_create_pr=False,
+    auto_build_integrity_package=False,
+    auto_persist_receipt=True,
+)
+
 
 __all__ = [
     "PostDebateCoordinator",
     "PostDebateConfig",
     "PostDebateResult",
+    "DEFAULT_POST_DEBATE_CONFIG",
 ]
