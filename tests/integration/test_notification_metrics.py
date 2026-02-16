@@ -69,7 +69,15 @@ class TestNotificationMetricsRecording:
             mock_response = AsyncMock()
             mock_response.status = 500
             mock_response.text = AsyncMock(return_value="Internal Server Error")
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+
+            # session.post() must return an async context manager, not a coroutine
+            mock_post_cm = AsyncMock()
+            mock_post_cm.__aenter__.return_value = mock_response
+
+            mock_session_instance = AsyncMock()
+            mock_session_instance.post.return_value = mock_post_cm
+
+            mock_session.return_value.__aenter__.return_value = mock_session_instance
 
             provider = notification_service.get_provider(NotificationChannel.SLACK)
             result = await provider.send(sample_notification, "#test-channel")

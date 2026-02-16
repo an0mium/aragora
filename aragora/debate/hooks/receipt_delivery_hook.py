@@ -282,7 +282,7 @@ class ReceiptDeliveryHook:
             self._delivery_history.append(result)
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning("Receipt delivery failed (%s): %s", channel_type, e)
             result = DeliveryResult(
                 channel_type=channel_type,
@@ -348,7 +348,7 @@ class ReceiptDeliveryHook:
                 message_id=result.timestamp,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, ImportError) as e:
             logger.warning("Receipt delivery failed (slack): %s", e)
             return DeliveryResult(
                 channel_type="slack",

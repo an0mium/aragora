@@ -149,7 +149,7 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
     try:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_token, associated_data=user_id if user_id else None)
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
         logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
         return encrypted_token
@@ -581,9 +581,8 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
                     logger.debug("Error closing connection: %s", e)
-                    pass
             self._connections.clear()
 
 
@@ -617,7 +616,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for Gmail token store")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
             logger.debug(f"Redis not available, using SQLite only: {e}")
             self._redis = None
             self._redis_checked = True

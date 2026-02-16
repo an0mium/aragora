@@ -885,7 +885,7 @@ def with_error_recovery(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
-            except Exception as e:  # broad catch: last-resort handler (graceful degradation)
+            except Exception as e:  # noqa: BLE001 - error recovery decorator: wraps arbitrary functions, must catch all to return fallback value
                 if log_errors:
                     logger.warning(
                         f"with_error_recovery '{func.__name__}' failed: {type(e).__name__}: {e}"
