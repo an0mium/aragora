@@ -401,7 +401,7 @@ export default function DebateDetailPage() {
                 <div className="text-xs font-mono text-[var(--acid-green)] mb-4">
                   {'>'} EXPORT OPTIONS
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => {
                       const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
@@ -416,7 +416,53 @@ export default function DebateDetailPage() {
                   >
                     <div className="text-[var(--acid-green)]">JSON</div>
                     <div className="text-[var(--text-muted)] mt-1">
-                      Full decision package with metadata
+                      Full decision package
+                    </div>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/md`);
+                        if (res.ok) {
+                          const text = await res.text();
+                          const blob = new Blob([text], { type: 'text/markdown' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `debate-${pkg.id.slice(0, 8)}.md`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch { /* fail silently */ }
+                    }}
+                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 transition-colors text-left"
+                  >
+                    <div>MARKDOWN</div>
+                    <div className="text-[var(--text-muted)] mt-1">
+                      Human-readable report
+                    </div>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/v1/debates/${pkg.id}/export/csv`);
+                        if (res.ok) {
+                          const text = await res.text();
+                          const blob = new Blob([text], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `debate-${pkg.id.slice(0, 8)}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch { /* fail silently */ }
+                    }}
+                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 transition-colors text-left"
+                  >
+                    <div>CSV</div>
+                    <div className="text-[var(--text-muted)] mt-1">
+                      Spreadsheet format
                     </div>
                   </button>
                   <button
@@ -425,7 +471,19 @@ export default function DebateDetailPage() {
                   >
                     <div className="text-[var(--acid-cyan)]">PERMALINK</div>
                     <div className="text-[var(--text-muted)] mt-1">
-                      {copied ? 'Copied to clipboard!' : 'Copy shareable link'}
+                      {copied ? 'Copied!' : 'Copy link'}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const summary = `Decision: ${pkg.verdict}\n\nQuestion: ${pkg.question}\n\nConfidence: ${(pkg.confidence * 100).toFixed(0)}%\nConsensus: ${pkg.consensus_reached ? 'Yes' : 'No'}\nAgents: ${pkg.agents.join(', ')}\n\n${pkg.final_answer}`;
+                      navigator.clipboard.writeText(summary);
+                    }}
+                    className="px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors text-left"
+                  >
+                    <div>SUMMARY</div>
+                    <div className="text-[var(--text-muted)] mt-1">
+                      Copy text summary
                     </div>
                   </button>
                 </div>
