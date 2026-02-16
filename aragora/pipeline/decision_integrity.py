@@ -214,7 +214,7 @@ async def capture_context_snapshot(
                 asdict(e) if hasattr(e, "__dataclass_fields__") else {"content": str(e)}
                 for e in entries
             ]
-        except Exception as exc:
+        except (TypeError, KeyError, ValueError, OSError, ConnectionError, RuntimeError) as exc:
             logger.debug("Continuum memory retrieval failed: %s", exc)
 
     # 2. Cross-Debate Memory
@@ -233,7 +233,7 @@ async def capture_context_snapshot(
                     for eid, entry in list(cross_debate_memory._entries.items())[:50]
                     if hasattr(entry, "task") and task_lower in str(entry.task).lower()
                 ][:5]
-        except Exception as exc:
+        except (TypeError, KeyError, ValueError, OSError, ConnectionError, RuntimeError) as exc:
             logger.debug("Cross-debate memory retrieval failed: %s", exc)
 
     # 3. Knowledge Mound
@@ -259,7 +259,7 @@ async def capture_context_snapshot(
                 snapshot.knowledge_sources = [
                     s.value if hasattr(s, "value") else str(s) for s in result.sources
                 ]
-        except Exception as exc:
+        except (TypeError, KeyError, ValueError, OSError, ConnectionError, RuntimeError) as exc:
             logger.debug("Knowledge Mound query failed: %s", exc)
 
     # 4. Document store (uploaded documents)
@@ -268,7 +268,7 @@ async def capture_context_snapshot(
             items = document_store.list_all()
             if isinstance(items, list):
                 snapshot.document_items = items[:max_entries]
-        except Exception as exc:
+        except (AttributeError, TypeError, OSError, ConnectionError, RuntimeError) as exc:
             logger.debug("Document store listing failed: %s", exc)
 
     # 5. Evidence store (debate-linked evidence)
@@ -280,7 +280,7 @@ async def capture_context_snapshot(
                 evidence = evidence_store.search_evidence(task, limit=max_entries)
             if isinstance(evidence, list):
                 snapshot.evidence_items = evidence[:max_entries]
-        except Exception as exc:
+        except (AttributeError, TypeError, KeyError, OSError, ConnectionError, RuntimeError) as exc:
             logger.debug("Evidence store retrieval failed: %s", exc)
 
     # Estimate token count

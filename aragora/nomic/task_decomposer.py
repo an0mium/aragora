@@ -323,7 +323,7 @@ class TaskDecomposer:
         has_path_ref = bool(
             re.search(r"aragora/\w+|tests/\w+|sdk/\w+|scripts/\w+|src/\w+", task_lower)
         )
-        if file_score == 0 and keyword_score < 2 and concept_score <= 1 and not has_path_ref:
+        if file_score == 0 and not has_path_ref:
             # Check for strategic/broad language that signals high-level goals
             strategic_terms = {
                 "maximize",
@@ -359,8 +359,11 @@ class TaskDecomposer:
             }
             strategic_matches = sum(1 for term in strategic_terms if term in task_lower)
             if strategic_matches >= 1:
-                # At least one strategic term + no specifics = vague high-level goal
-                vagueness_bonus = 3.0 + min(strategic_matches - 1, 2) * 0.5
+                # At least one strategic term + no file refs = high-level goal
+                # Scale down bonus when many keywords are present (more concrete)
+                base_bonus = 2.0 + min(strategic_matches - 1, 2) * 0.5
+                specificity_discount = min(keyword_score * 0.3, 1.5)
+                vagueness_bonus = max(base_bonus - specificity_discount, 0.5)
 
         # Combine scores with weights
         total = (

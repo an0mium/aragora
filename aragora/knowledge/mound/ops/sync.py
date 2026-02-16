@@ -156,7 +156,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         result.relationships_created,
                         None,  # no error
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     # Extract identifier for error message
                     item_id = (
                         req.metadata.get("continuum_id")
@@ -256,7 +256,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     )
                     requests.append(request)
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     nodes_skipped += 1
                     logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
                     errors.append(f"continuum:{entry.id}: request creation failed")
@@ -271,7 +271,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                 nodes_skipped += skipped
                 errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, AttributeError, OSError) as e:
             logger.warning("Failed to retrieve continuum entries: %s", e)
             errors.append("continuum:retrieve: retrieval failed")
 
@@ -382,7 +382,7 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, KeyError, IndexError, json.JSONDecodeError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning(
                             "Failed to create request for consensus record %s: %s", row[0], e
@@ -400,7 +400,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to query consensus records: %s", e)
             errors.append("consensus:query: query failed")
 

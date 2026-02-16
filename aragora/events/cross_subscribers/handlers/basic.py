@@ -90,7 +90,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # RLM module not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"RLM pattern recording failed: {e}")
 
     def _handle_elo_to_debate(self, event: StreamEvent) -> None:
@@ -127,7 +127,7 @@ class BasicHandlersMixin:
                 pool.update_elo_weight(agent_name, new_elo)
         except ImportError:
             pass  # AgentPool module not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"AgentPool weight update failed: {e}")
 
     def _handle_knowledge_to_memory(self, event: StreamEvent) -> None:
@@ -169,7 +169,7 @@ class BasicHandlersMixin:
                 logger.debug(f"Created memory reference for knowledge node {node_id}")
         except ImportError:
             pass  # ContinuumMemory not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"Memory sync for knowledge failed: {e}")
 
     def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
@@ -203,7 +203,7 @@ class BasicHandlersMixin:
                 )
         except (ImportError, AttributeError):
             pass  # AgentPool or get_agent_pool not available
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.debug(f"AgentPool calibration update failed: {e}")
 
     def _handle_evidence_to_insight(self, event: StreamEvent) -> None:
@@ -253,7 +253,7 @@ class BasicHandlersMixin:
                 logger.debug(f"Stored evidence insight from {source}")
         except ImportError:
             pass  # ContinuumMemory not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"Evidence insight storage failed: {e}")
 
     def _handle_webhook_delivery(self, event: StreamEvent) -> None:
@@ -292,12 +292,12 @@ class BasicHandlersMixin:
                     result = dispatch_webhook_with_retry(webhook, payload)
                     if not result.success:
                         logger.warning(f"Webhook delivery failed for {webhook.id}: {result.error}")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                     logger.error(f"Webhook dispatch error for {webhook.id}: {e}")
 
         except ImportError:
             logger.debug("Webhook modules not available for event delivery")
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Webhook delivery handler error: {e}")
 
     def _handle_mound_to_memory(self, event: StreamEvent) -> None:
@@ -364,7 +364,7 @@ class BasicHandlersMixin:
             )
         except ImportError:
             pass  # Notification service not available
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Gauntlet notification failed: {e}")
 
     def _handle_debate_end_to_cost_tracking(self, event: StreamEvent) -> None:
@@ -395,7 +395,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # CostTracker not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"Cost tracking record failed: {e}")
 
     def _handle_consensus_to_learning(self, event: StreamEvent) -> None:
@@ -426,7 +426,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # SelectionFeedbackLoop not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"Selection feedback learning failed: {e}")
 
     def _handle_agent_message_to_rhetorical(self, event: StreamEvent) -> None:
@@ -454,7 +454,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # RhetoricalObserver not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"Rhetorical analysis failed: {e}")
 
     def _handle_vote_to_belief(self, event: StreamEvent) -> None:
@@ -485,7 +485,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # BeliefNetwork not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"Belief network update failed: {e}")
 
     def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
@@ -546,7 +546,7 @@ class BasicHandlersMixin:
             logger.debug(f"Persisted debate outcome to KM: {debate_id}")
         except ImportError:
             pass  # Knowledge Mound not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"KM outcome persistence failed: {e}")
 
     def _handle_workflow_outcome_to_supermemory(self, event: StreamEvent) -> None:
@@ -605,7 +605,7 @@ class BasicHandlersMixin:
             logger.debug("Workflow outcome stored in KM: %s", workflow_id)
         except ImportError:
             pass  # Knowledge Mound not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"KM workflow storage failed: {e}")
 
     def _handle_tier_demotion_to_revalidation(self, event: StreamEvent) -> None:
@@ -654,7 +654,7 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # Knowledge Mound not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"KM re-validation trigger failed: {e}")
 
     def _handle_tier_promotion_to_knowledge(self, event: StreamEvent) -> None:
@@ -694,5 +694,5 @@ class BasicHandlersMixin:
                 )
         except ImportError:
             pass  # Knowledge Mound not available
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"KM importance boost failed: {e}")

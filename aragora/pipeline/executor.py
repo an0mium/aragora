@@ -142,7 +142,7 @@ class PlanExecutor:
                 from aragora.memory.continuum import get_continuum_memory
 
                 continuum_memory = get_continuum_memory()
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 logger.debug("Could not initialize continuum_memory: %s", e)
                 continuum_memory = None
         if knowledge_mound is None:
@@ -150,7 +150,7 @@ class PlanExecutor:
                 from aragora.knowledge.mound import get_knowledge_mound
 
                 knowledge_mound = get_knowledge_mound()
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 logger.debug("Could not initialize knowledge_mound: %s", e)
                 knowledge_mound = None
 
@@ -181,7 +181,7 @@ class PlanExecutor:
             except (ImportError, AttributeError):
                 pass
             logger.info("Pipeline event: %s plan_id=%s", event_type, data.get("plan_id", ""))
-        except Exception as exc:
+        except (KeyError, ImportError, AttributeError, RuntimeError) as exc:
             logger.debug("Failed to emit pipeline event %s: %s", event_type, exc)
 
     @staticmethod
@@ -357,7 +357,7 @@ class PlanExecutor:
                     if plan.implement_plan is not None:
                         notifier.set_task_descriptions(plan.implement_plan.tasks)
                     on_task_complete = notifier.on_task_complete
-                except Exception as exc:
+                except (ImportError, TypeError, ValueError, AttributeError) as exc:
                     logger.debug("Failed to initialize execution notifier: %s", exc)
 
         try:
@@ -385,7 +385,7 @@ class PlanExecutor:
                     parallel_execution=parallel_execution,
                     max_parallel=max_parallel,
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - intentional broad catch for top-level execution resilience
             logger.error("Plan execution failed: %s: %s", plan.id, e)
             duration = time.time() - start_time
             outcome = PlanOutcome(
@@ -422,7 +422,7 @@ class PlanExecutor:
         if notifier is not None:
             try:
                 await notifier.send_completion_summary()
-            except Exception as exc:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as exc:
                 logger.debug("Failed to send execution summary: %s", exc)
 
         # Write back to memory (best-effort)
@@ -433,7 +433,7 @@ class PlanExecutor:
                 continuum_memory=self._continuum_memory,
                 knowledge_mound=self._knowledge_mound,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
             logger.warning("Failed to record plan outcome to memory: %s", e)
 
         # Generate receipt (best-effort)
@@ -442,13 +442,13 @@ class PlanExecutor:
             if receipt:
                 outcome.receipt_id = receipt.receipt_id
                 logger.info("Generated receipt %s for plan %s", receipt.receipt_id, plan.id)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError, TypeError) as e:
             logger.debug("Receipt generation failed (non-critical): %s", e)
 
         # Ingest to Knowledge Mound via adapter (best-effort)
         try:
             await self._ingest_to_km(plan, outcome)
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.debug("KM ingestion failed (non-critical): %s", e)
 
         # Update store with final state
@@ -920,7 +920,7 @@ class PlanExecutor:
                     step_id = f"step-{i}"
                     try:
                         on_task_complete(step_id, step)
-                    except Exception as cb_err:
+                    except (TypeError, ValueError, RuntimeError, OSError) as cb_err:
                         logger.debug("on_task_complete callback error: %s", cb_err)
 
             # Update plan status
@@ -956,7 +956,7 @@ class PlanExecutor:
                 tasks_total=tasks_total,
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, TimeoutError, ValueError) as e:
             duration = time.time() - start_time
             logger.error("Computer use execution failed: %s", e)
             plan.status = PlanStatus.FAILED
@@ -995,7 +995,7 @@ class PlanExecutor:
             try:
                 receipt.sign()
                 logger.debug("Signed receipt %s", receipt.receipt_id)
-            except Exception as sign_err:
+            except (OSError, RuntimeError, ValueError) as sign_err:
                 logger.debug("Receipt signing skipped: %s", sign_err)
 
             # Store receipt if we have a receipt store

@@ -116,7 +116,7 @@ def _encrypt_secret(secret: str) -> str:
         service = get_encryption_service()
         encrypted = service.encrypt(secret)
         return encrypted.to_base64()
-    except Exception as e:
+    except (EncryptionError, ValueError, TypeError, AttributeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError(
                 "encrypt",
@@ -141,7 +141,7 @@ def _decrypt_secret(encrypted_secret: str) -> str:
     try:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_secret)
-    except Exception as e:
+    except (EncryptionError, ValueError, TypeError, AttributeError, OSError) as e:
         logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
         return encrypted_secret  # Return as-is if decryption fails
 
@@ -730,9 +730,8 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except sqlite3.Error as e:
                     logger.debug("Error closing connection: %s", e)
-                    pass
             self._connections.clear()
 
 
@@ -766,7 +765,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for webhook config store")
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis not available, using SQLite only: {e}")
             self._redis = None
             self._redis_checked = True
@@ -800,7 +799,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         if redis:
             try:
                 redis.setex(self._redis_key(webhook.id), self.REDIS_TTL, webhook.to_json())
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug(f"Redis cache update failed: {e}")
 
         return webhook
@@ -814,7 +813,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 data = redis.get(self._redis_key(webhook_id))
                 if data:
                     return WebhookConfig.from_json(data)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
                 logger.debug(f"Redis get failed, falling back to SQLite: {e}")
 
         # Fall back to SQLite
@@ -826,7 +825,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
             except (ConnectionError, TimeoutError) as e:
                 logger.debug(f"Redis cache population failed (connection issue): {e}")
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug(f"Redis cache population failed: {e}")
 
         return webhook
@@ -849,7 +848,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 redis.delete(self._redis_key(webhook_id))
             except (ConnectionError, TimeoutError) as e:
                 logger.debug(f"Redis cache delete failed (connection issue): {e}")
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug(f"Redis cache delete failed: {e}")
 
         return self._sqlite.delete(webhook_id)
@@ -878,7 +877,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             if redis:
                 try:
                     redis.setex(self._redis_key(webhook_id), self.REDIS_TTL, webhook.to_json())
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                     logger.debug(f"Redis cache update failed: {e}")
 
         return webhook
@@ -896,7 +895,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         if redis:
             try:
                 redis.delete(self._redis_key(webhook_id))
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug(f"Redis cache invalidation failed: {e}")
 
     def get_for_event(self, event_type: str) -> _list[WebhookConfig]:
