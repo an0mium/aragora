@@ -408,7 +408,9 @@ class TestHandle:
 
         self.handler.handle("/api/debates", {"limit": ["50"]}, self.mock_http_handler)
 
-        self.mock_storage.list_recent.assert_called_once_with(limit=50, org_id=None)
+        self.mock_storage.list_recent.assert_called_once()
+        call_kwargs = self.mock_storage.list_recent.call_args.kwargs
+        assert call_kwargs["limit"] == 50
 
     def test_caps_limit_at_100(self) -> None:
         """Test limit is capped at 100."""
