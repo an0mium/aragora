@@ -100,6 +100,13 @@ class MetaPlannerConfig:
     min_cycle_similarity: float = 0.3
     # Quick mode: skip debate, use heuristic for concrete goals
     quick_mode: bool = False
+    # Trickster: detect hollow consensus in self-improvement debates
+    enable_trickster: bool = True
+    trickster_sensitivity: float = 0.7
+    # Convergence detection for semantic consensus
+    enable_convergence: bool = True
+    # Generate DecisionReceipts for self-improvement decisions
+    enable_receipts: bool = True
 
 
 class MetaPlanner:
@@ -168,15 +175,21 @@ class MetaPlanner:
                 logger.warning("No agents available, using heuristic prioritization")
                 return self._heuristic_prioritize(objective, available_tracks)
 
-            # Run debate
+            # Run debate with Trickster and convergence detection
             env = Environment(task=topic)
             protocol = DebateProtocol(
                 rounds=self.config.debate_rounds,
                 consensus="weighted",
+                enable_trickster=self.config.enable_trickster,
+                trickster_sensitivity=self.config.trickster_sensitivity,
+                convergence_detection=self.config.enable_convergence,
             )
 
             arena = Arena(env, agents, protocol)
             result = await arena.run()
+
+            # Generate DecisionReceipt for audit trail
+            self._generate_receipt(result)
 
             # Parse goals from debate result
             goals = self._parse_goals_from_debate(result, available_tracks, objective)
@@ -348,6 +361,73 @@ class MetaPlanner:
             logger.warning(f"Failed to enrich with calibration data: {e}")
 
         return context
+
+    def _generate_receipt(self, result: Any) -> None:
+        """Generate a DecisionReceipt from a debate result and persist to KM.
+
+        Creates an audit-ready receipt from the self-improvement debate and
+        ingests it into the Knowledge Mound via the ReceiptAdapter so future
+        cycles can query past self-improvement decisions.
+
+        Args:
+            result: DebateResult from Arena.run()
+        """
+        if not self.config.enable_receipts:
+            return
+
+        try:
+            from aragora.export.decision_receipt import DecisionReceipt
+
+            receipt = DecisionReceipt.from_debate_result(result)
+            logger.info(
+                "meta_planner_receipt_generated receipt_id=%s verdict=%s",
+                receipt.receipt_id,
+                receipt.verdict,
+            )
+
+            # Persist receipt to Knowledge Mound via ReceiptAdapter
+            self._ingest_receipt_to_km(receipt)
+
+        except ImportError:
+            logger.debug("DecisionReceipt not available, skipping receipt generation")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Failed to generate receipt from debate result: %s", e)
+
+    def _ingest_receipt_to_km(self, receipt: Any) -> None:
+        """Ingest a DecisionReceipt into the Knowledge Mound.
+
+        Uses the ReceiptAdapter to store the receipt so future Nomic cycles
+        can query past self-improvement decisions for context.
+
+        Args:
+            receipt: DecisionReceipt to ingest
+        """
+        try:
+            from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
+
+            adapter = ReceiptAdapter()
+            # Fire-and-forget: schedule async ingestion without blocking
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    adapter.ingest_receipt(
+                        receipt,
+                        tags=["nomic_loop", "self_improvement", "meta_planner"],
+                    )
+                )
+                logger.info(
+                    "meta_planner_receipt_km_ingestion_scheduled receipt_id=%s",
+                    receipt.receipt_id,
+                )
+            except RuntimeError:
+                logger.debug("No event loop, skipping async receipt KM ingestion")
+
+        except ImportError:
+            logger.debug("ReceiptAdapter not available, skipping KM ingestion")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Failed to ingest receipt to KM: %s", e)
 
     def _create_agent(self, agent_type: str) -> Any:
         """Create an agent using get_secret pattern for API key resolution.

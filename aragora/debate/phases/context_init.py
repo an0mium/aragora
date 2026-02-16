@@ -31,6 +31,14 @@ logger = logging.getLogger(__name__)
 _knowledge_cache: dict[str, tuple[str, float]] = {}
 _KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 
+# Receipt conclusions cache (TTL-based, same pattern as knowledge cache)
+_receipt_conclusions_cache: dict[str, tuple[str, float]] = {}
+_RECEIPT_CONCLUSIONS_CACHE_TTL = 300.0  # 5 minutes
+
+# Convergence history cache (TTL-based)
+_convergence_history_cache: dict[str, tuple[dict, float]] = {}
+_CONVERGENCE_HISTORY_CACHE_TTL = 600.0  # 10 minutes
+
 # Check for RLM availability (prefer factory for TRUE RLM support)
 # Declare types as unions to handle both import success and failure
 _get_rlm: Callable[..., Any] | None = None
@@ -255,6 +263,9 @@ class ContextInitializer:
         # 9. Fetch knowledge mound context (unified organizational knowledge)
         await self._inject_knowledge_context(ctx)
 
+        # 9a. Inject past decision conclusions from receipt-derived KM items
+        await self._inject_receipt_conclusions(ctx)
+
         # 9b. Inject Supermemory external context (cross-session learnings)
         await self._inject_supermemory_context(ctx)
 
@@ -274,6 +285,9 @@ class ContextInitializer:
         # 12c. Inject cross-debate institutional knowledge
         if self.enable_cross_debate_memory:
             await self._inject_cross_debate_context(ctx)
+
+        # 12d. Inject convergence history to suggest optimal round counts
+        self._inject_convergence_history(ctx)
 
         # 13. Start research in background (non-blocking for fast startup)
         # Research runs in parallel with proposals, results injected before round 2
