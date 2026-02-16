@@ -267,8 +267,19 @@ class TemplateRegistry:
         """
         # Extract keywords from question
         keywords = set(question.lower().split())
-        # Remove very short/common words
-        keywords = {w for w in keywords if len(w) > 2}
+        # Remove very short/common words and stop words that inflate irrelevant scores
+        _STOP_WORDS = {
+            "the", "and", "for", "with", "from", "that", "this", "are", "was",
+            "were", "been", "being", "have", "has", "had", "does", "did", "will",
+            "would", "could", "should", "may", "might", "can", "shall", "its",
+            "not", "but", "they", "them", "their", "your", "our", "all", "any",
+            "each", "every", "both", "few", "more", "most", "other", "some",
+            "such", "than", "too", "very", "also", "just", "about", "into",
+            "over", "after", "before", "between", "under", "again", "then",
+            "once", "here", "there", "when", "where", "how", "what", "which",
+            "who", "whom", "why", "own", "same", "only",
+        }
+        keywords = {w for w in keywords if len(w) > 2 and w not in _STOP_WORDS}
 
         scored: builtins.list[tuple[float, DeliberationTemplate]] = []
         for template in self._templates.values():

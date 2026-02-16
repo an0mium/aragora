@@ -110,7 +110,10 @@ DECOMPOSITION_CONCEPTS = [
     "api",
     "frontend",
     "backend",
+    "test",
+    "tests",
     "testing",
+    "integration",
     "security",
     "performance",
     "documentation",
@@ -130,6 +133,14 @@ DECOMPOSITION_CONCEPTS = [
     "audit",
     "cli",
     "sdk",
+    "orchestrator",
+    "pipeline",
+    "validation",
+    "gauntlet",
+    "handler",
+    "server",
+    "resilience",
+    "observability",
 ]
 
 
