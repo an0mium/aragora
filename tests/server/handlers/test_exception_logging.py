@@ -27,7 +27,7 @@ class TestIntegrationManagementLogging:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(
-                side_effect=Exception("Connection failed")
+                side_effect=ConnectionError("Connection failed")
             )
             mock_client.return_value.__aexit__ = AsyncMock()
 
@@ -50,7 +50,7 @@ class TestIntegrationManagementLogging:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(
-                side_effect=Exception("Graph API error")
+                side_effect=ConnectionError("Graph API error")
             )
             mock_client.return_value.__aexit__ = AsyncMock()
 
@@ -72,7 +72,7 @@ class TestIntegrationManagementLogging:
         with patch.dict("os.environ", {"DISCORD_BOT_TOKEN": "test-token"}):
             with patch("httpx.AsyncClient") as mock_client:
                 mock_client.return_value.__aenter__ = AsyncMock(
-                    side_effect=Exception("Discord API error")
+                    side_effect=ConnectionError("Discord API error")
                 )
                 mock_client.return_value.__aexit__ = AsyncMock()
 
@@ -93,7 +93,7 @@ class TestIntegrationManagementLogging:
 
         with patch.dict("os.environ", {"SMTP_HOST": "smtp.test.com", "SMTP_PORT": "587"}):
             with patch("socket.socket") as mock_socket:
-                mock_socket.return_value.connect_ex.side_effect = Exception("Socket error")
+                mock_socket.return_value.connect_ex.side_effect = OSError("Socket error")
 
                 with caplog.at_level(logging.WARNING):
                     result = await handler._check_email_health()

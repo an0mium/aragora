@@ -418,7 +418,11 @@ class TestGetSummary:
         mock_tracker = MagicMock()
         mock_tracker.db_path = "/nonexistent/path/to.db"
         wrapped = handler._get_summary.__wrapped__
-        result = wrapped(handler, mock_tracker)
+        with patch(
+            "aragora.server.handlers.social.relationship.get_db_connection",
+            side_effect=OSError("db read failed"),
+        ):
+            result = wrapped(handler, mock_tracker)
         assert result.status_code == 500
 
 
@@ -498,7 +502,11 @@ class TestGetGraph:
         mock_tracker = MagicMock()
         mock_tracker.db_path = "/nonexistent/path/to.db"
         wrapped = handler._get_graph.__wrapped__
-        result = wrapped(handler, mock_tracker, 3, 0.0)
+        with patch(
+            "aragora.server.handlers.social.relationship.get_db_connection",
+            side_effect=OSError("db read failed"),
+        ):
+            result = wrapped(handler, mock_tracker, 3, 0.0)
         assert result.status_code == 500
 
 
@@ -566,7 +574,10 @@ class TestGetStats:
         mock_tracker = MagicMock()
         mock_tracker.db_path = "/nonexistent/path/to.db"
         wrapped = handler._get_stats.__wrapped__
-        result = wrapped(handler, mock_tracker)
+        # Patch _fetch_relationships to raise an OSError (which the handler catches)
+        # rather than relying on sqlite3.OperationalError from the nonexistent path
+        with patch.object(handler, "_fetch_relationships", side_effect=OSError("db read failed")):
+            result = wrapped(handler, mock_tracker)
         assert result.status_code == 500
 
 
@@ -640,7 +651,7 @@ class TestGetPairDetail:
         assert body["relationship_type"] == "neutral"
 
     def test_tracker_exception_returns_500(self, handler, mock_tracker):
-        mock_tracker.get_relationship.side_effect = RuntimeError("DB error")
+        mock_tracker.get_relationship.side_effect = OSError("DB error")
         result = self._call_pair(handler, mock_tracker, "claude", "gpt4")
         assert result.status_code == 500
 

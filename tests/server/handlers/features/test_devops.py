@@ -667,7 +667,7 @@ class TestAcknowledgeIncident:
 
     @pytest.mark.asyncio
     async def test_acknowledge_error(self, handler, mock_connector):
-        mock_connector.acknowledge_incident = AsyncMock(side_effect=RuntimeError("err"))
+        mock_connector.acknowledge_incident = AsyncMock(side_effect=ConnectionError("err"))
 
         req = _make_request()
         with _patch_connector(mock_connector):

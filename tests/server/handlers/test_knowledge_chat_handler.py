@@ -885,7 +885,7 @@ class TestEdgeCases:
         """Test handling when bridge is not available."""
         with patch(
             "aragora.server.handlers.knowledge_chat._get_bridge",
-            side_effect=ImportError("Bridge not available"),
+            side_effect=RuntimeError("Bridge not available"),
         ):
             result = await handle_knowledge_search(query="test")
 

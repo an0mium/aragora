@@ -632,7 +632,7 @@ class TestGetEvolutionHistory:
         orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
         try:
             mock_cls = _enable_evolution(mod)
-            mock_cls.side_effect = RuntimeError("broken pipe")
+            mock_cls.side_effect = OSError("broken pipe")
 
             with patch(
                 "aragora.server.handlers.evolution.handler.get_db_path",
