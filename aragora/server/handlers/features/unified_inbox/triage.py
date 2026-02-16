@@ -41,7 +41,7 @@ async def run_triage(
                 result.rationale,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Triage failed for message {message.id}: {e}")
 
     return results

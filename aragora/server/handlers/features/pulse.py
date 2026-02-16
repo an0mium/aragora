@@ -169,7 +169,7 @@ def get_pulse_scheduler() -> Any:
                                 type_map.get(event_type, StreamEventType.MOUND_UPDATED)
                                 # Note: Event will be emitted when event_emitter is available
                                 logger.debug(f"KM event: {event_type}")
-                            except Exception as e:
+                            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                                 logger.debug(f"Failed to emit KM event {event_type}: {e}")
 
                         adapter.set_event_callback(emit_km_event)
@@ -179,7 +179,7 @@ def get_pulse_scheduler() -> Any:
                         logger.debug(
                             "KM PulseAdapter not available, scheduler will run without KM sync"
                         )
-                    except Exception as km_e:
+                    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as km_e:
                         logger.warning(f"Failed to wire KM PulseAdapter: {km_e}")
 
                 except (ImportError, OSError, sqlite3.Error, RuntimeError) as e:

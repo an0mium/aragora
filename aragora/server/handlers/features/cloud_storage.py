@@ -231,7 +231,7 @@ async def handle_auth_callback(
                     logger.debug(f"Could not get user info for {provider}: {e}")
 
             return True
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, KeyError) as e:
         logger.error(f"Auth callback failed for {provider}: {e}")
 
     return False
@@ -284,7 +284,7 @@ async def list_files(
                     }
                 )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
         logger.error(f"Failed to list files for {provider}: {e}")
 
     return files
@@ -316,7 +316,7 @@ async def download_file(provider: str, file_id: str) -> bytes | None:
                 )
                 return None
             return content
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.error(f"Failed to download file from {provider}: {e}")
 
     return None

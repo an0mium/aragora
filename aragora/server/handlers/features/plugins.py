@@ -631,7 +631,7 @@ class PluginsHandler(BaseHandler):
                 is_valid, errors = temp_manifest.validate()
                 if not is_valid:
                     return error_response(f"Manifest validation failed: {', '.join(errors)}", 400)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, AttributeError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Invalid manifest format", 400)
 

@@ -321,7 +321,7 @@ class DocumentBatchHandler(BaseHandler):
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available for batch processing")
-                except Exception as ke:
+                except (RuntimeError, ValueError, TypeError, OSError) as ke:
                     logger.warning(f"Knowledge processing queue failed: {ke}")
 
             # Build response
@@ -573,7 +573,7 @@ class DocumentBatchHandler(BaseHandler):
                 elif field_name:
                     form_data[field_name] = content.decode("utf-8", errors="ignore")
 
-            except Exception as e:
+            except (ValueError, UnicodeDecodeError, IndexError, KeyError) as e:
                 logger.warning(f"Error parsing multipart part: {e}")
                 continue
 

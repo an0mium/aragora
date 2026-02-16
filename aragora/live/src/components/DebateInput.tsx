@@ -109,7 +109,10 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
   const [selectedVertical, setSelectedVertical] = useState<string>('general');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [costEstimate, setCostEstimate] = useState<{ total: number; breakdown: { model: string; subtotal: number }[] } | null>(null);
+  const [costLoading, setCostLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const costDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Combined question pool: AI philosophy + Multi-agent debate + Technical architecture
   const allQuestions = [
@@ -301,6 +304,43 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       }
     };
   }, [question, apiBase, apiStatus]);
+
+  // Fetch cost estimate when agents/rounds change
+  useEffect(() => {
+    if (costDebounceRef.current) clearTimeout(costDebounceRef.current);
+    if (apiStatus !== 'online') { setCostEstimate(null); return; }
+
+    const agentList = agents.split(',').map(a => a.trim()).filter(Boolean);
+    if (agentList.length === 0) { setCostEstimate(null); return; }
+
+    costDebounceRef.current = setTimeout(async () => {
+      setCostLoading(true);
+      try {
+        const params = new URLSearchParams({
+          num_agents: String(agentList.length),
+          num_rounds: String(rounds),
+          model_types: agentList.join(','),
+        });
+        const res = await fetch(`${apiBase}/api/v1/debates/estimate-cost?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCostEstimate({
+            total: data.total_estimated_cost_usd ?? 0,
+            breakdown: (data.breakdown_by_model ?? []).map((b: { model?: string; subtotal_usd?: number }) => ({
+              model: b.model ?? 'unknown',
+              subtotal: b.subtotal_usd ?? 0,
+            })),
+          });
+        }
+      } catch {
+        // Fail silently - cost estimate is optional
+      } finally {
+        setCostLoading(false);
+      }
+    }, 600);
+
+    return () => { if (costDebounceRef.current) clearTimeout(costDebounceRef.current); };
+  }, [agents, rounds, apiBase, apiStatus]);
 
   // Apply recommended agents
   const applyRecommendations = useCallback(() => {
@@ -817,6 +857,35 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
                 </p>
               </div>
             </div>
+
+            {/* Cost Estimate Preview */}
+            {(costEstimate || costLoading) && (
+              <div className="border border-acid-cyan/30 p-3 bg-bg/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-acid-cyan">ESTIMATED COST</span>
+                  {costLoading ? (
+                    <span className="text-sm font-mono text-text-muted animate-pulse">calculating...</span>
+                  ) : costEstimate ? (
+                    <span className="text-lg font-mono font-bold text-acid-green">
+                      ${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
+                    </span>
+                  ) : null}
+                </div>
+                {costEstimate && costEstimate.breakdown.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {costEstimate.breakdown.map((b, i) => (
+                      <div key={i} className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                        <span>{b.model}</span>
+                        <span>${b.subtotal < 0.001 ? '<0.001' : b.subtotal.toFixed(3)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-text-muted/50 mt-1">
+                  Based on average token usage. Actual cost may vary.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </form>

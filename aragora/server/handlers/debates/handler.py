@@ -148,6 +148,17 @@ class DebatesHandler(
             org_id = user.org_id if user else None
             return self._search_debates(query, limit, offset, org_id)
 
+        # Cost estimation endpoint (no auth required - public preview)
+        if normalized == "/api/debates/estimate-cost":
+            from .cost_estimation import handle_estimate_cost
+
+            num_agents = get_int_param(query_params, "num_agents", 3)
+            num_rounds = get_int_param(query_params, "num_rounds", 9)
+            model_types_str = query_params.get("model_types", "")
+            if isinstance(model_types_str, list):
+                model_types_str = model_types_str[0] if model_types_str else ""
+            return handle_estimate_cost(num_agents, num_rounds, model_types_str)
+
         # Queue status endpoint
         if normalized == "/api/debates/queue/status":
             return self._get_queue_status()

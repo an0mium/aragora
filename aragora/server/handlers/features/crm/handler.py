@@ -289,7 +289,7 @@ class CRMHandler(
         """Connect a CRM platform with credentials."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError) as e:
             logger.warning("CRM connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -334,7 +334,7 @@ class CRMHandler(
             connector = await self._get_connector(platform)
             if connector:
                 _platform_connectors[platform] = connector
-        except Exception as e:
+        except (ImportError, ConnectionError, ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Could not initialize {platform} connector: {e}")
 
         logger.info(f"Connected CRM platform: {platform}")
@@ -410,7 +410,7 @@ class CRMHandler(
                 _platform_connectors[platform] = connector
                 return connector
 
-        except Exception as e:
+        except (ImportError, ConnectionError, ValueError, RuntimeError, OSError, TypeError) as e:
             logger.error(f"Failed to create {platform} connector: {e}")
             return None
 

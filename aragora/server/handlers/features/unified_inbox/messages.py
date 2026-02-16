@@ -52,7 +52,7 @@ async def fetch_all_messages(
                 await store.save_message(tenant_id, message_to_record(message))
             messages.extend(account_messages)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, KeyError) as e:
             logger.warning(
                 f"Error fetching messages for {account.provider.value} account {account.id}: {e}"
             )

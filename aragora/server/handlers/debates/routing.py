@@ -34,6 +34,7 @@ ROUTES = [
     "/api/v1/debate",  # POST - create new debate (legacy endpoint)
     "/api/v1/debates",
     "/api/v1/debates/",  # With trailing slash
+    "/api/v1/debates/estimate-cost",  # GET - pre-debate cost estimation
     "/api/v1/debates/batch",  # POST - batch debate submission
     "/api/v1/debates/batch/",
     "/api/v1/debates/batch/*/status",  # GET - batch status

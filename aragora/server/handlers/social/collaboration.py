@@ -56,7 +56,7 @@ def _check_permission(
             logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
             return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
         return None
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.error(f"RBAC check failed: {e}")
         return error_dict("Authorization check failed", code="INTERNAL_ERROR", status=500)
 
@@ -137,7 +137,7 @@ class CollaborationHandlers:
                 "success": True,
                 "session": session.to_dict(),
             }
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to create session: {e}")
             return error_dict("Failed to create session", code="INTERNAL_ERROR")
 

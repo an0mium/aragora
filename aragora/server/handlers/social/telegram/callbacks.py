@@ -201,7 +201,7 @@ class TelegramCallbacksMixin:
                     vote=vote_option,
                     source="telegram",
                 )
-        except Exception as e:
+        except (ImportError, KeyError, OSError, RuntimeError, ValueError) as e:
             logger.warning("Failed to record vote: %s", e)
 
         emoji = "+" if vote_option == "agree" else "-"
@@ -236,7 +236,7 @@ class TelegramCallbacksMixin:
             db = get_debates_db()
             if db:
                 debate_data = db.get(debate_id)
-        except Exception as e:
+        except (ImportError, KeyError, OSError, RuntimeError, ValueError) as e:
             logger.warning("Failed to fetch debate: %s", e)
 
         if not debate_data:

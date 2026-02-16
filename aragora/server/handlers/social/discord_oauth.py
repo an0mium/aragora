@@ -311,7 +311,7 @@ class DiscordOAuthHandler(SecureHandler):
 
         except ImportError:
             return error_response("httpx not available", 503)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
             logger.error(f"Discord token exchange failed: {e}")
             return error_response("Token exchange failed", 500)
 
@@ -348,7 +348,7 @@ class DiscordOAuthHandler(SecureHandler):
                     me_data = me_response.json()
                     bot_user_id = me_data.get("id", "")
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to fetch bot info: {e}")
             bot_user_id = bot_user_id or DISCORD_CLIENT_ID
 
