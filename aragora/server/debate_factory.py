@@ -120,6 +120,7 @@ class DebateConfig:
     vertical_id: str | None = None  # Explicit vertical ID (optional, auto-detected if None)
     auto_trim_unavailable: bool = True  # Auto-remove agents without credentials
     context: str | None = None  # Optional context for the debate
+    budget_limit_usd: float | None = None  # Per-debate budget cap (USD)
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.
@@ -678,7 +679,16 @@ class DebateFactory:
         # Enable position ledger auto-creation for truth grounding
         builder = builder.with_enable_position_ledger(True)
 
-        return builder.build()
+        arena = builder.build()
+
+        # Apply per-debate budget cap if specified
+        if config.budget_limit_usd and config.budget_limit_usd > 0:
+            arena.budget_limit_usd = config.budget_limit_usd
+            if hasattr(arena, "extensions") and arena.extensions is not None:
+                arena.extensions.debate_budget_limit_usd = config.budget_limit_usd
+                arena.extensions.enforce_budget_limit = True
+
+        return arena
 
     def reset_circuit_breakers(self, arena: Arena) -> None:
         """Reset circuit breakers for fresh debate.

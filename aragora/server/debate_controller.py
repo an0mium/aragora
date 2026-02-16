@@ -632,6 +632,7 @@ Return JSON with these exact fields:
             documents=list(request.documents or []),
             enable_verticals=request.enable_verticals,
             vertical_id=request.vertical_id,
+            budget_limit_usd=request.budget_limit_usd,
         )
 
         # Submit to thread pool
