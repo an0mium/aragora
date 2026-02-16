@@ -353,7 +353,7 @@ class CalculationSkill(SyncSkill):
                 "Result too large (overflow)",
                 error_code="overflow",
             )
-        except Exception as e:
+        except (TypeError, ArithmeticError) as e:
             logger.exception(f"Calculation failed: {e}")
             return SkillResult.create_failure(f"Calculation failed: {e}")
 

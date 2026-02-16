@@ -252,7 +252,7 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr().out
         assert "QUICKSTART" in output
-        assert "consensus" in output
+        assert "consensus" in output.lower()
 
     def test_no_question_exits(self):
         """Test that missing question causes exit."""

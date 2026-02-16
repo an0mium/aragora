@@ -277,7 +277,7 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
                 }
             )
             overall_valid = False
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             checks.append(
                 {
                     "name": "signature",

@@ -85,7 +85,7 @@ class RedisCache:
 
         except ImportError:
             raise ImportError("redis required for caching. Install with: pip install redis")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Redis connection failed: {e}")
             raise
 
@@ -118,7 +118,7 @@ class RedisCache:
 
                 await self._touch_entry(key)
                 return KnowledgeItem.from_dict(json.loads(data))
-            except Exception as e:
+            except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning(f"Failed to deserialize cached node: {e}")
                 await self._client.delete(key)
                 await self._untrack_entry(key)
@@ -184,7 +184,7 @@ class RedisCache:
                     execution_time_ms=parsed.get("execution_time_ms", 0),
                     sources_queried=[],
                 )
-            except Exception as e:
+            except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning(f"Failed to deserialize cached query: {e}")
                 await self._client.delete(key)
                 await self._untrack_entry(key)
@@ -273,7 +273,7 @@ class RedisCache:
                     total_observations=parsed.get("total_observations", 0),
                     dominant_traits=parsed.get("dominant_traits", {}),
                 )
-            except Exception as e:
+            except (ValueError, KeyError, json.JSONDecodeError, TypeError) as e:
                 logger.warning(f"Failed to deserialize cached culture: {e}")
                 await self._client.delete(key)
                 await self._untrack_entry(key)
@@ -457,7 +457,7 @@ class RedisCache:
                     await self.invalidate_culture(event.workspace_id)
                     logger.debug(f"Cache invalidated: culture in {event.workspace_id}")
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Cache invalidation failed for event {event.event_type}: {e}")
 
         self._unsubscribe = bus.subscribe(handle_invalidation)

@@ -177,7 +177,7 @@ class RedisTTLCache(Generic[T]):
                     int(self._ttl_seconds),
                     json.dumps(value, default=str),
                 )
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.debug(f"Redis set failed: {e}")
 
         # Always write to memory cache (backup and for stats)
@@ -199,7 +199,7 @@ class RedisTTLCache(Generic[T]):
                 redis_key = self._redis_key(key)
                 if redis.delete(redis_key) > 0:
                     found = True
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.debug(f"Redis invalidate failed: {e}")
 
         with self._lock:
@@ -220,7 +220,7 @@ class RedisTTLCache(Generic[T]):
             try:
                 pattern = self._redis_key("*")
                 _scan_and_delete(redis, pattern)
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.debug(f"Redis clear failed: {e}")
 
         with self._lock:
@@ -239,7 +239,7 @@ class RedisTTLCache(Generic[T]):
             try:
                 pattern = self._redis_key(f"{prefix}*")
                 _scan_and_delete(redis, pattern)
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.debug(f"Redis clear_prefix failed: {e}")
 
         with self._lock:

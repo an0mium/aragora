@@ -160,7 +160,7 @@ class DebateWorker:
                 except asyncio.CancelledError:
                     self._semaphore.release()
                     break
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
                     self._semaphore.release()
                     logger.error(f"Error in worker loop: {e}", exc_info=True)
                     await asyncio.sleep(1)  # Brief pause before retrying
@@ -233,7 +233,7 @@ class DebateWorker:
 
             logger.info(f"Job {job.id} completed in {duration:.2f}s")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             error_msg = str(e)
             logger.error(f"Job {job.id} failed: {error_msg}", exc_info=True)
 
@@ -282,7 +282,7 @@ class DebateWorker:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError) as e:
                 logger.error(f"Error claiming stale jobs: {e}")
 
 

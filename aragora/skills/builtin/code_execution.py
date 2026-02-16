@@ -451,7 +451,7 @@ class CodeExecutionSkill(Skill):
             )
         except asyncio.TimeoutError:
             return SkillResult.create_timeout(timeout)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Code execution failed: {e}")
             return SkillResult.create_failure(f"Execution failed: {e}")
 
@@ -597,7 +597,7 @@ _original_print("__RESULT__:" + json.dumps(output))
                 try:
                     result_line = stdout_str.split("__RESULT__:")[-1].strip()
                     result_data = _json_module.loads(result_line)
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.debug("Failed to parse execution result JSON: %s", e)
 
             return {

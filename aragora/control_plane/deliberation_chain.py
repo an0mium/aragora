@@ -571,7 +571,7 @@ class ChainExecutor:
         except asyncio.TimeoutError:
             execution.status = ChainStatus.TIMEOUT
             execution.error = f"Chain exceeded overall timeout of {chain.overall_timeout_seconds}s"
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             execution.status = ChainStatus.FAILED
             execution.error = "Chain execution failed"
             logger.exception(
@@ -625,7 +625,7 @@ class ChainExecutor:
                 if self._progress_callback:
                     try:
                         self._progress_callback(execution)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided progress callback
                         logger.warning(f"Progress callback failed: {e}")
 
                 # Determine next stage based on result
@@ -749,7 +749,7 @@ class ChainExecutor:
                 else:
                     break
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 result.status = StageStatus.FAILED
                 result.transition = StageTransition.ERROR
                 result.error = "Stage execution failed"

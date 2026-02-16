@@ -251,7 +251,7 @@ def _run_self_improve_pipeline(
         print("Active worktrees may need cleanup:")
         print("  ./scripts/cleanup_worktrees.sh --all")
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nPipeline failed: {e}")
         if verbose:
             import traceback

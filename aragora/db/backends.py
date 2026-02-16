@@ -183,7 +183,7 @@ class DatabaseConfig:
                 f"Parsed DATABASE_URL: host={self.pg_host}, port={self.pg_port}, "
                 f"database={self.pg_database}, sslmode={self.pg_ssl_mode}"
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to parse DATABASE_URL: {e}")
 
     @property
@@ -330,7 +330,7 @@ class SQLiteBackend(DatabaseBackend):
             logger.error(f"SQLite error: {e}")
             conn.rollback()
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Ensures rollback on any error before re-raising
             logger.error(f"Unexpected error in database operation: {e}", exc_info=True)
             conn.rollback()
             raise
@@ -371,7 +371,7 @@ class SQLiteBackend(DatabaseBackend):
             with self.connection() as conn:
                 conn.execute("SELECT 1")
             return True
-        except Exception as e:
+        except (sqlite3.Error, OSError) as e:
             logger.warning(f"SQLite health check failed: {e}")
             return False
 
@@ -457,7 +457,7 @@ class PostgresBackend(DatabaseBackend):
         try:
             yield conn
             conn.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Ensures rollback on any error before re-raising
             logger.error(f"PostgreSQL error: {e}")
             conn.rollback()
             raise

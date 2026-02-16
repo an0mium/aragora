@@ -423,7 +423,7 @@ class AutonomicExecutor:
             # Expected database/storage issues
             logger.warning(f"[wisdom] Failed to retrieve wisdom: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             # Unexpected errors - log with more detail
             logger.error(f"[wisdom] Unexpected error retrieving wisdom: {type(e).__name__}: {e}")
             return None
@@ -693,7 +693,7 @@ class AutonomicExecutor:
                 return self.chaos_director.connection_response(agent.name).message
             return f"[System: Agent {agent.name} connection failed - skipping this turn]"
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
             # Autonomic containment: convert crashes to valid responses
             logger.exception(f"[Autonomic] Agent {agent.name} failed: {type(e).__name__}: {e}")
 
@@ -862,7 +862,7 @@ class AutonomicExecutor:
                 phase=phase,
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
             logger.exception(f"[Autonomic] Agent {agent.name} critique failed: {e}")
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
@@ -1001,7 +1001,7 @@ class AutonomicExecutor:
                 phase=phase,
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
             logger.exception(f"[Autonomic] Agent {agent.name} vote failed: {e}")
             if tracking_id and self.performance_monitor:
                 self.performance_monitor.record_completion(
@@ -1114,7 +1114,7 @@ class AutonomicExecutor:
                     )
                     last_error = f"connection_error:{type(e).__name__}"
 
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - autonomic containment: agent failures must not crash debate
                     self.record_retry(current_agent.name)
                     if self.circuit_breaker:
                         self.circuit_breaker.record_failure(current_agent.name)

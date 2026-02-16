@@ -113,7 +113,7 @@ class GastownConvoyExecutor:
         for agent in self.implementers:
             try:
                 await self.hierarchy.register_agent(agent.name, AgentRole.CREW)
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.debug(
                     f"Failed to register implementer agent {agent.name}: {type(e).__name__}: {e}"
                 )
@@ -123,7 +123,7 @@ class GastownConvoyExecutor:
                 continue
             try:
                 await self.hierarchy.register_agent(agent.name, AgentRole.WITNESS)
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.debug(
                     f"Failed to register reviewer agent {agent.name}: {type(e).__name__}: {e}"
                 )
@@ -376,7 +376,7 @@ class GastownConvoyExecutor:
                 approved = bool(codex_review.get("approved", True))
                 notes = "codex_review" if approved else "codex_blocked"
                 return ReviewResult(approved=approved, notes=notes)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 return ReviewResult(approved=True, notes=f"review_skipped:{e}")
 
         prompt = f"""Review the following code changes for correctness and safety.
@@ -399,7 +399,7 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         async def review_with(agent: Any) -> str:
             try:
                 return await agent.generate(prompt, context=[])
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
                 return f"BLOCKER: review failed ({e})"
 
         review_tasks = [review_with(r) for r in reviewers[:2]]
@@ -445,7 +445,7 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
                 )
             except subprocess.TimeoutExpired:
                 return False, "test_timeout"
-            except Exception as exc:
+            except (OSError, subprocess.SubprocessError) as exc:
                 return False, f"test_error: {exc}"
 
         output = (result.stdout or "") + (result.stderr or "")

@@ -214,7 +214,7 @@ def cmd_starter(args: argparse.Namespace) -> None:
 
     try:
         result, elapsed = asyncio.run(_run_demo_debate(topic))
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"\n    Debate failed: {e}")
         print("    Try: aragora demo --list")
         sys.exit(1)

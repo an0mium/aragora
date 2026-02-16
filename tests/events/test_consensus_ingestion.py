@@ -365,7 +365,7 @@ class TestConsensusIngestionIntegration:
         """Test handler handles store errors gracefully."""
         mock_mound = MagicMock()
         mock_mound.workspace_id = "test"
-        mock_mound.store = AsyncMock(side_effect=Exception("Store failed"))
+        mock_mound.store = AsyncMock(side_effect=RuntimeError("Store failed"))
 
         with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=mock_mound):
             handlers = subscriber_manager._subscribers.get(StreamEventType.CONSENSUS, [])

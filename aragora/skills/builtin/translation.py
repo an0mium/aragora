@@ -197,7 +197,7 @@ class TranslationSkill(Skill):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Translation failed: {e}")
             return SkillResult.create_failure(f"Translation failed: {e}")
 
@@ -237,7 +237,7 @@ Language code:"""
                 code = response.strip().lower()[:2]
                 if code in SUPPORTED_LANGUAGES:
                     return code
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.warning(f"Language detection via LLM failed: {e}")
 
         # Fallback: simple heuristic-based detection
@@ -413,7 +413,7 @@ Language code:"""
             else:
                 response = await llm(prompt)
                 return str(response).strip()
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"LLM call failed: {e}")
             raise
 

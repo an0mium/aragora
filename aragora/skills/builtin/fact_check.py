@@ -198,7 +198,7 @@ class FactCheckSkill(Skill):
 
             return SkillResult.create_success(response)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Fact check failed: {e}")
             return SkillResult.create_failure(f"Fact check failed: {e}")
 
@@ -311,7 +311,7 @@ class FactCheckSkill(Skill):
 
         except ImportError:
             logger.debug("Knowledge Mound not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Knowledge Mound query error: {e}")
 
         return evidence
@@ -350,7 +350,7 @@ class FactCheckSkill(Skill):
 
         except ImportError:
             logger.debug("Web search skill not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Web search error: {e}")
 
         return evidence
@@ -389,7 +389,7 @@ class FactCheckSkill(Skill):
 
         except ImportError:
             logger.debug("Consensus memory not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Debate history check error: {e}")
 
         return evidence

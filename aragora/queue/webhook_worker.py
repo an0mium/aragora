@@ -224,7 +224,7 @@ class WebhookDeliveryWorker:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
                 logger.error(f"Error in webhook worker loop: {e}", exc_info=True)
                 await asyncio.sleep(poll_interval)
 
@@ -358,7 +358,7 @@ class WebhookDeliveryWorker:
                 response_time_ms=(time.time() - start_time) * 1000,
                 attempt=attempt,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.error(f"Unexpected error delivering to {url}: {e}", exc_info=True)
             return DeliveryResult(
                 webhook_id=webhook_id,
