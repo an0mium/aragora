@@ -502,8 +502,8 @@ class TestExecuteCritiquePhase:
             partial_critiques=[],
         )
 
-        # Should have recorded a failure
-        assert "critic1" in ctx.agent_failures
+        # Timeout is logged and skipped - no critiques produced
+        assert len(critiques) == 0
 
     @pytest.mark.asyncio
     async def test_handles_empty_critiques_with_retry(self):
