@@ -276,8 +276,7 @@ class RedisPubSub:
                 for handler in self._handlers[pattern]:
                     try:
                         await handler(event)
-                    except Exception as e:
-                        # Broad catch intentional: isolate handler failures from listener loop
+                    except Exception as e:  # noqa: BLE001 - Isolate individual handler failures from listener loop
                         logger.warning(f"Handler error: {e}")
 
         except json.JSONDecodeError as e:

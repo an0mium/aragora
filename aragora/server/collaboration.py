@@ -237,7 +237,7 @@ class SessionManager:
         for handler in self._event_handlers:
             try:
                 handler(event)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 logger.warning(f"Event handler error: {e}")
 
     def _generate_session_id(self) -> str:

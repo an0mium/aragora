@@ -304,14 +304,14 @@ class HumanCheckpointStep(BaseStep):
                         ],
                     },
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.warning(f"Failed to persist approval to store: {e}")
 
         # Notify listeners
         if self.on_approval_requested:
             try:
                 self.on_approval_requested(request)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
                 logger.warning(f"Failed to notify approval listener: {e}")
 
         # Send notifications via notification service (Slack/Email)
