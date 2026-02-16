@@ -425,7 +425,7 @@ class EmailRateLimiter:
                 f"Redis rate limit connection error, falling back to local: {type(e).__name__}: {e}"
             )
             return await self._acquire_local(tenant_id, provider, limits, count)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
             logger.warning(
                 f"Redis rate limit error, falling back to local: {type(e).__name__}: {e}"
             )
@@ -565,7 +565,7 @@ class EmailRateLimiter:
                 )
             except (ConnectionError, TimeoutError, OSError) as e:
                 logger.warning(f"Redis usage fetch connection error: {type(e).__name__}: {e}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - redis library custom exceptions may not be importable
                 logger.warning(f"Redis usage fetch failed: {type(e).__name__}: {e}")
 
         # Local fallback
