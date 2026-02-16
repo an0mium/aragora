@@ -1173,7 +1173,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_list_policies_exception(self, handler, mock_policy_store):
         """Test list policies handles exceptions."""
-        mock_policy_store.list_policies = MagicMock(side_effect=Exception("Database error"))
+        mock_policy_store.list_policies = MagicMock(side_effect=ValueError("Database error"))
         http_handler = create_mock_http_handler(path="/api/v1/policies")
 
         http_handler.command = "GET"
@@ -1186,7 +1186,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_get_policy_exception(self, handler, mock_policy_store):
         """Test get policy handles exceptions."""
-        mock_policy_store.get_policy = MagicMock(side_effect=Exception("Database error"))
+        mock_policy_store.get_policy = MagicMock(side_effect=ValueError("Database error"))
         http_handler = create_mock_http_handler(path="/api/v1/policies/pol_test123")
 
         http_handler.command = "GET"
@@ -1199,7 +1199,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_create_policy_exception(self, handler, mock_policy_store):
         """Test create policy handles exceptions."""
-        mock_policy_store.create_policy = MagicMock(side_effect=Exception("Database error"))
+        mock_policy_store.create_policy = MagicMock(side_effect=ValueError("Database error"))
         http_handler = create_mock_http_handler(
             body={
                 "name": "Test Policy",
@@ -1219,7 +1219,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_compliance_check_exception(self, handler, mock_compliance_manager):
         """Test compliance check handles exceptions."""
-        mock_compliance_manager.check = MagicMock(side_effect=Exception("Check failed"))
+        mock_compliance_manager.check = MagicMock(side_effect=ValueError("Check failed"))
         http_handler = create_mock_http_handler(
             body={"content": "Test content"},
             path="/api/v1/compliance/check",

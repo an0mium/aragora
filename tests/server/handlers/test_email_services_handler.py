@@ -906,7 +906,7 @@ class TestEmailServicesErrors:
         """Test handling when follow-up tracker raises an error."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             tracker = MagicMock()
-            tracker.mark_awaiting_reply = AsyncMock(side_effect=Exception("Database error"))
+            tracker.mark_awaiting_reply = AsyncMock(side_effect=ValueError("Database error"))
             mock_get.return_value = tracker
 
             result = await handle_mark_followup(
@@ -924,7 +924,7 @@ class TestEmailServicesErrors:
         """Test handling when snooze recommender raises an error."""
         with patch("aragora.server.handlers.email_services.get_snooze_recommender") as mock_get:
             recommender = MagicMock()
-            recommender.recommend_snooze = AsyncMock(side_effect=Exception("Service error"))
+            recommender.recommend_snooze = AsyncMock(side_effect=ValueError("Service error"))
             mock_get.return_value = recommender
 
             result = await handle_get_snooze_suggestions(

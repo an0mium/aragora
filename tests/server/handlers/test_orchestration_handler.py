@@ -1104,7 +1104,7 @@ class TestExecuteAndStore:
             handler,
             "_execute_deliberation",
             new_callable=AsyncMock,
-            side_effect=Exception("Deliberation failed"),
+            side_effect=ValueError("Deliberation failed"),
         ):
             await handler._execute_and_store(request)
 

@@ -454,7 +454,7 @@ class TestSSOCallback:
         }
 
         # Make provider authentication fail
-        mock_sso_provider.authenticate = AsyncMock(side_effect=Exception("Invalid code"))
+        mock_sso_provider.authenticate = AsyncMock(side_effect=ValueError("Invalid code"))
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
@@ -603,7 +603,7 @@ class TestSSOLogout:
         """Test SSO logout handles exceptions."""
         from aragora.server.handlers.auth.sso_handlers import handle_sso_logout
 
-        mock_sso_provider.logout = AsyncMock(side_effect=Exception("Logout error"))
+        mock_sso_provider.logout = AsyncMock(side_effect=ValueError("Logout error"))
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",

@@ -341,7 +341,7 @@ class TestImplementationStepExecution:
             output = await step.execute(context)
 
         assert output["success"] is False
-        assert "Executor init failed" in output["error"]
+        assert output["error"] == "Implementation task failed"
 
 
 # ---------------------------------------------------------------------------

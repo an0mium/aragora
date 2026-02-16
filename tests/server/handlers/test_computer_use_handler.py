@@ -589,11 +589,11 @@ class TestTaskExecution:
                 },
             ):
                 with patch.object(
-                    handler._orchestrator, "run_task", side_effect=Exception("Test error")
+                    handler._orchestrator, "run_task", side_effect=ValueError("Test error")
                 ):
                     with patch(
                         "aragora.server.handlers.computer_use_handler.run_async",
-                        side_effect=Exception("Test error"),
+                        side_effect=ValueError("Test error"),
                     ):
                         result = handler.handle_post(
                             "/api/v1/computer-use/tasks",

@@ -439,7 +439,7 @@ class TestHandleSearch:
         ):
             with patch(
                 "aragora.server.handlers.knowledge_base.search._run_async",
-                side_effect=Exception("Database connection failed"),
+                side_effect=ValueError("Database connection failed"),
             ):
                 result = handler._handle_search(query_params)
 

@@ -968,7 +968,7 @@ class TestErrorHandling:
                     oauth_handler,
                     "_get_wizard_config",
                     new_callable=AsyncMock,
-                    side_effect=Exception("Internal error"),
+                    side_effect=ValueError("Internal error"),
                 ):
                     result = await oauth_handler.handle(
                         "/api/v2/integrations/wizard",

@@ -720,7 +720,7 @@ class TestAuditTrailHandlerErrorHandling:
     @pytest.mark.asyncio
     async def test_internal_error_returns_500(self, handler):
         """Internal errors return 500 status code."""
-        with patch.object(handler, "_list_audit_trails", side_effect=Exception("Database error")):
+        with patch.object(handler, "_list_audit_trails", side_effect=ValueError("Database error")):
             result = await handler.handle("GET", "/api/v1/audit-trails")
 
             assert result is not None

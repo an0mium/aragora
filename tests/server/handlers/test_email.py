@@ -304,7 +304,7 @@ class TestHandleRankInbox:
     async def test_error(self):
         with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
-            mock_prioritizer.rank_inbox = AsyncMock(side_effect=Exception("rank failed"))
+            mock_prioritizer.rank_inbox = AsyncMock(side_effect=ValueError("rank failed"))
             mock_gp.return_value = mock_prioritizer
 
             result = await handle_rank_inbox([{"id": "1"}])
@@ -603,7 +603,7 @@ class TestGmailOAuth:
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_connector = MagicMock()
-            mock_connector.authenticate = AsyncMock(side_effect=Exception("bad code"))
+            mock_connector.authenticate = AsyncMock(side_effect=ValueError("bad code"))
             mock_gc.return_value = mock_connector
 
             result = await handle_gmail_oauth_callback(
@@ -749,7 +749,7 @@ class TestCrossChannelContext:
     async def test_get_context_error(self):
         with patch("aragora.server.handlers.email.context.get_context_service") as mock_gs:
             mock_service = MagicMock()
-            mock_service.get_user_context = AsyncMock(side_effect=Exception("service down"))
+            mock_service.get_user_context = AsyncMock(side_effect=ValueError("service down"))
             mock_gs.return_value = mock_service
 
             result = await handle_get_context("user@example.com")

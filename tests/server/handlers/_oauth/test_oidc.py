@@ -205,7 +205,7 @@ class TestOIDCDiscovery:
     async def test_get_discovery_failure(self, mock_async_client, oidc_handler):
         """Test OIDC discovery document fetch failure returns empty dict."""
         mock_client_instance = AsyncMock()
-        mock_client_instance.get.side_effect = Exception("Connection failed")
+        mock_client_instance.get.side_effect = ConnectionError("Connection failed")
         mock_client_instance.__aenter__.return_value = mock_client_instance
         mock_client_instance.__aexit__.return_value = None
         mock_async_client.return_value = mock_client_instance
@@ -538,7 +538,7 @@ class TestOIDCCallback:
         oidc_handler._get_oidc_discovery = AsyncMock(return_value=mock_oidc_discovery)
 
         async def mock_exchange_failure(code, discovery):
-            raise Exception("Token exchange failed")
+            raise ConnectionError("Token exchange failed")
 
         oidc_handler._exchange_oidc_code = mock_exchange_failure
 
@@ -679,7 +679,7 @@ class TestOIDCUserInfo:
         """Test user info falls back to ID token when userinfo endpoint fails."""
         # Mock userinfo endpoint failure
         mock_client_instance = AsyncMock()
-        mock_client_instance.get.side_effect = Exception("Userinfo failed")
+        mock_client_instance.get.side_effect = ConnectionError("Userinfo failed")
         mock_client_instance.__aenter__.return_value = mock_client_instance
         mock_client_instance.__aexit__.return_value = None
         mock_async_client.return_value = mock_client_instance

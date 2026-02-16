@@ -237,7 +237,7 @@ class TestExtensionsStats:
         from aragora.server.handlers.extensions import handle_extensions_stats
 
         mock_extension_state.fabric.get_stats = AsyncMock(
-            side_effect=Exception("Fabric unavailable")
+            side_effect=ValueError("Fabric unavailable")
         )
 
         with patch(
@@ -575,12 +575,12 @@ class TestExtensionsErrorHandling:
         from aragora.server.handlers.extensions import handle_extensions_stats
 
         # All components throw errors
-        mock_extension_state.fabric.get_stats = AsyncMock(side_effect=Exception("Fabric error"))
+        mock_extension_state.fabric.get_stats = AsyncMock(side_effect=ValueError("Fabric error"))
         mock_extension_state.coordinator.get_stats = AsyncMock(
-            side_effect=Exception("Gastown error")
+            side_effect=ValueError("Gastown error")
         )
         mock_extension_state.inbox_manager.get_stats = AsyncMock(
-            side_effect=Exception("Inbox error")
+            side_effect=ValueError("Inbox error")
         )
 
         with patch(

@@ -337,7 +337,7 @@ class TestErrorHandling:
             compliance_handler,
             "_get_status",
             new_callable=AsyncMock,
-            side_effect=Exception("Unexpected error"),
+            side_effect=ValueError("Unexpected error"),
         ):
             result = await compliance_handler.handle("/api/v2/compliance/status", {}, mock_handler)
 

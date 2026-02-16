@@ -345,7 +345,7 @@ class TestGetAllPersonas:
         self, persona_handler, mock_http_handler, mock_persona_manager
     ):
         """Test error handling when exception occurs."""
-        mock_persona_manager.get_all_personas = MagicMock(side_effect=Exception("DB error"))
+        mock_persona_manager.get_all_personas = MagicMock(side_effect=ValueError("DB error"))
         persona_handler.get_persona_manager = MagicMock(return_value=mock_persona_manager)
 
         with patch(
@@ -1343,7 +1343,7 @@ class TestPersonaErrorHandling:
         self, persona_handler, mock_http_handler, mock_persona_manager
     ):
         """Test error handling when update (create_persona) raises exception."""
-        mock_persona_manager.create_persona = MagicMock(side_effect=Exception("DB write failed"))
+        mock_persona_manager.create_persona = MagicMock(side_effect=ValueError("DB write failed"))
         persona_handler.get_persona_manager = MagicMock(return_value=mock_persona_manager)
         persona_handler.read_json_body_validated = MagicMock(
             return_value=({"description": "Updated"}, None)
@@ -1362,7 +1362,7 @@ class TestPersonaErrorHandling:
     ):
         """Test error handling when delete raises exception."""
         mock_persona_manager._connection_ctx.__enter__ = MagicMock(
-            side_effect=Exception("DB connection failed")
+            side_effect=ValueError("DB connection failed")
         )
         mock_persona_manager._connection_ctx.__exit__ = MagicMock(return_value=None)
 
@@ -1425,7 +1425,7 @@ class TestPersonaErrorHandling:
             db_path.touch()
             handler.get_nomic_dir = MagicMock(return_value=nomic_path)
 
-            mock_tracker_cls = MagicMock(side_effect=Exception("Tracker init failed"))
+            mock_tracker_cls = MagicMock(side_effect=ValueError("Tracker init failed"))
 
             with patch(
                 "aragora.server.handlers.persona._persona_limiter.is_allowed",

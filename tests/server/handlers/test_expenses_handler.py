@@ -956,7 +956,7 @@ class TestExpenseErrorHandling:
     async def test_tracker_error_handling(self):
         """Tracker errors are handled gracefully."""
         mock_tracker = MagicMock()
-        mock_tracker.list_expenses = AsyncMock(side_effect=Exception("Database error"))
+        mock_tracker.list_expenses = AsyncMock(side_effect=ValueError("Database error"))
 
         with patch.object(expenses_module, "get_expense_tracker", return_value=mock_tracker):
             result = await handle_list_expenses({})

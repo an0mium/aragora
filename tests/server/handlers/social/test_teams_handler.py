@@ -741,7 +741,7 @@ class TestErrorHandling:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
-        with patch.object(handler, "_handle_vote", side_effect=Exception("Test error")):
+        with patch.object(handler, "_handle_vote", side_effect=ValueError("Test error")):
             result = await handler.handle_post(
                 "/api/v1/integrations/teams/interactive", {}, mock_http
             )
@@ -759,7 +759,7 @@ class TestErrorHandling:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/notify")
 
-        mock_teams_connector.send_message = AsyncMock(side_effect=Exception("Send failed"))
+        mock_teams_connector.send_message = AsyncMock(side_effect=ValueError("Send failed"))
 
         with patch(
             "aragora.server.handlers.social.teams.get_teams_connector",

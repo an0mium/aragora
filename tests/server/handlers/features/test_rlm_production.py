@@ -578,7 +578,7 @@ class TestCircuitBreakerIntegration:
         with patch.object(rlm_handler, "_check_permission", return_value=None):
             with patch(
                 "aragora.server.handlers.features.rlm._run_async",
-                side_effect=Exception("Test error"),
+                side_effect=ValueError("Test error"),
             ):
                 result = rlm_handler._query_debate_rlm.__wrapped__(
                     rlm_handler,

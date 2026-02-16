@@ -480,7 +480,7 @@ class TestStorageErrors:
     async def test_storage_exception(self, handler, mock_http_handler, mock_auth_context):
         """Should return 500 on storage exception."""
         mock_http_handler.storage.get_graph_debate = AsyncMock(
-            side_effect=Exception("Database error")
+            side_effect=ValueError("Database error")
         )
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:

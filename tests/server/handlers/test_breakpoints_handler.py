@@ -171,7 +171,7 @@ class TestGetPendingBreakpoints:
     ):
         """Test error handling in get pending."""
         mock_breakpoint_manager.get_pending_breakpoints = MagicMock(
-            side_effect=Exception("Database error")
+            side_effect=ValueError("Database error")
         )
         breakpoints_handler._breakpoint_manager = mock_breakpoint_manager
 

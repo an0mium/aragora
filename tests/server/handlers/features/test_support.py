@@ -156,7 +156,7 @@ def handler_no_permissions():
     """Return a handler that denies all permissions."""
     h = _make_handler()
     h.get_auth_context = AsyncMock(return_value=FakeAuthContext(permissions=[]))
-    h.check_permission = MagicMock(side_effect=Exception("Permission denied"))
+    h.check_permission = MagicMock(side_effect=ValueError("Permission denied"))
     return h
 
 

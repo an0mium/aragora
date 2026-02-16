@@ -2065,7 +2065,7 @@ class TestErrorHandling:
         ):
             with patch(
                 "aragora.billing.jwt_auth.revoke_token_persistent",
-                side_effect=Exception("DB error"),
+                side_effect=ValueError("DB error"),
             ):
                 result = auth_handler._handle_refresh(request)
 

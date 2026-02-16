@@ -742,7 +742,7 @@ class TestImpersonateUser:
                 mock_rbac.return_value = None
                 with patch(
                     "aragora.server.handlers.admin.users._get_session_manager_from_handler",
-                    side_effect=Exception("no session manager"),
+                    side_effect=ValueError("no session manager"),
                 ):
                     result = admin_handler._impersonate_user(mock_http_handler, "user-002")
 

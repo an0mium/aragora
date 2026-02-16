@@ -291,7 +291,7 @@ class TestGetPatterns:
         assert len(data["patterns"]) == 1
 
     def test_patterns_exception_returns_500(self):
-        mock_evolver_cls = MagicMock(side_effect=Exception("db error"))
+        mock_evolver_cls = MagicMock(side_effect=ValueError("db error"))
 
         h = _make_handler_instance()
         with (
@@ -402,7 +402,7 @@ class TestGetPromptVersion:
         assert status == 404
 
     def test_prompt_exception_returns_500(self):
-        mock_evolver_cls = MagicMock(side_effect=Exception("boom"))
+        mock_evolver_cls = MagicMock(side_effect=ValueError("boom"))
 
         h = _make_handler_instance()
         with (
@@ -473,7 +473,7 @@ class TestGetSummary:
         assert len(data["recent_activity"]) == 1
 
     def test_summary_exception_returns_500(self):
-        mock_evolver_cls = MagicMock(side_effect=Exception("db crash"))
+        mock_evolver_cls = MagicMock(side_effect=ValueError("db crash"))
 
         h = _make_handler_instance()
         with (

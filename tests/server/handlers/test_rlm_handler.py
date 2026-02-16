@@ -666,7 +666,7 @@ class TestRLMContextHandlerErrorHandling:
         )
 
         mock_compressor = MagicMock()
-        mock_compressor.compress = AsyncMock(side_effect=Exception("Compression failed"))
+        mock_compressor.compress = AsyncMock(side_effect=ValueError("Compression failed"))
 
         with patch.object(rlm_handler, "_get_compressor", return_value=mock_compressor):
             result = rlm_handler.handle_post("/api/v1/rlm/compress", {}, handler)
@@ -691,7 +691,7 @@ class TestRLMContextHandlerErrorHandling:
         )
 
         mock_rlm = MagicMock()
-        mock_rlm.query = AsyncMock(side_effect=Exception("Query failed"))
+        mock_rlm.query = AsyncMock(side_effect=ValueError("Query failed"))
 
         with patch.object(rlm_handler, "_get_rlm", return_value=mock_rlm):
             result = rlm_handler.handle_post("/api/v1/rlm/query", {}, handler)

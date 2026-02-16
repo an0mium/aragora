@@ -564,7 +564,7 @@ class TestAuditTrailVerify:
         AuditTrailHandler._trails["trail-broken"] = trail
 
         with patch(
-            "aragora.export.audit_trail.AuditTrail.from_json", side_effect=Exception("Parse error")
+            "aragora.export.audit_trail.AuditTrail.from_json", side_effect=ValueError("Parse error")
         ):
             result = await audit_trail_handler._verify_audit_trail("trail-broken")
 
@@ -761,7 +761,7 @@ class TestReceiptVerify:
         mock_store.receipts["receipt-broken"] = receipt
 
         # Mock hashlib.sha256 to raise an exception during verification
-        with patch("hashlib.sha256", side_effect=Exception("Hash error")):
+        with patch("hashlib.sha256", side_effect=ValueError("Hash error")):
             result = await audit_trail_handler._verify_receipt("receipt-broken")
 
         assert result is not None
@@ -842,7 +842,7 @@ class TestErrorHandling:
 
         # Force an exception
         with patch.object(
-            audit_trail_handler, "_list_audit_trails", side_effect=Exception("Database error")
+            audit_trail_handler, "_list_audit_trails", side_effect=ValueError("Database error")
         ):
             result = await audit_trail_handler.handle("/api/v1/audit-trails", {}, handler)
 

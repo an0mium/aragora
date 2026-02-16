@@ -540,7 +540,7 @@ class TestErrorHandling:
 
     async def test_create_role_exception(self, governance_mixin, mock_mound):
         """Test role creation handles exceptions."""
-        mock_mound.create_role = AsyncMock(side_effect=Exception("Database error"))
+        mock_mound.create_role = AsyncMock(side_effect=ValueError("Database error"))
 
         result = await governance_mixin.create_role(
             name="Test Role",
@@ -551,7 +551,7 @@ class TestErrorHandling:
 
     async def test_audit_query_exception(self, governance_mixin, mock_mound):
         """Test audit query handles exceptions."""
-        mock_mound.query_audit = AsyncMock(side_effect=Exception("Query failed"))
+        mock_mound.query_audit = AsyncMock(side_effect=ValueError("Query failed"))
 
         result = await governance_mixin.query_audit_trail()
 
@@ -559,7 +559,7 @@ class TestErrorHandling:
 
     async def test_permission_check_exception(self, governance_mixin, mock_mound):
         """Test permission check handles exceptions."""
-        mock_mound.check_permission = AsyncMock(side_effect=Exception("Permission check failed"))
+        mock_mound.check_permission = AsyncMock(side_effect=ValueError("Permission check failed"))
 
         result = await governance_mixin.check_permission(
             user_id="user_123",

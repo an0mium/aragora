@@ -1252,7 +1252,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_exception_handling(self, handler, mock_request):
         """Test exception handling in main handler."""
-        with patch.object(handler, "_get_tenant_id", side_effect=Exception("Test error")):
+        with patch.object(handler, "_get_tenant_id", side_effect=ValueError("Test error")):
             result = await handler.handle(mock_request, "/api/v1/marketplace/templates", "GET")
 
         assert result.status_code == 500

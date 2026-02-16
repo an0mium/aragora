@@ -848,7 +848,7 @@ class TestGetSummary:
         assert body["recent_activity"] == []
 
     def test_db_error_returns_500(self, handler):
-        mock_cls = MagicMock(side_effect=Exception("db crash"))
+        mock_cls = MagicMock(side_effect=ValueError("db crash"))
 
         with (
             patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
@@ -869,7 +869,7 @@ class TestGetSummary:
         mock_cls = MagicMock()
         mock_inst = MagicMock()
         mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(side_effect=Exception("connection refused"))
+        mock_conn.__enter__ = MagicMock(side_effect=ValueError("connection refused"))
         mock_conn.__exit__ = MagicMock(return_value=False)
         mock_inst.connection.return_value = mock_conn
         mock_cls.return_value = mock_inst

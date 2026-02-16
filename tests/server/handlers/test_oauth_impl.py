@@ -445,7 +445,7 @@ class TestGoogleOAuthFlow:
             patch(f"{_IMPL}._validate_state", return_value=state_data),
             patch(f"{_IMPL}._get_oauth_error_url", return_value="http://localhost:3000/auth/error"),
             patch.object(
-                oauth_handler, "_exchange_code_for_tokens", side_effect=Exception("Network error")
+                oauth_handler, "_exchange_code_for_tokens", side_effect=ValueError("Network error")
             ),
         ):
             result = oauth_handler._handle_google_callback(
@@ -486,7 +486,7 @@ class TestGoogleOAuthFlow:
                 oauth_handler, "_exchange_code_for_tokens", return_value={"access_token": "tok-123"}
             ),
             patch.object(
-                oauth_handler, "_get_google_user_info", side_effect=Exception("User info failure")
+                oauth_handler, "_get_google_user_info", side_effect=ValueError("User info failure")
             ),
         ):
             result = oauth_handler._handle_google_callback(

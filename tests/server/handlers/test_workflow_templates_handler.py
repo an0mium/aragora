@@ -344,7 +344,7 @@ class TestWorkflowTemplatesHandlerResponses:
                 mock_engine_cls.return_value = mock_engine
                 with patch(
                     "aragora.server.handlers.workflow_templates.WorkflowDefinition.from_dict",
-                    side_effect=Exception("Parse failed"),
+                    side_effect=ValueError("Parse failed"),
                 ):
                     result = handler._run_template(post_handler)
                     assert result is not None

@@ -390,7 +390,7 @@ class TestMicrosoftCallback:
         mock_validate_state.return_value = {"redirect_url": "https://example.com"}
 
         async def mock_exchange_failure(code):
-            raise Exception("Token exchange failed")
+            raise ConnectionError("Token exchange failed")
 
         microsoft_handler._exchange_microsoft_code = mock_exchange_failure
 

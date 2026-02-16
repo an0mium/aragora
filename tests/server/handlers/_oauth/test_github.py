@@ -358,7 +358,7 @@ class TestGitHubCallback:
         mock_validate_state.return_value = {"redirect_url": "https://example.com"}
 
         async def mock_exchange_failure(code):
-            raise Exception("Token exchange failed")
+            raise ConnectionError("Token exchange failed")
 
         github_handler._exchange_github_code = mock_exchange_failure
 

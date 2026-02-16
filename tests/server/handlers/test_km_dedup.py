@@ -217,7 +217,7 @@ class TestGetDuplicateClusters:
     async def test_get_clusters_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockDedupHandler()
-        test_handler.mound.find_duplicates = AsyncMock(side_effect=Exception("Cluster error"))
+        test_handler.mound.find_duplicates = AsyncMock(side_effect=ValueError("Cluster error"))
 
         result = await test_handler.get_duplicate_clusters(workspace_id="workspace-123")
 
@@ -281,7 +281,7 @@ class TestGetDedupReport:
     async def test_get_report_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockDedupHandler()
-        test_handler.mound.generate_dedup_report = AsyncMock(side_effect=Exception("Report error"))
+        test_handler.mound.generate_dedup_report = AsyncMock(side_effect=ValueError("Report error"))
 
         result = await test_handler.get_dedup_report(workspace_id="workspace-123")
 
@@ -388,7 +388,7 @@ class TestMergeDuplicateCluster:
     async def test_merge_mound_error(self, handler):
         """Test handles mound errors."""
         test_handler = MockDedupHandler()
-        test_handler.mound.merge_duplicates = AsyncMock(side_effect=Exception("Merge error"))
+        test_handler.mound.merge_duplicates = AsyncMock(side_effect=ValueError("Merge error"))
 
         result = await test_handler.merge_duplicate_cluster(
             workspace_id="workspace-123",
@@ -467,7 +467,7 @@ class TestAutoMergeExactDuplicates:
         """Test handles mound errors."""
         test_handler = MockDedupHandler()
         test_handler.mound.auto_merge_exact_duplicates = AsyncMock(
-            side_effect=Exception("Auto-merge error")
+            side_effect=ValueError("Auto-merge error")
         )
 
         result = await test_handler.auto_merge_exact_duplicates(workspace_id="workspace-123")

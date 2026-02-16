@@ -841,7 +841,7 @@ class TestTriggerHandlerErrorHandling:
     async def test_list_triggers_internal_error(self, mock_auth_context, mock_permission_checker):
         """Should return 500 on internal error."""
         mock_trigger = MockScheduledTrigger()
-        mock_trigger.list_triggers = MagicMock(side_effect=Exception("Internal error"))
+        mock_trigger.list_triggers = MagicMock(side_effect=ValueError("Internal error"))
         cb = MockCircuitBreaker(can_exec=True)
 
         with (
@@ -887,7 +887,7 @@ class TestTriggerHandlerErrorHandling:
     async def test_enable_trigger_internal_error(self, mock_auth_context, mock_permission_checker):
         """Should return 500 on internal error."""
         mock_trigger = MockScheduledTrigger()
-        mock_trigger.enable_trigger = MagicMock(side_effect=Exception("Database error"))
+        mock_trigger.enable_trigger = MagicMock(side_effect=ValueError("Database error"))
         cb = MockCircuitBreaker(can_exec=True)
 
         with (

@@ -498,7 +498,7 @@ class TestEdgeCases:
 
         handler._fact_store = None  # reset
         handler_mod = importlib.import_module("aragora.server.handlers.knowledge_base.handler")
-        with patch.object(handler_mod, "FactStore", side_effect=Exception("DB unavailable")):
+        with patch.object(handler_mod, "FactStore", side_effect=ValueError("DB unavailable")):
             store = handler._get_fact_store()
         from aragora.knowledge import InMemoryFactStore
 

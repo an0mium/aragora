@@ -410,7 +410,7 @@ class TestErrorHandling:
 
     async def test_coverage_exception(self, analytics_mixin, mock_mound):
         """Test coverage analysis handles exceptions."""
-        mock_mound.analyze_coverage = AsyncMock(side_effect=Exception("Analysis failed"))
+        mock_mound.analyze_coverage = AsyncMock(side_effect=ValueError("Analysis failed"))
 
         result = await analytics_mixin.analyze_coverage(
             workspace_id="ws_123",
@@ -420,7 +420,7 @@ class TestErrorHandling:
 
     async def test_usage_exception(self, analytics_mixin, mock_mound):
         """Test usage analysis handles exceptions."""
-        mock_mound.analyze_usage = AsyncMock(side_effect=Exception("Usage query failed"))
+        mock_mound.analyze_usage = AsyncMock(side_effect=ValueError("Usage query failed"))
 
         result = await analytics_mixin.analyze_usage(
             workspace_id="ws_123",
@@ -430,7 +430,7 @@ class TestErrorHandling:
 
     async def test_record_event_exception(self, analytics_mixin, mock_mound):
         """Test event recording handles exceptions."""
-        mock_mound.record_usage_event = AsyncMock(side_effect=Exception("Event storage failed"))
+        mock_mound.record_usage_event = AsyncMock(side_effect=ValueError("Event storage failed"))
 
         result = await analytics_mixin.record_usage_event(
             event_type="query",
@@ -440,7 +440,7 @@ class TestErrorHandling:
 
     async def test_snapshot_exception(self, analytics_mixin, mock_mound):
         """Test snapshot capture handles exceptions."""
-        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=Exception("Snapshot failed"))
+        mock_mound.capture_quality_snapshot = AsyncMock(side_effect=ValueError("Snapshot failed"))
 
         result = await analytics_mixin.capture_quality_snapshot(
             workspace_id="ws_123",
@@ -450,7 +450,7 @@ class TestErrorHandling:
 
     async def test_trend_exception(self, analytics_mixin, mock_mound):
         """Test trend retrieval handles exceptions."""
-        mock_mound.get_quality_trend = AsyncMock(side_effect=Exception("Trend failed"))
+        mock_mound.get_quality_trend = AsyncMock(side_effect=ValueError("Trend failed"))
 
         result = await analytics_mixin.get_quality_trend(
             workspace_id="ws_123",
@@ -460,7 +460,7 @@ class TestErrorHandling:
 
     async def test_stats_exception(self, analytics_mixin, mock_mound):
         """Test stats retrieval handles exceptions."""
-        mock_mound.get_analytics_stats = MagicMock(side_effect=Exception("Stats query failed"))
+        mock_mound.get_analytics_stats = MagicMock(side_effect=ValueError("Stats query failed"))
 
         result = await analytics_mixin.get_analytics_stats()
 

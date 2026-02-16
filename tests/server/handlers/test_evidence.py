@@ -507,7 +507,7 @@ class TestErrorHandling:
         fresh_handler.headers = {"X-Forwarded-For": unique_ip}
         fresh_handler.client_address = (unique_ip, 8080)
 
-        mock_evidence_collector.collect_evidence = AsyncMock(side_effect=Exception("API error"))
+        mock_evidence_collector.collect_evidence = AsyncMock(side_effect=ValueError("API error"))
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": "test"}, None)

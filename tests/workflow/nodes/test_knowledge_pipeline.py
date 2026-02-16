@@ -693,7 +693,7 @@ class TestKnowledgePipelineErrorHandling:
         assert result["sources_processed"] == 1
         assert len(result["errors"]) == 1
         assert result["errors"][0]["source"] == "/nonexistent/path"
-        assert "Source not found" in result["errors"][0]["error"]
+        assert result["errors"][0]["error"] == "Source processing failed"
 
     @pytest.mark.asyncio
     async def test_all_sources_fail_returns_failure(self):
@@ -848,7 +848,7 @@ class TestKnowledgePipelineConnectorProcessing:
         assert result["type"] == "github"
         assert result["documents"] == 0
         assert "error" in result
-        assert "Connection failed" in result["error"]
+        assert result["error"] == "Connector processing failed"
 
 
 # ============================================================================

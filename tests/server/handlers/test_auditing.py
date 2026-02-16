@@ -332,7 +332,7 @@ class TestAuditAgentFactoryMultiple:
             patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True),
             patch(
                 "aragora.server.handlers.auditing.create_agent",
-                side_effect=Exception("fail"),
+                side_effect=ValueError("fail"),
             ),
             patch("aragora.server.handlers.auditing.validate_id", return_value=(True, None)),
         ):
@@ -1675,7 +1675,7 @@ class TestAuditAgentFactoryExtended:
             patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True),
             patch(
                 "aragora.server.handlers.auditing.create_agent",
-                side_effect=Exception("All fail"),
+                side_effect=ValueError("All fail"),
             ),
             patch("aragora.server.handlers.auditing.validate_id", return_value=(True, None)),
         ):

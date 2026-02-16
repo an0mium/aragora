@@ -315,7 +315,7 @@ class TestAuditAgentFactory:
 
     def test_create_single_agent_handles_exception(self):
         """create_single_agent handles creation exception."""
-        mock_create = MagicMock(side_effect=Exception("Creation failed"))
+        mock_create = MagicMock(side_effect=ValueError("Creation failed"))
 
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
             with patch("aragora.server.handlers.auditing.create_agent", mock_create):

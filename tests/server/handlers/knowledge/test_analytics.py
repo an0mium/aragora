@@ -199,7 +199,7 @@ class TestMoundStats:
         ):
             with patch(
                 "aragora.knowledge.mound.get_knowledge_mound",
-                side_effect=Exception("DB error"),
+                side_effect=ValueError("DB error"),
             ):
                 result = await analytics_handler._get_mound_stats("ws-123")
 
@@ -341,7 +341,7 @@ class TestAnalyticsSummary:
     @pytest.mark.asyncio
     async def test_get_summary_error_handling(self, analytics_handler):
         """Handle errors when retrieving summary."""
-        with patch.object(analytics_handler, "_get_mound_stats", side_effect=Exception("Error")):
+        with patch.object(analytics_handler, "_get_mound_stats", side_effect=ValueError("Error")):
             result = await analytics_handler._get_summary("ws-123", "user-123")
 
         assert result is not None

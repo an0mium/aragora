@@ -359,7 +359,7 @@ class TestSignatureVerifierMixin:
 
         with patch(
             "aragora.connectors.chat.webhook_security.verify_slack_signature",
-            side_effect=Exception("Unexpected error"),
+            side_effect=ValueError("Unexpected error"),
         ):
             result = verifier.verify_signature(
                 mock_handler,

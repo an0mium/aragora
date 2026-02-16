@@ -514,7 +514,7 @@ class TestListEnvelopes:
     @pytest.mark.asyncio
     async def test_list_envelopes_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test list envelopes when API call fails."""
-        mock_connector.list_envelopes = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.list_envelopes = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -753,7 +753,7 @@ class TestCreateEnvelope:
         mock_docusign.Document = MagicMock()
         mock_docusign.EnvelopeCreateRequest = MagicMock()
         mock_docusign.Recipient = MagicMock()
-        mock_docusign.RecipientType = MagicMock(side_effect=Exception("invalid type"))
+        mock_docusign.RecipientType = MagicMock(side_effect=ValueError("invalid type"))
         mock_docusign.SignatureTab = MagicMock()
 
         with patch(
@@ -903,7 +903,7 @@ class TestGetEnvelope:
     @pytest.mark.asyncio
     async def test_get_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test get envelope API error."""
-        mock_connector.get_envelope = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.get_envelope = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1011,7 +1011,7 @@ class TestVoidEnvelope:
     @pytest.mark.asyncio
     async def test_void_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test void envelope API error."""
-        mock_connector.void_envelope = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.void_envelope = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1095,7 +1095,7 @@ class TestResendEnvelope:
     @pytest.mark.asyncio
     async def test_resend_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test resend API error."""
-        mock_connector.resend_envelope = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.resend_envelope = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1169,7 +1169,7 @@ class TestDownloadDocument:
     @pytest.mark.asyncio
     async def test_download_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test download API error."""
-        mock_connector.download_document = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.download_document = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,
@@ -1241,7 +1241,7 @@ class TestDownloadCertificate:
     @pytest.mark.asyncio
     async def test_certificate_api_error(self, handler_with_ctx, mock_request, mock_connector):
         """Test certificate download API error."""
-        mock_connector.download_certificate = AsyncMock(side_effect=Exception("API error"))
+        mock_connector.download_certificate = AsyncMock(side_effect=ValueError("API error"))
         with patch(
             "aragora.server.handlers.features.legal.get_docusign_connector",
             new_callable=AsyncMock,

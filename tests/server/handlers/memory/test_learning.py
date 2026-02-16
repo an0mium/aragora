@@ -852,7 +852,7 @@ class TestGetAggregatedInsights:
         db_path.write_text("")  # Create an empty file (invalid DB)
 
         with patch("aragora.server.handlers.memory.learning.get_db_connection") as mock_db:
-            mock_db.return_value.__enter__ = MagicMock(side_effect=Exception("DB error"))
+            mock_db.return_value.__enter__ = MagicMock(side_effect=ValueError("DB error"))
             mock_db.return_value.__exit__ = MagicMock(return_value=False)
 
             result = handler._get_aggregated_insights(50)

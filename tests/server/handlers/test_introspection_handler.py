@@ -360,7 +360,7 @@ class TestIntrospectionHandlerErrorHandling:
         with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True):
             with patch(
                 "aragora.server.handlers.introspection.get_agent_introspection",
-                side_effect=Exception("Test error"),
+                side_effect=ValueError("Test error"),
             ):
                 result = introspection_handler.handle(
                     "/api/v1/introspection/agents/claude",

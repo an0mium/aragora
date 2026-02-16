@@ -1389,7 +1389,7 @@ class TestAsyncMethods:
     async def test_send_message_async_exception(self, handler):
         """Test send_message_async handles exception."""
         mock_client = AsyncMock()
-        mock_client.post = AsyncMock(side_effect=Exception("Network error"))
+        mock_client.post = AsyncMock(side_effect=ValueError("Network error"))
 
         mock_session_cm = AsyncMock()
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_client)
@@ -1908,7 +1908,7 @@ class TestSetWebhookAsync:
     async def test_set_webhook_async_exception(self, handler):
         """Test webhook configuration with network exception."""
         mock_client = AsyncMock()
-        mock_client.post = AsyncMock(side_effect=Exception("Network error"))
+        mock_client.post = AsyncMock(side_effect=ValueError("Network error"))
 
         mock_session_cm = AsyncMock()
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_client)

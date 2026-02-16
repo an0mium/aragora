@@ -1221,7 +1221,7 @@ class TestUtilityMethods:
 
         with patch(
             "aragora.server.handlers.features.routing_rules.audit_data",
-            side_effect=Exception("Audit failed"),
+            side_effect=ValueError("Audit failed"),
         ):
             # Should not raise
             handler._audit_rule_change("update", "rule1", "Test Rule")

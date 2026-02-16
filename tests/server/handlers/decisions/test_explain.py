@@ -226,7 +226,7 @@ class TestHandle:
         with patch.object(
             handler,
             "get_auth_context",
-            side_effect=Exception("UnauthorizedError"),
+            side_effect=ValueError("UnauthorizedError"),
         ):
             from aragora.server.handlers.secure import UnauthorizedError
 

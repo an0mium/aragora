@@ -207,7 +207,7 @@ class TestDetectContradictions:
         """Test detection handles mound errors."""
         test_handler = MockContradictionHandler()
         test_handler.mound.detect_contradictions = AsyncMock(
-            side_effect=Exception("Detection error")
+            side_effect=ValueError("Detection error")
         )
 
         result = await test_handler.detect_contradictions(workspace_id="workspace-123")
@@ -269,7 +269,7 @@ class TestListContradictions:
         """Test listing handles mound errors."""
         test_handler = MockContradictionHandler()
         test_handler.mound.get_unresolved_contradictions = AsyncMock(
-            side_effect=Exception("List error")
+            side_effect=ValueError("List error")
         )
 
         result = await test_handler.list_contradictions()
@@ -398,7 +398,7 @@ class TestResolveContradiction:
         """Test resolution handles mound errors."""
         test_handler = MockContradictionHandler()
         test_handler.mound.resolve_contradiction = AsyncMock(
-            side_effect=Exception("Resolution error")
+            side_effect=ValueError("Resolution error")
         )
 
         with patch(
@@ -444,7 +444,7 @@ class TestGetContradictionStats:
     async def test_get_stats_mound_error(self, handler):
         """Test stats handles mound errors."""
         test_handler = MockContradictionHandler()
-        test_handler.mound.get_contradiction_stats = MagicMock(side_effect=Exception("Stats error"))
+        test_handler.mound.get_contradiction_stats = MagicMock(side_effect=ValueError("Stats error"))
 
         result = await test_handler.get_contradiction_stats()
 

@@ -343,7 +343,7 @@ class TestRateLimiting:
 
 class TestAuthentication:
     @patch(_GET_CLIENT_IP_PATCH, return_value="127.0.0.1")
-    @patch(_AUTH_PATCH, side_effect=Exception("no token"))
+    @patch(_AUTH_PATCH, side_effect=ValueError("no token"))
     def test_auth_failure_returns_401(self, mock_auth, mock_ip):
         ch = _make_canvas_handler()
         handler = _make_handler_obj()

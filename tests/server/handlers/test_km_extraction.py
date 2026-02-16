@@ -183,7 +183,7 @@ class TestExtractFromDebate:
     async def test_extract_mound_error(self, handler):
         """Test extraction handles mound errors."""
         test_handler = MockExtractionHandler()
-        test_handler.mound.extract_from_debate = AsyncMock(side_effect=Exception("Mound error"))
+        test_handler.mound.extract_from_debate = AsyncMock(side_effect=ValueError("Mound error"))
 
         result = await test_handler.extract_from_debate(
             debate_id="debate-123",
@@ -267,7 +267,7 @@ class TestPromoteExtractedKnowledge:
         """Test promotion handles mound errors."""
         test_handler = MockExtractionHandler()
         test_handler.mound.promote_extracted_knowledge = AsyncMock(
-            side_effect=Exception("Promotion error")
+            side_effect=ValueError("Promotion error")
         )
 
         result = await test_handler.promote_extracted_knowledge(
@@ -333,7 +333,7 @@ class TestGetExtractionStats:
     async def test_get_stats_mound_error(self, handler):
         """Test stats handles mound errors."""
         test_handler = MockExtractionHandler()
-        test_handler.mound.get_extraction_stats = MagicMock(side_effect=Exception("Stats error"))
+        test_handler.mound.get_extraction_stats = MagicMock(side_effect=ValueError("Stats error"))
 
         result = await test_handler.get_extraction_stats()
 

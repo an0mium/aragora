@@ -1056,7 +1056,7 @@ class TestErrorHandling:
             "aragora.server.handlers.dependency_analysis.get_dependency_analyzer"
         ) as mock_get:
             mock_analyzer = MagicMock()
-            mock_analyzer.resolve_dependencies = AsyncMock(side_effect=Exception("Analyzer error"))
+            mock_analyzer.resolve_dependencies = AsyncMock(side_effect=ValueError("Analyzer error"))
             mock_get.return_value = mock_analyzer
 
             result = parse_result(
@@ -1083,7 +1083,7 @@ class TestErrorHandling:
             mock_tree.project_version = "1.0.0"
             mock_tree.dependencies = {}
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
-            mock_analyzer.generate_sbom = AsyncMock(side_effect=Exception("SBOM error"))
+            mock_analyzer.generate_sbom = AsyncMock(side_effect=ValueError("SBOM error"))
             mock_get.return_value = mock_analyzer
 
             result = parse_result(
@@ -1109,7 +1109,7 @@ class TestErrorHandling:
             mock_tree.project_name = "test-project"
             mock_tree.dependencies = {}
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
-            mock_analyzer.check_vulnerabilities = AsyncMock(side_effect=Exception("Scan error"))
+            mock_analyzer.check_vulnerabilities = AsyncMock(side_effect=ValueError("Scan error"))
             mock_get.return_value = mock_analyzer
 
             result = parse_result(
@@ -1136,7 +1136,7 @@ class TestErrorHandling:
             mock_tree.dependencies = {}
             mock_analyzer.resolve_dependencies = AsyncMock(return_value=mock_tree)
             mock_analyzer.check_license_compatibility = AsyncMock(
-                side_effect=Exception("License error")
+                side_effect=ValueError("License error")
             )
             mock_get.return_value = mock_analyzer
 

@@ -333,7 +333,7 @@ class TestErrorHandling:
         """Should return False on any exception during validation."""
         with patch(
             "aragora.server.handlers.oauth.validation._get_allowed_redirect_hosts",
-            side_effect=Exception("Config error"),
+            side_effect=ValueError("Config error"),
         ):
             # Should not raise, just return False
             result = _validate_redirect_url("https://example.com/callback")

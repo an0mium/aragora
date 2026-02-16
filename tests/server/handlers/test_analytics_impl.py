@@ -1558,7 +1558,7 @@ class TestEdgeCases:
         handler = create_analytics_handler()
         mock_path = MagicMock()
         # Make path operations fail
-        mock_path.__truediv__ = MagicMock(side_effect=Exception("Path error"))
+        mock_path.__truediv__ = MagicMock(side_effect=ValueError("Path error"))
 
         with patch.object(handler, "get_nomic_dir", return_value=mock_path):
             result = handler._get_memory_stats()

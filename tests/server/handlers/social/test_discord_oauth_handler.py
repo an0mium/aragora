@@ -276,7 +276,7 @@ class TestDiscordOAuthCallback:
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                        side_effect=Exception("Network error")
+                        side_effect=ValueError("Network error")
                     )
                     result = await oauth_handler.handle(
                         "GET",
@@ -459,7 +459,7 @@ class TestDiscordOAuthState:
             ):
                 with patch("httpx.AsyncClient") as mock_client:
                     mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                        side_effect=Exception("Error")
+                        side_effect=ValueError("Error")
                     )
                     await oauth_handler.handle(
                         "GET",

@@ -766,7 +766,7 @@ class TestReceiptsHandlerErrors:
     async def test_handle_exception(self, receipts_handler):
         """Test handler catches exceptions gracefully."""
         # Force an exception
-        receipts_handler._get_store = MagicMock(side_effect=Exception("Test error"))
+        receipts_handler._get_store = MagicMock(side_effect=ValueError("Test error"))
 
         result = await receipts_handler.handle("GET", "/api/v2/receipts")
 
