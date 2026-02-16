@@ -623,9 +623,7 @@ class EmailIntegration:
         except ImportError:
             logger.error("boto3 is required for AWS SES. Install with: pip install boto3")
             return False
-        except Exception as e:
-            # Handle botocore exceptions (ClientError, EndpointConnectionError, etc.)
-            # We catch Exception here because botocore may not be installed
+        except Exception as e:  # noqa: BLE001 - botocore exceptions (ClientError, etc.) may not be importable
             error_name = type(e).__name__
             if "ClientError" in error_name or "Botocore" in error_name:
                 logger.error(f"SES AWS error: {e}")

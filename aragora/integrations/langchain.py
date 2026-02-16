@@ -250,7 +250,7 @@ class AragoraTool(BaseTool):
                     "error": f"Debate connection error ({type(e).__name__}): {e}",
                 }
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             return json.dumps(
                 {
                     "error": f"Failed to run debate ({type(e).__name__}): {e}",
@@ -390,7 +390,7 @@ class AragoraRetriever(BaseRetriever):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Knowledge retrieval connection error: {type(e).__name__}: {e}")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Failed to retrieve documents: {type(e).__name__}: {e}")
             return []
 
