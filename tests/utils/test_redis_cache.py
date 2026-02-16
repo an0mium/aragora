@@ -348,10 +348,10 @@ class TestErrorRecoveryAndFallback:
         """Create cache with Redis that raises errors."""
         cache = RedisTTLCache(prefix="test", ttl_seconds=300.0)
         mock_redis = MagicMock()
-        mock_redis.get.side_effect = Exception("Redis connection error")
-        mock_redis.setex.side_effect = Exception("Redis connection error")
-        mock_redis.delete.side_effect = Exception("Redis connection error")
-        mock_redis.keys.side_effect = Exception("Redis connection error")
+        mock_redis.get.side_effect = ConnectionError("Redis connection error")
+        mock_redis.setex.side_effect = ConnectionError("Redis connection error")
+        mock_redis.delete.side_effect = ConnectionError("Redis connection error")
+        mock_redis.keys.side_effect = ConnectionError("Redis connection error")
         cache._redis_checked = True
         cache._redis = mock_redis
         return cache
