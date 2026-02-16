@@ -80,7 +80,7 @@ def _log_activity(
                 metadata=metadata or {},
             )
             store.log_activity(activity)
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.debug(f"[SharedInbox] Failed to log activity: {e}")
 
 

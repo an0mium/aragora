@@ -94,14 +94,14 @@ def _load_templates() -> dict[str, TemplateMetadata]:
                 template = _parse_template_file(yaml_file)
                 if template:
                     _templates_cache[template.id] = template
-            except Exception as e:
+            except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to parse template {yaml_file}: {e}")
 
         logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
         cb.record_success()
         return _templates_cache
 
-    except Exception as e:
+    except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Error loading templates: {e}")
         cb.record_failure()
         return _templates_cache
@@ -156,7 +156,7 @@ def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
             file_path=str(file_path),
         )
 
-    except Exception as e:
+    except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
         logger.warning(f"Error parsing template {file_path}: {e}")
         return None
 
@@ -172,7 +172,7 @@ def _get_full_template(template_id: str) -> dict[str, Any] | None:
     try:
         with open(meta.file_path) as f:
             return yaml.safe_load(f)
-    except Exception as e:
+    except (yaml.YAMLError, OSError) as e:
         logger.warning(f"Error loading template {template_id}: {e}")
         return None
 

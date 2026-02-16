@@ -693,7 +693,7 @@ class TrainingHandler(BaseHandler):
             except (ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"SFT exporter availability check failed: {e}")
                 stats["sft_available"] = False
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler
                 logger.warning(f"Unexpected error checking SFT exporter availability: {e}")
                 stats["sft_available"] = False
 
@@ -798,7 +798,7 @@ class TrainingHandler(BaseHandler):
                 logger.warning(f"Training pipeline not available: {e}")
                 circuit_breaker.record_failure()
                 return None
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:
                 logger.exception(f"Training pipeline initialization failed: {e}")
                 circuit_breaker.record_failure()
                 return None

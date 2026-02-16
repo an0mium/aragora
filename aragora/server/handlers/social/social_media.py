@@ -537,7 +537,7 @@ class SocialMediaHandler(BaseHandler):
                     status=500,
                 )
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
             logger.error(f"Failed to publish to Twitter: {e}")
             return error_response(_safe_error_message(e, "twitter_publish"), status=500)
 
@@ -609,7 +609,7 @@ class SocialMediaHandler(BaseHandler):
             if video_generator:
                 try:
                     video_path = _run_async(video_generator.generate_waveform_video(audio_path))
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.debug(f"Waveform video generation failed, using static fallback: {e}")
                     video_path = _run_async(
                         video_generator.generate_static_video(audio_path, task, agents)
@@ -652,6 +652,6 @@ class SocialMediaHandler(BaseHandler):
                     status=500,
                 )
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError, RuntimeError, KeyError) as e:
             logger.error(f"Failed to publish to YouTube: {e}")
             return error_response(_safe_error_message(e, "youtube_publish"), status=500)

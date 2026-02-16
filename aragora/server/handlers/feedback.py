@@ -327,7 +327,7 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
             }
         )
 
-    except Exception as e:
+    except (KeyError, TypeError, ValueError, sqlite3.Error) as e:
         logger.error(f"Error submitting feedback: {e}")
         return error_response("Internal server error", status=500)
 
@@ -358,7 +358,7 @@ async def handle_get_nps_summary(ctx: dict[str, Any]) -> HandlerResult:
         summary = store.get_nps_summary(days)
         return json_response(summary)
 
-    except Exception as e:
+    except (TypeError, ValueError, sqlite3.Error) as e:
         logger.error(f"Error getting NPS summary: {e}")
         return error_response("Internal server error", status=500)
 

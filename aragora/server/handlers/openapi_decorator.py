@@ -62,7 +62,7 @@ def _extract_pydantic_schema(model: type[Any]) -> dict[str, Any]:
         else:
             logger.warning(f"Model {model} does not have schema method")
             return {"type": "object"}
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning(f"Failed to extract schema from {model}: {e}")
         return {"type": "object"}
 

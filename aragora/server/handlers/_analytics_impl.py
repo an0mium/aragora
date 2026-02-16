@@ -400,7 +400,7 @@ class AnalyticsHandler(SecureHandler):
             return []
         try:
             return storage.list_debates(limit=limit)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.warning("Failed to list debates for analytics: %s: %s", type(e).__name__, e)
             return []
 

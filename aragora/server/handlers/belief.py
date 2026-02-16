@@ -103,7 +103,7 @@ class BeliefHandler(BaseHandler):
             stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
             event = StreamEvent(type=stream_type, data=data)
             event_emitter.emit(event)
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Failed to emit KM event {event_type}: {e}")
 
     def _get_km_adapter(self) -> BeliefAdapter | None:
@@ -144,7 +144,7 @@ class BeliefHandler(BaseHandler):
         except ImportError:
             logger.debug("Knowledge Mound BeliefAdapter not available")
             return None
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError) as e:
             logger.warning(f"Failed to initialize Belief KM adapter: {e}")
             return None
 
@@ -255,7 +255,7 @@ class BeliefHandler(BaseHandler):
             user, err = self.require_auth_or_error(handler)
             if err:
                 return err
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             logger.warning(f"Authentication failed for belief endpoint: {e}")
             return error_response("Authentication required", 401)
 

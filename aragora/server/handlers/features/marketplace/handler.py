@@ -215,7 +215,7 @@ class MarketplaceHandler:
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in marketplace handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -539,7 +539,7 @@ class MarketplaceHandler:
                 }
             )
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             cb.record_failure()
             logger.exception(f"Error deploying template: {e}")
             return error_response("Deployment failed", 500)
@@ -668,7 +668,7 @@ class MarketplaceHandler:
                 }
             )
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             cb.record_failure()
             logger.exception(f"Error rating template: {e}")
             return error_response("Rating failed", 500)

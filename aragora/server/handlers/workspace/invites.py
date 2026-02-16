@@ -589,7 +589,7 @@ class WorkspaceInvitesMixin:
         except m.AccessDeniedException as e:
             logger.warning("Handler error: %s", e)
             return m.error_response("Permission denied", 403)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.exception(f"Failed to add member via invite: {e}")
             return m.error_response("Failed to join workspace", 500)
 

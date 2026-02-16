@@ -104,7 +104,7 @@ class GauntletRunnerMixin:
                             try:
                                 user_store.increment_usage(user_ctx.org_id, 1)
                                 logger.info(f"Incremented gauntlet usage for org {user_ctx.org_id}")
-                            except Exception as ue:
+                            except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as ue:
                                 logger.warning(
                                     f"Usage increment failed for org {user_ctx.org_id}: {ue}"
                                 )

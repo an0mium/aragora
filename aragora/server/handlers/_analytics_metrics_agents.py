@@ -318,7 +318,7 @@ class AgentAnalyticsMixin:
                         "draws": h2h.get("draws", 0),
                         "total_matches": h2h.get("total", 0),
                     }
-                except Exception as e:  # noqa: BLE001
+                except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
                     logger.debug(f"Error computing head-to-head for {agent_a} vs {agent_b}: {e}")
 
         return json_response(
@@ -427,7 +427,7 @@ class AgentAnalyticsMixin:
                     [{"period": k, "elo": v["elo"]} for k, v in period_data.items()],
                     key=lambda x: x["period"],
                 )
-            except Exception as e:  # noqa: BLE001
+            except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning(f"Failed to get trends for agent {agent_name}: {e}")
                 trends[agent_name] = []
 

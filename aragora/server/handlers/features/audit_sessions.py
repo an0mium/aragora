@@ -419,7 +419,7 @@ class AuditSessionsHandler(SecureHandler):
             try:
                 token.cancel(reason)
                 logger.debug(f"Triggered CancellationToken for session {session_id}")
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Failed to trigger CancellationToken: {e}")
 
         session["status"] = "cancelled"
@@ -679,7 +679,7 @@ class AuditSessionsHandler(SecureHandler):
                         status=FindingStatus(f.get("status", "open")),
                     )
                     finding_objects.append(finding_obj)
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.warning(f"Could not convert finding: {e}")
 
             # Create mock session with findings
@@ -741,7 +741,7 @@ class AuditSessionsHandler(SecureHandler):
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"Report generation failed, falling back: {e}")
             return self._json_response(
                 200,
@@ -900,7 +900,7 @@ class AuditSessionsHandler(SecureHandler):
 
                 logger.info(f"Completed audit session {session_id}")
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Error in audit session {session_id}: {e}")
             _cancellation_tokens.pop(session_id, None)
             if session_id in _sessions:

@@ -162,7 +162,7 @@ class BackupHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling backup request: {e}")
             return error_response("Internal server error", 500)
 
@@ -318,7 +318,7 @@ class BackupHandler(BaseHandler):
         except FileNotFoundError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError, TypeError) as e:
             logger.exception(f"Backup creation failed: {e}")
             return error_response("Backup operation failed", 500)
 
@@ -456,7 +456,7 @@ class BackupHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (OSError, KeyError, AttributeError) as e:
             logger.exception(f"Failed to delete backup: {e}")
             return error_response("Delete operation failed", 500)
 

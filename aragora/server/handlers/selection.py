@@ -234,7 +234,7 @@ class SelectionHandler(BaseHandler):
         except (json.JSONDecodeError, ValueError) as e:
             logger.debug(f"Invalid JSON in score_agents request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
-        except Exception as e:
+        except (AttributeError, TypeError, OSError) as e:
             logger.warning(
                 f"Unexpected error parsing score_agents request: {type(e).__name__}: {e}"
             )
@@ -308,7 +308,7 @@ class SelectionHandler(BaseHandler):
         except (json.JSONDecodeError, ValueError) as e:
             logger.debug(f"Invalid JSON in select_team request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
-        except Exception as e:
+        except (AttributeError, TypeError, OSError) as e:
             logger.warning(f"Unexpected error parsing select_team request: {type(e).__name__}: {e}")
             return error_response("Invalid JSON body", 400)
 

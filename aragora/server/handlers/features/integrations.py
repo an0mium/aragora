@@ -667,7 +667,7 @@ class IntegrationsHandler(SecureHandler):
                     }
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             config.errors_24h += 1
             config.last_error = "Internal server error"
             await store.save(config)
@@ -765,7 +765,7 @@ class IntegrationsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             config.errors_24h += 1
             config.last_error = "Sync failed"
             config.status = "degraded"  # type: ignore[misc]
@@ -861,7 +861,7 @@ class IntegrationsHandler(SecureHandler):
 
         except ImportError as e:
             logger.debug(f"Provider sync not available for {integration_type}: {e}")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
             logger.warning(f"Provider-specific sync failed for {integration_type}: {e}")
 
         return changes
@@ -951,7 +951,7 @@ class IntegrationsHandler(SecureHandler):
         except ImportError as e:
             logger.warning(f"Integration module not available: {e}")
             return False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Connection test error: {e}")
             return False
 

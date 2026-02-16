@@ -356,7 +356,7 @@ class UsageAnalyticsMixin:
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except Exception as e:  # noqa: BLE001
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to get active users: {e}")
             return json_response(
                 {

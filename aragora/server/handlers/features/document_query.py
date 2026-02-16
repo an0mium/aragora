@@ -121,7 +121,7 @@ class DocumentQueryHandler(BaseHandler):
                 )
             )
             return json_response(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Query failed: {e}")
             return error_response(safe_error_message(e, "Query"), 500)
 
@@ -192,7 +192,7 @@ class DocumentQueryHandler(BaseHandler):
                 )
             )
             return json_response(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Summarize failed: {e}")
             return error_response(safe_error_message(e, "Summarize"), 500)
 
@@ -255,7 +255,7 @@ class DocumentQueryHandler(BaseHandler):
                 )
             )
             return json_response(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Compare failed: {e}")
             return error_response(safe_error_message(e, "Compare"), 500)
 
@@ -328,7 +328,7 @@ class DocumentQueryHandler(BaseHandler):
                 )
             )
             return json_response(result)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.error(f"Extract failed: {e}")
             return error_response(safe_error_message(e, "Extract"), 500)
 

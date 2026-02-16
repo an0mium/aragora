@@ -102,7 +102,7 @@ def _log_activity(*args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
 
                     activity = InboxActivity(*args, **kwargs)
                     store.log_activity(activity)
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
                     logging.getLogger(__name__).warning("Failed to log inbox activity: %s", e)
             return None
     return _log_activity_impl(*args, **kwargs)

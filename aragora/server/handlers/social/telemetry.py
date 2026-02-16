@@ -361,7 +361,7 @@ def with_webhook_metrics(platform: str) -> Callable:
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler
                 status = "error"
                 logger.warning(f"Webhook handler exception on {platform}: {type(e).__name__}: {e}")
                 record_error(platform, "handler_exception")
@@ -387,7 +387,7 @@ def with_api_metrics(platform: str, method: str) -> Callable:
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler
                 status = "error"
                 logger.warning(f"API call exception ({platform}.{method}): {type(e).__name__}: {e}")
                 raise

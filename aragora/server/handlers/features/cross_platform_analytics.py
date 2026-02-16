@@ -563,7 +563,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in cross-platform analytics handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -958,7 +958,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
             return success_response(results)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Query execution error: {e}")
             return error_response("Query execution failed", 500)
 
@@ -1028,7 +1028,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.exception(f"Error creating alert: {e}")
             return error_response("Alert creation failed", 500)
 

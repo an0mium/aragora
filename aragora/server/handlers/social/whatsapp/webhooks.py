@@ -75,7 +75,7 @@ def verify_signature(handler: Any) -> bool:
         actual_sig = signature[7:]  # Remove "sha256=" prefix
         return hmac.compare_digest(expected_sig, actual_sig)
 
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError) as e:
         logger.warning(f"Error verifying WhatsApp signature: {e}")
         return False
 
@@ -197,7 +197,7 @@ class WebhookProcessor:
             status = "error"
             record_error("whatsapp", "json_parse")
             return json_response({"status": "ok"})
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Error handling WhatsApp webhook: {e}", exc_info=True)
             status = "error"
             record_error("whatsapp", "unknown")

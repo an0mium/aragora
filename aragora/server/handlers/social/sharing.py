@@ -269,7 +269,7 @@ def _create_share_store() -> Any:
         store = ShareLinkStore(db_path)
         logger.info(f"Using SQLite ShareLinkStore: {db_path}")
         return store
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
         return ShareStore()
 
@@ -398,7 +398,7 @@ class SharingHandler(BaseHandler):
                     if debate_id and debate_id not in ("share", "revoke", ""):
                         return debate_id, None
             return None, "Could not extract debate ID from path"
-        except Exception as e:
+        except (IndexError, ValueError) as e:
             return None, "Failed to extract debate ID"
 
     def _resolve_social_user(self, handler: Any, user: Any) -> Any:
@@ -411,7 +411,7 @@ class SharingHandler(BaseHandler):
                 db_user = user_store.get_user_by_id(user.user_id)
                 if db_user:
                     return db_user
-            except Exception as e:
+            except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.debug("User store lookup failed: %s", e)
         return user
 
@@ -708,7 +708,7 @@ class SharingHandler(BaseHandler):
             db = get_debates_db()
             if db:
                 return db.get(debate_id)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, KeyError, ValueError) as e:
             logger.warning(f"Could not fetch debate {debate_id}: {e}")
 
         return None

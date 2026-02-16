@@ -117,7 +117,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             stream_type = type_map.get(event_type, StreamEventType.MOUND_UPDATED)
             event = StreamEvent(type=stream_type, data=data)
             event_emitter.emit(event)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Failed to emit KM event {event_type}: {e}")
 
     def _read_json_body_lenient(
@@ -175,7 +175,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         except ImportError:
             logger.debug("Knowledge Mound adapter not available")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to initialize Evidence KM adapter: {e}")
             return None
 
@@ -485,7 +485,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         except RuntimeError as e:
             logger.exception(f"Evidence collection failed: {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 500)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Evidence collection failed (unexpected error): {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 500)
 

@@ -152,7 +152,7 @@ class AudioHandler(BaseHandler):
                         return error_response("Access denied to private debate", 403)
 
             return None  # Access granted
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, KeyError, RuntimeError) as e:
             logger.warning(f"Auth check failed for audio access: {e}")
             return error_response("Authentication required for private debate", 401)
 
@@ -225,7 +225,7 @@ class AudioHandler(BaseHandler):
                     "Cache-Control": "public, max-age=86400",
                 },
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"Failed to serve audio {debate_id}: {e}")
             return error_response("Failed to read audio file", status=500)
 
@@ -316,7 +316,7 @@ class AudioHandler(BaseHandler):
                 },
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.error(f"Failed to generate podcast feed: {e}")
             return error_response(_safe_error_message(e, "podcast_feed"), status=500)
 
@@ -364,6 +364,6 @@ class AudioHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.error(f"Failed to get podcast episodes: {e}")
             return error_response(_safe_error_message(e, "podcast_episodes"), status=500)

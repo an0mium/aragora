@@ -177,7 +177,7 @@ class BreakpointsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             logger.exception("Failed to get pending breakpoints: %s", e)
             return error_response(safe_error_message(e, "get pending breakpoints"), 500)
 
@@ -223,7 +223,7 @@ class BreakpointsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             logger.exception("Failed to get breakpoint status: %s", e)
             return error_response(safe_error_message(e, "get breakpoint status"), 500)
 
@@ -295,6 +295,6 @@ class BreakpointsHandler(BaseHandler):
 
         except ImportError:
             return error_response("Breakpoints module not available", 503)
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError) as e:
             logger.exception("Failed to resolve breakpoint: %s", e)
             return error_response(safe_error_message(e, "resolve breakpoint"), 500)

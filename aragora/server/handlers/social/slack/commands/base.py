@@ -103,7 +103,7 @@ class CommandsMixin:
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Unexpected status command error: {e}")
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
@@ -182,7 +182,7 @@ class CommandsMixin:
                 "Sorry, an error occurred while processing your request.",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Unexpected agents command error: {e}")
             return slack_response(
                 "Sorry, an error occurred while processing your request.",
@@ -244,7 +244,7 @@ class CommandsMixin:
                 "Leaderboard temporarily unavailable",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.exception(f"Leaderboard command error: {e}")
             return slack_response(
                 "Sorry, an error occurred while processing your request.",

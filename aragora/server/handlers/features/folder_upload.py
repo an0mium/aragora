@@ -305,7 +305,7 @@ class FolderUploadHandler(BaseHandler):
             return error_response("Folder scanning not available", 503)
         except ValueError as e:
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (RuntimeError, OSError, TypeError, KeyError) as e:
             logger.error(f"Folder scan error: {e}")
             return error_response(safe_error_message(e, "Scan"), 500)
 
@@ -481,7 +481,7 @@ class FolderUploadHandler(BaseHandler):
 
                     logger.debug(f"Uploaded {file_path.name} -> {doc_id}")
 
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
                     logger.warning(f"Failed to upload {file_info.path}: {e}")
                     with FolderUploadHandler._jobs_lock:
                         if folder_id in FolderUploadHandler._jobs:
@@ -497,7 +497,7 @@ class FolderUploadHandler(BaseHandler):
 
             self._update_job_status(folder_id, FolderUploadStatus.COMPLETED)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Folder upload job {folder_id} failed: {e}")
             self._update_job_error(folder_id, "Folder upload failed")
             self._update_job_status(folder_id, FolderUploadStatus.FAILED)

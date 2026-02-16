@@ -239,7 +239,7 @@ class TestHandlePrioritizeEmail:
     async def test_error_propagation(self):
         with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
-            mock_prioritizer.score_email = AsyncMock(side_effect=RuntimeError("scoring exploded"))
+            mock_prioritizer.score_email = AsyncMock(side_effect=ValueError("scoring exploded"))
             mock_gp.return_value = mock_prioritizer
 
             result = await handle_prioritize_email({"id": "x"})

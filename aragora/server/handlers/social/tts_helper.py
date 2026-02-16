@@ -82,7 +82,7 @@ class TTSHelper:
             logger.debug(f"TTS backend not available: {e}")
             self._available = False
             return False
-        except Exception as e:
+        except (OSError, ValueError, AttributeError, TypeError) as e:
             logger.exception(f"Unexpected error checking TTS availability: {e}")
             self._available = False
             return False
@@ -101,7 +101,7 @@ class TTSHelper:
         except ImportError as e:
             logger.warning(f"TTS backends not available: {e}")
             raise RuntimeError("TTS backends not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Failed to initialize TTS backend: {e}")
             raise
 
@@ -182,7 +182,7 @@ class TTSHelper:
             logger.info(f"TTS synthesized: {len(text)} chars -> {len(audio_bytes)} bytes")
             return result
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"TTS synthesis failed: {e}")
             return None
 

@@ -1,0 +1,73 @@
+# Aragora Demo — Fly.io Deployment
+#
+# Quick deploy:
+#   cd deploy/demo
+#   fly apps create aragora-demo
+#   fly deploy --config fly.toml --dockerfile Dockerfile --build-context ../../
+#
+# Or from project root:
+#   fly deploy --config deploy/demo/fly.toml --dockerfile deploy/demo/Dockerfile
+#
+# After deploy:
+#   fly status -a aragora-demo
+#   curl https://aragora-demo.fly.dev/api/v1/health
+
+app = "aragora-demo"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ARAGORA_OFFLINE = "true"
+  ARAGORA_DEMO_MODE = "true"
+  ARAGORA_DB_BACKEND = "sqlite"
+  ARAGORA_ENV = "production"
+  ARAGORA_SEED_DEMO = "true"
+  ARAGORA_BIND_HOST = "0.0.0.0"
+  ARAGORA_API_PORT = "8080"
+  ARAGORA_WS_PORT = "8765"
+  ARAGORA_ALLOWED_ORIGINS = "*"
+  ARAGORA_DISABLE_TELEMETRY = "true"
+  ARAGORA_DISABLE_REDIS = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8765
+
+  [[services.ports]]
+    port = 8765
+    handlers = ["tls"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8080
+    path = "/api/v1/health"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+
+[mounts]
+  source = "aragora_data"
+  destination = "/app/data"
