@@ -53,6 +53,7 @@ class ExplanationBuilder:
         calibration_tracker: Any | None = None,
         elo_system: Any | None = None,
         provenance_tracker: Any | None = None,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize the builder with optional tracking systems.
@@ -63,12 +64,14 @@ class ExplanationBuilder:
             calibration_tracker: CalibrationTracker for confidence adjustment data
             elo_system: EloSystem for agent skill ratings
             provenance_tracker: ProvenanceTracker for claim lineage
+            event_emitter: Optional event emitter for streaming explainability events
         """
         self.evidence_tracker = evidence_tracker
         self.belief_network = belief_network
         self.calibration_tracker = calibration_tracker
         self.elo_system = elo_system
         self.provenance_tracker = provenance_tracker
+        self.event_emitter = event_emitter
 
     async def build(
         self,
@@ -88,6 +91,8 @@ class ExplanationBuilder:
             Fully populated Decision entity
         """
         debate_id = getattr(result, "id", "") or self._generate_id(result)
+
+        self._emit_event("EXPLAINABILITY_STARTED", {"debate_id": debate_id})
 
         decision = Decision(
             decision_id="",
@@ -111,6 +116,13 @@ class ExplanationBuilder:
             result, context, decision
         )
 
+        self._emit_event("EXPLAINABILITY_FACTORS", {
+            "debate_id": debate_id,
+            "evidence_count": len(decision.evidence_chain),
+            "vote_pivots": len(decision.vote_pivots),
+            "belief_changes": len(decision.belief_changes),
+        })
+
         if include_counterfactuals:
             decision.counterfactuals = self._build_counterfactuals(result, decision)
 
@@ -119,7 +131,27 @@ class ExplanationBuilder:
         decision.agent_agreement_score = self._compute_agreement_score(result, decision)
         decision.belief_stability_score = self._compute_belief_stability(decision)
 
+        self._emit_event("EXPLAINABILITY_COMPLETE", {
+            "debate_id": debate_id,
+            "evidence_quality": decision.evidence_quality_score,
+            "agreement_score": decision.agent_agreement_score,
+            "belief_stability": decision.belief_stability_score,
+            "counterfactuals": len(decision.counterfactuals),
+        })
+
         return decision
+
+    def _emit_event(self, event_name: str, data: dict[str, Any]) -> None:
+        """Emit a stream event if event_emitter is configured."""
+        if not self.event_emitter:
+            return
+        try:
+            from aragora.server.stream.events import StreamEvent, StreamEventType
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is not None:
+                self.event_emitter.emit(StreamEvent(type=event_type, data=data))
+        except (ImportError, AttributeError, TypeError):
+            pass
 
     def _generate_id(self, result: Any) -> str:
         """Generate an ID for the debate."""
@@ -416,7 +448,7 @@ class ExplanationBuilder:
                             trigger_source=change.trigger_source,
                         )
                     )
-            except (KeyError, TypeError, AttributeError, ValueError) as e:
+            except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
                 logger.debug(f"Belief network extraction failed: {e}")
 
         # Extract from result's position history if available

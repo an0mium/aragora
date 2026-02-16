@@ -109,7 +109,7 @@ def executor(tmp_path):
         codex_instance.generate = AsyncMock(return_value="Done")
         mock_codex.return_value = codex_instance
 
-        exec_ = HybridExecutor(repo_path=tmp_path)
+        exec_ = HybridExecutor(repo_path=tmp_path, sandbox_mode=False)
         yield exec_
 
 
@@ -510,7 +510,7 @@ class TestExecuteTask:
     async def test_exception_returns_failure(self, executor, sample_task):
         """Exception should return failure with error."""
         claude = executor.claude
-        claude.generate = AsyncMock(side_effect=Exception("API Error"))
+        claude.generate = AsyncMock(side_effect=RuntimeError("API Error"))
 
         result = await executor.execute_task(sample_task)
 
@@ -609,7 +609,7 @@ class TestExecuteTaskWithRetry:
         async def mock_generate(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            raise Exception("API Error")
+            raise RuntimeError("API Error")
 
         executor.claude.generate = mock_generate
 
@@ -663,7 +663,7 @@ class TestExecutePlan:
             nonlocal call_count
             call_count += 1
             if call_count <= 3:  # First few calls fail (including retries)
-                raise Exception("Fail")
+                raise RuntimeError("Fail")
             return "Done"
 
         executor.claude.generate = mock_generate
@@ -679,7 +679,7 @@ class TestExecutePlan:
     @pytest.mark.asyncio
     async def test_stops_on_failure_when_configured(self, executor, sample_task, complex_task):
         """Should stop on failure when stop_on_failure=True."""
-        executor.claude.generate = AsyncMock(side_effect=Exception("Fail"))
+        executor.claude.generate = AsyncMock(side_effect=RuntimeError("Fail"))
 
         # complex_task depends on task-1
         tasks = [sample_task, complex_task]

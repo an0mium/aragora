@@ -453,6 +453,17 @@ Each debate uses a dynamic team selected based on task requirements and agent pe
 
     async def _cmd_vote(self, args: str, activity: dict[str, Any]) -> dict[str, Any]:
         """Handle vote command - show voting cards or instructions."""
+        # RBAC: Check permission to vote on debates
+        from aragora.server.handlers.bots.teams.handler import PERM_TEAMS_DEBATES_VOTE
+
+        perm_error = self.bot._check_permission(activity, PERM_TEAMS_DEBATES_VOTE)
+        if perm_error:
+            await self.bot.send_reply(
+                activity,
+                "Sorry, you don't have permission to vote on debates.",
+            )
+            return {}
+
         if not args.strip():
             if _active_debates:
                 for debate_id, info in list(_active_debates.items())[:3]:

@@ -14,16 +14,21 @@ from typing import Any
 
 from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.utils.decorators import require_permission
 
 from .constants import _validate_slack_team_id
 
 logger = logging.getLogger(__name__)
 
 
+@require_permission("connectors:write")
 async def handle_slack_oauth_start(request: Any) -> HandlerResult:
     """Start the Slack OAuth installation flow.
 
     Redirects user to Slack's OAuth authorization page with proper scopes.
+
+    RBAC: Requires connectors:write - initiating an OAuth install is an
+    administrative action that configures a new integration.
     """
     client_id = os.environ.get("SLACK_CLIENT_ID", "")
     redirect_uri = os.environ.get("SLACK_REDIRECT_URI", "")
@@ -180,10 +185,14 @@ async def handle_slack_oauth_callback(request: Any) -> HandlerResult:
         return error_response("OAuth callback failed", 500)
 
 
+@require_permission("connectors:write")
 async def handle_slack_oauth_revoke(request: Any) -> HandlerResult:
     """Handle OAuth token revocation.
 
     Revokes the access token for a Slack workspace.
+
+    RBAC: Requires connectors:write - revoking integration tokens is an
+    administrative action that disconnects a workspace.
     """
     try:
         body = await request.body()

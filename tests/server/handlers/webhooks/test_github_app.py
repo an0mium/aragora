@@ -282,8 +282,9 @@ class TestEventHandlers:
 class TestHandleGitHubWebhook:
     """Integration tests for the main webhook handler."""
 
-    # Bypass RBAC decorator to test webhook logic directly
-    _handler = staticmethod(handle_github_webhook.__wrapped__)
+    # Call the webhook handler directly (no RBAC decorator -- webhook
+    # endpoints authenticate via HMAC signature verification, not RBAC).
+    _handler = staticmethod(handle_github_webhook)
 
     def create_mock_context(
         self,

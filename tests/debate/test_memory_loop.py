@@ -481,7 +481,7 @@ async def test_memory_loop_with_intermittent_failures():
         nonlocal call_count
         call_count += 1
         if call_count == 2:  # Fail on second call
-            raise Exception("Intermittent failure")
+            raise RuntimeError("Intermittent failure")
         result = MagicMock()
         result.success = True
         result.memory_id = f"mem_{call_count}"

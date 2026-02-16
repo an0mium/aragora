@@ -221,7 +221,7 @@ class TestListPresets:
         """List presets in text format."""
         mock_registry.list_presets.return_value = [mock_preset]
 
-        result = await list_presets(mock_args)
+        result = await list_presets(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -235,7 +235,7 @@ class TestListPresets:
         mock_args.format = "json"
         mock_registry.list_presets.return_value = [mock_preset]
 
-        result = await list_presets(mock_args)
+        result = await list_presets(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -249,7 +249,7 @@ class TestListPresets:
         """Handle no presets gracefully."""
         mock_registry.list_presets.return_value = []
 
-        result = await list_presets(mock_args)
+        result = await list_presets(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -259,9 +259,9 @@ class TestListPresets:
     @patch("aragora.audit.registry.audit_registry")
     async def test_handles_error(self, mock_registry, mock_args, capsys):
         """Handle error gracefully."""
-        mock_registry.auto_discover.side_effect = Exception("Registry error")
+        mock_registry.auto_discover.side_effect = RuntimeError("Registry error")
 
-        result = await list_presets(mock_args)
+        result = await list_presets(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 1
         captured = capsys.readouterr()
@@ -278,7 +278,7 @@ class TestShowPreset:
         mock_args.name = "Legal Due Diligence"
         mock_registry.get_preset.return_value = mock_preset
 
-        result = await show_preset(mock_args)
+        result = await show_preset(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -293,7 +293,7 @@ class TestShowPreset:
         mock_args.format = "json"
         mock_registry.get_preset.return_value = mock_preset
 
-        result = await show_preset(mock_args)
+        result = await show_preset(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -308,7 +308,7 @@ class TestShowPreset:
         mock_registry.get_preset.return_value = None
         mock_registry.list_presets.return_value = []
 
-        result = await show_preset(mock_args)
+        result = await show_preset(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 1
         captured = capsys.readouterr()
@@ -324,7 +324,7 @@ class TestListTypes:
         """List audit types in text format."""
         mock_registry.list_audit_types.return_value = [mock_audit_type]
 
-        result = await list_types(mock_args)
+        result = await list_types(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -338,7 +338,7 @@ class TestListTypes:
         mock_args.format = "json"
         mock_registry.list_audit_types.return_value = [mock_audit_type]
 
-        result = await list_types(mock_args)
+        result = await list_types(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -364,7 +364,7 @@ class TestCreateAudit:
         mock_auditor.create_session = AsyncMock(return_value=mock_session)
         mock_get_auditor.return_value = mock_auditor
 
-        result = await create_audit(mock_args)
+        result = await create_audit(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -389,7 +389,7 @@ class TestCreateAudit:
         mock_auditor.create_session = AsyncMock(return_value=mock_session)
         mock_get_auditor.return_value = mock_auditor
 
-        result = await create_audit(mock_args)
+        result = await create_audit(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -409,7 +409,7 @@ class TestAuditStatus:
         mock_auditor.get_session.return_value = mock_session
         mock_get_auditor.return_value = mock_auditor
 
-        result = await audit_status(mock_args)
+        result = await audit_status(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -426,7 +426,7 @@ class TestAuditStatus:
         mock_auditor.get_session.return_value = None
         mock_get_auditor.return_value = mock_auditor
 
-        result = await audit_status(mock_args)
+        result = await audit_status(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 1
         captured = capsys.readouterr()
@@ -450,7 +450,7 @@ class TestAuditFindings:
         mock_auditor.get_findings.return_value = [mock_finding]
         mock_get_auditor.return_value = mock_auditor
 
-        result = await audit_findings(mock_args)
+        result = await audit_findings(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -472,7 +472,7 @@ class TestAuditFindings:
         mock_auditor.get_findings.return_value = [mock_finding]
         mock_get_auditor.return_value = mock_auditor
 
-        result = await audit_findings(mock_args)
+        result = await audit_findings(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         captured = capsys.readouterr()
@@ -496,7 +496,7 @@ class TestExportAudit:
         mock_auditor.get_session.return_value = mock_session
         mock_get_auditor.return_value = mock_auditor
 
-        result = await export_audit(mock_args)
+        result = await export_audit(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 0
         assert output_file.exists()
@@ -514,7 +514,7 @@ class TestExportAudit:
         mock_auditor.get_session.return_value = None
         mock_get_auditor.return_value = mock_auditor
 
-        result = await export_audit(mock_args)
+        result = await export_audit(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 1
         captured = capsys.readouterr()
@@ -541,7 +541,7 @@ class TestGenerateReport:
         mock_auditor.get_session.return_value = None
         mock_get_auditor.return_value = mock_auditor
 
-        result = await generate_report(mock_args)
+        result = await generate_report(mock_args, use_api=False, server_url="", api_key="")
 
         assert result == 1
         captured = capsys.readouterr()

@@ -471,7 +471,6 @@ async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
     }
 
 
-@require_permission("debates:read")
 async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     """
     Process incoming GitHub App webhook.
@@ -486,6 +485,10 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     Security:
         - Verifies HMAC-SHA256 signature using webhook secret
         - Rejects requests with invalid signatures
+
+    Note: This endpoint does NOT use RBAC because it receives callbacks
+    directly from GitHub's servers. Authentication is via HMAC-SHA256
+    signature verification using the GITHUB_WEBHOOK_SECRET.
     """
     # Extract headers
     headers = ctx.get("headers", {})

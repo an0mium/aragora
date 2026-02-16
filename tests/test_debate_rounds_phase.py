@@ -798,7 +798,7 @@ class TestCritiquePhase:
     @pytest.mark.asyncio
     async def test_records_circuit_breaker_failure(self, protocol, agents, mock_circuit_breaker):
         """Should record failure in circuit breaker on error."""
-        critique_fn = AsyncMock(side_effect=Exception("API error"))
+        critique_fn = AsyncMock(side_effect=RuntimeError("API error"))
 
         phase = DebateRoundsPhase(
             protocol=protocol,

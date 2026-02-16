@@ -216,7 +216,7 @@ class TestHandleLeaderboard:
     async def test_handles_elo_system_error(self, handler_mixin, mock_request):
         """Should return 500 on ELO system error."""
         handler_mixin.elo_system.get_leaderboard = MagicMock(
-            side_effect=Exception("Database error")
+            side_effect=RuntimeError("Database error")
         )
 
         with patch("aiohttp.web.json_response") as mock_json:

@@ -1193,6 +1193,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("connectors:write")
     async def handle_post_sync_session(
         self, data: dict[str, Any], session_id: str
     ) -> HandlerResult:

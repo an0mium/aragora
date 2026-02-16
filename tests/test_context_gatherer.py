@@ -160,12 +160,11 @@ class TestGatherEvidenceContext:
         """Should return None when no evidence connectors are available."""
         gatherer = ContextGatherer()
         with patch.dict("sys.modules", {"aragora.evidence.collector": None}):
-            with patch("aragora.debate.context_gatherer.logger"):
-                # ImportError will be caught
-                result = await gatherer.gather_evidence_context("test task")
-                # Result depends on whether evidence module exists
-                # Either None or formatted context
-                assert result is None or "EVIDENCE" in result
+            # ImportError will be caught by source fetcher
+            result = await gatherer.gather_evidence_context("test task")
+            # Result depends on whether evidence module exists
+            # Either None or formatted context
+            assert result is None or "EVIDENCE" in result
 
     @pytest.mark.asyncio
     async def test_calls_evidence_store_callback(self):
@@ -261,15 +260,45 @@ class TestGatherAll:
     @pytest.mark.asyncio
     async def test_returns_no_context_message_when_empty(self):
         """Should return default message when no context available."""
-        gatherer = ContextGatherer(project_root=Path("/nonexistent"))
+        gatherer = ContextGatherer(
+            project_root=Path("/nonexistent"),
+            enable_knowledge_grounding=False,
+            enable_belief_guidance=False,
+            enable_threat_intel_enrichment=False,
+            enable_trending_context=False,
+        )
 
-        with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
-            with patch.object(gatherer, "gather_evidence_context", AsyncMock(return_value=None)):
+        with patch.object(
+            gatherer, "_gather_claude_web_search", AsyncMock(return_value=None)
+        ):
+            with patch.object(gatherer, "gather_aragora_context", AsyncMock(return_value=None)):
                 with patch.object(
-                    gatherer, "gather_trending_context", AsyncMock(return_value=None)
+                    gatherer,
+                    "_gather_knowledge_mound_with_timeout",
+                    AsyncMock(return_value=None),
                 ):
-                    result = await gatherer.gather_all("test task")
-                    assert result == "No research context available."
+                    with patch.object(
+                        gatherer,
+                        "_gather_belief_with_timeout",
+                        AsyncMock(return_value=None),
+                    ):
+                        with patch.object(
+                            gatherer,
+                            "_gather_culture_with_timeout",
+                            AsyncMock(return_value=None),
+                        ):
+                            with patch.object(
+                                gatherer,
+                                "_gather_threat_intel_with_timeout",
+                                AsyncMock(return_value=None),
+                            ):
+                                with patch.object(
+                                    gatherer,
+                                    "_gather_evidence_with_timeout",
+                                    AsyncMock(return_value=None),
+                                ):
+                                    result = await gatherer.gather_all("test task")
+                                    assert result == "No research context available."
 
     @pytest.mark.asyncio
     async def test_combines_multiple_contexts(self):
@@ -442,7 +471,7 @@ class TestKnowledgeMoundIntegration:
 
     def test_init_with_knowledge_grounding_enabled_no_mound(self):
         """Should handle missing Knowledge Mound gracefully."""
-        with patch("aragora.debate.context_gatherer.HAS_KNOWLEDGE_MOUND", False):
+        with patch("aragora.debate.context_gatherer.gatherer.HAS_KNOWLEDGE_MOUND", False):
             gatherer = ContextGatherer(enable_knowledge_grounding=True)
             assert gatherer._enable_knowledge_grounding is False
 

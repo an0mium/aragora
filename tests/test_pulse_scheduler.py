@@ -523,7 +523,7 @@ class TestSchedulerDebateCreation:
             make_topic(topic="Good topic for debate", volume=200),
         ]
 
-        creator = AsyncMock(side_effect=Exception("Creator failed"))
+        creator = AsyncMock(side_effect=RuntimeError("Creator failed"))
         scheduler.set_debate_creator(creator)
 
         await scheduler._poll_and_create()

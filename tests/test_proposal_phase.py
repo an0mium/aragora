@@ -104,7 +104,7 @@ class TestCircuitBreakerFiltering:
     async def test_circuit_breaker_error_fallback(self):
         """Should fall back to all proposers on error."""
         cb = MagicMock()
-        cb.filter_available_agents.side_effect = Exception("CB error")
+        cb.filter_available_agents.side_effect = RuntimeError("CB error")
 
         phase = ProposalPhase(
             circuit_breaker=cb,

@@ -422,7 +422,7 @@ class TestEdgeCases:
     async def test_ws_send_error_handled(self, fork_handler):
         """Should handle errors in WebSocket send gracefully."""
         failing_ws = AsyncMock()
-        failing_ws.send_json = AsyncMock(side_effect=Exception("Connection closed"))
+        failing_ws.send_json = AsyncMock(side_effect=ConnectionError("Connection closed"))
 
         # Should not raise - errors are logged but not propagated
         await fork_handler._send_json(failing_ws, {"type": "test"})

@@ -705,10 +705,14 @@ class TestDebateIdValidation:
         ]
 
         for valid_id in valid_ids:
-            with patch.object(social_handler, "read_json_body", return_value={}):
-                result = social_handler.handle_post(
-                    f"/api/v1/debates/{valid_id}/publish/twitter", {}, mock_http_handler
-                )
+            with patch("aragora.connectors.twitter_poster.DebateContentFormatter") as MockFormatter:
+                mock_formatter = MockFormatter.return_value
+                mock_formatter.format_single_tweet.return_value = "Test tweet"
+
+                with patch.object(social_handler, "read_json_body", return_value={}):
+                    result = social_handler.handle_post(
+                        f"/api/v1/debates/{valid_id}/publish/twitter", {}, mock_http_handler
+                    )
 
             # Should proceed (may return 404 if debate not found, but not 400)
             if result:

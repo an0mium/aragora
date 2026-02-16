@@ -291,7 +291,7 @@ class TestElevenLabsBackend:
         backend = ElevenLabsBackend(config_with_key)
 
         mock_client = MagicMock()
-        mock_client.text_to_speech.convert.side_effect = Exception("API Error")
+        mock_client.text_to_speech.convert.side_effect = RuntimeError("API Error")
 
         with patch.dict("sys.modules", {"elevenlabs": MagicMock()}):
             with patch.object(backend, "_get_client", return_value=mock_client):
@@ -679,7 +679,7 @@ class TestPyttsx3Backend:
         """Engine error returns None."""
         backend = Pyttsx3Backend(config)
         mock_pyttsx3 = MagicMock()
-        mock_pyttsx3.init.side_effect = Exception("Engine init failed")
+        mock_pyttsx3.init.side_effect = RuntimeError("Engine init failed")
 
         with patch.object(backend, "is_available", return_value=True):
             with patch.dict("sys.modules", {"pyttsx3": mock_pyttsx3}):

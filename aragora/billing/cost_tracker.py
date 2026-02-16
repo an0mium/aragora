@@ -393,6 +393,7 @@ class CostTracker:
         self,
         usage_tracker: UsageTracker | None = None,
         km_adapter: CostAdapter | None = None,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize cost tracker.
@@ -400,9 +401,11 @@ class CostTracker:
         Args:
             usage_tracker: Optional UsageTracker for persistence
             km_adapter: Optional CostAdapter for Knowledge Mound integration
+            event_emitter: Optional event emitter for streaming budget events
         """
         self._usage_tracker = usage_tracker
         self._km_adapter = km_adapter
+        self._event_emitter = event_emitter
 
         # In-memory tracking for real-time updates
         self._usage_buffer: list[TokenUsage] = []
@@ -596,6 +599,25 @@ class CostTracker:
                 self._km_adapter.store_alert(alert)
             except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to store alert to KM: {e}")
+
+        # Emit stream event for real-time budget monitoring
+        if self._event_emitter:
+            try:
+                from aragora.server.stream.events import StreamEvent, StreamEventType
+                self._event_emitter.emit(StreamEvent(
+                    type=StreamEventType.BUDGET_ALERT,
+                    data={
+                        "budget_id": budget.id,
+                        "workspace_id": budget.workspace_id,
+                        "org_id": budget.org_id,
+                        "level": alert_level.value,
+                        "percentage": percentage,
+                        "current_spend": float(budget.current_monthly_spend),
+                        "limit": float(budget.monthly_limit_usd or 0),
+                    },
+                ))
+            except (ImportError, AttributeError, TypeError):
+                pass
 
         logger.warning(f"budget_alert {alert.message}")
 

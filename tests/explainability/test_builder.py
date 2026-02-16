@@ -347,7 +347,7 @@ class TestEvidenceChainBuilding:
     async def test_evidence_tracker_error_handling(self):
         """Test graceful handling of evidence tracker errors."""
         evidence_tracker = AsyncMock()
-        evidence_tracker.score_evidence = AsyncMock(side_effect=Exception("Tracker error"))
+        evidence_tracker.score_evidence = AsyncMock(side_effect=RuntimeError("Tracker error"))
 
         builder = ExplanationBuilder(evidence_tracker=evidence_tracker)
         result = MockDebateResult(proposals={"claude": "Test proposal"})
@@ -557,7 +557,7 @@ class TestBeliefChangesBuilding:
     async def test_belief_changes_network_error_handling(self):
         """Test graceful handling of belief network errors."""
         belief_network = MagicMock()
-        belief_network.get_changes = MagicMock(side_effect=Exception("Network error"))
+        belief_network.get_changes = MagicMock(side_effect=RuntimeError("Network error"))
 
         builder = ExplanationBuilder(belief_network=belief_network)
         result = MockDebateResult()

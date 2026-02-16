@@ -633,6 +633,19 @@ class TeamsCardActions:
         self, value: dict[str, Any], user_id: str, activity: dict[str, Any]
     ) -> dict[str, Any]:
         """Handle compose extension search query."""
+        # RBAC: Check permission to search/read debates via compose extension
+        perm_error = self.bot._check_permission(activity, PERM_TEAMS_CARDS_RESPOND)
+        if perm_error:
+            return {
+                "status": 200,
+                "body": {
+                    "composeExtension": {
+                        "type": "message",
+                        "text": "You don't have permission to search debates.",
+                    }
+                },
+            }
+
         query_text = ""
         parameters = value.get("parameters", [])
         for param in parameters:
@@ -684,6 +697,19 @@ class TeamsCardActions:
         self, value: dict[str, Any], user_id: str, activity: dict[str, Any]
     ) -> dict[str, Any]:
         """Handle task module fetch - return a dialog for user input."""
+        # RBAC: Check permission to open task module dialogs
+        perm_error = self.bot._check_permission(activity, PERM_TEAMS_CARDS_RESPOND)
+        if perm_error:
+            return {
+                "status": 200,
+                "body": {
+                    "task": {
+                        "type": "message",
+                        "value": "You don't have permission to open this dialog.",
+                    }
+                },
+            }
+
         data = value.get("data", {})
         command_id = value.get("commandId", data.get("commandId", ""))
 
@@ -779,6 +805,21 @@ class TeamsCardActions:
         self, value: dict[str, Any], activity: dict[str, Any]
     ) -> dict[str, Any]:
         """Handle link unfurling for aragora.ai URLs."""
+        # RBAC: Check permission to view debate data via link unfurling
+        perm_error = self.bot._check_permission(activity, PERM_TEAMS_CARDS_RESPOND)
+        if perm_error:
+            # Return empty results silently for link unfurling permission denial
+            return {
+                "status": 200,
+                "body": {
+                    "composeExtension": {
+                        "type": "result",
+                        "attachmentLayout": "list",
+                        "attachments": [],
+                    }
+                },
+            }
+
         url = value.get("url", "")
 
         debate_id_match = re.search(r"/debate/([a-f0-9-]+)", url)

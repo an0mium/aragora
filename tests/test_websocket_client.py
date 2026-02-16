@@ -478,7 +478,7 @@ class TestDebateStreamConnection:
         """Connection failure raises error."""
 
         async def failing_connect(*args, **kwargs):
-            raise Exception("Connection refused")
+            raise OSError("Connection refused")
 
         with patch.dict("sys.modules", {"websockets": MagicMock()}):
             import sys

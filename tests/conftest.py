@@ -1138,6 +1138,7 @@ def mock_external_apis(request, monkeypatch):
         def __init__(self, **kwargs):
             self._base_url = kwargs.get("base_url", "")
             self._timeout = kwargs.get("timeout", 30)
+            self.headers: dict[str, str] = {}
 
         async def __aenter__(self):
             return self

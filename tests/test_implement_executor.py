@@ -39,7 +39,7 @@ def repo_path(tmp_path):
 @pytest.fixture
 def executor(repo_path):
     """Create a HybridExecutor with mocked agents."""
-    exec = HybridExecutor(repo_path)
+    exec = HybridExecutor(repo_path, sandbox_mode=False)
     return exec
 
 
@@ -466,9 +466,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [simple_task]
         completed = set()
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(task_id=simple_task.id, success=True, diff="")
-            results = await executor.execute_plan(tasks, completed)
+        mock_execute = AsyncMock(return_value=TaskResult(task_id=simple_task.id, success=True, diff=""))
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 1
         assert results[0].success is True
@@ -480,8 +480,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [simple_task]
         completed = {simple_task.id}
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            results = await executor.execute_plan(tasks, completed)
+        mock_execute = AsyncMock()
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 0
         mock_execute.assert_not_called()
@@ -492,8 +493,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [complex_task]  # Has dependencies on task-1, task-2
         completed = set()
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            results = await executor.execute_plan(tasks, completed)
+        mock_execute = AsyncMock()
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 0  # Should skip - dependencies not met
         mock_execute.assert_not_called()
@@ -504,9 +506,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [complex_task]
         completed = {"task-1", "task-2"}  # Dependencies already complete
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(task_id=complex_task.id, success=True, diff="")
-            results = await executor.execute_plan(tasks, completed)
+        mock_execute = AsyncMock(return_value=TaskResult(task_id=complex_task.id, success=True, diff=""))
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed)
 
         assert len(results) == 1
         mock_execute.assert_called_once()
@@ -528,8 +530,12 @@ class TestHybridExecutorPlanExecution:
                 return TaskResult(task_id=task.id, success=False, error="Failed")
             return TaskResult(task_id=task.id, success=True, diff="")
 
-        with patch.object(executor, "execute_task_with_retry", side_effect=mock_execute):
-            results = await executor.execute_plan(tasks, completed, stop_on_failure=False)
+        # Mock both: first pass uses execute_task_with_retry, retry pass uses execute_task
+        executor.execute_task_with_retry = mock_execute
+        executor.execute_task = AsyncMock(
+            return_value=TaskResult(task_id="t1", success=True, diff="retry")
+        )
+        results = await executor.execute_plan(tasks, completed, stop_on_failure=False)
 
         # Both tasks should have been attempted
         assert len(results) >= 2
@@ -543,9 +549,9 @@ class TestHybridExecutorPlanExecution:
         tasks = [task1, task2]
         completed = set()
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(task_id="t1", success=False, error="Failed")
-            results = await executor.execute_plan(tasks, completed, stop_on_failure=True)
+        mock_execute = AsyncMock(return_value=TaskResult(task_id="t1", success=False, error="Failed"))
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed, stop_on_failure=True)
 
         assert len(results) == 1  # Only first task attempted
         mock_execute.assert_called_once()
@@ -560,9 +566,9 @@ class TestHybridExecutorPlanExecution:
         def callback(task_id, result):
             callback_called.append(task_id)
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(task_id=simple_task.id, success=True, diff="")
-            await executor.execute_plan(tasks, completed, on_task_complete=callback)
+        mock_execute = AsyncMock(return_value=TaskResult(task_id=simple_task.id, success=True, diff=""))
+        executor.execute_task_with_retry = mock_execute
+        await executor.execute_plan(tasks, completed, on_task_complete=callback)
 
         assert simple_task.id in callback_called
 
@@ -593,16 +599,16 @@ class TestHybridExecutorParallelExecution:
     async def test_execute_plan_parallel_groups_ready_tasks(self, repo_path):
         """execute_plan_parallel executes ready tasks in parallel."""
         # Need fresh executor to pick up env var
-        executor = HybridExecutor(repo_path)
+        executor = HybridExecutor(repo_path, sandbox_mode=False)
 
         task1 = ImplementTask(id="t1", description="Task 1", files=["a.py"], complexity="simple")
         task2 = ImplementTask(id="t2", description="Task 2", files=["b.py"], complexity="simple")
         tasks = [task1, task2]
         completed = set()
 
-        with patch.object(executor, "execute_task_with_retry") as mock_execute:
-            mock_execute.return_value = TaskResult(task_id="any", success=True, diff="")
-            results = await executor.execute_plan_parallel(tasks, completed, max_parallel=2)
+        mock_execute = AsyncMock(return_value=TaskResult(task_id="any", success=True, diff=""))
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan_parallel(tasks, completed, max_parallel=2)
 
         # Both tasks should complete
         assert len(results) == 2
@@ -653,7 +659,7 @@ class TestHybridExecutorCodexReview:
     async def test_review_with_codex_handles_error(self, mock_codex_class, executor):
         """review_with_codex handles errors gracefully."""
         mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(side_effect=Exception("API error"))
+        mock_agent.generate = AsyncMock(side_effect=RuntimeError("API error"))
         mock_codex_class.return_value = mock_agent
 
         result = await executor.review_with_codex("some diff")
@@ -692,9 +698,9 @@ class TestHybridExecutorIntegration:
         async def mock_execute(task):
             return TaskResult(task_id=task.id, success=True, diff=f"{task.id} diff")
 
-        with patch.object(executor, "execute_task_with_retry", side_effect=mock_execute):
-            results = await executor.execute_plan(tasks, completed)
-            results_returned = results
+        executor.execute_task_with_retry = mock_execute
+        results = await executor.execute_plan(tasks, completed)
+        results_returned = results
 
         # Both tasks should complete in order
         assert len(results_returned) == 2
@@ -727,9 +733,9 @@ class TestHybridExecutorIntegration:
             # Always succeed on final retry
             return TaskResult(task_id=task.id, success=True, diff="")
 
-        with patch.object(executor, "execute_task_with_retry", side_effect=mock_execute_retry):
-            with patch.object(executor, "execute_task", side_effect=mock_execute):
-                results = await executor.execute_plan(tasks, completed, stop_on_failure=False)
+        executor.execute_task_with_retry = mock_execute_retry
+        executor.execute_task = mock_execute
+        results = await executor.execute_plan(tasks, completed, stop_on_failure=False)
 
         # t1 should have been called twice (initial + retry at end)
         assert call_count["t1"] >= 2

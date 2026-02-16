@@ -300,7 +300,11 @@ class TestMCPToolExecution:
     async def test_list_agents_tool_execution(self, server):
         """Test list_agents tool returns agents list."""
         with patch("aragora.agents.base.list_available_agents") as mock_list:
-            mock_list.return_value = ["anthropic-api", "openai-api", "gemini"]
+            mock_list.return_value = {
+                "anthropic-api": {"type": "API"},
+                "openai-api": {"type": "API"},
+                "gemini": {"type": "API"},
+            }
 
             result = await server._list_agents()
 
@@ -684,9 +688,11 @@ class TestMCPInputValidation:
 
     def test_validate_content_length(self, server):
         """Test validation rejects overly long content."""
-        long_content = "x" * 150000  # Over MAX_CONTENT_LENGTH
+        long_content = "x" * 150000
 
-        error = server._validate_input("run_gauntlet", {"content": long_content})
+        # MAX_CONTENT_LENGTH is 100MB; patch it to a smaller value for this test
+        with patch("aragora.mcp.server.MAX_CONTENT_LENGTH", 100000):
+            error = server._validate_input("run_gauntlet", {"content": long_content})
 
         assert error is not None
         assert "maximum length" in error.lower()

@@ -29,8 +29,8 @@ class TestToolsMetadata:
     """Test TOOLS_METADATA structure."""
 
     def test_metadata_has_all_tools(self):
-        """Test that metadata defines all 24 tools."""
-        assert len(TOOLS_METADATA) == 24
+        """Test that metadata defines all registered tools."""
+        assert len(TOOLS_METADATA) == 67
 
     def test_metadata_core_tool_names(self):
         """Test core tool names are present in metadata."""
@@ -69,6 +69,8 @@ class TestToolsMetadata:
 
     def test_run_debate_metadata(self):
         """Test run_debate metadata structure."""
+        from aragora.config.settings import AgentSettings, DebateSettings
+
         tool = next(t for t in TOOLS_METADATA if t["name"] == "run_debate")
 
         assert "description" in tool
@@ -76,9 +78,9 @@ class TestToolsMetadata:
         assert tool["function"] is run_debate_tool
         assert "parameters" in tool
         assert tool["parameters"]["question"]["required"] is True
-        assert tool["parameters"]["agents"]["default"] == "anthropic-api,openai-api"
-        assert tool["parameters"]["rounds"]["default"] == 3
-        assert tool["parameters"]["consensus"]["default"] == "majority"
+        assert tool["parameters"]["agents"]["default"] == AgentSettings().default_agents
+        assert tool["parameters"]["rounds"]["default"] == DebateSettings().default_rounds
+        assert tool["parameters"]["consensus"]["default"] == DebateSettings().default_consensus
 
     def test_run_gauntlet_metadata(self):
         """Test run_gauntlet metadata structure."""
@@ -129,12 +131,16 @@ class TestRunDebateTool:
 
     @pytest.mark.asyncio
     async def test_rounds_clamped_to_max(self):
-        """Test rounds above 10 are clamped."""
+        """Test rounds above max are clamped to configured max_rounds."""
+        from aragora.config.settings import DebateSettings
+
+        max_rounds = DebateSettings().max_rounds
+
         mock_result = MagicMock()
         mock_result.final_answer = "Answer"
         mock_result.consensus_reached = True
         mock_result.confidence = 0.9
-        mock_result.rounds_used = 10
+        mock_result.rounds_used = max_rounds
 
         mock_agent = MagicMock()
         mock_agent.name = "test_agent"
@@ -153,12 +159,12 @@ class TestRunDebateTool:
             result = await run_debate_tool(
                 question="Test?",
                 agents="test",
-                rounds=100,  # Should be clamped to 10
+                rounds=100,  # Should be clamped to max_rounds
             )
 
-            # Verify Environment was created with max_rounds=10
+            # Verify Environment was created with max_rounds clamped
             mock_env.assert_called_once()
-            assert mock_env.call_args[1]["max_rounds"] == 10
+            assert mock_env.call_args[1]["max_rounds"] == max_rounds
 
     @pytest.mark.asyncio
     async def test_no_valid_agents_returns_error(self):

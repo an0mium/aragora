@@ -444,7 +444,7 @@ class TestFormalVerification:
     @pytest.mark.asyncio
     async def test_verify_error_handling(self):
         """Should handle verification errors gracefully."""
-        verify_callback = AsyncMock(side_effect=Exception("Z3 error"))
+        verify_callback = AsyncMock(side_effect=RuntimeError("Z3 error"))
         analytics = AnalyticsPhase(verify_claims_formally=verify_callback)
 
         ctx = DebateContext(env=MockEnvironment(), start_time=time.time())
@@ -498,7 +498,7 @@ class TestRecordingFinalization:
     async def test_recorder_error_handling(self):
         """Should handle recorder errors gracefully."""
         recorder = MagicMock()
-        recorder.finalize.side_effect = Exception("Recorder error")
+        recorder.finalize.side_effect = RuntimeError("Recorder error")
         analytics = AnalyticsPhase(recorder=recorder)
 
         ctx = DebateContext(env=MockEnvironment(), start_time=time.time())

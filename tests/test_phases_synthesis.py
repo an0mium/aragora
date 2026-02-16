@@ -364,7 +364,7 @@ class TestEventEmission:
         """Should handle hook errors without raising."""
         from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 
-        failing_hook = MagicMock(side_effect=Exception("Hook error"))
+        failing_hook = MagicMock(side_effect=RuntimeError("Hook error"))
         generator = SynthesisGenerator(hooks={"on_synthesis": failing_hook})
 
         ctx = MockContext(
@@ -381,8 +381,8 @@ class TestMandatorySynthesisAsync:
     """Tests for the async generate_mandatory_synthesis method."""
 
     @pytest.mark.asyncio
-    async def test_returns_false_without_proposals(self):
-        """Should return False when no proposals available."""
+    async def test_returns_true_with_fallback_without_proposals(self):
+        """Should return True with fallback synthesis when no proposals available."""
         from aragora.debate.phases.synthesis_generator import SynthesisGenerator
 
         generator = SynthesisGenerator()
@@ -395,7 +395,10 @@ class TestMandatorySynthesisAsync:
 
         result = await generator.generate_mandatory_synthesis(ctx)
 
-        assert result is False
+        # Source now emits a fallback synthesis and returns True
+        assert result is True
+        assert ctx.result.synthesis is not None
+        assert "No proposals were generated" in ctx.result.synthesis
 
     @pytest.mark.asyncio
     async def test_falls_back_to_combined_on_errors(self):

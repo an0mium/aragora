@@ -165,8 +165,7 @@ class TestOpenAPISpecCompleteness:
 
     @pytest.fixture()
     def openapi_paths(self) -> dict[str, list[str]]:
-        if not _OPENAPI_SPEC.exists():
-            pytest.skip("OpenAPI spec not found")
+        assert _OPENAPI_SPEC.exists(), f"OpenAPI spec not found at {_OPENAPI_SPEC}"
         return _extract_openapi_paths(_OPENAPI_SPEC)
 
     def test_has_all_canonical_paths(self, openapi_paths: dict[str, list[str]]) -> None:
@@ -197,8 +196,7 @@ class TestPythonSDKParity:
 
     @pytest.fixture()
     def sdk_methods(self) -> list[str]:
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
+        assert _PY_SDK.exists(), f"Python SDK not found at {_PY_SDK}"
         return _extract_py_sdk_methods(_PY_SDK)
 
     # The minimum set of methods the SDK must expose (one per canonical operation)
@@ -234,8 +232,6 @@ class TestPythonSDKParity:
 
     def test_execute_action_uses_input_data(self) -> None:
         """Sync execute_action must send 'input_data', not 'params'."""
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         # The sync class (OpenclawAPI) must use input_data
         # Extract just the sync class content
@@ -250,15 +246,11 @@ class TestPythonSDKParity:
 
     def test_rotate_credential_uses_new_value(self) -> None:
         """rotate_credential must send 'new_value', not 'value'."""
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         assert '"new_value"' in content, "Python SDK rotate_credential should use 'new_value' field"
 
     def test_audit_has_filter_params(self) -> None:
         """audit() must accept event_type, user_id, session_id, start_time, end_time."""
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         for param in ["event_type", "user_id", "session_id", "start_time", "end_time"]:
             assert param in content, f"Python SDK audit() missing param: {param}"
@@ -268,15 +260,11 @@ class TestAsyncPythonSDKParity:
     """Async Python SDK class must mirror the sync class."""
 
     def test_async_class_exists(self) -> None:
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         assert "class AsyncOpenclawAPI" in content
 
     def test_async_has_core_methods(self) -> None:
         """AsyncOpenclawAPI must have all core gateway methods."""
-        if not _PY_SDK.exists():
-            pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         tree = ast.parse(content)
 
@@ -348,8 +336,7 @@ class TestTypeScriptSDKParity:
 
     @pytest.fixture()
     def ts_methods(self) -> list[str]:
-        if not _TS_SDK.exists():
-            pytest.skip("TypeScript SDK not found")
+        assert _TS_SDK.exists(), f"TypeScript SDK not found at {_TS_SDK}"
         return _extract_ts_methods(_TS_SDK)
 
     def test_has_all_required_methods(self, ts_methods: list[str]) -> None:
@@ -359,8 +346,6 @@ class TestTypeScriptSDKParity:
 
     def test_execute_action_request_has_input_data(self) -> None:
         """ExecuteActionRequest must have input_data field."""
-        if not _TS_SDK.exists():
-            pytest.skip("TypeScript SDK not found")
         content = _TS_SDK.read_text()
         # Check the ExecuteActionRequest interface
         interface_match = re.search(r"interface ExecuteActionRequest\s*\{([^}]+)\}", content)
@@ -370,8 +355,6 @@ class TestTypeScriptSDKParity:
 
     def test_rotate_credential_uses_new_value(self) -> None:
         """rotateCredential must accept new_value, not value."""
-        if not _TS_SDK.exists():
-            pytest.skip("TypeScript SDK not found")
         content = _TS_SDK.read_text()
         # Find the rotateCredential method signature (body may be optional with ?)
         match = re.search(r"rotateCredential\([^)]+?body\?*:\s*\{([^}]+)\}", content)
@@ -381,8 +364,6 @@ class TestTypeScriptSDKParity:
 
     def test_audit_has_filter_options(self) -> None:
         """audit() must accept event_type, user_id, session_id, start_time, end_time."""
-        if not _TS_SDK.exists():
-            pytest.skip("TypeScript SDK not found")
         content = _TS_SDK.read_text()
         for param in ["event_type", "user_id", "session_id", "start_time", "end_time"]:
             assert param in content, f"TypeScript SDK audit() missing option: {param}"
@@ -393,8 +374,7 @@ class TestPythonClientParity:
 
     @pytest.fixture()
     def client_methods(self) -> list[str]:
-        if not _PY_CLIENT.exists():
-            pytest.skip("Python client not found")
+        assert _PY_CLIENT.exists(), f"Python client not found at {_PY_CLIENT}"
         return _extract_py_client_methods(_PY_CLIENT)
 
     # Method names differ slightly (higher-level client uses richer names)
@@ -429,8 +409,6 @@ class TestPythonClientParity:
 
     def test_execute_action_uses_input_data(self) -> None:
         """execute_action must send 'input_data', not 'params' key."""
-        if not _PY_CLIENT.exists():
-            pytest.skip("Python client not found")
         content = _PY_CLIENT.read_text()
         assert '"input_data"' in content, (
             "Python client execute_action should use 'input_data' field"
@@ -438,8 +416,6 @@ class TestPythonClientParity:
 
     def test_rotate_credential_accepts_new_value(self) -> None:
         """rotate_credential must accept new_value parameter."""
-        if not _PY_CLIENT.exists():
-            pytest.skip("Python client not found")
         content = _PY_CLIENT.read_text()
         assert "new_value" in content, (
             "Python client rotate_credential should accept new_value parameter"
@@ -470,8 +446,6 @@ class TestCrossSDKConsistency:
 
     def test_server_handler_normalizes_all_prefixes(self) -> None:
         """Server handler must accept all 3 path prefixes."""
-        if not _SERVER_HANDLER.exists():
-            pytest.skip("Server handler not found")
         content = _SERVER_HANDLER.read_text()
         assert "/api/gateway/openclaw/" in content
         assert "/api/v1/gateway/openclaw/" in content
