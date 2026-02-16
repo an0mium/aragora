@@ -187,6 +187,13 @@ class DistributedRateLimiter:
                     logger.warning(f"Failed to create Redis rate limiter: {e}")
                     self._redis_limiter = None
                     self._using_redis = False
+                except Exception as e:  # noqa: BLE001 - redis.exceptions.* don't inherit builtins.ConnectionError
+                    if "redis" in type(e).__module__:
+                        logger.warning(f"Failed to create Redis rate limiter: {e}")
+                        self._redis_limiter = None
+                        self._using_redis = False
+                    else:
+                        raise
             else:
                 self._using_redis = False
 

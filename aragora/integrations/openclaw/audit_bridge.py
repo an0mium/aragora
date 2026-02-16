@@ -150,7 +150,7 @@ class OpenClawAuditBridge:
         if self._event_callback:
             try:
                 self._event_callback(record)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"Event callback failed: {e}")
 
         # Check if we should flush

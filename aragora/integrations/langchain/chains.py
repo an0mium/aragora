@@ -234,7 +234,7 @@ class AragoraDebateChain(_ChainBase):
                     "reasoning": "\n".join(reasoning_steps),
                     "knowledge_context": knowledge_context,
                 }
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.error(f"[AragoraDebateChain] Debate failed: {type(e).__name__}: {e}")
                 return {
                     "answer": f"Debate failed: {e}",
@@ -347,7 +347,7 @@ class AragoraResearchDebateChain(_ChainBase):
                         f"[AragoraResearchDebateChain] {source} search connection error: "
                         f"{type(e).__name__}: {e}"
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(
                         f"[AragoraResearchDebateChain] {source} search failed: "
                         f"{type(e).__name__}: {e}"
@@ -381,7 +381,7 @@ class AragoraResearchDebateChain(_ChainBase):
             except (ConnectionError, TimeoutError, OSError) as e:
                 conclusion = f"Research completed but debate connection failed: {e}"
                 debate_summary = f"Debate connection error: {type(e).__name__}"
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 conclusion = f"Research completed but debate failed: {e}"
                 debate_summary = f"Debate error: {type(e).__name__}"
 
