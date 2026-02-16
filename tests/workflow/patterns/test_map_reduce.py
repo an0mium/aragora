@@ -676,7 +676,7 @@ class TestMapReduceMapHandler:
         with patch("aragora.agents.create_agent") as mock_create:
             mock_agent = AsyncMock()
             # First call succeeds, second fails
-            mock_agent.generate.side_effect = ["Result", Exception("API Error")]
+            mock_agent.generate.side_effect = ["Result", RuntimeError("API Error")]
             mock_create.return_value = mock_agent
 
             result = await handler(context, agent_type="claude")
@@ -684,7 +684,7 @@ class TestMapReduceMapHandler:
             assert result["successful_count"] == 1
             assert result["failed_count"] == 1
             assert len(result["failed"]) == 1
-            assert "API Error" in result["failed"][0]["error"]
+            assert "Chunk processing failed" in result["failed"][0]["error"]
 
 
 # ============================================================================
