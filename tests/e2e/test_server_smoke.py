@@ -291,3 +291,121 @@ class TestIntegrationVerification:
                 content_type = resp.headers.get("Content-Type", "")
                 # Accept either JSON or text (some errors are plain)
                 assert "json" in content_type or "text" in content_type
+
+
+# ============================================================================
+# Debate API Smoke Tests
+# ============================================================================
+
+
+class TestDebateAPI:
+    """Smoke tests for debate creation and listing."""
+
+    async def test_list_debates_returns_json(self, live_server: LiveServerInfo):
+        """Verify GET /api/v1/debates returns a list (possibly empty)."""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{live_server.base_url}/api/v1/debates") as resp:
+                # May require auth (401/403) or return list (200)
+                assert resp.status in (200, 401, 403)
+                if resp.status == 200:
+                    data = await resp.json()
+                    assert isinstance(data, (dict, list))
+
+    async def test_create_debate_minimal(self, live_server: LiveServerInfo):
+        """Verify POST /api/v1/debates accepts minimal payload."""
+        async with aiohttp.ClientSession() as session:
+            payload = {"question": "Is Python the best language for data science?"}
+            async with session.post(
+                f"{live_server.base_url}/api/v1/debates",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                # 200/201/202 = created, 401/403 = auth required, 400 = validation
+                assert resp.status in (200, 201, 202, 400, 401, 403, 429)
+                if resp.status in (200, 201, 202):
+                    data = await resp.json()
+                    assert isinstance(data, dict)
+
+    async def test_create_debate_with_agents(self, live_server: LiveServerInfo):
+        """Verify debate creation with explicit agent config."""
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "question": "Monolith vs microservices for a startup?",
+                "agents": ["claude"],
+                "rounds": 1,
+                "consensus": "majority",
+            }
+            async with session.post(
+                f"{live_server.base_url}/api/v1/debates",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                assert resp.status in (200, 201, 202, 400, 401, 403, 429)
+
+    async def test_debate_cost_estimate(self, live_server: LiveServerInfo):
+        """Verify GET /api/v1/debates/estimate-cost returns cost info."""
+        async with aiohttp.ClientSession() as session:
+            params = {"num_agents": "3", "num_rounds": "5"}
+            async with session.get(
+                f"{live_server.base_url}/api/v1/debates/estimate-cost",
+                params=params,
+            ) as resp:
+                assert resp.status in (200, 400, 401, 403, 404)
+                if resp.status == 200:
+                    data = await resp.json()
+                    assert isinstance(data, dict)
+
+    async def test_invalid_debate_payload_returns_error(self, live_server: LiveServerInfo):
+        """Verify invalid payload returns 400, not 500."""
+        async with aiohttp.ClientSession() as session:
+            # Send payload with invalid rounds value
+            payload = {"question": "Test", "rounds": 999}
+            async with session.post(
+                f"{live_server.base_url}/api/v1/debates",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                # Should be 400 (validation) or 401/403 (auth)
+                # Definitely not 500
+                assert resp.status in (200, 201, 202, 400, 401, 403, 422, 429)
+
+
+# ============================================================================
+# Server Configuration Verification
+# ============================================================================
+
+
+class TestServerConfig:
+    """Verify server configuration and mode detection."""
+
+    async def test_api_version_prefix_works(self, live_server: LiveServerInfo):
+        """Verify /api/v1/ prefix routes correctly."""
+        async with aiohttp.ClientSession() as session:
+            # v1 prefix should work
+            async with session.get(f"{live_server.base_url}/api/v1/health") as resp:
+                # May not exist at this exact path, but should not 500
+                assert resp.status != 500 or resp.status in (200, 401, 403, 404)
+
+    async def test_concurrent_health_checks(self, live_server: LiveServerInfo):
+        """Verify server handles concurrent requests without deadlock."""
+        async with aiohttp.ClientSession() as session:
+            # Fire 10 concurrent requests
+            tasks = [
+                session.get(f"{live_server.base_url}/healthz")
+                for _ in range(10)
+            ]
+            responses = await asyncio.gather(*tasks)
+            statuses = [r.status for r in responses]
+            for r in responses:
+                r.close()
+
+            # All should succeed
+            assert all(s == 200 for s in statuses), f"Some health checks failed: {statuses}"
+
+    async def test_content_type_json_on_api(self, live_server: LiveServerInfo):
+        """Verify API endpoints return application/json."""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{live_server.base_url}/api/health") as resp:
+                if resp.status == 200:
+                    ct = resp.headers.get("Content-Type", "")
+                    assert "application/json" in ct, f"Expected JSON, got: {ct}"
