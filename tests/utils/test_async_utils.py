@@ -214,7 +214,7 @@ class TestRunGitCommand:
     async def test_git_generic_error(self, tmp_path):
         """Handles generic errors."""
         with patch("aragora.utils.async_utils.run_command") as mock_cmd:
-            mock_cmd.side_effect = RuntimeError("unexpected error")
+            mock_cmd.side_effect = OSError("unexpected error")
 
             success, output = await run_git_command(["status"], cwd=tmp_path)
             assert not success
