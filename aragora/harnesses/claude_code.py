@@ -168,7 +168,13 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                logger.warning("Claude Code CLI version check timed out")
+                return False
 
             if proc.returncode == 0:
                 version = stdout.decode().strip()
