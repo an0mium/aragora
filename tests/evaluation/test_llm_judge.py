@@ -601,7 +601,7 @@ class TestLLMJudgeAsync:
     async def test_evaluate_error_handling(self, judge):
         """Should handle errors gracefully."""
         with patch.object(judge, "_call_judge", new_callable=AsyncMock) as mock_call:
-            mock_call.side_effect = Exception("API error")
+            mock_call.side_effect = RuntimeError("API error")
 
             result = await judge.evaluate(
                 query="Test",

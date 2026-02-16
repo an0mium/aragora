@@ -919,16 +919,28 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_slack_api_error_handling(self):
         """Test Slack provider handles API errors gracefully."""
+        import aiohttp
+
         config = SlackConfig(bot_token="xoxb-test")
         provider = SlackProvider(config)
         notification = Notification(title="Test", message="Hello")
 
-        # The provider catches exceptions and returns error result
-        # Test that the error handling works by providing a configured provider
-        # The actual API call would fail, but we verify the error path
-        result = await provider.send(notification, "#nonexistent")
+        # Mock aiohttp to simulate a connection error, which the provider catches
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(side_effect=OSError("Connection refused")),
+                __aexit__=AsyncMock(),
+            )
+        )
 
-        # Without network access, this should fail with a connection error
+        mock_session_cm = MagicMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(aiohttp, "ClientSession", return_value=mock_session_cm):
+            result = await provider.send(notification, "#nonexistent")
+
         assert not result.success
         assert result.error is not None
 
@@ -942,8 +954,12 @@ class TestErrorHandling:
         notification = Notification(title="Test", message="Hello")
 
         # Create mock for aiohttp.ClientSession
-        mock_session = AsyncMock()
-        mock_session.post.side_effect = asyncio.TimeoutError()
+        # session.post(...) must return an async context manager, not a coroutine
+        mock_session = MagicMock()
+        mock_post_cm = MagicMock()
+        mock_post_cm.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_session.post = MagicMock(return_value=mock_post_cm)
 
         mock_session_cm = MagicMock()
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)

@@ -66,7 +66,7 @@ class TestListDocumentsEndpoint:
         return DocumentHandler(ctx)
 
     def test_list_documents_returns_documents(self, doc_handler):
-        result = doc_handler.handle("/api/documents", {}, None)
+        result = doc_handler.handle("/api/v1/documents", {}, None)
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["count"] == 2
@@ -77,7 +77,7 @@ class TestListDocumentsEndpoint:
 
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
-        result = handler.handle("/api/documents", {}, None)
+        result = handler.handle("/api/v1/documents", {}, None)
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["count"] == 0
@@ -96,7 +96,7 @@ class TestFormatsEndpoint:
         return DocumentHandler(ctx)
 
     def test_formats_returns_supported_types(self, doc_handler):
-        result = doc_handler.handle("/api/documents/formats", {}, None)
+        result = doc_handler.handle("/api/v1/documents/formats", {}, None)
         assert result.status_code == 200
         data = json.loads(result.body)
         # Should return some format information
@@ -126,7 +126,7 @@ class TestGetDocumentEndpoint:
         return DocumentHandler(ctx)
 
     def test_get_document_returns_doc(self, doc_handler, mock_store):
-        result = doc_handler.handle("/api/documents/doc123", {}, None)
+        result = doc_handler.handle("/api/v1/documents/doc123", {}, None)
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["id"] == "doc123"
@@ -135,7 +135,7 @@ class TestGetDocumentEndpoint:
 
     def test_get_document_not_found(self, doc_handler, mock_store):
         mock_store.get.return_value = None
-        result = doc_handler.handle("/api/documents/missing", {}, None)
+        result = doc_handler.handle("/api/v1/documents/missing", {}, None)
         assert result.status_code == 404
         data = json.loads(result.body)
         assert "error" in data
@@ -145,7 +145,7 @@ class TestGetDocumentEndpoint:
 
         ctx = {"document_store": None}
         handler = DocumentHandler(ctx)
-        result = handler.handle("/api/documents/doc123", {}, None)
+        result = handler.handle("/api/v1/documents/doc123", {}, None)
         assert result.status_code == 500
 
 
@@ -163,18 +163,18 @@ class TestDocumentIdValidation:
 
     def test_path_traversal_in_id_blocked(self, doc_handler):
         # ID with path traversal pattern embedded
-        result = doc_handler.handle("/api/documents/doc..id", {}, None)
+        result = doc_handler.handle("/api/v1/documents/doc..id", {}, None)
         # Should return 400 for invalid ID (contains ..)
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "error" in data
 
     def test_special_chars_blocked(self, doc_handler):
-        result = doc_handler.handle("/api/documents/doc;rm", {}, None)
+        result = doc_handler.handle("/api/v1/documents/doc;rm", {}, None)
         assert result.status_code == 400
 
     def test_valid_id_accepted(self, doc_handler):
-        result = doc_handler.handle("/api/documents/valid-doc-123", {}, None)
+        result = doc_handler.handle("/api/v1/documents/valid-doc-123", {}, None)
         # Should proceed to check store (returns 404 since mock returns None)
         assert result.status_code == 404
 

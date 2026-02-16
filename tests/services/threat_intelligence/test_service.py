@@ -916,6 +916,7 @@ class TestBatchLookups:
         """Test batch handles partial API failures gracefully."""
         service.config.enable_phishtank = True
         service.config.enable_urlhaus = True
+        service.config.enable_virustotal = False  # Disable VT to focus on phishtank/urlhaus
 
         # PhishTank returns error, URLhaus works
         def mock_post(*args, **kwargs):
@@ -924,14 +925,14 @@ class TestBatchLookups:
                 raise ConnectionError("PhishTank API down")
             else:
                 # URLhaus returns clean
-                return AsyncMock(
-                    __aenter__=AsyncMock(
-                        return_value=create_mock_response(200, {"query_status": "no_results"})
-                    ),
-                    __aexit__=AsyncMock(),
+                mock_resp_cm = MagicMock()
+                mock_resp_cm.__aenter__ = AsyncMock(
+                    return_value=create_mock_response(200, {"query_status": "no_results"})
                 )
+                mock_resp_cm.__aexit__ = AsyncMock(return_value=None)
+                return mock_resp_cm
 
-        mock_session = AsyncMock()
+        mock_session = MagicMock()
         mock_session.post = MagicMock(side_effect=mock_post)
         service._http_session = mock_session
 

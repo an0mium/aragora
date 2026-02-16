@@ -295,7 +295,7 @@ class TestDomainDetectorDetect:
     def test_detect_falls_back_to_keywords_on_llm_failure(self):
         """detect() should fall back to keywords if LLM fails."""
         mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API error")
+        mock_client.messages.create.side_effect = RuntimeError("API error")
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
