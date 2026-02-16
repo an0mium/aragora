@@ -449,7 +449,7 @@ async def build_decision_integrity_payload(
                     "package": payload,
                 },
             )
-        except Exception as exc:
+        except (ImportError, ValueError, RuntimeError, OSError, ConnectionError) as exc:
             logger.debug("Decision integrity routing failed: %s", exc)
 
     return payload

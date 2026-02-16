@@ -376,7 +376,7 @@ class OpenClawSessionStep(BaseStep):
                 "error": "OpenClaw gateway module not available",
                 "operation": operation,
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
             logger.error(f"OpenClaw session operation failed: {e}")
             return {"success": False, "error": "OpenClaw session operation failed", "operation": operation}
 

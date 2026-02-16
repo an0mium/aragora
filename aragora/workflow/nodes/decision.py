@@ -100,7 +100,7 @@ class DecisionStep(BaseStep):
                     if evaluation_mode == "first_match":
                         break
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.warning(f"Condition evaluation failed for '{name}': {e}")
                 evaluation_results.append(
                     {
@@ -218,7 +218,7 @@ class DecisionStep(BaseStep):
                 "reasoning": response,
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning(f"AI decision failed: {e}")
             return {
                 "name": "error",

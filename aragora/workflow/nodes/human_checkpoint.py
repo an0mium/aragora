@@ -36,7 +36,7 @@ def _get_governance_store():
             from aragora.storage.governance_store import get_governance_store
 
             _governance_store = get_governance_store()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.debug(f"Governance store not available: {e}")
     return _governance_store
 
@@ -185,7 +185,7 @@ def recover_pending_approvals() -> int:
         if recovered > 0:
             logger.info(f"Recovered {recovered} pending approvals from GovernanceStore")
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         logger.warning(f"Failed to recover approvals from GovernanceStore: {e}")
 
     return recovered
