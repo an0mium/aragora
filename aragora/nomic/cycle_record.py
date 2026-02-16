@@ -111,6 +111,14 @@ class NomicCycleRecord:
     surprise_events: list[SurpriseEvent] = field(default_factory=list)
     pattern_reinforcements: list[PatternReinforcement] = field(default_factory=list)
 
+    # Rich debate metadata (captures full debate engine output)
+    debate_proposals: list[dict[str, Any]] = field(default_factory=list)
+    debate_critiques: list[dict[str, Any]] = field(default_factory=list)
+    debate_votes: list[dict[str, Any]] = field(default_factory=list)
+    debate_receipt_id: str | None = None
+    evidence_quality_scores: dict[str, float] = field(default_factory=dict)
+    trickster_interventions: int = 0
+
     # Outcome
     success: bool = False
     error_message: str | None = None
@@ -249,6 +257,12 @@ class NomicCycleRecord:
                 }
                 for p in self.pattern_reinforcements
             ],
+            "debate_proposals": self.debate_proposals,
+            "debate_critiques": self.debate_critiques,
+            "debate_votes": self.debate_votes,
+            "debate_receipt_id": self.debate_receipt_id,
+            "evidence_quality_scores": self.evidence_quality_scores,
+            "trickster_interventions": self.trickster_interventions,
             "success": self.success,
             "error_message": self.error_message,
             "rollback_performed": self.rollback_performed,
@@ -280,6 +294,12 @@ class NomicCycleRecord:
             tests_failed=data.get("tests_failed", 0),
             tests_skipped=data.get("tests_skipped", 0),
             test_coverage=data.get("test_coverage"),
+            debate_proposals=data.get("debate_proposals", []),
+            debate_critiques=data.get("debate_critiques", []),
+            debate_votes=data.get("debate_votes", []),
+            debate_receipt_id=data.get("debate_receipt_id"),
+            evidence_quality_scores=data.get("evidence_quality_scores", {}),
+            trickster_interventions=data.get("trickster_interventions", 0),
             success=data.get("success", False),
             error_message=data.get("error_message"),
             rollback_performed=data.get("rollback_performed", False),
