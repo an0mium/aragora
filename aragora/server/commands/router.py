@@ -85,7 +85,7 @@ class CommandRouter:
             logger.warning(f"Command error in /{command_name}: {e.message}")
             return e.to_result()
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Top-level command handler: must catch all errors to return error result
             logger.exception(f"Unexpected error in command /{command_name}")
             return CommandResult.error(
                 f"An error occurred while executing the command: {e!s}",

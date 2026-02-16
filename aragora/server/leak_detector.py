@@ -367,7 +367,7 @@ def _short_caller(skip: int = 2) -> str:
         idx = max(0, len(stack) - skip - 1)
         frame = stack[idx]
         return f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno} in {frame.name}"
-    except Exception as e:
+    except (IndexError, ValueError, AttributeError) as e:
         logger.debug(f"Failed to extract caller info: {type(e).__name__}: {e}")
         return "unknown"
 
