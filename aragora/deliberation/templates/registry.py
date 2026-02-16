@@ -197,7 +197,7 @@ class TemplateRegistry:
                 return results
             # TF-IDF returned no results (zero similarity); fall back to keywords
             return self._recommend_keywords(question, domain, limit)
-        except Exception:
+        except (ImportError, ValueError, TypeError):
             # Fallback to keyword matching if sklearn unavailable or any error
             return self._recommend_keywords(question, domain, limit)
 

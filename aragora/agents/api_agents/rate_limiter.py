@@ -235,7 +235,7 @@ class OpenRouterRateLimiter:
                 if ctx:
                     try:
                         response = await make_api_call()
-                    except Exception:
+                    except (ConnectionError, TimeoutError, OSError):
                         ctx.release_on_error()
                         raise
         """

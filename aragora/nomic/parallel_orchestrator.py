@@ -22,6 +22,7 @@ Parallel Orchestrator - Production-grade multi-agent execution.
 from __future__ import annotations
 
 import logging
+import subprocess
 import warnings
 from pathlib import Path
 from typing import Any
@@ -186,5 +187,5 @@ class ParallelOrchestrator:
             try:
                 self._branch_coordinator.cleanup_all_worktrees()
                 logger.info("Worktrees cleaned up")
-            except Exception:
+            except (OSError, subprocess.SubprocessError):
                 logger.warning("Failed to clean up worktrees", exc_info=True)

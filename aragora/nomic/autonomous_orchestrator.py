@@ -697,7 +697,7 @@ class AutonomousOrchestrator:
             if self.enable_convoy_tracking and self._convoy_id:
                 try:
                     await self._complete_convoy(success=False, error=f"Orchestration failed: {type(e).__name__}")
-                except Exception:
+                except (RuntimeError, OSError, ValueError):
                     logger.debug("Failed to update convoy on error")
 
             return OrchestrationResult(

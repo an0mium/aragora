@@ -278,7 +278,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
         from aragora.nomic.session_manifest import SessionManifest
         manifest = SessionManifest(repo_root=repo_root)
         sessions = manifest.list_active()
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError):
         sessions = []
 
     # Get recent events
@@ -286,7 +286,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
         from aragora.nomic.event_bus import EventBus
         bus = EventBus(repo_root=repo_root)
         recent_events = bus.poll(since_minutes=60)
-    except Exception:
+    except (ImportError, OSError, ValueError, TypeError, KeyError):
         recent_events = []
 
     if json_output:

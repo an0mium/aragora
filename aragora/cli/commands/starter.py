@@ -260,7 +260,7 @@ def cmd_starter(args: argparse.Namespace) -> None:
             abs_path = str(receipt_path_obj.resolve())
             webbrowser.open(f"file://{abs_path}")
             print("    Receipt opened in browser.")
-        except Exception:
+        except (OSError, webbrowser.Error):
             print("    Could not open browser. View the receipt file manually.")
 
     # Print receipt summary in terminal

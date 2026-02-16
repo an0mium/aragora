@@ -457,7 +457,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
             )
             section = format_introspection_section(snapshot, max_chars=600)
             return section
-        except Exception:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError):
             return ""
 
     @staticmethod
