@@ -715,7 +715,7 @@ class TestBroadcastGeneration:
     ):
         """Should return warning when audio persist fails."""
         mock_audio_store.exists.return_value = False
-        mock_audio_store.save.side_effect = Exception("Storage error")
+        mock_audio_store.save.side_effect = OSError("Storage error")
 
         ctx = {
             "storage": mock_storage,
