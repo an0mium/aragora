@@ -98,7 +98,7 @@ def mark_safe(value: str) -> Markup:
     Returns:
         Markup object that won't be double-escaped
     """
-    return Markup(value)
+    return Markup(value)  # nosec B704 - Value is already sanitized by callers
 
 
 def escape_html_attribute(value: Any) -> str:

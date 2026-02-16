@@ -1411,7 +1411,7 @@ class TestKnowledgeHandlerErrorHandling:
     def test_handle_fact_store_initialization_failure(self, knowledge_handler, mock_http_handler):
         """Test graceful handling when fact store fails to initialize."""
         with patch.object(knowledge_handler, "_get_fact_store") as mock_store:
-            mock_store.side_effect = ValueError("Database connection failed")
+            mock_store.side_effect = RuntimeError("Database connection failed")
 
             result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, mock_http_handler)
 
