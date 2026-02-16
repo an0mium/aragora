@@ -774,7 +774,81 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                 )
                 priority += 1
 
+        # Apply self-correction priority adjustments if available
+        goals = self._apply_self_correction_adjustments(goals)
+
         return goals[: self.config.max_goals]
+
+    def _apply_self_correction_adjustments(
+        self,
+        goals: list[PrioritizedGoal],
+    ) -> list[PrioritizedGoal]:
+        """Re-rank goals using self-correction engine priority adjustments.
+
+        Queries the SelfCorrectionEngine for track-level adjustments and
+        uses them to boost or demote goals. Higher adjustment = higher
+        priority (lower number).
+        """
+        try:
+            from aragora.nomic.self_correction import SelfCorrectionEngine
+
+            engine = SelfCorrectionEngine()
+
+            # Query past outcomes from Knowledge Mound
+            past_outcomes = self._get_past_outcomes()
+            if not past_outcomes:
+                return goals
+
+            report = engine.analyze_patterns(past_outcomes)
+            adjustments = engine.compute_priority_adjustments(report)
+
+            if not adjustments:
+                return goals
+
+            # Apply adjustments: multiply priority by inverse of adjustment
+            # (higher adjustment = more important = lower priority number)
+            for goal in goals:
+                track_key = goal.track.value
+                adj = adjustments.get(track_key, 1.0)
+                # Adjusted priority: divide by adjustment factor so boosted
+                # tracks get lower (higher priority) numbers
+                goal.priority = max(1, round(goal.priority / adj))
+
+            # Re-sort by adjusted priority
+            goals.sort(key=lambda g: g.priority)
+
+            # Re-assign sequential priority numbers
+            for i, goal in enumerate(goals):
+                goal.priority = i + 1
+
+            logger.info(
+                "self_correction_adjustments_applied tracks=%s",
+                {g.track.value: adjustments.get(g.track.value, 1.0) for g in goals},
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug("Self-correction adjustments unavailable: %s", e)
+
+        return goals
+
+    def _get_past_outcomes(self) -> list[dict[str, Any]]:
+        """Retrieve past orchestration outcomes for self-correction analysis."""
+        try:
+            from aragora.nomic.cycle_store import get_recent_cycles
+
+            cycles = get_recent_cycles(limit=20)
+            outcomes: list[dict[str, Any]] = []
+            for cycle in cycles:
+                for contrib in getattr(cycle, "agent_contributions", []):
+                    outcomes.append({
+                        "track": getattr(contrib, "domain", "unknown"),
+                        "success": getattr(contrib, "was_success", False),
+                        "agent": getattr(contrib, "agent_name", "unknown"),
+                        "timestamp": getattr(cycle, "timestamp", None),
+                    })
+            return outcomes
+        except (ImportError, RuntimeError, TypeError, ValueError) as e:
+            logger.debug("Past outcomes unavailable: %s", e)
+            return []
 
     def record_outcome(
         self,

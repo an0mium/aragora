@@ -123,6 +123,14 @@ from aragora.nomic.meta_planner import (
     PrioritizedGoal,
 )
 
+# Self-correction (cross-cycle pattern analysis)
+from aragora.nomic.self_correction import (
+    CorrectionReport,
+    SelfCorrectionConfig,
+    SelfCorrectionEngine,
+    StrategyRecommendation,
+)
+
 # Branch coordination (parallel development)
 from aragora.nomic.branch_coordinator import (
     BranchCoordinator,
@@ -562,6 +570,11 @@ __all__ = [
     "WorkStatus",
     "WorkType",
     "reset_global_work_queue",
+    # Self-correction
+    "SelfCorrectionEngine",
+    "SelfCorrectionConfig",
+    "CorrectionReport",
+    "StrategyRecommendation",
     # SOAR Curriculum
     "CurriculumPlanner",
     "SteppingStoneGenerator",

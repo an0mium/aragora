@@ -34,6 +34,51 @@ logger = logging.getLogger(__name__)
 class CostHandler:
     """Handler for cost visibility API endpoints."""
 
+    ROUTES = [
+        # Versioned paths (canonical)
+        "/api/v1/costs",
+        "/api/v1/costs/alerts",
+        "/api/v1/costs/alerts/*/dismiss",
+        "/api/v1/costs/breakdown",
+        "/api/v1/costs/budget",
+        "/api/v1/costs/budgets",
+        "/api/v1/costs/constraints/check",
+        "/api/v1/costs/efficiency",
+        "/api/v1/costs/estimate",
+        "/api/v1/costs/export",
+        "/api/v1/costs/forecast",
+        "/api/v1/costs/forecast/detailed",
+        "/api/v1/costs/forecast/simulate",
+        "/api/v1/costs/recommendations",
+        "/api/v1/costs/recommendations/detailed",
+        "/api/v1/costs/recommendations/*",
+        "/api/v1/costs/recommendations/*/apply",
+        "/api/v1/costs/recommendations/*/dismiss",
+        "/api/v1/costs/timeline",
+        "/api/v1/costs/usage",
+        # Legacy paths (unversioned)
+        "/api/costs",
+        "/api/costs/alerts",
+        "/api/costs/alerts/*/dismiss",
+        "/api/costs/breakdown",
+        "/api/costs/budget",
+        "/api/costs/budgets",
+        "/api/costs/constraints/check",
+        "/api/costs/efficiency",
+        "/api/costs/estimate",
+        "/api/costs/export",
+        "/api/costs/forecast",
+        "/api/costs/forecast/detailed",
+        "/api/costs/forecast/simulate",
+        "/api/costs/recommendations",
+        "/api/costs/recommendations/detailed",
+        "/api/costs/recommendations/*",
+        "/api/costs/recommendations/*/apply",
+        "/api/costs/recommendations/*/dismiss",
+        "/api/costs/timeline",
+        "/api/costs/usage",
+    ]
+
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}

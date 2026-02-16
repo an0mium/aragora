@@ -389,11 +389,16 @@ class FeedbackLoop:
     1. Root cause (test failure, lint error, etc.)
     2. Which phase to return to (design, implement, or new subtask)
     3. How to modify the approach
+
+    Optionally integrates with SelfCorrectionEngine to apply strategy
+    recommendations (e.g., rotate agents, decrease scope) informed by
+    cross-cycle failure patterns.
     """
 
     def __init__(self, max_iterations: int = 3):
         self.max_iterations = max_iterations
         self._iteration_counts: dict[str, int] = {}
+        self._strategy_recommendations: list[Any] = []
 
     def analyze_failure(
         self,
@@ -468,6 +473,35 @@ class FeedbackLoop:
             "action": "escalate",
             "reason": f"Unknown error type: {error_type}",
             "require_human": True,
+        }
+
+    def apply_strategy_recommendations(
+        self, recommendations: list[Any]
+    ) -> None:
+        """Accept strategy recommendations from SelfCorrectionEngine.
+
+        These influence failure analysis: if a recommendation suggests
+        rotating agents or decreasing scope for a track, that advice
+        is incorporated into the next analyze_failure decision.
+        """
+        self._strategy_recommendations = list(recommendations)
+
+    def get_recommendation_for_track(self, track_value: str) -> dict[str, str] | None:
+        """Get the most confident recommendation for a given track."""
+        best = None
+        best_confidence = 0.0
+        for rec in self._strategy_recommendations:
+            if getattr(rec, "track", None) == track_value:
+                conf = getattr(rec, "confidence", 0.0)
+                if conf > best_confidence:
+                    best_confidence = conf
+                    best = rec
+        if best is None:
+            return None
+        return {
+            "action": getattr(best, "action_type", "unknown"),
+            "recommendation": getattr(best, "recommendation", ""),
+            "confidence": str(best_confidence),
         }
 
     def _extract_test_hints(self, error_message: str) -> str:
@@ -565,6 +599,15 @@ class AutonomousOrchestrator:
         self.enable_convoy_tracking = enable_convoy_tracking
         self.workspace_manager = workspace_manager
         self.event_emitter = event_emitter
+
+        # Self-correction engine for cross-cycle pattern analysis
+        self._self_correction = None
+        try:
+            from aragora.nomic.self_correction import SelfCorrectionEngine
+
+            self._self_correction = SelfCorrectionEngine()
+        except ImportError:
+            pass
 
         self.hierarchy = hierarchy or HierarchyConfig()
         self.hierarchical_coordinator = hierarchical_coordinator
@@ -696,6 +739,9 @@ class AutonomousOrchestrator:
             # Step 4b: Complete convoy tracking
             if self.enable_convoy_tracking and self._convoy_id:
                 await self._complete_convoy(failed == 0)
+
+            # Step 5: Run self-correction analysis for cross-cycle learning
+            self._apply_self_correction(assignments, result)
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {
@@ -1405,6 +1451,111 @@ class AutonomousOrchestrator:
                         test_file = f"tests/{directory}/test_{filename}"
                         test_paths.append(test_file)
         return test_paths
+
+    def _apply_self_correction(
+        self,
+        assignments: list[AgentAssignment],
+        result: OrchestrationResult,
+    ) -> None:
+        """Apply self-correction analysis from past outcomes.
+
+        Converts completed assignments to outcome dicts, runs pattern
+        analysis, computes priority adjustments and strategy recommendations,
+        and stores them for the next orchestration cycle.
+        """
+        if self._self_correction is None:
+            return
+
+        try:
+            # Convert assignments to outcome dicts for analysis
+            outcomes: list[dict[str, Any]] = []
+            for a in assignments:
+                if a.status in ("completed", "failed"):
+                    outcomes.append({
+                        "track": a.track.value,
+                        "success": a.status == "completed",
+                        "agent": a.agent_type,
+                        "description": a.subtask.title,
+                        "timestamp": (
+                            a.completed_at.isoformat()
+                            if a.completed_at
+                            else datetime.now(timezone.utc).isoformat()
+                        ),
+                    })
+
+            if not outcomes:
+                return
+
+            # Analyze patterns across this cycle's outcomes
+            report = self._self_correction.analyze_patterns(outcomes)
+
+            # Compute priority adjustments for next cycle
+            adjustments = self._self_correction.compute_priority_adjustments(report)
+            if adjustments:
+                # Store on the result for callers to inspect
+                if result.after_metrics is None:
+                    result.after_metrics = {}
+                result.after_metrics["self_correction_adjustments"] = adjustments
+
+            # Compute strategy recommendations
+            recommendations = self._self_correction.recommend_strategy_change(report)
+            if recommendations:
+                if result.after_metrics is None:
+                    result.after_metrics = {}
+                result.after_metrics["self_correction_recommendations"] = [
+                    {
+                        "track": r.track,
+                        "action": r.action_type,
+                        "recommendation": r.recommendation,
+                        "confidence": r.confidence,
+                    }
+                    for r in recommendations
+                ]
+
+            # Feed adjustments into MetaPlanner for next cycle
+            self._store_priority_adjustments(adjustments)
+
+            # Feed strategy recommendations into FeedbackLoop for next cycle
+            if recommendations and self.feedback_loop is not None:
+                self.feedback_loop.apply_strategy_recommendations(recommendations)
+
+            logger.info(
+                f"self_correction_applied outcomes={len(outcomes)} "
+                f"adjustments={len(adjustments)} recommendations={len(recommendations)}"
+            )
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug(f"Self-correction analysis failed: {e}")
+
+    def _store_priority_adjustments(self, adjustments: dict[str, float]) -> None:
+        """Store priority adjustments for the next MetaPlanner cycle.
+
+        Persists to the Knowledge Mound so the MetaPlanner can query them
+        when prioritizing work in the next orchestration cycle.
+        """
+        if not adjustments:
+            return
+        try:
+            from aragora.knowledge.mound.adapters.factory import get_adapter
+
+            adapter = get_adapter("nomic_cycle")
+            if adapter and hasattr(adapter, "record"):
+                import asyncio
+
+                coro = adapter.record({
+                    "type": "self_correction_adjustments",
+                    "adjustments": adjustments,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "orchestration_id": self._orchestration_id,
+                })
+                # Fire-and-forget if we can't await
+                if inspect.isawaitable(coro):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(coro)
+                    except RuntimeError:
+                        pass
+        except (ImportError, RuntimeError, TypeError, ValueError) as e:
+            logger.debug(f"Failed to persist priority adjustments: {e}")
 
     def _checkpoint(self, phase: str, data: dict[str, Any]) -> None:
         """Create a checkpoint for the orchestration."""
