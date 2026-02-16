@@ -47,6 +47,6 @@ async def _synthesize_voice(result: dict[str, Any], origin: DebateOrigin) -> str
     except ImportError:
         logger.debug("TTS bridge not available")
         return None
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ConnectionError) as e:
         logger.warning(f"TTS synthesis failed: {e}")
         return None

@@ -122,7 +122,7 @@ def _check_database() -> dict[str, Any]:
             "status": "warning",
             "message": "Database module not available",
         }
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         return {
             "status": "error",
             "message": f"Database check failed: {e}",
@@ -150,7 +150,7 @@ def _check_knowledge_mound() -> dict[str, Any]:
             "status": "warning",
             "message": "Knowledge Mound module not available",
         }
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         return {
             "status": "warning",
             "message": f"Knowledge Mound check failed: {e}",
@@ -187,7 +187,7 @@ def _check_health_registry() -> dict[str, Any]:
             "status": "warning",
             "message": "Health registry module not available",
         }
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         return {
             "status": "warning",
             "message": f"Health registry check failed: {e}",

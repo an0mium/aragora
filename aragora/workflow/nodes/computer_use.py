@@ -223,6 +223,6 @@ class ComputerUseTaskStep(BaseStep):
                 "metrics": orchestrator.metrics.to_dict(),
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.error("Computer-use task failed: %s", e)
             return {"success": False, "error": "Computer-use task failed"}

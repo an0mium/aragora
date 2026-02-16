@@ -225,7 +225,7 @@ class TaskQueueExecutorAdapter:
                 error=f"Workflow timed out after {self._default_timeout}s",
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, KeyError, AttributeError, ImportError) as e:
             total_duration_ms = (time.time() - start_time) * 1000
             logger.exception(
                 "queue_adapter_execute_failed",

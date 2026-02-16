@@ -284,7 +284,7 @@ Provide a thorough response:"""
                         "result": result,
                         "success": True,
                     }
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
                     logger.warning("Hierarchical subtask %d failed: %s", index, e)
                     return {
                         "subtask": subtask.get("title", f"Subtask {index}"),

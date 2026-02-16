@@ -140,7 +140,7 @@ def record_rate_limit_decision(
                 tenant_id=tenant_id,
             ).inc()
 
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record rate limit metrics: {e}")
 
 
@@ -166,7 +166,7 @@ def record_redis_operation(
         if latency_seconds is not None:
             RATE_LIMIT_REDIS_LATENCY.labels(operation=operation).observe(latency_seconds)
 
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record Redis operation metrics: {e}")
 
 
@@ -182,7 +182,7 @@ def record_backend_status(instance_id: str, using_redis: bool) -> None:
 
     try:
         RATE_LIMIT_BACKEND_STATUS.labels(instance_id=instance_id).set(1 if using_redis else 0)
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record backend status: {e}")
 
 
@@ -199,7 +199,7 @@ def record_circuit_breaker_state(instance_id: str, state: str) -> None:
     try:
         state_value = {"closed": 0, "open": 1, "half_open": 2}.get(state, -1)
         RATE_LIMIT_CIRCUIT_BREAKER_STATE.labels(instance_id=instance_id).set(state_value)
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record circuit breaker state: {e}")
 
 
@@ -214,7 +214,7 @@ def record_fallback_request(instance_id: str) -> None:
 
     try:
         RATE_LIMIT_FALLBACK_REQUESTS.labels(instance_id=instance_id).inc()
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record fallback request: {e}")
 
 
@@ -232,7 +232,7 @@ def record_distributed_metrics(instance_count: int, total_rejections: int) -> No
         RATE_LIMIT_INSTANCE_COUNT.set(instance_count)
         # Note: Counter can only increment, so we track delta
         # This is called periodically with the current total
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.debug(f"Failed to record distributed metrics: {e}")
 
 
@@ -302,7 +302,7 @@ def get_rate_limit_metrics() -> dict[str, Any]:
             "circuit_breaker_states": circuit_breaker_states,
         }
 
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.debug(f"Failed to collect rate limit metrics: {e}")
         return {"prometheus_available": True, "error": "Failed to collect rate limit metrics"}
 

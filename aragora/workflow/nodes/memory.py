@@ -140,7 +140,7 @@ class MemoryReadStep(BaseStep):
             _emit(False, 0, query, "Knowledge Mound not available")
             return response
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error(f"Memory read failed: {e}")
             response = {"items": [], "total_count": 0, "query": query, "error": "Memory read failed"}
             _emit(False, 0, query, "Memory read failed")
@@ -308,7 +308,7 @@ class MemoryWriteStep(BaseStep):
             _emit(False, "Knowledge Mound not available")
             return response
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error(f"Memory write failed: {e}")
             response = {"success": False, "error": "Memory write failed"}
             _emit(False, "Memory write failed")

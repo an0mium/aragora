@@ -497,6 +497,6 @@ class TestDependencyGetters:
 
     def test_get_known_agents_store_error(self, handler):
         mock_store = MagicMock()
-        mock_store.get_all_reputations.side_effect = RuntimeError("DB error")
+        mock_store.get_all_reputations.side_effect = OSError("DB error")
         agents = handler._get_known_agents(mock_store)
         assert agents == handler.DEFAULT_AGENTS

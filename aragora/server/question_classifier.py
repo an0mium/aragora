@@ -336,7 +336,7 @@ Guidelines:
                 reasoning=result.get("reasoning", ""),
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, KeyError) as e:
             logger.warning(f"Classification failed, using simple fallback: {e}")
             return self.classify_simple(question)
 

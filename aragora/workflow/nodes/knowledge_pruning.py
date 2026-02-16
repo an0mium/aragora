@@ -143,7 +143,7 @@ class KnowledgePruningStep(BaseStep):
                 "errors": result.errors if hasattr(result, "errors") else [],
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error(f"Pruning step failed: {e}")
             return {
                 "success": False,
@@ -232,7 +232,7 @@ class KnowledgeDedupStep(BaseStep):
 
             return result_data
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error(f"Dedup step failed: {e}")
             return {
                 "success": False,
@@ -317,7 +317,7 @@ class ConfidenceDecayStep(BaseStep):
                 "items_decayed": items_decayed,
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.error(f"Confidence decay step failed: {e}")
             return {
                 "success": False,
@@ -365,5 +365,5 @@ def _register_pruning_handlers():
 # Auto-register handlers on module load
 try:
     _register_pruning_handlers()
-except Exception as e:
+except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
     logger.warning(f"Could not register pruning handlers: {e}")

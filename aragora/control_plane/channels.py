@@ -344,7 +344,7 @@ class SlackProvider(ChannelProvider):
                 channel=NotificationChannel.SLACK,
                 error="httpx not installed",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning("Slack notification failed: %s", e)
             return NotificationResult(
                 success=False,
@@ -467,7 +467,7 @@ class TeamsProvider(ChannelProvider):
                 channel=NotificationChannel.TEAMS,
                 error="httpx not installed",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning("Teams notification failed: %s", e)
             return NotificationResult(
                 success=False,
@@ -584,7 +584,7 @@ class WebhookProvider(ChannelProvider):
                 channel=NotificationChannel.WEBHOOK,
                 error="httpx not installed",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning("Webhook notification failed: %s", e)
             return NotificationResult(
                 success=False,
@@ -671,12 +671,12 @@ class NotificationManager:
                     config = ChannelConfig.from_dict(data)
                     self._channels.append(config)
                     loaded += 1
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Failed to load channel config {config_id}: {e}")
 
             logger.info(f"Loaded {loaded} notification channel configs from Redis")
             return loaded
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to load channel configs: {e}")
             return 0
 
@@ -694,7 +694,7 @@ class NotificationManager:
                 json.dumps(config.to_dict()),
             )
             return True
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to persist channel config: {e}")
             return False
 
@@ -706,7 +706,7 @@ class NotificationManager:
         try:
             await self._redis.hdel(self.REDIS_CHANNEL_KEY, config_id)
             return True
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to delete channel config: {e}")
             return False
 
@@ -910,7 +910,7 @@ class NotificationManager:
                     f"Failed to send notification to {config.channel_type.value}: {result.error}",
                 )
             return result
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, AttributeError) as e:
             logger.error(f"Error sending notification to {config.channel_type.value}: {e}")
             return NotificationResult(
                 success=False,

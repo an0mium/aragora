@@ -191,7 +191,7 @@ def check_tier_rate_limit(
                     org = user_store.get_organization_by_id(auth_ctx.org_id)
                     if org:
                         tier = org.tier.value
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as e:
             logger.debug(f"Could not extract user tier: {e}")
 
     return limiter.allow(client_key, tier)

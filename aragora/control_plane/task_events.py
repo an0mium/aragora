@@ -116,7 +116,7 @@ async def emit_task_submitted(
                 **(metadata or {}),
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_submitted", "error": str(e)}
         )
@@ -155,7 +155,7 @@ async def emit_task_claimed(
                 "agent_id": agent_id,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_claimed", "error": str(e)}
         )
@@ -197,7 +197,7 @@ async def emit_task_completed(
                 "duration_seconds": duration_seconds,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_completed", "error": str(e)}
         )
@@ -246,7 +246,7 @@ async def emit_task_failed(
                 "will_retry": will_retry,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_failed", "error": str(e)}
         )
@@ -293,7 +293,7 @@ async def emit_task_timeout(
                 "timeout_seconds": timeout_seconds,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_timeout", "error": str(e)}
         )
@@ -335,7 +335,7 @@ async def emit_task_retried(
                 "max_retries": max_retries,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_retried", "error": str(e)}
         )
@@ -376,7 +376,7 @@ async def emit_task_cancelled(
                 "reason": reason,
             },
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.warning(
             "task_event_emission_failed", extra={"event": "task_cancelled", "error": str(e)}
         )

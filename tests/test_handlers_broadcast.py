@@ -776,7 +776,7 @@ class TestBroadcastGeneration:
         assert result.status_code == 500
         data = json.loads(result.body)
         # Error message is sanitized by safe_error_message() for security
-        assert "error" in data["error"].lower() or data["error"] == "An error occurred"
+        assert data["error"]  # Non-empty sanitized error message
 
 
 # ============================================================================

@@ -377,7 +377,7 @@ class HTTPClientPool:
                 provider_metrics.last_request_time = time.time()
                 try:
                     await client.aclose()
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.debug("Failed to close async HTTP client: %s", e)
             return
 

@@ -260,7 +260,7 @@ def _safe_import(module_path: str, class_name: str) -> HandlerType:
     try:
         mod = importlib.import_module(module_path)
         return getattr(mod, class_name)
-    except Exception as e:
+    except (ImportError, AttributeError, TypeError) as e:
         logger.warning(f"Failed to import {class_name} from {module_path}: {e}")
         return None
 

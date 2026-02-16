@@ -169,7 +169,7 @@ class TestRecommendEndpoint:
         assert result[1] == 503
 
     def test_recommend_handles_exception(self, handler, mock_http_handler):
-        handler.ctx["elo_system"].get_leaderboard.side_effect = RuntimeError("db error")
+        handler.ctx["elo_system"].get_leaderboard.side_effect = TypeError("db error")
         result = handler.handle("/api/v1/agents/recommend", {}, mock_http_handler)
         assert result is not None
         assert result[1] == 500
@@ -243,7 +243,7 @@ class TestLeaderboardEndpoint:
         assert result[1] == 503
 
     def test_leaderboard_handles_exception(self, handler, mock_http_handler):
-        handler.ctx["elo_system"].get_cached_leaderboard.side_effect = RuntimeError("fail")
+        handler.ctx["elo_system"].get_cached_leaderboard.side_effect = TypeError("fail")
         result = handler.handle("/api/v1/agents/leaderboard", {}, mock_http_handler)
         assert result is not None
         assert result[1] == 500

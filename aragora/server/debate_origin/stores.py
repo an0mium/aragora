@@ -287,7 +287,7 @@ async def _get_postgres_store() -> PostgresOriginStore | None:
         await _postgres_store.initialize()
         logger.info("PostgreSQL origin store initialized")
         return _postgres_store
-    except Exception as e:
+    except (ImportError, ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         logger.warning(f"PostgreSQL origin store not available: {e}")
         return None
 

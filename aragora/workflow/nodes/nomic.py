@@ -142,14 +142,14 @@ class NomicLoopStep(BaseStep):
                     from aragora.agents.base import AgentType as AgentTypeLiteral
 
                     agent_instances.append(create_agent(cast(AgentTypeLiteral, agent_type)))
-                except Exception as exc:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.warning("Failed to create agent %s: %s", agent_type, exc)
 
             claude_agent = _find_agent(agent_instances, {"claude", "anthropic-api"})
             if claude_agent is None:
                 try:
                     claude_agent = create_agent("claude")
-                except Exception as exc:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.debug("Failed to create claude agent: %s", exc)
                     claude_agent = None
 
@@ -157,7 +157,7 @@ class NomicLoopStep(BaseStep):
             if codex_agent is None:
                 try:
                     codex_agent = create_agent("codex")
-                except Exception as exc:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.debug("Failed to create codex agent: %s", exc)
                     codex_agent = None
 
@@ -174,7 +174,7 @@ class NomicLoopStep(BaseStep):
 
                 profile = NomicDebateProfile.from_env()
                 debate_config = profile.to_debate_config()
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                 logger.debug("Failed to load debate profile, using defaults: %s", exc)
                 debate_config = DebateConfig(rounds=DebateSettings().default_rounds)
 
@@ -186,7 +186,7 @@ class NomicLoopStep(BaseStep):
             async def _generate_implement_plan(design: str, repo: Path):
                 try:
                     return await generate_implement_plan(design, repo)
-                except Exception as exc:
+                except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as exc:
                     logger.warning("Plan generation failed, using fallback: %s", exc)
                     return create_single_task_plan(design, repo)
 
@@ -245,7 +245,7 @@ class NomicLoopStep(BaseStep):
                             reviewers=implementers,
                             log_fn=logger.info,
                         )
-                    except Exception as exc:
+                    except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                         logger.warning("Failed to initialize GastownConvoyExecutor: %s", exc)
                         executor = None
 
@@ -271,7 +271,7 @@ class NomicLoopStep(BaseStep):
                             enable_cross_check=True,
                             log_fn=logger.info,
                         )
-                    except Exception as exc:
+                    except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                         logger.warning("Failed to initialize ConvoyImplementExecutor: %s", exc)
                         executor = None
 

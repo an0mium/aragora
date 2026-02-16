@@ -319,7 +319,11 @@ class TaskDecomposer:
         # mentions, no technical keywords, and no concept terms is almost
         # certainly a broad directive like "maximize utility for SMEs".
         vagueness_bonus = 0.0
-        if file_score == 0 and keyword_score < 2 and concept_score <= 1:
+        # Check for specific path references that indicate a targeted goal
+        has_path_ref = bool(
+            re.search(r"aragora/\w+|tests/\w+|sdk/\w+|scripts/\w+|src/\w+", task_lower)
+        )
+        if file_score == 0 and keyword_score < 2 and concept_score <= 1 and not has_path_ref:
             # Check for strategic/broad language that signals high-level goals
             strategic_terms = {
                 "maximize", "minimise", "minimize", "optimise", "optimize",

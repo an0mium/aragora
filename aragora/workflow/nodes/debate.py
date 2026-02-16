@@ -104,7 +104,7 @@ class DebateStep(BaseStep):
                 try:
                     agent = create_agent(agent_type)
                     agents.append(agent)
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                     logger.warning(f"Failed to create agent {agent_type}: {e}")
 
             if not agents:
@@ -143,7 +143,7 @@ class DebateStep(BaseStep):
                         k: v for k, v in interpolated_config.items() if k in valid_fields
                     }
                     arena_config = ArenaConfig(**filtered_config)
-                except Exception as e:
+                except (ImportError, TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                     logger.warning(f"Failed to build ArenaConfig: {e}")
 
             # Get memory systems from context if available
@@ -248,7 +248,7 @@ class DebateStep(BaseStep):
             logger.warning(f"Aragora debate components not available: {e}")
             return {"success": False, "error": f"Debate components not available: {e}"}
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
             logger.error(f"Debate execution failed: {e}")
             return {"success": False, "error": "Debate execution failed"}
 
@@ -326,7 +326,7 @@ class QuickDebateStep(BaseStep):
                         ),
                         "success": True,
                     }
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
                     logger.warning("Agent %s response failed: %s", agent_type_str, e)
                     return {"agent": agent_type_str, "error": "Agent response failed", "success": False}
 
@@ -360,7 +360,7 @@ class QuickDebateStep(BaseStep):
                 "agents_total": len(agent_types),
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.error("Multi-agent query failed: %s", e)
             return {"success": False, "error": "Multi-agent query failed"}
 

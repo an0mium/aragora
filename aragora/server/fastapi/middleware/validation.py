@@ -164,7 +164,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
             except json.JSONDecodeError:
                 # Let FastAPI handle JSON decode errors downstream
                 pass
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, RuntimeError) as e:
                 logger.error(f"Validation middleware error: {e}")
                 # Don't block on unexpected errors in validation itself
 

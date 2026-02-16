@@ -1432,7 +1432,13 @@ class TestDebateAsync:
     @pytest.mark.asyncio
     async def test_run_debate_async_no_agents(self, handler):
         """Test debate fails gracefully when no agents available."""
-        with patch("aragora.agents.get_agents_by_names", return_value=[]):
+        mock_arena = MagicMock()
+        mock_protocol = MagicMock()
+        mock_env = MagicMock()
+        with patch("aragora.Arena", mock_arena, create=True), \
+             patch("aragora.DebateProtocol", mock_protocol, create=True), \
+             patch("aragora.Environment", mock_env, create=True), \
+             patch("aragora.agents.get_agents_by_names", return_value=[]):
             with patch.object(handler, "_send_message_async") as mock_send:
                 await handler._run_debate_async(123, 456, "user", "Test debate topic here")
 

@@ -212,7 +212,7 @@ class EmailProvider(ChannelProvider):
                 message_id=str(uuid.uuid4()),
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, smtplib.SMTPException) as e:
             logger.error(f"Email send error: {e}")
             return NotificationResult(
                 success=False,
@@ -518,7 +518,7 @@ class NotificationDispatcher:
             self._update_channel_metrics(channel, success=False)
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, AttributeError) as e:
             breaker.record_failure()
             self._metrics["total_failed"] += 1
             self._update_channel_metrics(channel, success=False)
@@ -578,7 +578,7 @@ class NotificationDispatcher:
                 {"data": json.dumps(queued.to_dict())},
             )
             logger.info(f"Queued notification {queued.id} for {config.channel_type.value}")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to queue notification: {e}")
 
     async def start_worker(self) -> None:
@@ -622,7 +622,7 @@ class NotificationDispatcher:
                 id="0",
                 mkstream=True,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             if "BUSYGROUP" not in str(e):
                 logger.error(f"Failed to create consumer group: {e}")
                 return
@@ -649,7 +649,7 @@ class NotificationDispatcher:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.error(f"Worker error: {e}")
                 await asyncio.sleep(5)
 
@@ -711,7 +711,7 @@ class NotificationDispatcher:
                     )
                     await self._redis.xdel(self._config.queue_stream_key, message_id)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, TypeError, json.JSONDecodeError, KeyError) as e:
             logger.error(f"Error processing queued message: {e}")
 
     async def _move_to_dlq(
@@ -733,7 +733,7 @@ class NotificationDispatcher:
                 maxlen=10000,  # Keep last 10k failed notifications
             )
             logger.warning(f"Moved notification {queued.id} to DLQ after max retries")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to move to DLQ: {e}")
 
     # =========================================================================
@@ -913,7 +913,7 @@ async def send_security_notification(
         )
         # Consider success if any channel delivered
         return any(r.success for r in results)
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to send security notification: {e}")
         return False
 

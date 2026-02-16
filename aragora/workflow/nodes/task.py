@@ -104,7 +104,7 @@ class TaskStep(BaseStep):
             else:
                 return {"success": False, "error": f"Unknown task type: {task_type}"}
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, ImportError) as e:
             logger.error(f"Task execution failed: {e}")
             return {"success": False, "error": "Task execution failed"}
 
@@ -164,7 +164,7 @@ class TaskStep(BaseStep):
 
         except asyncio.TimeoutError:
             return {"success": False, "error": f"Request timed out after {timeout}s"}
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning("HTTP task execution failed: %s", e)
             return {"success": False, "error": "HTTP request failed"}
 

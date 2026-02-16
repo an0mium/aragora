@@ -153,7 +153,7 @@ class TenantRateLimiter:
                         burst = api_limit.burst_limit
                     else:
                         burst = int(limit * BURST_MULTIPLIER)
-            except Exception as e:
+            except (ImportError, ValueError, TypeError, KeyError, RuntimeError) as e:
                 logger.debug("QuotaManager lookup failed for tenant %s, using defaults: %s", tenant_id, e)
 
         with self._lock:

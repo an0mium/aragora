@@ -371,7 +371,7 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
         return False, f"Redis connection timed out after {timeout_seconds}s"
     except (ConnectionError, OSError, ValueError, RuntimeError) as e:
         return False, f"Redis connection failed: {e}"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError doesn't inherit builtins.ConnectionError
         # Catch redis.exceptions.ConnectionError and other client-specific errors
         # (redis.exceptions.ConnectionError is NOT a subclass of builtin ConnectionError)
         if "ConnectionError" in type(e).__name__ or "redis" in type(e).__module__:

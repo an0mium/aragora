@@ -247,12 +247,12 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
                                 logger.warning(
                                     f"Failed to refresh Slack token for {workspace.workspace_id}"
                                 )
-                        except Exception as e:
+                        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                             logger.error(
                                 f"Error refreshing token for {workspace.workspace_id}: {e}"
                             )
 
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.error(f"Error in Slack token refresh scheduler: {e}")
 
                 await asyncio.sleep(refresh_interval)

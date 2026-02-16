@@ -1,6 +1,6 @@
 # AI Agent Coordination
 
-**Last updated:** 2026-01-24
+**Last updated:** 2026-02-16
 **Maintainer:** Update this file when starting/finishing work
 
 ---
@@ -35,7 +35,7 @@
 
 -->
 
-*No active sessions recorded*
+*No active sessions*
 
 ---
 
@@ -43,8 +43,14 @@
 
 | Date | Agent | Task | Issue | Commit |
 |------|-------|------|-------|--------|
-| 2026-01-24 | Claude | SentenceTransformer mock for tests | - | 520adee |
-| 2026-01-24 | Claude | OAuth prefix test fix | - | a0b7f27 |
+| 2026-02-16 | Claude Opus 4.6 | Working tree cleanup + worktree consolidation | - | db54711..fa10308 |
+| 2026-02-16 | Claude Opus 4.6 | Exception handler narrowing (debate, server, workflow) | - | 93edccef..47c7f89 |
+| 2026-02-16 | Claude Opus 4.6 | SDK cost estimation + TS features namespace | - | b301d86 |
+| 2026-02-16 | Claude Opus 4.6 | CI: TypeScript SDK type check job | - | 13efc0c |
+| 2026-02-16 | Claude Opus 4.6 | Frontend: debate export UX + cost error handling | - | (in b301d86) |
+| 2026-02-15 | Claude | Worktree sessions script + dogfood tests (14 tests) | - | 52c7203..9225a99 |
+| 2026-02-14 | Claude | Handler routing bug class fixes (10 handlers) | - | various |
+| 2026-02-13 | Claude | Handler test suite: 19,776 tests, 0 failures | - | various |
 
 ---
 
@@ -70,27 +76,27 @@ Session 3 claims: tests/
 
 **SME Track:**
 - [ ] #100 SME starter pack GA documentation
-- [ ] #99 ROI/usage dashboard
+- [ ] #99 ROI/usage dashboard ← **next up**
 - [ ] #92 RBAC-lite for workspace members
-- [ ] #91 Workspace admin UI
+- [ ] #91 Workspace admin UI ← **next up**
 
 **Developer Track:**
-- [ ] #103 API coverage tests
-- [ ] #102 SDK parity pass #2
-- [ ] #94 SDK docs portal landing page
+- [x] #103 API coverage tests (142,211 tests, 2,000+ API ops)
+- [x] #102 SDK parity pass #2 (100% TS/Python parity)
+- [ ] #94 SDK docs portal / developer quickstart ← **next up**
 
 **Self-Hosted Track:**
-- [ ] #106 Production deployment checklist
-- [ ] #105 Self-hosted GA sign-off
-- [ ] #96 Backup and restore scripts
+- [ ] #106 Production deployment guide ← **next up**
+- [ ] #105 Self-hosted GA sign-off / checklist
+- [x] #96 Backup and restore scripts (BackupManager implemented)
 
 **QA Track:**
-- [ ] #107 E2E smoke tests
-- [ ] #90 Integration test matrix
+- [x] #107 E2E smoke tests (CI workflows active)
+- [x] #90 Integration test matrix (randomized seeds: 12345, 54321, 99999)
 
 ### P1 - Should Do
 
-- [ ] #108 Nightly CI smoke test runs
+- [x] #108 Nightly CI smoke test runs (implemented in CI)
 - [ ] #104 Developer portal GA
 - [ ] #101 User feedback collection
 - [ ] #98 Automated changelog generation
@@ -207,6 +213,6 @@ See `aragora/nomic/autonomous_orchestrator.py` for full API.
 Based on recent commits, follow these patterns:
 
 - **Commit messages:** `type(scope): description` (e.g., `fix(tests): add mock`)
-- **Co-author:** Add `Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
+- **Co-author:** Add `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - **Test before commit:** Always run tests
 - **Small commits:** One logical change per commit

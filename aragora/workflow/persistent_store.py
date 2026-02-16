@@ -790,7 +790,7 @@ def get_workflow_store(
 
                 logger.info("Using PostgreSQL workflow store backend (sync init via run_async)")
                 _workflow_store_instance = run_async(create_postgres_workflow_store())
-            except Exception as e:
+            except (ImportError, RuntimeError, ConnectionError, OSError, ValueError, TypeError) as e:
                 logger.warning(
                     f"PostgreSQL workflow store initialization failed, falling back to SQLite: {e}",
                 )

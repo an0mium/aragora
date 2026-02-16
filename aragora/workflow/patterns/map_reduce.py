@@ -262,7 +262,7 @@ def _register_map_reduce_handlers():
                             timeout=timeout_per_chunk,
                         )
                         return {"index": index, "result": result, "success": True}
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
                         logger.warning("Map-reduce chunk %d failed: %s", index, e)
                         return {"index": index, "error": "Chunk processing failed", "success": False}
 

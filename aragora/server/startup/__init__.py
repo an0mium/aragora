@@ -294,7 +294,7 @@ async def _run_migrations(os: Any) -> dict[str, Any]:
                 logger.info("Auto-migrations completed successfully")
             elif not migration_results.get("skipped"):
                 logger.warning(f"Auto-migrations had issues: {migration_results}")
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.error(f"Auto-migration failed: {e}")
             migration_results = {"error": str(e), "skipped": False}
     return migration_results
@@ -483,7 +483,7 @@ async def _init_all_components(
     except ImportError:
         logger.debug("Ingestion DLQ module not available")
         status["ingestion_dlq"] = False
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.debug(f"Ingestion DLQ processing failed: {e}")
         status["ingestion_dlq"] = False
 
@@ -500,7 +500,7 @@ async def _init_all_components(
     except ImportError:
         logger.debug("CostTracker not available")
         status["cost_tracker"] = False
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"CostTracker initialization failed: {e}")
         status["cost_tracker"] = False
 

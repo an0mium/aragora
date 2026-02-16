@@ -214,7 +214,7 @@ class HandlerRegistryMixin:
         # Check for unregistered handler classes in the codebase
         try:
             check_handler_coverage(active_registry)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.debug(f"[handlers] Handler coverage check failed: {e}")
 
         # Validate instantiated handlers

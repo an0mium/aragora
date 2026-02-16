@@ -426,7 +426,7 @@ class ConnectorStep(BaseStep):
                 logger.warning(f"[ConnectorStep] {self._name}: {e}, retrying in {delay}s...")
                 await asyncio.sleep(delay)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError, KeyError) as e:
                 logger.error(f"[ConnectorStep] {self._name}: Unexpected error: {e}")
                 raise
 

@@ -569,7 +569,7 @@ class OAuthRateLimiter:
         except ImportError:
             # Audit module not available
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug(f"Failed to log security audit event: {e}")
 
     def reset_client(self, client_ip: str) -> None:

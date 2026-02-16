@@ -388,7 +388,7 @@ class TestSFTExport:
     def test_sft_export_handles_exception(self, training_handler, mock_handler):
         """Test SFT export handles exporter exceptions."""
         mock_exporter = MagicMock()
-        mock_exporter.export.side_effect = Exception("Database error")
+        mock_exporter.export.side_effect = RuntimeError("Database error")
 
         with patch.object(training_handler, "_get_sft_exporter", return_value=mock_exporter):
             result = training_handler.handle_export_sft(

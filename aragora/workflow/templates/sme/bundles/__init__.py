@@ -132,7 +132,7 @@ def get_bundle(bundle_id: str) -> dict[str, Any] | None:
     try:
         with open(yaml_path) as f:
             return yaml.safe_load(f)
-    except Exception as e:
+    except (yaml.YAMLError, OSError, ValueError, TypeError) as e:
         logger.error(f"Failed to load bundle {bundle_id}: {e}")
         return None
 

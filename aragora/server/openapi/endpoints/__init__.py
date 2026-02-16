@@ -89,7 +89,7 @@ def _get_decorator_endpoints() -> dict[str, Any]:
         return get_registered_endpoints_dict()
     except ImportError:
         return {}
-    except Exception as exc:
+    except (AttributeError, RuntimeError, ValueError) as exc:
         logger.warning("Failed to load decorator endpoints: %s", exc)
         return {}
 

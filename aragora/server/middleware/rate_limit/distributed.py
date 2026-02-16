@@ -183,7 +183,7 @@ class DistributedRateLimiter:
                         f"Distributed rate limiter initialized with Redis backend "
                         f"(instance={self.instance_id})"
                     )
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning(f"Failed to create Redis rate limiter: {e}")
                     self._redis_limiter = None
                     self._using_redis = False
@@ -313,7 +313,7 @@ class DistributedRateLimiter:
                 # Use in-memory limiter
                 result = self._memory_limiter.allow(client_ip, endpoint, token, tenant_id)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Rate limit check failed, using fallback: {e}")
             self._fallback_requests += 1
             if self.enable_metrics:

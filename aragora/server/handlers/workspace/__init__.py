@@ -50,6 +50,7 @@ __all__ = [
     "WorkspaceMembersMixin",
     "WorkspaceInvitesMixin",
     "WorkspaceSettingsMixin",
+    "WorkspaceActivityMixin",
     # Feature flags (for test patching compatibility)
     "RBAC_AVAILABLE",
     "PROFILES_AVAILABLE",
@@ -78,6 +79,7 @@ _WORKSPACE_EXPORTS = {
     "WorkspaceMembersMixin",
     "WorkspaceInvitesMixin",
     "WorkspaceSettingsMixin",
+    "WorkspaceActivityMixin",
     "RBAC_AVAILABLE",
     "PROFILES_AVAILABLE",
     "extract_user_from_request",

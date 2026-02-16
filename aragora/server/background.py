@@ -560,7 +560,7 @@ class BackgroundTaskManager:
                 duration,
                 task.run_count,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Background task scheduler: must catch all errors to continue running other tasks
             task.error_count += 1
             logger.error(
                 "Background task %s failed (errors=%d): %s",

@@ -152,7 +152,7 @@ class KnowledgePipelineStep(BaseStep):
                     )
                     results.append(result)
                     self._documents_processed += result.get("documents", 0)
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
                     logger.error(f"Failed to process source '{source}': {e}")
                     errors.append(
                         {
@@ -226,7 +226,7 @@ class KnowledgePipelineStep(BaseStep):
                     )
                     documents_processed += 1
                     chunks_created += result.get("chunks_created", 0)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError, UnicodeDecodeError) as e:
                     logger.warning(f"Failed to process {file_path}: {e}")
 
         return {
@@ -346,7 +346,7 @@ class KnowledgePipelineStep(BaseStep):
                 "chunks": chunks_created,
             }
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, ConnectionError, AttributeError) as e:
             logger.error(f"Connector processing failed: {e}")
             return {
                 "source": source,

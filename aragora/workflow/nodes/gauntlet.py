@@ -320,7 +320,7 @@ class GauntletStep(BaseStep):
                             "score": check_result.get("score", 0.0),
                         }
                     )
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
                     logger.error(f"Compliance check failed for {framework}: {e}")
                     results.append(
                         {
