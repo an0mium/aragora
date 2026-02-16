@@ -82,6 +82,8 @@ class PromptContextMixin:
     claims_kernel: Any
     include_prior_claims: bool
     _pulse_topics: list
+    _knowledge_context: str
+    _km_item_ids: list
 
     def get_deliberation_template_context(self) -> str:
         """Get deliberation template context for prompt injection.
