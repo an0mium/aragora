@@ -343,7 +343,7 @@ class TestBrowserExecuteScriptTool:
     async def test_execute_script_failure(self):
         """Test script execution failure."""
         mock_connector = AsyncMock()
-        mock_connector.execute_script.side_effect = Exception("Script error")
+        mock_connector.execute_script.side_effect = RuntimeError("Script error")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -429,7 +429,7 @@ class TestBrowserGetHtmlTool:
     async def test_get_html_failure(self):
         """Test get HTML failure."""
         mock_connector = AsyncMock()
-        mock_connector.get_html.side_effect = Exception("No page")
+        mock_connector.get_html.side_effect = RuntimeError("No page")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -490,7 +490,7 @@ class TestBrowserCookieTools:
     async def test_get_cookies_failure(self):
         """Test get cookies failure."""
         mock_connector = AsyncMock()
-        mock_connector.get_cookies.side_effect = Exception("No context")
+        mock_connector.get_cookies.side_effect = RuntimeError("No context")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",
@@ -519,7 +519,7 @@ class TestBrowserCookieTools:
     async def test_clear_cookies_failure(self):
         """Test clear cookies failure."""
         mock_connector = AsyncMock()
-        mock_connector.clear_cookies.side_effect = Exception("Failed")
+        mock_connector.clear_cookies.side_effect = RuntimeError("Failed")
 
         with patch(
             "aragora.mcp.tools_module.browser._get_connector",

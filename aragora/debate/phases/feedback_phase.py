@@ -157,6 +157,8 @@ class FeedbackPhase:
         # Meta-Learning for self-tuning hyperparameters
         meta_learner: Any | None = None,  # MetaLearner for auto-tuning learning hyperparameters
         enable_meta_learning: bool = True,  # Evaluate and adjust after each debate
+        # Argument Map export
+        argument_cartographer: Any | None = None,  # ArgumentCartographer for auto-exporting debate maps
     ):
         """
         Initialize the feedback phase.
@@ -250,6 +252,9 @@ class FeedbackPhase:
         # Meta-Learning
         self.meta_learner = meta_learner
         self.enable_meta_learning = enable_meta_learning
+
+        # Argument Map
+        self.argument_cartographer = argument_cartographer
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -432,6 +437,9 @@ class FeedbackPhase:
         # 33. Evaluate and adjust meta-learning hyperparameters
         self._evaluate_meta_learning(ctx)
 
+        # 34. Export argument map (mermaid + JSON) for debate visualization
+        self._export_argument_map(ctx)
+
     def _update_introspection_feedback(self, ctx: DebateContext) -> None:
         """Update agent introspection data based on debate performance.
 
@@ -512,6 +520,55 @@ class FeedbackPhase:
                     )
         except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.debug("[meta_learning] Evaluation failed: %s", e)
+
+    def _export_argument_map(self, ctx: DebateContext) -> None:
+        """Export argument map as mermaid and JSON for debate visualization.
+
+        When an ArgumentCartographer is available, exports:
+        - Mermaid diagram for rendering in docs/dashboards
+        - JSON graph for API access and replay
+        Emits an event with the exported data for real-time clients.
+        """
+        if not self.argument_cartographer:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            debate_id = getattr(result, "id", None) or getattr(ctx, "debate_id", "unknown")
+            node_count = len(getattr(self.argument_cartographer, "nodes", {}))
+            if node_count == 0:
+                return
+
+            mermaid = self.argument_cartographer.export_mermaid()
+            json_graph = self.argument_cartographer.export_json()
+
+            logger.info(
+                "[argument_map] Exported map for debate %s: %d nodes, %d edges",
+                debate_id,
+                node_count,
+                len(getattr(self.argument_cartographer, "edges", [])),
+            )
+
+            # Emit event for real-time clients
+            if self.event_emitter:
+                try:
+                    from aragora.server.stream.events import StreamEvent, StreamEventType
+                    self.event_emitter.emit(StreamEvent(
+                        type=StreamEventType.ARGUMENT_MAP_UPDATED,
+                        data={
+                            "debate_id": debate_id,
+                            "mermaid": mermaid[:2000],  # Truncate for event payload
+                            "node_count": node_count,
+                            "edge_count": len(getattr(self.argument_cartographer, "edges", [])),
+                        },
+                    ))
+                except (ImportError, AttributeError, TypeError):
+                    pass
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            logger.debug("[argument_map] Export failed: %s", e)
 
     async def _maybe_trigger_workflow(self, ctx: DebateContext) -> None:
         """Trigger post-debate workflow for high-quality debates.

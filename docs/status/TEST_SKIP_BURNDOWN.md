@@ -193,3 +193,16 @@ Category changes (94 documented -> 185 actual):
 Updated `tests/.skip_baseline` from 187 to 185 (actual count).
 Top contributor: `tests/sdk/test_openclaw_parity.py` (15 skips) -- OpenClaw SDK
 parity tests for endpoints not yet implemented.
+
+#### Week 4 burndown (2026-02-16)
+
+Removed **15 skip markers** from `tests/sdk/test_openclaw_parity.py` (15 -> 0).
+
+The file contained 15 conditional `pytest.skip()` guards that checked whether SDK
+artifact files (Python SDK, TypeScript SDK, Python client, OpenAPI spec, server
+handler) existed before running parity assertions. All 5 files are present and
+maintained, so the guards were never triggered at runtime -- but the static audit
+script counted them as skips. Replaced all `pytest.skip()` guards with direct
+`assert` calls that produce clear error messages if files are ever removed.
+
+Updated `tests/.skip_baseline` from 136 to 120 (actual count).
