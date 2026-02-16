@@ -202,7 +202,7 @@ class UsageStreamEmitter:
                     await callback(event)
                 else:
                     callback(event)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 logger.warning(f"[UsageStream] Callback error: {e}")
 
         # Update aggregation state

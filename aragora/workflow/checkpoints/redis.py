@@ -99,7 +99,7 @@ class RedisCheckpointStore:
                         f"socket_timeout={self._socket_timeout}s, "
                         f"connect_timeout={self._socket_connect_timeout}s"
                     )
-            except Exception as e:
+            except (AttributeError, KeyError, TypeError, RuntimeError) as e:
                 logger.debug(f"Could not configure Redis socket timeouts: {e}")
         return self._redis
 
@@ -163,7 +163,7 @@ class RedisCheckpointStore:
             )
             return checkpoint_id
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             # Check for Redis timeout errors
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:
@@ -210,7 +210,7 @@ class RedisCheckpointStore:
             checkpoint_dict = json.loads(data)
             return self._dict_to_checkpoint(checkpoint_dict)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
             # Check for Redis timeout errors
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:
@@ -249,7 +249,7 @@ class RedisCheckpointStore:
         except ConnectionTimeoutError:
             # Re-raise timeout errors
             raise
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
             # Check for Redis timeout errors
             error_name = type(e).__name__
             if "Timeout" in error_name or "ConnectionError" in error_name:
@@ -274,7 +274,7 @@ class RedisCheckpointStore:
             results = redis.zrevrange(index_key, 0, -1)
             return [r.decode("utf-8") if isinstance(r, bytes) else r for r in results]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
             return []
 
@@ -305,7 +305,7 @@ class RedisCheckpointStore:
 
             return deleted > 0
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 
