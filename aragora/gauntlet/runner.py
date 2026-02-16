@@ -180,7 +180,7 @@ class GauntletRunner:
             )
             report_progress("verdict", 1.0)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
             logger.error(f"[gauntlet] Error during run: {e}")
             result.verdict_reasoning = f"Error during validation: {str(e)}"
 
@@ -265,7 +265,7 @@ class GauntletRunner:
                 try:
                     agent = self.agent_factory(agent_name)
                     agents.append(agent)
-                except Exception as e:
+                except (ValueError, RuntimeError, ImportError, OSError) as e:
                     logger.warning(f"[gauntlet] Could not create agent {agent_name}: {e}")
 
         if not agents:
@@ -279,7 +279,7 @@ class GauntletRunner:
                 # Use 4th agent as proposer/defender
                 proposer_agent = self.agent_factory(self.config.agents[3])
                 logger.info(f"[gauntlet] Using {self.config.agents[3]} as defender")
-            except Exception as e:
+            except (ValueError, RuntimeError, ImportError, OSError) as e:
                 logger.debug(f"[gauntlet] Could not create proposer agent: {e}")
 
         # Run red team
@@ -311,7 +311,7 @@ class GauntletRunner:
                 cat = attack.attack_type.value
                 summary.by_category[cat] = summary.by_category.get(cat, 0) + 1
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
             logger.error(f"[gauntlet] Red team error: {e}")
 
         return summary
@@ -383,7 +383,7 @@ class GauntletRunner:
                             cat = probe_type
                             summary.by_category[cat] = summary.by_category.get(cat, 0) + 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TimeoutError, OSError) as e:
                 logger.error(f"[gauntlet] Probe error for {agent_name}: {e}")
 
         summary.probes_run = total_probes
@@ -439,7 +439,7 @@ class GauntletRunner:
                             agent = self.agent_factory(agent_name)
                             if agent:
                                 agents.append(agent)
-                        except Exception as e:
+                        except (ValueError, RuntimeError, ImportError, OSError) as e:
                             logger.debug(f"Failed to create agent {agent_name}: {e}")
 
                 # Fallback to creating agents from names
@@ -499,7 +499,7 @@ class GauntletRunner:
                         "rounds_used": 0,
                     },
                 )()
-            except Exception as e:
+            except (RuntimeError, ValueError, TimeoutError, OSError) as e:
                 logger.error(f"[gauntlet] Arena debate error: {e}")
                 return type(
                     "Result",
@@ -540,7 +540,7 @@ class GauntletRunner:
             summary.avg_similarity = analysis.get("avg_similarity", 0)
             summary.conditional_patterns = analysis.get("conditional_patterns", {})
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
             logger.error(f"[gauntlet] Scenario matrix error: {e}")
 
         return summary
@@ -756,7 +756,7 @@ class GauntletRunner:
                 "policy_violations": result.policy_violations,
                 "executed": True,
             }
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
             logger.error(f"[gauntlet] Sandbox execution error: {e}")
             return {
                 "status": "error",

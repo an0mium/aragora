@@ -511,7 +511,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_km_failure_does_not_block_task(self, coordinator, mock_knowledge_mound):
         """KM storage failure should not block task completion."""
-        mock_knowledge_mound.ingest.side_effect = Exception("KM unavailable")
+        mock_knowledge_mound.ingest.side_effect = RuntimeError("KM unavailable")
 
         task_id = await coordinator.submit_task(
             task_type="test",

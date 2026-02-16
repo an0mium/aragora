@@ -149,7 +149,7 @@ class ReceiptDeliveryHook:
                 f"Receipt delivery complete: {success_count}/{len(subscriptions)} successful"
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.exception(f"Error in receipt delivery hook: {e}")
 
     async def _get_receipt_subscriptions(self) -> list[Any]:
@@ -176,7 +176,7 @@ class ReceiptDeliveryHook:
         except ImportError:
             logger.warning("Channel subscription store not available")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get subscriptions: {e}")
             return []
 
@@ -236,7 +236,7 @@ class ReceiptDeliveryHook:
 
             return receipt_data
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Failed to generate receipt: {e}")
             # Fallback to minimal receipt
             return {

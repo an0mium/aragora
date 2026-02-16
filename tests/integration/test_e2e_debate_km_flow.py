@@ -574,7 +574,7 @@ class TestEdgeCasesAndErrors:
         self, mock_get_mound, subscriber_manager, mock_knowledge_mound
     ):
         """Test graceful handling when store fails."""
-        mock_knowledge_mound.store = AsyncMock(side_effect=Exception("Store failed"))
+        mock_knowledge_mound.store = AsyncMock(side_effect=RuntimeError("Store failed"))
         mock_get_mound.return_value = mock_knowledge_mound
 
         event = StreamEvent(

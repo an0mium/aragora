@@ -651,7 +651,7 @@ class TestExtensionAdapterResilience:
         from aragora.knowledge.mound.adapters import FabricAdapter, PoolSnapshot
 
         class FailingKM:
-            async def store(self, *args, **kwargs):
+            async def ingest(self, *args, **kwargs):
                 raise ConnectionError("KM unavailable")
 
         adapter = FabricAdapter(workspace_id="test")

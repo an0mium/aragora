@@ -208,7 +208,7 @@ class GauntletStorage:
         for idx_sql in indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - DB driver exceptions (sqlite3.OperationalError, psycopg2.Error) lack common importable base
                 # Index may already exist with different definition
                 logger.debug(f"Index creation skipped: {e}")
 
@@ -243,7 +243,7 @@ class GauntletStorage:
         for idx_sql in inflight_indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - DB driver exceptions (sqlite3.OperationalError, psycopg2.Error) lack common importable base
                 logger.debug(f"Inflight index creation skipped: {e}")
 
     def save(self, result: Any, org_id: str | None = None) -> str:

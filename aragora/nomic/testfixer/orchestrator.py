@@ -444,6 +444,16 @@ class TestFixerOrchestrator:
                     analysis.confidence,
                     analysis.root_cause_file,
                 )
+                await self._emit_event(
+                    StreamEventType.TESTFIXER_ANALYSIS_COMPLETE,
+                    {
+                        "iteration": iteration,
+                        "category": analysis.category.value,
+                        "fix_target": analysis.fix_target.value,
+                        "confidence": analysis.confidence,
+                        "root_cause_file": analysis.root_cause_file,
+                    },
+                )
 
                 # Check if human needed
                 if analysis.fix_target == FixTarget.HUMAN:
@@ -482,6 +492,16 @@ class TestFixerOrchestrator:
                     proposal.id,
                     proposal.post_debate_confidence,
                     len(proposal.patches),
+                )
+                await self._emit_event(
+                    StreamEventType.TESTFIXER_FIX_PROPOSED,
+                    {
+                        "iteration": iteration,
+                        "proposal_id": proposal.id,
+                        "confidence": proposal.post_debate_confidence,
+                        "patch_count": len(proposal.patches),
+                        "description": proposal.description,
+                    },
                 )
 
                 # Check confidence
@@ -559,6 +579,15 @@ class TestFixerOrchestrator:
                 )
                 applied = proposal.apply_all(self.repo_path)
                 result.fixes_applied += 1
+                await self._emit_event(
+                    StreamEventType.TESTFIXER_FIX_APPLIED,
+                    {
+                        "iteration": iteration,
+                        "proposal_id": proposal.id,
+                        "applied": applied,
+                        "test_name": failure.test_name,
+                    },
+                )
 
                 if not applied:
                     logger.error(
@@ -660,6 +689,14 @@ class TestFixerOrchestrator:
                         )
                         proposal.revert_all(self.repo_path)
                         result.fixes_reverted += 1
+                        await self._emit_event(
+                            StreamEventType.TESTFIXER_FIX_REVERTED,
+                            {
+                                "iteration": iteration,
+                                "proposal_id": proposal.id,
+                                "test_name": failure.test_name,
+                            },
+                        )
 
                 if self.config.on_fix_applied:
                     await self.config.on_fix_applied(attempt)
@@ -681,6 +718,16 @@ class TestFixerOrchestrator:
                 # Save attempt if configured
                 if self.config.save_attempts and self.config.attempts_dir:
                     await self._save_attempt(attempt)
+
+                await self._emit_event(
+                    StreamEventType.TESTFIXER_ITERATION_COMPLETE,
+                    {
+                        "iteration": iteration,
+                        "fix_worked": fix_worked,
+                        "fixes_applied": result.fixes_applied,
+                        "fixes_successful": result.fixes_successful,
+                    },
+                )
 
             else:
                 # Loop completed without success
@@ -872,6 +919,21 @@ class TestFixerOrchestrator:
             learned = self.pattern_learner.learn_from_attempt(attempt)
             if learned:
                 attempt.notes.append(f"pattern_learned:{learned.id}")
+                if self._event_emitter:
+                    import asyncio
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(self._emit_event(
+                            StreamEventType.TESTFIXER_PATTERN_LEARNED,
+                            {
+                                "pattern_id": learned.id,
+                                "category": attempt.analysis.category.value,
+                                "success": attempt.success,
+                            },
+                        ))
+                    except RuntimeError:
+                        pass
         except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("testfixer.pattern_learn_error error=%s", exc)
 

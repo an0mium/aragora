@@ -97,7 +97,7 @@ async def initialize_shared_pool(
         logger.warning("[pool_manager] Force-reinitializing shared pool (stale connections)")
         try:
             await _shared_pool.close()
-        except Exception as close_err:
+        except (OSError, RuntimeError) as close_err:
             logger.warning("[pool_manager] Error closing stale pool: %s", close_err)
             try:
                 _shared_pool.terminate()
@@ -163,7 +163,7 @@ async def initialize_shared_pool(
                     statement_timeout=statement_timeout,
                 )
                 break
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 last_err = e
                 logger.warning(f"[pool_manager] Pool creation attempt {attempt + 1}/3 failed: {e}")
                 _ps_mod._pool = None
@@ -203,12 +203,12 @@ async def initialize_shared_pool(
         try:
             async with _shared_pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
             logger.error(f"[pool_manager] Pool health check failed after creation: {e}")
             # Pool is broken, clean up and fall back
             try:
                 _shared_pool.terminate()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning("Failed to terminate broken database pool: %s", e)
             _shared_pool = None
             _pool_event_loop = None
@@ -224,7 +224,7 @@ async def initialize_shared_pool(
         )
         return _shared_pool
 
-    except Exception as e:
+    except (OSError, RuntimeError, ConnectionError, TimeoutError, ImportError) as e:
         logger.error(f"[pool_manager] Failed to initialize shared pool: {e}")
         # Don't raise - let caller handle fallback to SQLite
         return None
@@ -342,7 +342,7 @@ def _ensure_pool_loop() -> asyncio.AbstractEventLoop | None:
                 logger.error("[pool_manager] Pool reinitialization returned None on dedicated loop")
                 new_loop.call_soon_threadsafe(new_loop.stop)
                 return None
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
             logger.error("[pool_manager] Failed to reinitialize pool on dedicated loop: %s", e)
             new_loop.call_soon_threadsafe(new_loop.stop)
             return None
@@ -398,7 +398,7 @@ async def close_shared_pool() -> None:
     try:
         await _shared_pool.close()
         logger.info("[pool_manager] Shared pool closed")
-    except Exception as e:
+    except (OSError, RuntimeError, ConnectionError) as e:
         logger.warning(f"[pool_manager] Error closing shared pool: {e}")
     finally:
         old_loop = _pool_event_loop

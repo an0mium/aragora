@@ -133,7 +133,7 @@ class SourceGatheringMixin:
         except (ValueError, RuntimeError) as e:
             logger.warning("[research] Claude web search failed: %s", e)
             return None
-        except Exception as e:
+        except (TypeError, KeyError, AttributeError) as e:
             logger.warning("[research] Unexpected error in Claude web search: %s", e)
             return None
 
@@ -277,7 +277,7 @@ class SourceGatheringMixin:
         except (ValueError, KeyError, AttributeError) as e:
             logger.warning("[threat_intel] Enrichment failed: %s", e)
             return None
-        except Exception as e:
+        except (RuntimeError, TypeError) as e:
             logger.warning("[threat_intel] Unexpected error in enrichment: %s", e)
             return None
 
@@ -365,7 +365,7 @@ class SourceGatheringMixin:
             logger.warning("Evidence collection network/IO error: %s", e)
         except (ValueError, RuntimeError) as e:
             logger.warning("Evidence collection failed: %s", e)
-        except Exception as e:
+        except (TypeError, KeyError, AttributeError) as e:
             logger.warning("Unexpected error in evidence collection: %s", e)
 
         return None
@@ -424,7 +424,7 @@ class SourceGatheringMixin:
 
             return "\n".join(context_parts).strip()
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("[documents] Failed to gather document store context: %s", e)
             return None
 
@@ -463,7 +463,7 @@ class SourceGatheringMixin:
 
             return "\n".join(context_parts)
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("[evidence] Failed to gather evidence store context: %s", e)
             return None
 
@@ -532,7 +532,7 @@ class SourceGatheringMixin:
             logger.debug("Pulse context network error: %s", e)
         except (ValueError, RuntimeError) as e:
             logger.debug("Pulse context unavailable: %s", e)
-        except Exception as e:
+        except (TypeError, KeyError, AttributeError) as e:
             logger.warning("Unexpected error getting pulse context: %s", e)
 
         return None
@@ -689,7 +689,7 @@ class SourceGatheringMixin:
         except (ValueError, KeyError, AttributeError) as e:
             logger.warning("[knowledge] Knowledge Mound query failed: %s", e)
             return None
-        except Exception as e:
+        except (RuntimeError, TypeError) as e:
             logger.warning("[knowledge] Unexpected error in Knowledge Mound query: %s", e)
             return None
 
@@ -774,7 +774,7 @@ class SourceGatheringMixin:
         except (ValueError, AttributeError) as e:
             logger.debug("[belief] Crux gathering failed: %s", e)
             return None
-        except Exception as e:
+        except (RuntimeError, TypeError, KeyError) as e:
             logger.warning("[belief] Unexpected error gathering cruxes: %s", e)
             return None
 
@@ -876,7 +876,7 @@ class SourceGatheringMixin:
         except ImportError:
             logger.debug("[culture] CultureAccumulator not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("[culture] Failed to gather culture patterns: %s", e)
             return None
 
@@ -942,6 +942,6 @@ class SourceGatheringMixin:
 
             return len(evidence_pack.snippets), self._research_evidence_pack.get(task_hash)
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("Evidence refresh failed: %s", e)
             return 0, None

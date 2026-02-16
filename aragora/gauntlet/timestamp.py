@@ -315,7 +315,7 @@ class TimestampAuthority:
             error = f"TSA request failed: {str(e)}"
             logger.error(error)
             return TimestampResult(success=False, error=error)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
             error = f"Timestamp error: {str(e)}"
             logger.exception(error)
             return TimestampResult(success=False, error=error)

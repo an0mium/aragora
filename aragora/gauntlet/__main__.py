@@ -256,7 +256,7 @@ def main() -> int:
                 role=role,
             )
             agents.append(agent)
-        except Exception as e:
+        except (ValueError, RuntimeError, ImportError, OSError) as e:
             failed_agents.append((spec.provider, str(e)))
             if not args.quiet:
                 pass

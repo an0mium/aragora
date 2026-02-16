@@ -531,7 +531,7 @@ class GauntletOrchestrator:
         if self.on_phase_complete:
             try:
                 self.on_phase_complete(phase, result)
-            except Exception as exc:
+            except (ValueError, RuntimeError, TypeError, OSError) as exc:
                 logger.debug("Phase complete callback failed: %s", exc)
 
     def _notify_finding(self, finding: Any) -> None:
@@ -539,7 +539,7 @@ class GauntletOrchestrator:
         if self.on_finding:
             try:
                 self.on_finding(finding)
-            except Exception as exc:
+            except (ValueError, RuntimeError, TypeError, OSError) as exc:
                 logger.debug("Finding callback failed: %s", exc)
 
     async def _run_risk_assessment(self, input_text: str, config: Any) -> Any:
@@ -714,7 +714,7 @@ class GauntletOrchestrator:
             result.evaluate_pass_fail()
             result.current_phase = GauntletPhase.COMPLETE
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
             logger.warning(f"Pipeline gauntlet failed: {e}")
             result.current_phase = GauntletPhase.FAILED
             result.verdict_summary = f"Pipeline failed: {type(e).__name__}: {e}"

@@ -333,7 +333,7 @@ class ReceiptStore:
         for statement in schema_statements:
             try:
                 self._backend.execute_write(statement)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Schema statement skipped: {e}")
 
     # =========================================================================
@@ -906,7 +906,7 @@ class ReceiptStore:
                 is_valid=False,
                 error="Signing module not available",
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, KeyError, TypeError) as e:
             logger.warning(f"Signature verification failed: {e}")
             return SignatureVerificationResult(
                 receipt_id=receipt_id,
@@ -985,7 +985,7 @@ class ReceiptStore:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, ImportError) as e:
             return {
                 "receipt_id": receipt_id,
                 "integrity_valid": False,
@@ -1058,7 +1058,7 @@ class ReceiptStore:
                     operator=operator,
                 )
                 logger.info(f"Logged {count} receipt deletions to audit trail")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, ImportError) as e:
                 logger.warning(f"Failed to log deletions to audit trail: {e}")
                 # Continue with deletion even if logging fails
                 # (configurable behavior could be added)
@@ -1263,7 +1263,7 @@ class ReceiptStore:
             self._backend.execute_write(query, params)
             logger.info(f"Legal hold placed on receipt {receipt_id} by {placed_by}: {reason}")
             return True
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to place legal hold on receipt {receipt_id}: {e}")
             return False
 
@@ -1296,7 +1296,7 @@ class ReceiptStore:
             self._backend.execute_write(query, params)
             logger.info(f"Legal hold removed from receipt {receipt_id} by {removed_by}")
             return True
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to remove legal hold from receipt {receipt_id}: {e}")
             return False
 
@@ -1412,7 +1412,7 @@ class ReceiptStore:
             self._backend.execute_write(query, params)
             logger.info(f"Timestamp added to receipt {receipt_id} from {tsa_url}")
             return True
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to add timestamp to receipt {receipt_id}: {e}")
             return False
 

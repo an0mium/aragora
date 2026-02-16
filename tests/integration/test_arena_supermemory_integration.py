@@ -484,8 +484,8 @@ async def test_graceful_degradation_client_unavailable():
 async def test_graceful_degradation_api_error(mock_supermemory_config):
     """Adapter should handle API errors gracefully."""
     client = MagicMock()
-    client.search = AsyncMock(side_effect=Exception("API connection failed"))
-    client.add_memory = AsyncMock(side_effect=Exception("API timeout"))
+    client.search = AsyncMock(side_effect=RuntimeError("API connection failed"))
+    client.add_memory = AsyncMock(side_effect=RuntimeError("API timeout"))
 
     adapter = SupermemoryAdapter(
         client=client,
@@ -509,8 +509,8 @@ async def test_knowledge_manager_continues_when_supermemory_fails():
     """ArenaKnowledgeManager should continue operating when Supermemory fails."""
     # Create adapter that will fail on all operations
     failing_adapter = MagicMock()
-    failing_adapter.inject_context = AsyncMock(side_effect=Exception("Supermemory down"))
-    failing_adapter.sync_debate_outcome = AsyncMock(side_effect=Exception("Supermemory down"))
+    failing_adapter.inject_context = AsyncMock(side_effect=RuntimeError("Supermemory down"))
+    failing_adapter.sync_debate_outcome = AsyncMock(side_effect=RuntimeError("Supermemory down"))
 
     # Create knowledge manager with failing adapter
     manager = ArenaKnowledgeManager(
@@ -645,7 +645,7 @@ async def test_circuit_breaker_opens_on_failures():
     async def failing_search(query, limit, container_tag=None):
         nonlocal failure_count
         failure_count += 1
-        raise Exception(f"API failure #{failure_count}")
+        raise RuntimeError(f"API failure #{failure_count}")
 
     client.search = AsyncMock(side_effect=failing_search)
 
@@ -675,7 +675,7 @@ async def test_circuit_breaker_recovery():
         nonlocal call_count
         call_count += 1
         if call_count <= 3:
-            raise Exception("Temporary failure")
+            raise RuntimeError("Temporary failure")
         # After 3 failures, start succeeding
         response = MagicMock()
         response.results = [
@@ -770,7 +770,7 @@ async def test_health_check_healthy(supermemory_adapter, mock_supermemory_client
 async def test_health_check_unhealthy():
     """Health check should report unhealthy when client fails."""
     client = MagicMock()
-    client.health_check = AsyncMock(side_effect=Exception("Connection refused"))
+    client.health_check = AsyncMock(side_effect=RuntimeError("Connection refused"))
 
     config = MagicMock()
 

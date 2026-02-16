@@ -1689,6 +1689,16 @@ export {
 // Features (Feature Flags)
 export { FeaturesAPI } from './features';
 
+// Self-Improve (Autonomous Improvement Runs)
+export {
+  SelfImproveAPI,
+  type SelfImproveRunStatus,
+  type SelfImproveMode,
+  type SelfImproveRun,
+  type Worktree,
+  type StartRunRequest,
+} from './self-improve';
+
 // Index (Vector Indexing & Semantic Search)
 export {
   IndexAPI,

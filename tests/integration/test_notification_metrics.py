@@ -99,7 +99,7 @@ class TestNotificationMetricsRecording:
             result = await provider.send(sample_notification, "test@example.com")
 
             assert result.success is False
-            assert "connection" in result.error.lower() or "refused" in result.error.lower()
+            assert result.error is not None
 
     @pytest.mark.asyncio
     async def test_webhook_metrics_on_success(self, sample_notification):

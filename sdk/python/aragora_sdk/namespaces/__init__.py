@@ -112,6 +112,7 @@ from .reviews import AsyncReviewsAPI, ReviewsAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
 from .security import AsyncSecurityAPI, SecurityAPI
+from .self_improve import AsyncSelfImproveAPI, SelfImproveAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
 from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
@@ -354,6 +355,8 @@ __all__ = [
     "AsyncRoutingAPI",
     "SecurityAPI",
     "AsyncSecurityAPI",
+    "SelfImproveAPI",
+    "AsyncSelfImproveAPI",
     "SkillsAPI",
     "AsyncSkillsAPI",
     "SLOAPI",

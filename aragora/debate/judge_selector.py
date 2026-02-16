@@ -105,7 +105,7 @@ class JudgeScoringMixin:
             rating = self._elo_system.get_rating(agent_name)
             cal_score = rating.calibration_score
             return 0.5 + cal_score
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError) as e:
             logger.debug(f"Calibration weight lookup failed for {agent_name}: {e}")
             return 1.0
 
@@ -130,7 +130,7 @@ class JudgeScoringMixin:
 
             # Weighted combination: 70% ELO, 30% calibration
             return (elo_normalized * 0.7) + (cal_score * 0.3)
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError) as e:
             logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
             return 0.0
 
@@ -254,7 +254,7 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                     if judge:
                         logger.debug(f"Selected {entry_agent_name} (ELO: {entry.elo}) as judge")
                         return judge
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.warning(f"ELO query failed: {e}; falling back to random")
 
         return random.choice(list(agents)) if agents else None
@@ -398,7 +398,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                         if agent_name in agent_names:
                             dissenters.add(agent_name)
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.debug(f"Historical dissent query failed: {e}")
 
         # Convert names back to agent objects
@@ -426,7 +426,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 reverse=True,
             )
             return ranked
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.debug(f"ELO ranking failed: {e}")
             return list(agents)
 
@@ -480,7 +480,7 @@ class VotedStrategy(JudgeSelectionStrategy):
                     if other.name.lower() in response.lower():
                         vote_counts[other.name] = vote_counts.get(other.name, 0) + 1
                         break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
                 logger.warning(f"Judge vote error for {agent.name}: {e}")
 
         # Select agent with most votes, random tiebreaker
@@ -1111,7 +1111,7 @@ class JudgePanel:
                     "recommendation": recommendation,
                     "confidence": 0.7,  # Default confidence
                 }
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
                 logger.warning(f"assessment_error judge={judge.name}: {e}")
                 return judge.name, None
 
@@ -1198,7 +1198,7 @@ class JudgePanel:
                     "confidence": confidence,
                     "deliberation_round": round_num,
                 }
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, TimeoutError, ConnectionError, OSError) as e:
                 logger.warning(f"deliberation_error judge={judge.name} round={round_num}: {e}")
                 # Keep previous assessment
                 return judge.name, assessments.get(judge.name)

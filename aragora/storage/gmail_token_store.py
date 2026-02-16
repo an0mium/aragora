@@ -121,7 +121,7 @@ def _encrypt_token(token: str, user_id: str = "") -> str:
         # AAD binds token to this specific user
         encrypted = service.encrypt(token, associated_data=user_id if user_id else None)
         return encrypted.to_base64()
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError(
                 "encrypt",

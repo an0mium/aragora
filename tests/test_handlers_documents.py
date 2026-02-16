@@ -213,7 +213,7 @@ class TestDocumentUploadEndpoint:
         handler = DocumentHandler(ctx)
         DocumentHandler._upload_counts = OrderedDict()
 
-        result = handler.handle_post("/api/documents/upload", {}, mock_http_handler)
+        result = handler.handle_post("/api/v1/documents/upload", {}, mock_http_handler)
         assert result.status_code == 500
         data = json.loads(result.body)
         assert "storage not configured" in data["error"].lower()
@@ -221,7 +221,7 @@ class TestDocumentUploadEndpoint:
     def test_upload_no_content_returns_400(self, doc_handler, mock_http_handler):
         mock_http_handler.headers = {"Content-Length": "0"}
 
-        result = doc_handler.handle_post("/api/documents/upload", {}, mock_http_handler)
+        result = doc_handler.handle_post("/api/v1/documents/upload", {}, mock_http_handler)
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "no content" in data["error"].lower()
@@ -230,7 +230,7 @@ class TestDocumentUploadEndpoint:
         # Set content length to > 10MB
         mock_http_handler.headers = {"Content-Length": str(11 * 1024 * 1024)}
 
-        result = doc_handler.handle_post("/api/documents/upload", {}, mock_http_handler)
+        result = doc_handler.handle_post("/api/v1/documents/upload", {}, mock_http_handler)
         assert result.status_code == 413
         data = json.loads(result.body)
         assert "too large" in data["error"].lower()
@@ -238,13 +238,13 @@ class TestDocumentUploadEndpoint:
     def test_upload_invalid_content_length_returns_400(self, doc_handler, mock_http_handler):
         mock_http_handler.headers = {"Content-Length": "not-a-number"}
 
-        result = doc_handler.handle_post("/api/documents/upload", {}, mock_http_handler)
+        result = doc_handler.handle_post("/api/v1/documents/upload", {}, mock_http_handler)
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "content-length" in data["error"].lower()
 
     def test_upload_returns_none_for_other_routes(self, doc_handler, mock_http_handler):
-        result = doc_handler.handle_post("/api/documents/other", {}, mock_http_handler)
+        result = doc_handler.handle_post("/api/v1/documents/other", {}, mock_http_handler)
         assert result is None
 
 
@@ -522,7 +522,7 @@ class TestDocumentListException:
     @pytest.fixture
     def mock_store(self):
         store = Mock()
-        store.list_all.side_effect = Exception("Database error")
+        store.list_all.side_effect = OSError("Database error")
         return store
 
     @pytest.fixture
@@ -533,7 +533,7 @@ class TestDocumentListException:
         return DocumentHandler(ctx)
 
     def test_list_documents_exception_returns_500(self, doc_handler):
-        result = doc_handler.handle("/api/documents", {}, None)
+        result = doc_handler.handle("/api/v1/documents", {}, None)
         assert result.status_code == 500
         data = json.loads(result.body)
         assert "error" in data
@@ -545,7 +545,7 @@ class TestDocumentGetException:
     @pytest.fixture
     def mock_store(self):
         store = Mock()
-        store.get.side_effect = Exception("Storage error")
+        store.get.side_effect = OSError("Storage error")
         return store
 
     @pytest.fixture
@@ -556,7 +556,7 @@ class TestDocumentGetException:
         return DocumentHandler(ctx)
 
     def test_get_document_exception_returns_500(self, doc_handler):
-        result = doc_handler.handle("/api/documents/doc123", {}, None)
+        result = doc_handler.handle("/api/v1/documents/doc123", {}, None)
         assert result.status_code == 500
         data = json.loads(result.body)
         assert "error" in data

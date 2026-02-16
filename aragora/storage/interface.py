@@ -403,7 +403,7 @@ class RedisStoreMixin:
             self._redis_client.ping()
             self._logger.info(f"Connected to Redis for {self.__class__.__name__}")
             self._using_fallback = False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
             self._logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -431,7 +431,7 @@ class RedisStoreMixin:
             if data:
                 return json.loads(data)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             self._log_redis_fallback("get", e)
             return await self._fallback.get(item_id)
 
@@ -476,7 +476,7 @@ class RedisStoreMixin:
                         pipe.sadd(self._index_key(index_name, field_value), item_id)
 
             pipe.execute()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             self._log_redis_fallback("save", e)
 
     async def _redis_delete(
@@ -517,7 +517,7 @@ class RedisStoreMixin:
                 pipe.execute()
                 return True
             return result
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             self._log_redis_fallback("delete", e)
             return result
 
@@ -548,7 +548,7 @@ class RedisStoreMixin:
                 if cursor in (0, "0"):
                     break
             return results
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             self._log_redis_fallback("list_all", e)
             return await self._fallback.list_all()
 
@@ -575,7 +575,7 @@ class RedisStoreMixin:
             keys = [self._redis_key(rid.decode()) for rid in item_ids]
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             self._log_redis_fallback(f"list_by_{index_name}", e)
             raise
 

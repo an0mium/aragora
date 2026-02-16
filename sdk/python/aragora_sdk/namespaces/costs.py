@@ -53,7 +53,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs", params=params)
+        return self._client.request("GET", "/api/v1/costs", params=params)
 
     def get_breakdown(self, group_by: str = "provider", period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -72,7 +72,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/breakdown", params=params)
+        return self._client.request("GET", "/api/v1/costs/breakdown", params=params)
 
     def get_timeline(self, period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -90,7 +90,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/timeline", params=params)
+        return self._client.request("GET", "/api/v1/costs/timeline", params=params)
 
     def get_usage(self, period: str | None = None, group_by: str = "provider", workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -109,7 +109,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/usage", params=params)
+        return self._client.request("GET", "/api/v1/costs/usage", params=params)
 
     def get_efficiency(self, period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -127,7 +127,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/efficiency", params=params)
+        return self._client.request("GET", "/api/v1/costs/efficiency", params=params)
 
     def export(self, fmt: str = "json", period: str | None = None, group_by: str = "daily", workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -147,7 +147,7 @@ class CostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/export", params=params)
+        return self._client.request("GET", "/api/v1/costs/export", params=params)
 
     # ===========================================================================
     # Alerts
@@ -166,7 +166,7 @@ class CostsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/alerts", params=params)
+        return self._client.request("GET", "/api/v1/costs/alerts", params=params)
 
     def create_alert(self, name: str, alert_type: str = "budget_threshold", threshold: float = 80, notification_channels: list[str] | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -187,7 +187,7 @@ class CostsAPI:
             body["notification_channels"] = notification_channels
         if workspace_id:
             body["workspace_id"] = workspace_id
-        return self._client._request("POST", "/api/v1/costs/alerts", json=body)
+        return self._client.request("POST", "/api/v1/costs/alerts", json=body)
 
     def dismiss_alert(self, alert_id: str, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -203,7 +203,7 @@ class CostsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("POST", f"/api/v1/costs/alerts/{alert_id}/dismiss", params=params)
+        return self._client.request("POST", f"/api/v1/costs/alerts/{alert_id}/dismiss", params=params)
 
     # ===========================================================================
     # Budgets
@@ -229,7 +229,7 @@ class CostsAPI:
             body["daily_limit"] = daily_limit
         if name:
             body["name"] = name
-        return self._client._request("POST", "/api/v1/costs/budget", json=body)
+        return self._client.request("POST", "/api/v1/costs/budget", json=body)
 
     def list_budgets(self, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -244,7 +244,7 @@ class CostsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/budgets", params=params)
+        return self._client.request("GET", "/api/v1/costs/budgets", params=params)
 
     def create_budget(self, monthly_limit_usd: float, workspace_id: str | None = None, name: str | None = None, daily_limit_usd: float | None = None, alert_thresholds: list[int] | None = None) -> dict[str, Any]:
         """
@@ -269,7 +269,7 @@ class CostsAPI:
             body["daily_limit_usd"] = daily_limit_usd
         if alert_thresholds:
             body["alert_thresholds"] = alert_thresholds
-        return self._client._request("POST", "/api/v1/costs/budgets", json=body)
+        return self._client.request("POST", "/api/v1/costs/budgets", json=body)
 
     # ===========================================================================
     # Recommendations
@@ -294,7 +294,7 @@ class CostsAPI:
             params["status"] = status
         if rec_type:
             params["type"] = rec_type
-        return self._client._request("GET", "/api/v1/costs/recommendations", params=params)
+        return self._client.request("GET", "/api/v1/costs/recommendations", params=params)
 
     def get_recommendations_detailed(self, workspace_id: str | None = None, include_implementation: bool = True, min_savings: float = 0) -> dict[str, Any]:
         """
@@ -311,7 +311,7 @@ class CostsAPI:
         params: dict[str, Any] = {"include_implementation": str(include_implementation).lower(), "min_savings": str(min_savings)}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client._request("GET", "/api/v1/costs/recommendations/detailed", params=params)
+        return self._client.request("GET", "/api/v1/costs/recommendations/detailed", params=params)
 
     def get_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """
@@ -323,7 +323,7 @@ class CostsAPI:
         Returns:
             Dict with recommendation details
         """
-        return self._client._request("GET", f"/api/v1/costs/recommendations/{recommendation_id}")
+        return self._client.request("GET", f"/api/v1/costs/recommendations/{recommendation_id}")
 
     def apply_recommendation(self, recommendation_id: str, user_id: str | None = None) -> dict[str, Any]:
         """
@@ -339,7 +339,7 @@ class CostsAPI:
         body: dict[str, Any] = {}
         if user_id:
             body["user_id"] = user_id
-        return self._client._request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/apply", json=body)
+        return self._client.request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/apply", json=body)
 
     def dismiss_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """
@@ -351,7 +351,7 @@ class CostsAPI:
         Returns:
             Dict confirming recommendation was dismissed
         """
-        return self._client._request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/dismiss")
+        return self._client.request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/dismiss")
 
     # ===========================================================================
     # Forecasting
@@ -373,7 +373,7 @@ class CostsAPI:
             params["workspace_id"] = workspace_id
         if days is not None:
             params["days"] = days
-        return self._client._request("GET", "/api/v1/costs/forecast", params=params)
+        return self._client.request("GET", "/api/v1/costs/forecast", params=params)
 
     def get_forecast_detailed(self, workspace_id: str | None = None, days: int | None = None, include_confidence: bool = True) -> dict[str, Any]:
         """
@@ -392,7 +392,7 @@ class CostsAPI:
             params["workspace_id"] = workspace_id
         if days is not None:
             params["days"] = days
-        return self._client._request("GET", "/api/v1/costs/forecast/detailed", params=params)
+        return self._client.request("GET", "/api/v1/costs/forecast/detailed", params=params)
 
     def simulate_forecast(self, scenario: dict[str, Any], workspace_id: str | None = None, days: int | None = None) -> dict[str, Any]:
         """
@@ -411,7 +411,7 @@ class CostsAPI:
             body["workspace_id"] = workspace_id
         if days is not None:
             body["days"] = days
-        return self._client._request("POST", "/api/v1/costs/forecast/simulate", json=body)
+        return self._client.request("POST", "/api/v1/costs/forecast/simulate", json=body)
 
     # ===========================================================================
     # Constraints and Estimates
@@ -434,7 +434,7 @@ class CostsAPI:
             body["workspace_id"] = workspace_id
         if operation:
             body["operation"] = operation
-        return self._client._request("POST", "/api/v1/costs/constraints/check", json=body)
+        return self._client.request("POST", "/api/v1/costs/constraints/check", json=body)
 
     def estimate(self, operation: str, tokens_input: int = 0, tokens_output: int = 0, model: str | None = None, provider: str | None = None) -> dict[str, Any]:
         """
@@ -455,7 +455,7 @@ class CostsAPI:
             body["model"] = model
         if provider:
             body["provider"] = provider
-        return self._client._request("POST", "/api/v1/costs/estimate", json=body)
+        return self._client.request("POST", "/api/v1/costs/estimate", json=body)
 
 
 class AsyncCostsAPI:
@@ -485,7 +485,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs", params=params)
+        return await self._client.request("GET", "/api/v1/costs", params=params)
 
     async def get_breakdown(self, group_by: str = "provider", period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """Get cost breakdown by provider, feature, or model."""
@@ -494,7 +494,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/breakdown", params=params)
+        return await self._client.request("GET", "/api/v1/costs/breakdown", params=params)
 
     async def get_timeline(self, period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """Get cost timeline data."""
@@ -503,7 +503,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/timeline", params=params)
+        return await self._client.request("GET", "/api/v1/costs/timeline", params=params)
 
     async def get_usage(self, period: str | None = None, group_by: str = "provider", workspace_id: str | None = None) -> dict[str, Any]:
         """Get detailed usage tracking data."""
@@ -512,7 +512,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/usage", params=params)
+        return await self._client.request("GET", "/api/v1/costs/usage", params=params)
 
     async def get_efficiency(self, period: str | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """Get cost efficiency metrics."""
@@ -521,7 +521,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/efficiency", params=params)
+        return await self._client.request("GET", "/api/v1/costs/efficiency", params=params)
 
     async def export(self, fmt: str = "json", period: str | None = None, group_by: str = "daily", workspace_id: str | None = None) -> dict[str, Any]:
         """Export cost data as CSV or JSON."""
@@ -530,7 +530,7 @@ class AsyncCostsAPI:
             params["range"] = period
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/export", params=params)
+        return await self._client.request("GET", "/api/v1/costs/export", params=params)
 
     # ===========================================================================
     # Alerts
@@ -541,7 +541,7 @@ class AsyncCostsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/alerts", params=params)
+        return await self._client.request("GET", "/api/v1/costs/alerts", params=params)
 
     async def create_alert(self, name: str, alert_type: str = "budget_threshold", threshold: float = 80, notification_channels: list[str] | None = None, workspace_id: str | None = None) -> dict[str, Any]:
         """Create a cost alert."""
@@ -550,14 +550,14 @@ class AsyncCostsAPI:
             body["notification_channels"] = notification_channels
         if workspace_id:
             body["workspace_id"] = workspace_id
-        return await self._client._request("POST", "/api/v1/costs/alerts", json=body)
+        return await self._client.request("POST", "/api/v1/costs/alerts", json=body)
 
     async def dismiss_alert(self, alert_id: str, workspace_id: str | None = None) -> dict[str, Any]:
         """Dismiss a budget alert."""
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("POST", f"/api/v1/costs/alerts/{alert_id}/dismiss", params=params)
+        return await self._client.request("POST", f"/api/v1/costs/alerts/{alert_id}/dismiss", params=params)
 
     # ===========================================================================
     # Budgets
@@ -572,14 +572,14 @@ class AsyncCostsAPI:
             body["daily_limit"] = daily_limit
         if name:
             body["name"] = name
-        return await self._client._request("POST", "/api/v1/costs/budget", json=body)
+        return await self._client.request("POST", "/api/v1/costs/budget", json=body)
 
     async def list_budgets(self, workspace_id: str | None = None) -> dict[str, Any]:
         """List all budgets for the workspace."""
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/budgets", params=params)
+        return await self._client.request("GET", "/api/v1/costs/budgets", params=params)
 
     async def create_budget(self, monthly_limit_usd: float, workspace_id: str | None = None, name: str | None = None, daily_limit_usd: float | None = None, alert_thresholds: list[int] | None = None) -> dict[str, Any]:
         """Create a new budget."""
@@ -592,7 +592,7 @@ class AsyncCostsAPI:
             body["daily_limit_usd"] = daily_limit_usd
         if alert_thresholds:
             body["alert_thresholds"] = alert_thresholds
-        return await self._client._request("POST", "/api/v1/costs/budgets", json=body)
+        return await self._client.request("POST", "/api/v1/costs/budgets", json=body)
 
     # ===========================================================================
     # Recommendations
@@ -607,29 +607,29 @@ class AsyncCostsAPI:
             params["status"] = status
         if rec_type:
             params["type"] = rec_type
-        return await self._client._request("GET", "/api/v1/costs/recommendations", params=params)
+        return await self._client.request("GET", "/api/v1/costs/recommendations", params=params)
 
     async def get_recommendations_detailed(self, workspace_id: str | None = None, include_implementation: bool = True, min_savings: float = 0) -> dict[str, Any]:
         """Get detailed cost optimization recommendations with implementation steps."""
         params: dict[str, Any] = {"include_implementation": str(include_implementation).lower(), "min_savings": str(min_savings)}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._request("GET", "/api/v1/costs/recommendations/detailed", params=params)
+        return await self._client.request("GET", "/api/v1/costs/recommendations/detailed", params=params)
 
     async def get_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """Get a specific cost optimization recommendation."""
-        return await self._client._request("GET", f"/api/v1/costs/recommendations/{recommendation_id}")
+        return await self._client.request("GET", f"/api/v1/costs/recommendations/{recommendation_id}")
 
     async def apply_recommendation(self, recommendation_id: str, user_id: str | None = None) -> dict[str, Any]:
         """Apply a cost optimization recommendation."""
         body: dict[str, Any] = {}
         if user_id:
             body["user_id"] = user_id
-        return await self._client._request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/apply", json=body)
+        return await self._client.request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/apply", json=body)
 
     async def dismiss_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """Dismiss a cost optimization recommendation."""
-        return await self._client._request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/dismiss")
+        return await self._client.request("POST", f"/api/v1/costs/recommendations/{recommendation_id}/dismiss")
 
     # ===========================================================================
     # Forecasting
@@ -642,7 +642,7 @@ class AsyncCostsAPI:
             params["workspace_id"] = workspace_id
         if days is not None:
             params["days"] = days
-        return await self._client._request("GET", "/api/v1/costs/forecast", params=params)
+        return await self._client.request("GET", "/api/v1/costs/forecast", params=params)
 
     async def get_forecast_detailed(self, workspace_id: str | None = None, days: int | None = None, include_confidence: bool = True) -> dict[str, Any]:
         """Get detailed cost forecast with daily breakdowns and confidence intervals."""
@@ -651,7 +651,7 @@ class AsyncCostsAPI:
             params["workspace_id"] = workspace_id
         if days is not None:
             params["days"] = days
-        return await self._client._request("GET", "/api/v1/costs/forecast/detailed", params=params)
+        return await self._client.request("GET", "/api/v1/costs/forecast/detailed", params=params)
 
     async def simulate_forecast(self, scenario: dict[str, Any], workspace_id: str | None = None, days: int | None = None) -> dict[str, Any]:
         """Simulate a cost scenario."""
@@ -660,7 +660,7 @@ class AsyncCostsAPI:
             body["workspace_id"] = workspace_id
         if days is not None:
             body["days"] = days
-        return await self._client._request("POST", "/api/v1/costs/forecast/simulate", json=body)
+        return await self._client.request("POST", "/api/v1/costs/forecast/simulate", json=body)
 
     # ===========================================================================
     # Constraints and Estimates
@@ -673,7 +673,7 @@ class AsyncCostsAPI:
             body["workspace_id"] = workspace_id
         if operation:
             body["operation"] = operation
-        return await self._client._request("POST", "/api/v1/costs/constraints/check", json=body)
+        return await self._client.request("POST", "/api/v1/costs/constraints/check", json=body)
 
     async def estimate(self, operation: str, tokens_input: int = 0, tokens_output: int = 0, model: str | None = None, provider: str | None = None) -> dict[str, Any]:
         """Estimate the cost of an operation."""
@@ -682,4 +682,4 @@ class AsyncCostsAPI:
             body["model"] = model
         if provider:
             body["provider"] = provider
-        return await self._client._request("POST", "/api/v1/costs/estimate", json=body)
+        return await self._client.request("POST", "/api/v1/costs/estimate", json=body)

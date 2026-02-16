@@ -489,7 +489,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for finding workflow storage")
             self._using_fallback = False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
             logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -504,7 +504,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             if data:
                 return json.loads(data)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis get failed, using fallback: {e}")
             return await self._fallback.get(finding_id)
 
@@ -537,7 +537,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             pipe.sadd(f"{self.REDIS_INDEX_STATE}{current_state}", finding_id)
 
             pipe.execute()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, finding_id: str) -> bool:
@@ -573,7 +573,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 pipe.execute()
                 return True
             return result
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis delete failed: {e}")
             return result
 
@@ -600,7 +600,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                             if v:
                                 results.append(json.loads(v))
             return results
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis list_all failed, using fallback: {e}")
             return await self._fallback.list_all()
 
@@ -617,7 +617,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             keys = [f"{self.REDIS_PREFIX}{fid.decode()}" for fid in finding_ids]
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis list_by_assignee failed, using fallback: {e}")
             return await self._fallback.list_by_assignee(user_id)
 
@@ -639,7 +639,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
             keys = [f"{self.REDIS_PREFIX}{fid.decode()}" for fid in finding_ids]
             values = self._redis_client.mget(keys)
             return [json.loads(v) for v in values if v]
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis list_by_state failed, using fallback: {e}")
             return await self._fallback.list_by_state(state)
 
@@ -651,7 +651,7 @@ class RedisFindingWorkflowStore(FindingWorkflowStoreBackend):
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
                 logger.debug(f"Redis close failed (connection already closed): {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logger.debug(f"Redis close failed: {e}")
 
 

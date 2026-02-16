@@ -183,8 +183,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
             except (RuntimeError, ValueError) as e:
                 # Expected: RLM initialization issues
                 logger.warning("[rlm] Failed to initialize RLM: %s", e)
-            except Exception as e:
-                # Unexpected error
+            except (TypeError, AttributeError, OSError) as e:
                 logger.warning("[rlm] Unexpected error getting RLM from factory: %s", e)
 
             # Fallback: get compressor from factory (compression-only)
@@ -200,8 +199,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
                 except (RuntimeError, ValueError) as e:
                     # Expected: compressor initialization issues
                     logger.warning("[rlm] Failed to initialize compressor: %s", e)
-                except Exception as e:
-                    # Unexpected error
+                except (TypeError, AttributeError, OSError) as e:
                     logger.warning("[rlm] Unexpected error getting compressor: %s", e)
 
         # Knowledge Mound configuration for auto-grounding
@@ -244,8 +242,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
                     except (RuntimeError, ValueError, OSError) as e:
                         logger.warning("[knowledge] Failed to initialize Knowledge Mound: %s", e)
                         self._enable_knowledge_grounding = False
-                except Exception as e:
-                    # Unexpected error
+                except (TypeError, AttributeError) as e:
                     logger.warning(
                         "[knowledge] Unexpected error initializing Knowledge Mound: %s", e
                     )
@@ -266,7 +263,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
             except ImportError:
                 logger.debug("[belief] Belief analyzer module not available")
                 self._enable_belief_guidance = False
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.warning("[belief] Failed to initialize belief analyzer: %s", e)
                 self._enable_belief_guidance = False
 
@@ -286,7 +283,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
                 except (RuntimeError, ValueError, OSError) as e:
                     logger.warning("[threat_intel] Failed to initialize enrichment: %s", e)
                     self._enable_threat_intel = False
-                except Exception as e:
+                except (TypeError, AttributeError) as e:
                     logger.warning("[threat_intel] Unexpected error initializing enrichment: %s", e)
                     self._enable_threat_intel = False
             else:
@@ -523,8 +520,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         except (ValueError, RuntimeError) as e:
             # Expected: compression or parsing issues
             logger.warning("Failed to load Aragora context: %s", e)
-        except Exception as e:
-            # Unexpected error
+        except (TypeError, KeyError, AttributeError) as e:
             logger.warning("Unexpected error loading Aragora context: %s", e)
 
         return None
@@ -536,7 +532,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
 
         try:
             from aragora.rlm.codebase_context import CodebaseContextBuilder
-        except Exception as exc:
+        except (ImportError, ModuleNotFoundError) as exc:
             logger.debug("Codebase context unavailable: %s", exc)
             return None
 
@@ -546,7 +542,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
                     root_path=self._project_root,
                     knowledge_mound=self._knowledge_mound,
                 )
-            except Exception as exc:
+            except (RuntimeError, ValueError, TypeError, OSError) as exc:
                 logger.warning("Failed to initialize codebase context builder: %s", exc)
                 return None
 
@@ -565,7 +561,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
         except asyncio.TimeoutError:
             logger.warning("Codebase context build timed out")
             return None
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as exc:
             logger.warning("Codebase context build failed: %s", exc)
             return None
 

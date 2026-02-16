@@ -78,7 +78,7 @@ class CostManagementAPI:
         if range:
             params["range"] = range
 
-        return self._client._request("GET", "/api/costs", params=params)
+        return self._client.request("GET", "/api/costs", params=params)
 
     def get_breakdown(
         self,
@@ -105,7 +105,7 @@ class CostManagementAPI:
         if group_by:
             params["group_by"] = group_by
 
-        return self._client._request("GET", "/api/costs/breakdown", params=params)
+        return self._client.request("GET", "/api/costs/breakdown", params=params)
 
     def get_timeline(
         self,
@@ -128,7 +128,7 @@ class CostManagementAPI:
         if range:
             params["range"] = range
 
-        return self._client._request("GET", "/api/costs/timeline", params=params)
+        return self._client.request("GET", "/api/costs/timeline", params=params)
 
     # =========================================================================
     # Alerts
@@ -151,7 +151,7 @@ class CostManagementAPI:
         if workspace_id:
             params["workspace_id"] = workspace_id
 
-        return self._client._request("GET", "/api/costs/alerts", params=params)
+        return self._client.request("GET", "/api/costs/alerts", params=params)
 
     def dismiss_alert(
         self,
@@ -172,7 +172,7 @@ class CostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return self._client._request("POST", f"/api/costs/alerts/{alert_id}/dismiss", json=data)
+        return self._client.request("POST", f"/api/costs/alerts/{alert_id}/dismiss", json=data)
 
     # =========================================================================
     # Budget Management
@@ -205,7 +205,7 @@ class CostManagementAPI:
         if name:
             data["name"] = name
 
-        return self._client._request("POST", "/api/costs/budget", json=data)
+        return self._client.request("POST", "/api/costs/budget", json=data)
 
     # =========================================================================
     # Recommendations
@@ -236,7 +236,7 @@ class CostManagementAPI:
         if type:
             params["type"] = type
 
-        return self._client._request("GET", "/api/costs/recommendations", params=params)
+        return self._client.request("GET", "/api/costs/recommendations", params=params)
 
     def get_detailed_recommendations(
         self,
@@ -267,7 +267,7 @@ class CostManagementAPI:
         if priority:
             params["priority"] = priority
 
-        return self._client._request("GET", "/api/costs/recommendations/detailed", params=params)
+        return self._client.request("GET", "/api/costs/recommendations/detailed", params=params)
 
     def get_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """
@@ -279,7 +279,7 @@ class CostManagementAPI:
         Returns:
             Detailed recommendation.
         """
-        return self._client._request("GET", f"/api/costs/recommendations/{recommendation_id}")
+        return self._client.request("GET", f"/api/costs/recommendations/{recommendation_id}")
 
     def apply_recommendation(
         self,
@@ -300,7 +300,7 @@ class CostManagementAPI:
         if user_id:
             data["user_id"] = user_id
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/costs/recommendations/{recommendation_id}/apply", json=data
         )
 
@@ -314,7 +314,7 @@ class CostManagementAPI:
         Returns:
             Success status.
         """
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/costs/recommendations/{recommendation_id}/dismiss"
         )
 
@@ -343,7 +343,7 @@ class CostManagementAPI:
         if range:
             params["range"] = range
 
-        return self._client._request("GET", "/api/costs/efficiency", params=params)
+        return self._client.request("GET", "/api/costs/efficiency", params=params)
 
     # =========================================================================
     # Cost Estimation
@@ -380,7 +380,7 @@ class CostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return self._client._request("POST", "/api/costs/estimate", json=data)
+        return self._client.request("POST", "/api/costs/estimate", json=data)
 
     def check_constraints(
         self,
@@ -405,7 +405,7 @@ class CostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return self._client._request("POST", "/api/costs/constraints/check", json=data)
+        return self._client.request("POST", "/api/costs/constraints/check", json=data)
 
     # =========================================================================
     # Forecasting
@@ -432,7 +432,7 @@ class CostManagementAPI:
         if days is not None:
             params["days"] = days
 
-        return self._client._request("GET", "/api/costs/forecast", params=params)
+        return self._client.request("GET", "/api/costs/forecast", params=params)
 
     def get_detailed_forecast(
         self,
@@ -457,7 +457,7 @@ class CostManagementAPI:
         if days is not None:
             params["days"] = days
 
-        return self._client._request("GET", "/api/costs/forecast/detailed", params=params)
+        return self._client.request("GET", "/api/costs/forecast/detailed", params=params)
 
     def simulate_scenario(
         self,
@@ -483,7 +483,7 @@ class CostManagementAPI:
         if days is not None:
             data["days"] = days
 
-        return self._client._request("POST", "/api/costs/forecast/simulate", json=data)
+        return self._client.request("POST", "/api/costs/forecast/simulate", json=data)
 
 
 class AsyncCostManagementAPI:
@@ -508,7 +508,7 @@ class AsyncCostManagementAPI:
         if range:
             params["range"] = range
 
-        return await self._client._request("GET", "/api/costs", params=params)
+        return await self._client.request("GET", "/api/costs", params=params)
 
     async def get_breakdown(
         self,
@@ -525,7 +525,7 @@ class AsyncCostManagementAPI:
         if group_by:
             params["group_by"] = group_by
 
-        return await self._client._request("GET", "/api/costs/breakdown", params=params)
+        return await self._client.request("GET", "/api/costs/breakdown", params=params)
 
     async def get_timeline(
         self,
@@ -539,7 +539,7 @@ class AsyncCostManagementAPI:
         if range:
             params["range"] = range
 
-        return await self._client._request("GET", "/api/costs/timeline", params=params)
+        return await self._client.request("GET", "/api/costs/timeline", params=params)
 
     # =========================================================================
     # Alerts
@@ -554,7 +554,7 @@ class AsyncCostManagementAPI:
         if workspace_id:
             params["workspace_id"] = workspace_id
 
-        return await self._client._request("GET", "/api/costs/alerts", params=params)
+        return await self._client.request("GET", "/api/costs/alerts", params=params)
 
     async def dismiss_alert(
         self,
@@ -566,7 +566,7 @@ class AsyncCostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/costs/alerts/{alert_id}/dismiss", json=data
         )
 
@@ -590,7 +590,7 @@ class AsyncCostManagementAPI:
         if name:
             data["name"] = name
 
-        return await self._client._request("POST", "/api/costs/budget", json=data)
+        return await self._client.request("POST", "/api/costs/budget", json=data)
 
     # =========================================================================
     # Recommendations
@@ -611,7 +611,7 @@ class AsyncCostManagementAPI:
         if type:
             params["type"] = type
 
-        return await self._client._request("GET", "/api/costs/recommendations", params=params)
+        return await self._client.request("GET", "/api/costs/recommendations", params=params)
 
     async def get_detailed_recommendations(
         self,
@@ -631,13 +631,13 @@ class AsyncCostManagementAPI:
         if priority:
             params["priority"] = priority
 
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/costs/recommendations/detailed", params=params
         )
 
     async def get_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """Get a specific recommendation by ID."""
-        return await self._client._request("GET", f"/api/costs/recommendations/{recommendation_id}")
+        return await self._client.request("GET", f"/api/costs/recommendations/{recommendation_id}")
 
     async def apply_recommendation(
         self,
@@ -649,13 +649,13 @@ class AsyncCostManagementAPI:
         if user_id:
             data["user_id"] = user_id
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/costs/recommendations/{recommendation_id}/apply", json=data
         )
 
     async def dismiss_recommendation(self, recommendation_id: str) -> dict[str, Any]:
         """Dismiss a recommendation."""
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/costs/recommendations/{recommendation_id}/dismiss"
         )
 
@@ -675,7 +675,7 @@ class AsyncCostManagementAPI:
         if range:
             params["range"] = range
 
-        return await self._client._request("GET", "/api/costs/efficiency", params=params)
+        return await self._client.request("GET", "/api/costs/efficiency", params=params)
 
     # =========================================================================
     # Cost Estimation
@@ -700,7 +700,7 @@ class AsyncCostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return await self._client._request("POST", "/api/costs/estimate", json=data)
+        return await self._client.request("POST", "/api/costs/estimate", json=data)
 
     async def check_constraints(
         self,
@@ -715,7 +715,7 @@ class AsyncCostManagementAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return await self._client._request("POST", "/api/costs/constraints/check", json=data)
+        return await self._client.request("POST", "/api/costs/constraints/check", json=data)
 
     # =========================================================================
     # Forecasting
@@ -733,7 +733,7 @@ class AsyncCostManagementAPI:
         if days is not None:
             params["days"] = days
 
-        return await self._client._request("GET", "/api/costs/forecast", params=params)
+        return await self._client.request("GET", "/api/costs/forecast", params=params)
 
     async def get_detailed_forecast(
         self,
@@ -748,7 +748,7 @@ class AsyncCostManagementAPI:
         if days is not None:
             params["days"] = days
 
-        return await self._client._request("GET", "/api/costs/forecast/detailed", params=params)
+        return await self._client.request("GET", "/api/costs/forecast/detailed", params=params)
 
     async def simulate_scenario(
         self,
@@ -764,4 +764,4 @@ class AsyncCostManagementAPI:
         if days is not None:
             data["days"] = days
 
-        return await self._client._request("POST", "/api/costs/forecast/simulate", json=data)
+        return await self._client.request("POST", "/api/costs/forecast/simulate", json=data)

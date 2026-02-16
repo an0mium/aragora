@@ -704,7 +704,7 @@ class TimestampAuthority:
 
         except ImportError:
             raise TimestampError("httpx not installed - required for TSA requests")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, RuntimeError, OSError, ValueError) as e:
             raise TimestampError(f"TSA request failed: {e}")
 
     def verify_timestamp(self, token: TimestampToken, signed_receipt: SignedReceipt) -> bool:

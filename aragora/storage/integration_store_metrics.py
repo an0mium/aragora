@@ -217,7 +217,7 @@ def track_operation(operation_type: str):
                 metrics.is_healthy = True
 
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - metrics decorator must catch all to record failure before re-raising
                 operation_metrics.record_failure(type(e).__name__)
                 metrics.consecutive_failures += 1
 
@@ -274,7 +274,7 @@ class InstrumentedIntegrationStore:
             if result:
                 self._metrics.record_cache_miss()  # Actually fetched
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics wrapper must catch all to record failure before re-raising
             self._metrics.get_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
@@ -290,7 +290,7 @@ class InstrumentedIntegrationStore:
             self._metrics.save_operations.record_success(latency)
             self._metrics.consecutive_failures = 0
             self._metrics.is_healthy = True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics wrapper must catch all to record failure before re-raising
             self._metrics.save_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
@@ -307,7 +307,7 @@ class InstrumentedIntegrationStore:
             self._metrics.consecutive_failures = 0
             self._metrics.is_healthy = True
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics wrapper must catch all to record failure before re-raising
             self._metrics.delete_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
@@ -325,7 +325,7 @@ class InstrumentedIntegrationStore:
             self._metrics.consecutive_failures = 0
             self._metrics.is_healthy = True
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics wrapper must catch all to record failure before re-raising
             self._metrics.list_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
@@ -343,7 +343,7 @@ class InstrumentedIntegrationStore:
             self._metrics.consecutive_failures = 0
             self._metrics.is_healthy = True
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics wrapper must catch all to record failure before re-raising
             self._metrics.list_operations.record_failure(type(e).__name__)
             self._metrics.consecutive_failures += 1
             if self._metrics.consecutive_failures >= 3:
@@ -364,7 +364,7 @@ class InstrumentedIntegrationStore:
             await self._store.list_all()
             self._metrics.is_healthy = True
             self._metrics.consecutive_failures = 0
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError, ValueError) as e:
             self._metrics.is_healthy = False
             logger.warning(f"Integration store health check failed: {e}")
 

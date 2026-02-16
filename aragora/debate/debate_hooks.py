@@ -284,7 +284,7 @@ class DebateHooks:
             self.memory_manager.store_debate_outcome(result, task, belief_cruxes=belief_cruxes)
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Memory storage error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError) as e:
             logger.exception(f"Unexpected memory storage error: {e}")
 
     def _update_memory_outcomes(self, result: DebateResult) -> None:
@@ -314,7 +314,7 @@ class DebateHooks:
 
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Memory outcome update error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError) as e:
             logger.exception(f"Unexpected memory outcome update error: {e}")
 
     def _update_calibration(
@@ -398,14 +398,14 @@ class DebateHooks:
                             )
                     except (AttributeError, TypeError, ValueError) as e:
                         logger.debug(f"Calibration event emission failed for {agent_name}: {e}")
-                    except Exception as e:
+                    except (RuntimeError, OSError, KeyError) as e:
                         logger.warning(
                             f"Unexpected calibration event emission error for {agent_name}: {e}"
                         )
 
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Calibration update error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError) as e:
             logger.exception(f"Unexpected calibration update error: {e}")
 
     async def _verify_claims(self, result: DebateResult) -> None:
@@ -429,7 +429,7 @@ class DebateHooks:
             logger.debug(f"Formal verification timed out: {e}")
         except (ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Formal verification failed with data error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, ImportError) as e:
             logger.warning(f"Unexpected formal verification error: {e}")
 
     # =========================================================================
@@ -472,7 +472,7 @@ class DebateHooks:
             self.memory_manager.store_evidence(evidence_snippets, task)
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Evidence storage error: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError) as e:
             logger.exception(f"Unexpected evidence storage error: {e}")
 
     # =========================================================================
@@ -501,7 +501,7 @@ class DebateHooks:
                 final_answer=result.final_answer,
                 confidence=result.confidence,
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Grounded verdict error: {e}")
             return None
 
@@ -614,14 +614,14 @@ class DebateHooks:
                     )
                     if resp.status_code != 200:
                         logger.debug(f"Slack webhook returned {resp.status_code}")
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError, RuntimeError) as e:
                     logger.debug(f"Slack webhook error: {e}")
 
             # Fire and forget
             thread = threading.Thread(target=send_webhook, daemon=True)
             thread.start()
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, OSError) as e:
             logger.debug(f"Slack webhook setup error: {e}")
 
     # =========================================================================

@@ -199,7 +199,7 @@ class PromptContextMixin:
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Successful patterns formatting error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, KeyError) as e:
             logger.warning(f"Unexpected patterns formatting error: {e}")
             return ""
 
@@ -259,7 +259,7 @@ class PromptContextMixin:
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Question classification failed with data error: {e}")
             return self._detect_question_domain_keywords(self.env.task)
-        except Exception as e:
+        except (RuntimeError, KeyError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected question classification error: {e}")
             return self._detect_question_domain_keywords(self.env.task)
 
@@ -368,7 +368,7 @@ class PromptContextMixin:
         except (AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Flip context formatting error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, KeyError) as e:
             logger.warning(f"Unexpected flip context formatting error: {e}")
             return ""
 
@@ -428,7 +428,7 @@ class PromptContextMixin:
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Supermemory context injection error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError) as e:
             logger.warning(f"Unexpected supermemory context injection error: {e}")
             return ""
 
@@ -571,7 +571,7 @@ The system will provide relevant details from the full history."""
 
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"RLM abstract retrieval error: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.warning(f"Unexpected RLM abstract retrieval error: {e}")
 
         return ""
@@ -623,7 +623,7 @@ The system will provide relevant details from the full history."""
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Belief context injection error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"Unexpected belief context injection error: {e}")
             return ""
 
@@ -665,7 +665,7 @@ The system will provide relevant details from the full history."""
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"Calibration context injection error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"Unexpected calibration context injection error: {e}")
             return ""
 
@@ -709,7 +709,7 @@ The system will provide relevant details from the full history."""
                             calib_str = f", {accuracy:.0%} calibration"
                     except (AttributeError, TypeError, KeyError) as e:
                         logger.debug(f"Failed to get calibration summary for {name}: {e}")
-                    except Exception as e:
+                    except (RuntimeError, OSError) as e:
                         logger.warning(
                             f"Unexpected error getting calibration summary for {name}: {e}"
                         )
@@ -737,7 +737,7 @@ The system will provide relevant details from the full history."""
         except (AttributeError, TypeError, KeyError) as e:
             logger.debug(f"ELO context injection error: {e}")
             return ""
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"Unexpected ELO context injection error: {e}")
             return ""
 
