@@ -7,6 +7,7 @@ multi-session workflow for parallel Claude Code development.
 Usage:
     python scripts/sprint_coordinator.py plan "Make Aragora production-ready" [--debate]
     python scripts/sprint_coordinator.py setup
+    python scripts/sprint_coordinator.py execute [--max-parallel 3]
     python scripts/sprint_coordinator.py status
     python scripts/sprint_coordinator.py merge [--all]
     python scripts/sprint_coordinator.py cleanup
@@ -242,6 +243,155 @@ def cmd_setup(args: argparse.Namespace) -> None:
     manifest["worktrees"] = worktrees_info
     _save_manifest(manifest)
     print(f"\nManifest updated with worktree paths.")
+
+
+# ---------------------------------------------------------------------------
+# execute
+# ---------------------------------------------------------------------------
+
+
+def cmd_execute(args: argparse.Namespace) -> None:
+    """Spawn Claude Code agents in worktrees for each subtask."""
+    manifest = _load_manifest()
+    worktrees = manifest.get("worktrees", {})
+    subtasks = {st["id"]: st for st in manifest.get("subtasks", [])}
+
+    if not worktrees:
+        print("No worktrees configured. Run 'setup' first.")
+        return
+
+    # Find claude binary
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        print(
+            f"{_color('Error:', _RED)} 'claude' not found in PATH.\n"
+            "Install Claude Code: https://claude.ai/claude-code",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    max_parallel = args.max_parallel
+    active: dict[str, subprocess.Popen] = {}
+    queued: list[tuple[str, dict, dict]] = []
+
+    # Build queue of tasks to execute
+    for subtask_id, info in worktrees.items():
+        wt_path = Path(info["path"])
+        if not wt_path.exists():
+            print(f"  {_color('SKIP', _YELLOW)}: {subtask_id} (worktree missing)")
+            continue
+
+        st = subtasks.get(subtask_id, {})
+        queued.append((subtask_id, info, st))
+
+    if not queued:
+        print("No worktrees ready for execution.")
+        return
+
+    print(f"\n{_color('Executing Sprint', _BOLD)}")
+    print(f"Tasks: {len(queued)}  |  Max parallel: {max_parallel}")
+    print(f"Claude: {claude_bin}")
+    print()
+
+    # Write task instructions to each worktree
+    for subtask_id, info, st in queued:
+        wt_path = Path(info["path"])
+        task_file = wt_path / ".sprint-task.md"
+        title = st.get("title", subtask_id)
+        description = st.get("description", "")
+        file_scope = st.get("file_scope", [])
+        goal = manifest.get("goal", "")
+
+        task_content = f"""# Sprint Task: {title}
+
+## Goal
+{goal}
+
+## Task
+{description}
+
+## File Scope
+{chr(10).join(f'- {f}' for f in file_scope) if file_scope else '(auto-detect)'}
+
+## Instructions
+1. Read the relevant files in the scope above
+2. Implement the changes described in the task
+3. Run tests to verify: `python -m pytest tests/ -x -q --timeout=120`
+4. Commit your changes with a descriptive message
+"""
+        task_file.write_text(task_content)
+
+    # Launch agents with concurrency control
+    def _launch(subtask_id: str, info: dict, st: dict) -> subprocess.Popen:
+        wt_path = Path(info["path"])
+        title = st.get("title", subtask_id)
+        description = st.get("description", title)
+        prompt = (
+            f"Read .sprint-task.md for your task. "
+            f"Implement: {description}. "
+            f"Run tests after changes. Commit when done."
+        )
+
+        log_file = wt_path / ".sprint-agent.log"
+        log_handle = open(log_file, "w")
+
+        proc = subprocess.Popen(
+            [claude_bin, "--print", "--dangerously-skip-permissions", "-p", prompt],
+            cwd=str(wt_path),
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            env={**os.environ, "CLAUDE_SPRINT_TASK": subtask_id},
+        )
+
+        print(
+            f"  {_color('STARTED', _GREEN)}: [{subtask_id}] "
+            f"PID={proc.pid}  branch={info['branch']}"
+        )
+        return proc
+
+    # Process queue with concurrency limit
+    pending = list(queued)
+    completed: list[tuple[str, int]] = []
+
+    while pending or active:
+        # Launch up to max_parallel
+        while pending and len(active) < max_parallel:
+            subtask_id, info, st = pending.pop(0)
+            active[subtask_id] = _launch(subtask_id, info, st)
+
+        # Poll active processes
+        finished = []
+        for subtask_id, proc in active.items():
+            ret = proc.poll()
+            if ret is not None:
+                status = _color("DONE", _GREEN) if ret == 0 else _color(f"EXIT={ret}", _RED)
+                info = worktrees[subtask_id]
+                print(f"  {status}: [{subtask_id}] branch={info['branch']}")
+                completed.append((subtask_id, ret))
+                finished.append(subtask_id)
+
+        for sid in finished:
+            del active[sid]
+
+        if active:
+            import time
+            time.sleep(2)
+
+    # Summary
+    print(f"\n{_color('Execution Summary', _BOLD)}")
+    successes = sum(1 for _, rc in completed if rc == 0)
+    failures = sum(1 for _, rc in completed if rc != 0)
+    print(f"  Completed: {successes}  |  Failed: {failures}")
+
+    if failures:
+        print(f"\n  Check logs in each worktree: .sprint-agent.log")
+
+    # Update manifest with execution status
+    manifest["last_execution"] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "results": {sid: {"exit_code": rc} for sid, rc in completed},
+    }
+    _save_manifest(manifest)
 
 
 # ---------------------------------------------------------------------------
@@ -624,6 +774,19 @@ def main() -> None:
         help="Create worktrees from manifest",
     )
     setup_parser.set_defaults(func=cmd_setup)
+
+    # execute
+    execute_parser = subparsers.add_parser(
+        "execute",
+        help="Spawn Claude Code agents in worktrees",
+    )
+    execute_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=3,
+        help="Maximum concurrent agents (default: 3)",
+    )
+    execute_parser.set_defaults(func=cmd_execute)
 
     # status
     status_parser = subparsers.add_parser(

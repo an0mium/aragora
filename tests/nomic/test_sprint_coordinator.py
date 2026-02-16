@@ -594,3 +594,140 @@ class TestHelpers:
         # In test context stdout is not a TTY, so color codes are stripped
         result = sc._color("hello", sc._GREEN)
         assert result == "hello"
+
+
+# ---------------------------------------------------------------------------
+# cmd_execute
+# ---------------------------------------------------------------------------
+
+
+class TestCmdExecute:
+    """Tests for the execute subcommand."""
+
+    def test_execute_no_worktrees(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture,
+    ) -> None:
+        """execute with no worktrees should report nothing to do."""
+        _patch_project_root(monkeypatch, tmp_path)
+        empty_manifest = {
+            "goal": "test",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "complexity_score": 1,
+            "complexity_level": "low",
+            "subtasks": [],
+            "worktrees": {},
+        }
+        sc._save_manifest(empty_manifest)
+        sc.cmd_execute(argparse.Namespace(max_parallel=3))
+        captured = capsys.readouterr()
+        assert "No worktrees" in captured.out
+
+    def test_execute_no_claude_binary(
+        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """execute should exit with error if claude is not in PATH."""
+        _patch_project_root(monkeypatch, tmp_project)
+
+        # Set up worktrees in manifest
+        manifest["worktrees"] = {
+            "subtask_1": {
+                "branch": "sprint/testing-changes",
+                "path": str(tmp_project / ".worktrees" / "sprint-testing-changes"),
+            },
+        }
+        sc._save_manifest(manifest)
+
+        # Create the worktree directory so it exists
+        wt_path = tmp_project / ".worktrees" / "sprint-testing-changes"
+        wt_path.mkdir(parents=True, exist_ok=True)
+
+        with patch("shutil.which", return_value=None):
+            with pytest.raises(SystemExit) as exc_info:
+                sc.cmd_execute(argparse.Namespace(max_parallel=3))
+            assert exc_info.value.code == 1
+
+    def test_execute_writes_task_files(
+        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """execute should write .sprint-task.md in each worktree."""
+        _patch_project_root(monkeypatch, tmp_project)
+        sc._save_manifest(manifest)
+        sc.cmd_setup(argparse.Namespace())
+
+        # Mock claude binary and Popen so no real process is spawned
+        mock_proc = MagicMock()
+        mock_proc.pid = 12345
+        mock_proc.poll.return_value = 0  # immediately done
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            with patch("subprocess.Popen", return_value=mock_proc):
+                sc.cmd_execute(argparse.Namespace(max_parallel=3))
+
+        # Check task files were written
+        wt1 = tmp_project / ".worktrees" / "sprint-testing-changes"
+        task_file = wt1 / ".sprint-task.md"
+        assert task_file.exists()
+        content = task_file.read_text()
+        assert "Improve test coverage" in content
+        assert "tests/" in content
+
+    def test_execute_respects_max_parallel(
+        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """execute should not launch more than max_parallel agents at once."""
+        _patch_project_root(monkeypatch, tmp_project)
+        sc._save_manifest(manifest)
+        sc.cmd_setup(argparse.Namespace())
+
+        max_concurrent = 0
+        current_running = 0
+        poll_count = {"total": 0}
+
+        def make_proc():
+            nonlocal max_concurrent, current_running
+            proc = MagicMock()
+            proc.pid = 10000 + poll_count["total"]
+            current_running += 1
+            if current_running > max_concurrent:
+                max_concurrent = current_running
+
+            def poll_side_effect():
+                nonlocal current_running
+                poll_count["total"] += 1
+                if poll_count["total"] > 2:  # Complete after a couple polls
+                    current_running -= 1
+                    return 0
+                return None
+
+            proc.poll.side_effect = poll_side_effect
+            return proc
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            with patch("subprocess.Popen", side_effect=lambda *a, **k: make_proc()):
+                with patch("time.sleep"):  # Skip actual sleep
+                    sc.cmd_execute(argparse.Namespace(max_parallel=1))
+
+        # With max_parallel=1, should never exceed 1 concurrent
+        assert max_concurrent <= 1
+
+    def test_execute_updates_manifest(
+        self, tmp_project: Path, manifest: dict, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """execute should save execution results to the manifest."""
+        _patch_project_root(monkeypatch, tmp_project)
+        sc._save_manifest(manifest)
+        sc.cmd_setup(argparse.Namespace())
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 12345
+        mock_proc.poll.return_value = 0
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            with patch("subprocess.Popen", return_value=mock_proc):
+                sc.cmd_execute(argparse.Namespace(max_parallel=3))
+
+        updated = sc._load_manifest()
+        assert "last_execution" in updated
+        assert "timestamp" in updated["last_execution"]
+        assert "results" in updated["last_execution"]
