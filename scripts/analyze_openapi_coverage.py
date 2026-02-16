@@ -77,6 +77,9 @@ def analyze_endpoint(method: str, path: str, operation: dict[str, Any]) -> dict[
                 elif schema.get("type") not in (None, "object") or schema.get("properties"):
                     result["has_response_schema"] = True
                     result["response_schema_ref"] = "inline"
+                elif any(k in schema for k in ("allOf", "oneOf", "anyOf")):
+                    result["has_response_schema"] = True
+                    result["response_schema_ref"] = "composition"
 
             if not result["has_response_schema"] and content:
                 result["issues"].append(f"Response {code} without schema definition")
