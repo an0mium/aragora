@@ -112,8 +112,11 @@ class DecisionReceipt:
     consensus_proof: ConsensusProof | None = None
     provenance_chain: list[ProvenanceRecord] = field(default_factory=list)
 
+    # Explainability (why the decision was made)
+    explainability: dict[str, Any] | None = None  # Decision explanation from ExplanationBuilder
+
     # Schema version for forward compatibility
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
 
     # Integrity
     artifact_hash: str = ""  # Content-addressable hash of entire receipt
@@ -1191,6 +1194,7 @@ class DecisionReceipt:
             "dissenting_views": self.dissenting_views,
             "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
+            "explainability": self.explainability,
             "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,

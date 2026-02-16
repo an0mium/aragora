@@ -82,7 +82,7 @@ class ContextInitializer:
         evidence_collector: Any = None,
         dissent_retriever: Any = None,  # DissentRetriever for historical minority views
         pulse_manager: Any = None,  # PulseManager for trending topics
-        auto_fetch_trending: bool = False,  # Auto-fetch trending if no topic provided
+        auto_fetch_trending: bool = True,  # Auto-fetch trending if no topic provided
         # Knowledge Mound integration
         knowledge_mound: Any = None,  # KnowledgeMound for unified knowledge queries
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
