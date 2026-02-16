@@ -326,16 +326,38 @@ class TaskDecomposer:
         if file_score == 0 and keyword_score < 2 and concept_score <= 1 and not has_path_ref:
             # Check for strategic/broad language that signals high-level goals
             strategic_terms = {
-                "maximize", "minimise", "minimize", "optimise", "optimize",
-                "ensure", "improve", "enhance", "increase", "reduce",
-                "accelerate", "streamline", "transform", "scale", "grow",
-                "utility", "value", "experience", "strategy", "vision",
-                "roadmap", "impact", "outcome", "business", "customer",
-                "user", "market", "revenue", "adoption", "engagement",
+                "maximize",
+                "minimise",
+                "minimize",
+                "optimise",
+                "optimize",
+                "ensure",
+                "improve",
+                "enhance",
+                "increase",
+                "reduce",
+                "accelerate",
+                "streamline",
+                "transform",
+                "scale",
+                "grow",
+                "utility",
+                "value",
+                "experience",
+                "strategy",
+                "vision",
+                "roadmap",
+                "impact",
+                "outcome",
+                "business",
+                "customer",
+                "user",
+                "market",
+                "revenue",
+                "adoption",
+                "engagement",
             }
-            strategic_matches = sum(
-                1 for term in strategic_terms if term in task_lower
-            )
+            strategic_matches = sum(1 for term in strategic_terms if term in task_lower)
             if strategic_matches >= 1:
                 # At least one strategic term + no specifics = vague high-level goal
                 vagueness_bonus = 3.0 + min(strategic_matches - 1, 2) * 0.5
@@ -359,20 +381,76 @@ class TaskDecomposer:
         return max(1, min(10, round(total)))
 
     _SPECIFIC_ACTION_VERBS = {
-        "add", "remove", "fix", "update", "refactor", "implement", "replace",
-        "rename", "extract", "move", "split", "merge", "delete", "create",
-        "migrate", "convert", "wrap", "inject", "enable", "disable",
-        "improve", "enhance", "optimize", "increase", "reduce", "test",
+        "add",
+        "remove",
+        "fix",
+        "update",
+        "refactor",
+        "implement",
+        "replace",
+        "rename",
+        "extract",
+        "move",
+        "split",
+        "merge",
+        "delete",
+        "create",
+        "migrate",
+        "convert",
+        "wrap",
+        "inject",
+        "enable",
+        "disable",
+        "improve",
+        "enhance",
+        "optimize",
+        "increase",
+        "reduce",
+        "test",
     }
 
     _SPECIFIC_TECHNICAL_TERMS = {
-        "retry", "backoff", "timeout", "cache", "queue", "pool", "lock",
-        "mutex", "batch", "stream", "parse", "serialize", "validate",
-        "sanitize", "encrypt", "decrypt", "hash", "compress", "paginate",
-        "throttle", "debounce", "middleware", "decorator", "hook",
-        "callback", "handler", "endpoint", "route", "model", "schema",
-        "coverage", "benchmark", "lint", "type-check", "typecheck",
-        "migration", "fixture", "mock", "stub", "factory", "singleton",
+        "retry",
+        "backoff",
+        "timeout",
+        "cache",
+        "queue",
+        "pool",
+        "lock",
+        "mutex",
+        "batch",
+        "stream",
+        "parse",
+        "serialize",
+        "validate",
+        "sanitize",
+        "encrypt",
+        "decrypt",
+        "hash",
+        "compress",
+        "paginate",
+        "throttle",
+        "debounce",
+        "middleware",
+        "decorator",
+        "hook",
+        "callback",
+        "handler",
+        "endpoint",
+        "route",
+        "model",
+        "schema",
+        "coverage",
+        "benchmark",
+        "lint",
+        "type-check",
+        "typecheck",
+        "migration",
+        "fixture",
+        "mock",
+        "stub",
+        "factory",
+        "singleton",
     }
 
     def _is_specific_goal(self, goal: str) -> bool:
@@ -386,9 +464,7 @@ class TaskDecomposer:
         has_action = bool(words & self._SPECIFIC_ACTION_VERBS)
         has_technical = bool(words & self._SPECIFIC_TECHNICAL_TERMS)
         # Also check for module/area references (connectors, agents, etc.)
-        has_module = bool(
-            words & {c.lower() for c in DECOMPOSITION_CONCEPTS}
-        )
+        has_module = bool(words & {c.lower() for c in DECOMPOSITION_CONCEPTS})
         # Specific if it has an action verb + either technical term or module ref
         return has_action and (has_technical or has_module)
 
@@ -705,9 +781,21 @@ class TaskDecomposer:
             # If 0-1 tracks match, the goal is so broad it affects all tracks.
             # Strategic terms like "maximize", "improve", "optimize" are
             # inherently cross-cutting — include all tracks.
-            broad_terms = {"maximize", "minimise", "minimize", "improve", "enhance",
-                           "optimize", "optimise", "scale", "transform", "grow",
-                           "utility", "value", "business"}
+            broad_terms = {
+                "maximize",
+                "minimise",
+                "minimize",
+                "improve",
+                "enhance",
+                "optimize",
+                "optimise",
+                "scale",
+                "transform",
+                "grow",
+                "utility",
+                "value",
+                "business",
+            }
             is_broad = any(t in goal_lower for t in broad_terms)
             # Also check if the goal mentions a specific path/directory
             has_path = bool(re.search(r"aragora/\w+|tests/\w+|sdk/\w+|scripts/\w+", goal_lower))
@@ -752,8 +840,7 @@ class TaskDecomposer:
         subtasks = subtasks[: self.config.max_subtasks]
 
         rationale = (
-            f"Vague goal expanded via semantic matching "
-            f"(sources: {', '.join(matched_sources)})"
+            f"Vague goal expanded via semantic matching (sources: {', '.join(matched_sources)})"
         )
 
         return TaskDecomposition(

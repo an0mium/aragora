@@ -29,11 +29,9 @@ concurrency:
 
 jobs:
   testfixer:
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'failure' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       !contains(github.event.workflow_run.head_commit.message, 'testfixer'))
+    # Disabled: auto-fix loop causes CI thrash (push→cancel→restart cycle).
+    # Re-enable via workflow_dispatch when needed for targeted fix runs.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

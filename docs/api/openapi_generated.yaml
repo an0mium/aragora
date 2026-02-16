@@ -84359,6 +84359,28 @@ paths:
         '403': *id527
         '404': *id528
       x-aragora-stability: experimental
+  /api/v1/workspaces/{workspace_id}/activity:
+    get:
+      summary: Get recent workspace activity
+      tags:
+      - Workspace
+      operationId: decorator
+      parameters:
+      - name: workspace_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 'Path parameter: workspace_id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
   /api/v1/workspaces/{workspace_id}/invites:
     post:
       summary: Create workspace invite
