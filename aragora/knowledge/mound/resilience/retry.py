@@ -16,6 +16,32 @@ from aragora.knowledge.mound.resilience._common import T, asyncio_timeout
 logger = logging.getLogger(__name__)
 
 
+def _emit_retry_exhausted(func_name: str, total_attempts: int, args: tuple) -> None:
+    """Emit KM_RETRY_EXHAUSTED event if the caller has an event_emitter."""
+    try:
+        # Check if first arg (self) has an event emitter via circuit breaker
+        if args:
+            obj = args[0]
+            emitter = getattr(getattr(obj, "_circuit_breaker", None), "_event_emitter", None)
+            if emitter is None:
+                emitter = getattr(obj, "_event_emitter", None)
+            if emitter is None:
+                return
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            adapter_name = getattr(obj, "_adapter_name", getattr(obj, "adapter_name", "unknown"))
+            emitter.emit(StreamEvent(
+                type=StreamEventType.KM_RETRY_EXHAUSTED,
+                data={
+                    "adapter": adapter_name,
+                    "function": func_name,
+                    "total_attempts": total_attempts,
+                },
+            ))
+    except (ImportError, AttributeError, TypeError):
+        pass
+
+
 class RetryStrategy(str, Enum):
     """Retry strategies for transient failures."""
 
@@ -114,6 +140,7 @@ def with_retry(
                         logger.error(f"Max retries exceeded for {func.__name__}: {e}")
 
             if last_exception:
+                _emit_retry_exhausted(func.__name__, total_attempts, args)
                 raise last_exception
             raise RuntimeError(f"Unexpected retry loop exit in {func.__name__}")
 

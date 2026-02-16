@@ -45,6 +45,7 @@ class RedisCache:
         culture_ttl: int = 3600,  # 1 hour
         prefix: str = "aragora:km",
         max_entries: int = 10_000,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize Redis cache.
@@ -63,6 +64,7 @@ class RedisCache:
         self._max_entries = max_entries
         self._client: Any | None = None
         self._connected = False
+        self._event_emitter = event_emitter
 
     async def connect(self) -> None:
         """Connect to Redis."""
@@ -457,6 +459,9 @@ class RedisCache:
                     await self.invalidate_culture(event.workspace_id)
                     logger.debug(f"Cache invalidated: culture in {event.workspace_id}")
 
+                # Emit KM_CACHE_INVALIDATED event
+                self._emit_cache_invalidated(event.event_type, event.workspace_id, event.item_id)
+
             except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Cache invalidation failed for event {event.event_type}: {e}")
 
@@ -469,6 +474,26 @@ class RedisCache:
             self._unsubscribe()
             self._unsubscribe = None
             logger.info("Redis cache unsubscribed from invalidation bus")
+
+    def _emit_cache_invalidated(
+        self, event_type: str, workspace_id: str, item_id: str | None
+    ) -> None:
+        """Emit KM_CACHE_INVALIDATED event for real-time monitoring."""
+        if not self._event_emitter:
+            return
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            self._event_emitter.emit(StreamEvent(
+                type=StreamEventType.KM_CACHE_INVALIDATED,
+                data={
+                    "event_type": event_type,
+                    "workspace_id": workspace_id,
+                    "item_id": item_id,
+                },
+            ))
+        except (ImportError, AttributeError, TypeError):
+            pass
 
     # =========================================================================
     # LRU Entry Tracking
