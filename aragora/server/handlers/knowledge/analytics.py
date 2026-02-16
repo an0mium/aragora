@@ -391,7 +391,7 @@ class AnalyticsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get analytics summary: {e}")
             return error_response("Failed to get analytics summary", 500)
 
@@ -466,7 +466,7 @@ class AnalyticsHandler(BaseHandler):
 
             except ImportError:
                 pass
-            except Exception as e:
+            except (RuntimeError, AttributeError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to get continuum learning stats: {e}")
 
             # Try to get consensus adapter stats

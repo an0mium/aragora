@@ -197,7 +197,7 @@ class TelegramWebhooksMixin:
             status = "error"
             record_error("telegram", "json_parse")
             return json_response({"ok": True})
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error("Error handling Telegram webhook: %s", e, exc_info=True)
             status = "error"
             record_error("telegram", "unknown")

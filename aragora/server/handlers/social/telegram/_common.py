@@ -128,7 +128,7 @@ class TelegramRBACMixin:
                 roles={user_info.role} if user_info.role else set(),
                 org_id=user_info.org_id,
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.debug("Could not extract auth context: %s", e)
             return None
 

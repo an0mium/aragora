@@ -364,7 +364,7 @@ class TaskExecutionHandler(BaseHandler):
         if _HAS_SCHEDULER and not human_checkpoints:
             try:
                 self._schedule_task(task, route)
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError) as exc:
                 logger.warning("Failed to schedule task %s: %s", task.id, exc)
                 # Continue - task is still tracked in-memory
 
@@ -372,7 +372,7 @@ class TaskExecutionHandler(BaseHandler):
         if not human_checkpoints:
             try:
                 self._start_execution(task, route)
-            except Exception as exc:
+            except (ValueError, RuntimeError, OSError, AttributeError) as exc:
                 logger.error("Failed to start task %s: %s", task.id, exc)
                 task.status = "failed"
                 task.error = str(exc)
@@ -498,7 +498,7 @@ class TaskExecutionHandler(BaseHandler):
         route = _router.route(task.type, task.goal, task.context)
         try:
             self._start_execution(task, route)
-        except Exception as exc:
+        except (ValueError, RuntimeError, OSError, AttributeError) as exc:
             logger.error("Failed to start approved task %s: %s", task.id, exc)
             task.status = "failed"
             task.error = str(exc)
@@ -560,7 +560,7 @@ class TaskExecutionHandler(BaseHandler):
                     task.id,
                     task.workflow_id,
                 )
-            except Exception as exc:
+            except (RuntimeError, ImportError, AttributeError) as exc:
                 logger.debug("WorkflowEngine unavailable: %s", exc)
 
         # Mark as completed for simple synchronous execution.

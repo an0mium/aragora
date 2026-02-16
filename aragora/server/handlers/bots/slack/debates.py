@@ -145,7 +145,7 @@ async def start_slack_debate(
                             "response_url": response_url,
                         },
                     )
-                except Exception as exc:
+                except (RuntimeError, KeyError, AttributeError, OSError, ImportError) as exc:
                     logger.debug("Failed to register dedup Slack origin: %s", exc)
             logger.info("DecisionRouter started debate %s from Slack", result.request_id)
 
@@ -157,7 +157,7 @@ async def start_slack_debate(
             result = await asyncio.wait_for(asyncio.shield(task), timeout=0.5)
         except asyncio.TimeoutError:
             result = None
-        except Exception as exc:
+        except (RuntimeError, ValueError, KeyError, AttributeError, OSError) as exc:
             logger.debug("Failed to get quick debate result: %s", exc)
             result = None
 

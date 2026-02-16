@@ -129,7 +129,7 @@ class TeamsOAuth:
         except ImportError:
             logger.warning("JWT verification module not available")
             return None
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.error("Token validation error: %s", e)
             return None
 
@@ -164,7 +164,7 @@ class TeamsOAuth:
             logger.debug("SSO token exchange not implemented - requires OAuth connection")
             return None
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error("SSO token exchange failed: %s", e)
             return None
 

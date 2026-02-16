@@ -340,7 +340,7 @@ class MetricsRegistry:
             logger.warning(f"Failed to initialize some metrics modules: {e}")
             cls._initialized = True
             return False
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Error initializing metrics: {e}", exc_info=True)
             cls._initialized = True
             return False
@@ -586,7 +586,7 @@ class UnifiedMetricsHandler(BaseHandler):
                 body=content.encode("utf-8"),
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, RuntimeError) as e:
             logger.error("Failed to generate Prometheus metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get metrics"), 500)
 

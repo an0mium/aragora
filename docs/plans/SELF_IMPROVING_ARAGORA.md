@@ -48,55 +48,49 @@ AuditReconciliation.cross_check()      ← ADD second-agent review
 KnowledgeMound.record_outcome()        ← ADD cross-cycle learning
 ```
 
-## Phase 1: Wire the Gold Path (Week 1)
+## Phase 1: Wire the Gold Path ~~(Week 1)~~ COMPLETE
 
 **Goal:** `self_develop.py --goal "..." --autonomous` produces tested, committed code.
 
-### 1A. HardenedOrchestrator as Default
-- Change `AutonomousOrchestrator` to inherit from `HardenedOrchestrator`
-- Enable `use_worktree_isolation=True` by default
-- Enable prompt injection scanning on all goal inputs
-- Enable budget tracking with configurable limits
+### 1A. HardenedOrchestrator as Default ✅
+- `use_worktree_isolation=True` by default
+- Prompt injection scanning via SkillScanner on all goal inputs
+- Budget tracking with `budget_limit_usd` and `BudgetEnforcementConfig`
 
-### 1B. Git Commit in Orchestrator
-- After VerificationStep passes, auto-stage changed files
-- Create commit with structured message (subtask ID, track, agent)
+### 1B. Git Commit in Orchestrator ✅
+- Auto-stage + commit with structured message (subtask ID, track, agent)
 - Push to worktree branch (not main)
-- If tests fail, revert changes in worktree
+- Revert on test failure
 
-### 1C. MetaPlanner → Orchestrator Bridge
-- Call `MetaPlanner.prioritize_work()` at the start of `execute_goal()`
-- Use debate-based prioritization for vague goals (score < 3)
-- Feed past cycle outcomes into MetaPlanner context
-- Implement the stubbed cross-cycle learning query
+### 1C. MetaPlanner → Orchestrator Bridge ✅
+- `execute_goal_coordinated()` calls `MetaPlanner.prioritize_work()`
+- `quick_mode=True` for concrete goals, debate for vague goals
+- Cross-cycle learning via KnowledgeMound `NomicCycleAdapter`
 
-### 1D. Merge Gate
-- After all subtasks complete in a worktree, run full test suite
-- If passing, merge worktree branch to main via BranchCoordinator
-- If failing, report conflicts and halt
-- Record merge outcome in KnowledgeMound
+### 1D. Merge Gate ✅
+- `_run_merge_gate()` runs scoped pytest in worktree before merge
+- BranchCoordinator merges on success, rejects on failure
+- Merge outcome recorded in KnowledgeMound
 
-## Phase 2: Security Hardening (Week 1-2)
+## Phase 2: Security Hardening ~~(Week 1-2)~~ COMPLETE
 
 **Goal:** Safe autonomous execution even with untrusted inputs.
 
-### 2A. Prompt Injection Defense
-- Input sanitization layer before goal reaches TaskDecomposer
-- System prompt isolation (agent instructions immutable)
-- Output validation before code is written to disk
-- Canary tokens in system prompts to detect injection attempts
+### 2A. Prompt Injection Defense ✅
+- SkillScanner input sanitization before TaskDecomposer
+- Canary tokens in system prompts (`get_canary_directive()`)
+- Output validation scans diff for canary leaks + dangerous patterns
+- `_check_canary_leak()` detects system prompt leaks
 
-### 2B. Code Review Gate
-- After implementation, use a DIFFERENT agent to review the diff
-- Reject changes that: modify security files, disable tests, add network calls
-- Score changes for safety (0-10) and block below threshold
-- Use OpenClaw skill scanner on generated code
+### 2B. Code Review Gate ✅
+- `_run_review_gate()` scores diff (0-10), blocks below `review_gate_min_score`
+- `_cross_agent_review()` selects a DIFFERENT agent via `_select_best_agent(exclude_agents=...)`
+- OpenClaw SkillScanner scans generated code for dangerous patterns
 
-### 2C. Sandbox Execution
-- Run generated code in Docker sandbox before committing
-- Verify no unexpected network calls, file access outside repo
-- Time-bound execution (60s default)
-- Memory limits (512MB default)
+### 2C. Sandbox Execution ✅
+- `_run_sandbox_validation()` validates Python syntax via `py_compile`
+- Docker sandbox via `SandboxExecutor` when available
+- Configurable timeout via `sandbox_timeout`
 
 ## Phase 3: Multi-Agent Coordination (Week 2-3)
 
