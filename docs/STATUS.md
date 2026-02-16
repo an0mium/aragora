@@ -1,8 +1,66 @@
 # Aragora Project Status
 
-*Last updated: February 14, 2026*
+*Last updated: February 15, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Phase 10: Multi-Agent Coordination & Security Hardening (February 15, 2026)
+
+### Summary
+Major sprint on production-grade multi-agent coordination, security hardening (error sanitization across 95+ files), and codebase health. Three strategic plan components fully implemented: **worktree isolation**, **hierarchical coordinator**, and **CI feedback loop**. Test suite clean across randomized seeds (3,266 nomic tests, 0 failures). Error message sanitization eliminates `str(e)` information leaks across all handler and debate modules.
+
+### Multi-Agent Coordination (Strategic Plan)
+
+#### Worktree Isolation (53 tests)
+- **`WorktreeInfo` dataclass** and `BranchCoordinatorConfig` with `use_worktrees=True`
+- **Git worktree support**: `create_worktree()`, `cleanup_worktree()`, `list_worktrees()`, `merge_worktree_back()`
+- **Race condition fix**: Parallel `asyncio.gather` assignments now use isolated worktree directories instead of shared `git checkout`
+- **Context manager**: `__aenter__`/`__aexit__` for automatic cleanup
+
+#### Hierarchical Coordinator (70 tests)
+- **Planner/Worker/Judge cycle**: `HierarchicalCoordinator` with `CoordinatorConfig`, `WorkerReport`, `JudgeVerdict`
+- **Plan phase**: Decomposition with revision support for rejected tasks
+- **Execute phase**: Parallel worker dispatch via `WorkflowEngine`
+- **Judge phase**: Arena-based verdict generation with `ConsensusProof`
+- **Revision cycle**: Targeted replanning based on partial approvals
+- **Integration**: Optional delegation from `AutonomousOrchestrator`
+
+#### CI Feedback Loop (77 tests)
+- **Concurrency fix**: Per-SHA groups for `dev/*` branches prevent CI run cancellation
+- **Nomic CI workflow**: `.github/workflows/nomic-ci.yml` with targeted test selection
+- **`CIResultCollector`**: Polls GitHub Actions for results, graceful degradation without `gh` CLI
+- **Verify phase integration**: CI results checked after local tests pass
+- **Semantic conflict detection**: AST-based static analysis + Arena debate for cross-branch conflicts
+
+### HardenedOrchestrator Enhancements
+- **OpenClaw computer-use integration**: Browser/UI task detection and routing through `ComputerUseBridge`
+- **Cross-cycle learning**: Records orchestration outcomes to KnowledgeMound for future optimization
+- **Calibration-weighted agent selection**: Brier score integration in agent scoring (50% base, 30% recent, 20% calibration)
+- **ParallelOrchestrator deprecated**: Thin wrapper with zero unique functionality, users directed to `HardenedOrchestrator`
+
+### Security Hardening
+- **Error sanitization**: Replaced `str(e)` with `type(e).__name__` or generic messages across 95+ files (debate, agents, MCP, bots, canvas, storage, moltbot)
+- **Exception narrowing**: `except Exception` replaced with specific types (`KeyError`, `ValueError`, `OSError`, `TypeError`, `AttributeError`) across 57 server handler files
+- **TypeScript SDK fixes**: Corrected HTTP method verbs (e.g., `createFact` using `POST` instead of `GET`)
+
+### Task Decomposer Improvements
+- **Specificity gate**: `_is_specific_goal()` prevents vague expansion for goals with action verbs + technical terms
+- **TF-IDF threshold**: Raised minimum relevance from 0.01 to 0.15 for template matching
+
+### Test Health
+- **Nomic suite**: 3,266 tests passing across 3 random seeds (12345, 54321, 99999)
+- **Handler suite**: 19,776 tests, 0 failures
+- **Test pollution**: Resolved (`NonCallableMock.side_effect` descriptor fix, hanging deliberation mock fix)
+- **Worktree scripts**: 8/8 validation checks pass (4 bash syntax, 3 Python AST, 1 CLI)
+
+### Infrastructure
+- **Documentation site**: Triggered GitHub Pages deployment for `docs.aragora.ai` (Docusaurus v3.7.0, 13K+ pages)
+- **SDK parity**: 10/10 contract parity tests passing
+- **aragora-debate package**: v0.2.0 built and validated via twine check
+
+### Overall Health Score: 9.7/10 (up from 9.6/10)
+
+---
 
 ## Phase 9: SDK Parity, Test Isolation & Handler Coverage (February 13-14, 2026)
 
