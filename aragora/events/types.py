@@ -341,6 +341,38 @@ class StreamEventType(Enum):
     TESTFIXER_LOOP_COMPLETE = "testfixer_loop_complete"  # Full fix loop finished
     TESTFIXER_PATTERN_LEARNED = "testfixer_pattern_learned"  # New fix pattern learned
 
+    # Genesis/Fractal Events (agent evolution and recursive debates)
+    AGENT_BIRTH = "agent_birth"  # New agent genome created
+    AGENT_DEATH = "agent_death"  # Agent genome retired from population
+    AGENT_EVOLUTION = "agent_evolution"  # Agent genome mutated/evolved
+    FRACTAL_START = "fractal_start"  # Fractal sub-debate spawned
+    FRACTAL_SPAWN = "fractal_spawn"  # Child fractal created from parent
+    FRACTAL_MERGE = "fractal_merge"  # Fractal results merged back to parent
+    FRACTAL_COMPLETE = "fractal_complete"  # Fractal debate chain completed
+    LINEAGE_BRANCH = "lineage_branch"  # Agent lineage tree branched
+    POPULATION_UPDATE = "population_update"  # Population state changed
+    GENERATION_ADVANCE = "generation_advance"  # New generation in evolutionary cycle
+    TENSION_DETECTED = "tension_detected"  # Unresolved tension found in debate
+    TENSION_RESOLVED = "tension_resolved"  # Previously detected tension resolved
+
+    # RLM/Query Events (recursive language model processing)
+    QUERY_START = "query_start"  # RLM query processing started
+    QUERY_COMPLETE = "query_complete"  # RLM query processing finished
+    NODE_EXAMINED = "node_examined"  # RLM node visited during traversal
+    LEVEL_ENTERED = "level_entered"  # RLM entered new recursion level
+    FINAL_ANSWER = "final_answer"  # RLM produced final answer
+    PARTIAL_ANSWER = "partial_answer"  # RLM intermediate partial result
+    ITERATION_START = "iteration_start"  # RLM iteration loop started
+    ITERATION_COMPLETE = "iteration_complete"  # RLM iteration loop completed
+
+    # Confidence/Feedback Events (real-time confidence tracking)
+    CONFIDENCE_UPDATE = "confidence_update"  # Debate confidence score changed
+    FEEDBACK_GENERATED = "feedback_generated"  # Post-debate feedback produced
+
+    # Meta-Learning Events (self-tuning hyperparameters)
+    META_LEARNING_EVALUATED = "meta_learning_evaluated"  # Learning efficiency evaluated
+    META_LEARNING_ADJUSTED = "meta_learning_adjusted"  # Hyperparameters auto-tuned
+
     # Pipeline Execution Events (decision plan lifecycle)
     PLAN_EXECUTING = "plan_executing"  # Plan execution started
     PLAN_COMPLETED = "plan_completed"  # Plan execution completed successfully

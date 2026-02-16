@@ -500,7 +500,7 @@ class AutonomousOrchestrator:
         track_configs: dict[Track, TrackConfig] | None = None,
         workflow_engine: WorkflowEngine | None = None,
         task_decomposer: TaskDecomposer | None = None,
-        require_human_approval: bool = False,
+        require_human_approval: bool = True,
         max_parallel_tasks: int = 4,
         on_checkpoint: Callable[[str, dict[str, Any]], None] | None = None,
         use_debate_decomposition: bool = False,
@@ -514,6 +514,7 @@ class AutonomousOrchestrator:
         enable_convoy_tracking: bool = False,
         workspace_manager: Any | None = None,
         agent_fabric: Any | None = None,
+        use_harness: bool = False,
     ):
         """
         Initialize the orchestrator.
@@ -548,6 +549,7 @@ class AutonomousOrchestrator:
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
         self.branch_coordinator = branch_coordinator
         self.agent_fabric = agent_fabric
+        self.use_harness = use_harness
         self.workflow_engine = workflow_engine or get_workflow_engine()
         self.task_decomposer = task_decomposer or TaskDecomposer(
             config=DecomposerConfig(complexity_threshold=4)
@@ -1292,7 +1294,9 @@ class AutonomousOrchestrator:
             ),
         )
 
-        verify_next = ["judge_review"] if hierarchy_enabled else []
+        verify_next = ["harness_scan"] if self.use_harness else (
+            ["judge_review"] if hierarchy_enabled else []
+        )
         steps.append(
             StepDefinition(
                 id="verify",
@@ -1306,6 +1310,23 @@ class AutonomousOrchestrator:
                 next_steps=verify_next,
             ),
         )
+
+        # Harness scan: run code analysis for security/quality after tests pass
+        if self.use_harness:
+            harness_next = ["judge_review"] if hierarchy_enabled else []
+            steps.append(
+                StepDefinition(
+                    id="harness_scan",
+                    name="Harness Security/Quality Scan",
+                    step_type="harness_analysis",
+                    config={
+                        "analysis_types": ["security", "quality"],
+                        "file_scope": subtask.file_scope or [],
+                        "fail_on_critical": True,
+                    },
+                    next_steps=harness_next,
+                ),
+            )
 
         if hierarchy_enabled:
             steps.append(

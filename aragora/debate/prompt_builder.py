@@ -334,6 +334,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
 
         # Agent introspection (self-awareness of reputation, expertise)
         self.enable_introspection = enable_introspection
+        self._introspection_cache: Any | None = None  # IntrospectionCache instance
 
         # Trending topics for pulse injection (set externally via set_trending_topics)
         self.trending_topics: list[TrendingTopic] = []
@@ -442,27 +443,55 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
             for key in keys_to_remove:
                 cache.pop(key, None)
 
+    def warm_introspection_cache(self, agents: list) -> None:
+        """Pre-load introspection data for all agents at debate start.
+
+        Called once at Arena initialization to populate the cache so per-agent
+        lookups during prompt building are O(1) dictionary reads instead of
+        repeated database queries.
+        """
+        if not self.enable_introspection:
+            return
+        try:
+            from aragora.introspection.cache import IntrospectionCache
+
+            cache = IntrospectionCache()
+            cache.warm(
+                agents=agents,
+                memory=self.memory,
+                persona_manager=self.persona_manager,
+            )
+            self._introspection_cache = cache
+        except (ImportError, RuntimeError, TypeError) as e:
+            logger.debug("[introspection] Cache warming failed: %s", e)
+
     def _get_introspection_context(self, agent_name: str) -> str:
         """Get introspection context for an agent.
 
         Returns formatted self-awareness section (reputation, expertise)
         for injection into agent prompts, or empty string on error.
+        Uses IntrospectionCache if warmed, falls back to per-agent lookup.
         """
         if not self.enable_introspection:
             return ""
         try:
-            from aragora.introspection.api import (
-                get_agent_introspection,
-                format_introspection_section,
-            )
+            from aragora.introspection.api import format_introspection_section
+
+            # Fast path: use warmed cache
+            if self._introspection_cache is not None:
+                snapshot = self._introspection_cache.get(agent_name)
+                if snapshot is not None:
+                    return format_introspection_section(snapshot, max_chars=600)
+
+            # Slow path: per-agent lookup (cache not warmed or agent not cached)
+            from aragora.introspection.api import get_agent_introspection
 
             snapshot = get_agent_introspection(
                 agent_name,
                 memory=self.memory,
                 persona_manager=self.persona_manager,
             )
-            section = format_introspection_section(snapshot, max_chars=600)
-            return section
+            return format_introspection_section(snapshot, max_chars=600)
         except (ImportError, ValueError, TypeError, KeyError, AttributeError):
             return ""
 

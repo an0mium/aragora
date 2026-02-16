@@ -154,6 +154,9 @@ class FeedbackPhase:
         receipt_base_url: str = "/api/v2/receipts",  # Base URL for receipt links
         # Genesis Ledger for cryptographic debate provenance
         genesis_ledger: Any | None = None,  # GenesisLedger for immutable event recording
+        # Meta-Learning for self-tuning hyperparameters
+        meta_learner: Any | None = None,  # MetaLearner for auto-tuning learning hyperparameters
+        enable_meta_learning: bool = True,  # Evaluate and adjust after each debate
     ):
         """
         Initialize the feedback phase.
@@ -243,6 +246,10 @@ class FeedbackPhase:
 
         # Genesis Ledger
         self.genesis_ledger = genesis_ledger
+
+        # Meta-Learning
+        self.meta_learner = meta_learner
+        self.enable_meta_learning = enable_meta_learning
 
         # Callbacks
         self._emit_moment_event = emit_moment_event
@@ -418,6 +425,93 @@ class FeedbackPhase:
 
         # 31. Validate KM entries used in debate against outcome
         await self._validate_km_outcome(ctx)
+
+        # 32. Update introspection data based on debate performance
+        self._update_introspection_feedback(ctx)
+
+        # 33. Evaluate and adjust meta-learning hyperparameters
+        self._evaluate_meta_learning(ctx)
+
+    def _update_introspection_feedback(self, ctx: DebateContext) -> None:
+        """Update agent introspection data based on debate performance.
+
+        Records debate outcomes back into persona/reputation data so that
+        introspection snapshots evolve across debates. Agents that perform
+        well in specific domains get their expertise scores boosted.
+        """
+        if not self.persona_manager:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            agents = ctx.agents or []
+            winner = getattr(result, "winner", None)
+            consensus = result.consensus_reached
+
+            for agent in agents:
+                agent_name = agent.name if hasattr(agent, "name") else str(agent)
+                is_winner = winner and agent_name == getattr(winner, "name", winner)
+
+                if hasattr(self.persona_manager, "record_debate_outcome"):
+                    self.persona_manager.record_debate_outcome(
+                        agent_name=agent_name,
+                        won=is_winner,
+                        consensus_reached=consensus,
+                        domain=getattr(ctx.env, "domain", "general") if ctx.env else "general",
+                    )
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
+            logger.debug("[introspection] Feedback update failed: %s", e)
+
+    def _evaluate_meta_learning(self, ctx: DebateContext) -> None:
+        """Evaluate learning efficiency and auto-tune hyperparameters.
+
+        Uses MetaLearner to:
+        1. Evaluate pattern retention, forgetting rate, tier efficiency
+        2. Adjust surprise weights, tier thresholds, decay half-lives
+        3. Apply tuned hyperparameters back to ContinuumMemory
+        """
+        if not self.meta_learner or not self.enable_meta_learning:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        try:
+            cycle_results: dict[str, Any] = {
+                "cycle": getattr(ctx, "debate_number", 1),
+                "consensus_rate": 1.0 if result.consensus_reached else 0.0,
+                "avg_calibration": getattr(result, "avg_calibration", 0.5),
+                "confidence": getattr(result, "confidence", 0.5),
+                "rounds": getattr(result, "rounds_completed", 0),
+            }
+
+            metrics = self.meta_learner.evaluate_learning_efficiency(
+                self.continuum_memory, cycle_results
+            )
+
+            adjustments = self.meta_learner.adjust_hyperparameters(metrics)
+
+            if adjustments:
+                logger.info(
+                    "[meta_learning] Adjusted hyperparameters: %s",
+                    "; ".join(f"{k}: {v}" for k, v in adjustments.items()),
+                )
+
+                if self.continuum_memory and hasattr(self.continuum_memory, "hyperparams"):
+                    tuned = self.meta_learner.get_current_hyperparams()
+                    for key, value in tuned.items():
+                        if hasattr(self.continuum_memory.hyperparams, key):
+                            setattr(self.continuum_memory.hyperparams, key, value)
+                    logger.debug(
+                        "[meta_learning] Applied %d tuned params to ContinuumMemory",
+                        len(tuned),
+                    )
+        except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
+            logger.debug("[meta_learning] Evaluation failed: %s", e)
 
     async def _maybe_trigger_workflow(self, ctx: DebateContext) -> None:
         """Trigger post-debate workflow for high-quality debates.

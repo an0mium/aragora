@@ -116,7 +116,7 @@ class HybridExecutor:
         task_type_router: dict[str, str] | None = None,
         capability_router: dict[str, str] | None = None,
         use_harness: bool = False,
-        sandbox_mode: bool = False,
+        sandbox_mode: bool = True,
         sandbox_image: str = "python:3.11-slim",
         sandbox_memory_mb: int = 2048,
     ):
