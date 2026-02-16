@@ -99,7 +99,7 @@ def _check_execution_budget(debate_id: str, ctx: dict[str, Any]) -> tuple[bool, 
         if not result.get("allowed", True):
             return False, result.get("message", "Budget exceeded")
         return True, ""
-    except (KeyError, ValueError, AttributeError, TypeError) as exc:
+    except (KeyError, ValueError, AttributeError, TypeError, OSError) as exc:
         logger.debug("Budget check failed (allowing): %s", exc)
         return True, ""
 

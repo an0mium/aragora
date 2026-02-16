@@ -803,6 +803,9 @@ async def run_debate(
 
     # Run debate
     auto_explain = kwargs.pop("auto_explain", False)
+    # Pop kwargs that are set on Arena post-init, not accepted by __init__
+    enable_cartographer = kwargs.pop("enable_cartographer", None)
+    enable_introspection = kwargs.pop("enable_introspection", None)
     arena_kwargs: dict[str, Any] = dict(kwargs)
     if offline:
         arena_kwargs.update(
@@ -831,6 +834,12 @@ async def run_debate(
         event_emitter=event_emitter,
         **arena_kwargs,
     )
+
+    # Apply post-init configuration flags
+    if enable_cartographer is not None:
+        arena.enable_cartographer = enable_cartographer
+    if enable_introspection is not None:
+        arena.enable_introspection = enable_introspection
 
     # Enable auto-explanation if requested
     if auto_explain and hasattr(arena, "extensions") and arena.extensions is not None:

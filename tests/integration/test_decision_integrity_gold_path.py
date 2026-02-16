@@ -168,7 +168,7 @@ class TestGoldPathReceiptPersistence:
         from aragora.server.handlers.debates.implementation import _persist_receipt
 
         mock_receipt = MagicMock()
-        mock_receipt.to_dict.side_effect = RuntimeError("serialize error")
+        mock_receipt.to_dict.side_effect = TypeError("serialize error")
 
         result = _persist_receipt(mock_receipt, "debate-001")
         assert result is None
@@ -211,7 +211,7 @@ class TestGoldPathPlanPersistence:
         with (
             patch(
                 "aragora.pipeline.executor.store_plan",
-                side_effect=RuntimeError("store full"),
+                side_effect=OSError("store full"),
             ),
             patch(
                 "aragora.pipeline.decision_plan.DecisionPlanFactory.from_implement_plan",
@@ -281,7 +281,7 @@ class TestGoldPathBudgetEnforcement:
         )
 
         mock_tracker = MagicMock()
-        mock_tracker.check_debate_budget.side_effect = RuntimeError("db down")
+        mock_tracker.check_debate_budget.side_effect = OSError("db down")
 
         ok, msg = _check_execution_budget("debate-001", {"cost_tracker": mock_tracker})
         assert ok is True
