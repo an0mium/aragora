@@ -142,7 +142,7 @@ class TestBeliefHandler:
     def test_emit_km_event_handles_error_gracefully(self):
         handler = self._make_handler()
         mock_emitter = MagicMock()
-        mock_emitter.emit.side_effect = RuntimeError("Emit failed")
+        mock_emitter.emit.side_effect = TypeError("Emit failed")
 
         # Should not raise
         handler._emit_km_event(mock_emitter, "belief_converged", {})
