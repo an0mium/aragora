@@ -265,7 +265,11 @@ class TestAuditToCompliance:
     @pytest.mark.asyncio
     async def test_no_compliance_context_when_unavailable(self, orchestrator):
         """No metadata when compliance context is unavailable."""
-        with patch.object(orchestrator, "_fetch_compliance_context", return_value=None):
+        with (
+            patch.object(orchestrator, "_fetch_compliance_context", return_value=None),
+            patch.object(orchestrator, "_run_parallel", new_callable=AsyncMock),
+            patch.object(orchestrator, "_run_serial", new_callable=AsyncMock),
+        ):
             from aragora.audit.document_auditor import AuditSession
 
             session = AuditSession(

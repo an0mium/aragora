@@ -55,6 +55,7 @@ class TranscriptionWorker:
         poll_interval: float = 2.0,
         max_concurrent: int = 2,
         broadcast_fn: Callable[..., Any] | None = None,
+        event_emitter: Any | None = None,
     ):
         """
         Initialize transcription worker.
@@ -64,11 +65,13 @@ class TranscriptionWorker:
             poll_interval: Seconds between queue polls when idle
             max_concurrent: Maximum concurrent transcription jobs
             broadcast_fn: Optional WebSocket broadcast function for streaming
+            event_emitter: Optional event emitter for TRANSCRIPTION_* events
         """
         self.worker_id = worker_id or f"transcription-worker-{os.getpid()}"
         self.poll_interval = poll_interval
         self.max_concurrent = max_concurrent
         self.broadcast_fn = broadcast_fn
+        self._event_emitter = event_emitter
 
         self._running = False
         self._active_jobs: dict[str, asyncio.Task] = {}
@@ -141,9 +144,27 @@ class TranscriptionWorker:
             if not task.cancelled() and task.exception():
                 logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
 
+    def _emit_transcription_event(self, event_name: str, data: dict) -> None:
+        """Emit TRANSCRIPTION_* events for real-time monitoring."""
+        if not self._event_emitter:
+            return
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is not None:
+                self._event_emitter.emit(StreamEvent(type=event_type, data=data))
+        except (ImportError, AttributeError, TypeError):
+            pass
+
     async def _process_job(self, job: QueuedJob) -> None:
         """Process a single transcription job."""
         start_time = time.time()
+        self._emit_transcription_event("TRANSCRIPTION_STARTED", {
+            "job_id": job.id,
+            "job_type": job.job_type,
+            "worker_id": self.worker_id,
+        })
 
         try:
             job_type = job.job_type
@@ -170,12 +191,22 @@ class TranscriptionWorker:
             )
 
             logger.info(f"[{self.worker_id}] Completed job {job.id} in {duration:.1f}s")
+            self._emit_transcription_event("TRANSCRIPTION_COMPLETE", {
+                "job_id": job.id,
+                "job_type": job.job_type,
+                "duration_seconds": duration,
+            })
 
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(
                 f"[{self.worker_id}] Job {job.id} failed: {e}",
                 exc_info=True,
             )
+            self._emit_transcription_event("TRANSCRIPTION_FAILED", {
+                "job_id": job.id,
+                "job_type": job.job_type,
+                "error": type(e).__name__,
+            })
 
             # Check if we should retry
             should_retry = job.attempts < job.max_attempts

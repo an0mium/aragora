@@ -819,11 +819,115 @@ _RECEIPT_ENDPOINTS = {
 }
 
 # ---------------------------------------------------------------------------
+# System / OpenAPI spec
+# ---------------------------------------------------------------------------
+_SYSTEM_SCHEMA_ENDPOINTS = {
+    "/api/v1/openapi": {
+        "get": {
+            "tags": ["System"],
+            "summary": "Get OpenAPI specification",
+            "operationId": "getOpenAPISpec",
+            "description": "Returns the full OpenAPI 3.1 specification for all Aragora API endpoints.",
+            "responses": {
+                "200": {
+                    "description": "OpenAPI 3.1 specification",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "openapi": {
+                                        "type": "string",
+                                        "description": "OpenAPI version",
+                                    },
+                                    "info": {
+                                        "type": "object",
+                                        "description": "API metadata",
+                                    },
+                                    "paths": {
+                                        "type": "object",
+                                        "description": "API path definitions",
+                                    },
+                                    "components": {
+                                        "type": "object",
+                                        "description": "Reusable components",
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+            },
+        }
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Monitoring / Prometheus metrics
+# ---------------------------------------------------------------------------
+_MONITORING_SCHEMA_ENDPOINTS = {
+    "/metrics": {
+        "get": {
+            "tags": ["Monitoring"],
+            "summary": "Prometheus metrics",
+            "operationId": "getPrometheusMetrics",
+            "description": "Prometheus exposition format metrics for monitoring.",
+            "responses": {
+                "200": {
+                    "description": "Prometheus metrics in OpenMetrics format",
+                    "content": {
+                        "text/plain": {
+                            "schema": {
+                                "type": "string",
+                                "description": "Prometheus exposition format metrics",
+                            }
+                        }
+                    },
+                },
+            },
+        }
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Podcast XML feed
+# ---------------------------------------------------------------------------
+_MEDIA_SCHEMA_ENDPOINTS = {
+    "/api/v1/podcast/feed.xml": {
+        "get": {
+            "tags": ["Media"],
+            "summary": "Podcast RSS feed",
+            "operationId": "getPodcastFeed",
+            "description": "Returns podcast episodes as an RSS/Atom XML feed.",
+            "responses": {
+                "200": {
+                    "description": "RSS/Atom podcast feed in XML format",
+                    "content": {
+                        "application/xml": {
+                            "schema": {
+                                "type": "string",
+                                "description": "XML-formatted RSS/Atom podcast feed",
+                            }
+                        }
+                    },
+                },
+            },
+        }
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Combined export
 # ---------------------------------------------------------------------------
 RESPONSE_SCHEMA_ENDPOINTS = {
     **_DASHBOARD_ENDPOINTS,
     **_RECEIPT_ENDPOINTS,
+    **_SYSTEM_SCHEMA_ENDPOINTS,
+    **_MONITORING_SCHEMA_ENDPOINTS,
+    **_MEDIA_SCHEMA_ENDPOINTS,
 }
 
 __all__ = ["RESPONSE_SCHEMA_ENDPOINTS"]
