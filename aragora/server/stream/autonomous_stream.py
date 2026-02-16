@@ -95,7 +95,7 @@ class AutonomousStreamEmitter:
 
             try:
                 await client.ws.send_str(event_json)
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError) as e:
                 logger.warning(f"Failed to send to client {client_id}: {e}")
                 disconnected.append(client_id)
 

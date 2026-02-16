@@ -126,7 +126,7 @@ class ThreadRegistry:
             try:
                 entry.shutdown_fn()
                 logger.debug("Shutdown signal sent: %s", name)
-            except Exception as exc:
+            except (RuntimeError, OSError, ValueError) as exc:
                 logger.warning("Error signalling thread %s: %s", name, exc)
 
         # Phase 2: join threads with fair timeout sharing
@@ -434,7 +434,7 @@ class ServerLifecycleManager:
                 result = callback()
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual callback failures
                 logger.warning(f"Shutdown callback error: {e}")
 
 

@@ -112,7 +112,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
 
             return full_response
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             # Emit error as end event
             emitter.emit(
                 StreamEvent(
