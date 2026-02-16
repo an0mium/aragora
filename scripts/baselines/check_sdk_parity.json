@@ -1,3 +1,5 @@
 {
-  "missing_from_both_sdks": []
+  "missing_from_both_sdks": [
+    "/api/debates/estimate-cost"
+  ]
 }
