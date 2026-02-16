@@ -439,6 +439,10 @@ class TestListTickets:
 
     @pytest.mark.asyncio
     async def test_list_platform_tickets(self, handler, _seed_zendesk_connection):
+        mock_connector = AsyncMock()
+        mock_connector.get_tickets = AsyncMock(return_value=[])
+        handler._get_connector = AsyncMock(return_value=mock_connector)
+
         req = FakeRequest(method="GET", path="/api/v1/support/zendesk/tickets")
         result = await handler.handle_request(req)
         body = _parse_body(result)
@@ -466,10 +470,16 @@ class TestListTickets:
 class TestGetTicket:
     @pytest.mark.asyncio
     async def test_get_ticket_not_found(self, handler, _seed_zendesk_connection):
+        mock_connector = AsyncMock()
+        mock_connector.get_ticket = AsyncMock(
+            side_effect=ValueError("Ticket not found")
+        )
+        handler._get_connector = AsyncMock(return_value=mock_connector)
+
         req = FakeRequest(method="GET", path="/api/v1/support/zendesk/tickets/99999")
         result = await handler.handle_request(req)
 
-        status = result.get("status_code", 404)
+        status = result.get("status_code", result.get("status", 404))
         assert status >= 400
 
 
@@ -499,6 +509,22 @@ class TestCreateTicket:
 
     @pytest.mark.asyncio
     async def test_create_ticket_missing_subject(self, handler, _seed_zendesk_connection):
+        mock_ticket = MagicMock()
+        mock_ticket.id = 1
+        mock_ticket.subject = "Support Request"
+        mock_ticket.description = "Missing subject"
+        mock_ticket.status = "new"
+        mock_ticket.priority = "normal"
+        mock_ticket.requester_id = None
+        mock_ticket.assignee_id = None
+        mock_ticket.tags = []
+        mock_ticket.created_at = "2025-01-01T00:00:00+00:00"
+        mock_ticket.updated_at = "2025-01-01T00:00:00+00:00"
+
+        mock_connector = AsyncMock()
+        mock_connector.create_ticket = AsyncMock(return_value=mock_ticket)
+        handler._get_connector = AsyncMock(return_value=mock_connector)
+
         req = FakeRequest(
             method="POST",
             path="/api/v1/support/zendesk/tickets",
@@ -579,6 +605,23 @@ class TestTriage:
 class TestAutoRespond:
     @pytest.mark.asyncio
     async def test_generate_response(self, handler, _seed_zendesk_connection):
+        mock_ticket = MagicMock()
+        mock_ticket.id = 123
+        mock_ticket.subject = "Test issue"
+        mock_ticket.description = "Something is broken"
+        mock_ticket.status = "open"
+        mock_ticket.priority = "normal"
+        mock_ticket.requester_id = None
+        mock_ticket.assignee_id = None
+        mock_ticket.tags = []
+        mock_ticket.created_at = "2025-01-01T00:00:00+00:00"
+        mock_ticket.updated_at = "2025-01-01T00:00:00+00:00"
+
+        mock_connector = AsyncMock()
+        mock_connector.get_ticket = AsyncMock(return_value=mock_ticket)
+        mock_connector.get_ticket_comments = AsyncMock(return_value=[])
+        handler._get_connector = AsyncMock(return_value=mock_connector)
+
         req = FakeRequest(
             method="POST",
             path="/api/v1/support/auto-respond",
@@ -589,7 +632,7 @@ class TestAutoRespond:
         )
         result = await handler.handle_request(req)
 
-        status = result.get("status_code", 200)
+        status = result.get("status_code", result.get("status", 200))
         assert status in [200, 202, 404]
 
 

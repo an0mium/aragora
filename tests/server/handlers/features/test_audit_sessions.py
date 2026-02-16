@@ -1560,7 +1560,10 @@ class TestBackgroundAuditRun:
     @pytest.mark.asyncio
     async def test_background_completes_session(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "running"
-        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+        with (
+            patch.object(audit_mod, "asyncio", self._fake_asyncio()),
+            patch.dict("sys.modules", {"aragora.audit.document_auditor": None}),
+        ):
             await handler._run_audit_background(_seed_session)
         assert _sessions[_seed_session]["status"] == "completed"
         assert _sessions[_seed_session]["completed_at"] is not None
@@ -1575,7 +1578,10 @@ class TestBackgroundAuditRun:
         _sessions[_seed_session]["status"] = "running"
         queue = asyncio.Queue()
         _event_queues[_seed_session] = [queue]
-        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+        with (
+            patch.object(audit_mod, "asyncio", self._fake_asyncio()),
+            patch.dict("sys.modules", {"aragora.audit.document_auditor": None}),
+        ):
             await handler._run_audit_background(_seed_session)
         events = []
         while not queue.empty():
@@ -1586,7 +1592,10 @@ class TestBackgroundAuditRun:
     @pytest.mark.asyncio
     async def test_background_respects_cancelled_status(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "cancelled"
-        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+        with (
+            patch.object(audit_mod, "asyncio", self._fake_asyncio()),
+            patch.dict("sys.modules", {"aragora.audit.document_auditor": None}),
+        ):
             await handler._run_audit_background(_seed_session)
         # Should remain cancelled, not set to completed
         assert _sessions[_seed_session]["status"] == "cancelled"

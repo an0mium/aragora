@@ -305,6 +305,10 @@ class TestListFiles:
         async def mock_list_files(path):
             yield mock_file
 
+        async def mock_list_folders(path):
+            return
+            yield  # make this an async generator that yields nothing
+
         _tokens["google_drive"] = {"access_token": "test_token"}
 
         with patch(
@@ -312,7 +316,7 @@ class TestListFiles:
         ) as mock_get:
             mock_connector = MagicMock()
             mock_connector.list_files = mock_list_files
-            mock_connector.list_folders = AsyncMock(return_value=iter([]))
+            mock_connector.list_folders = mock_list_folders
             mock_get.return_value = mock_connector
 
             files = await list_files("google_drive")
