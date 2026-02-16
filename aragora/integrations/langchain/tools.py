@@ -233,7 +233,7 @@ class AragoraDebateTool(BaseTool):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"[AragoraDebateTool] connection error: {type(e).__name__}: {e}")
             return f"Error running debate (connection): {e}"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.error(f"[AragoraDebateTool] error: {type(e).__name__}: {e}")
             return f"Error running debate: {e}"
 
@@ -334,7 +334,7 @@ class AragoraKnowledgeTool(BaseTool):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"[AragoraKnowledgeTool] connection error: {type(e).__name__}: {e}")
             return f"Error querying knowledge (connection): {e}"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.error(f"[AragoraKnowledgeTool] error: {type(e).__name__}: {e}")
             return f"Error querying knowledge: {e}"
 
