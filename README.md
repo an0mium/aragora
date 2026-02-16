@@ -9,6 +9,8 @@ Aragora orchestrates 42 AI agents to adversarially vet decisions through structu
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+**New here?** Start with the [Getting Started Guide](docs/START_HERE.md) -- you'll have a working demo in 30 seconds.
+
 **Individual LLMs are unreliable. Their personas shift with context, their confidence doesn't correlate with accuracy, and they say what you want to hear. For consequential decisions, you need infrastructure that treats this as a feature to be engineered around, not a problem to be ignored.**
 
 Aragora orchestrates 42 agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.

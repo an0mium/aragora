@@ -254,7 +254,7 @@ class MessagingMixin:
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting to Slack response_url: {e}")
             circuit_breaker.record_failure()
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Unexpected error posting to Slack response_url: {e}")
             circuit_breaker.record_failure()
 
@@ -327,7 +327,7 @@ class MessagingMixin:
             logger.warning(f"Connection error posting Slack message: {e}")
             circuit_breaker.record_failure()
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Unexpected error posting Slack message: {e}")
             circuit_breaker.record_failure()
             return None

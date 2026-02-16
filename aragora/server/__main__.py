@@ -105,6 +105,8 @@ Production deployment with multiple workers:
     # Configure logging before starting server
     _configure_logging()
 
+    _print_startup_banner(args, workers)
+
     # Apply offline mode before starting any workers
     if args.offline:
         import logging

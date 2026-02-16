@@ -676,6 +676,13 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
             )}
           </div>
 
+          {/* Compact cost indicator when options are collapsed */}
+          {!showAdvanced && costEstimate && !costLoading && (
+            <span className="text-xs font-mono text-text-muted">
+              ~${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
+            </span>
+          )}
+
           <button
             type="submit"
             disabled={isDisabled}

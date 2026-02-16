@@ -987,7 +987,7 @@ class FindingWorkflowHandler(BaseHandler):
 
                 results["success"].append(fid)
 
-            except Exception as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
+            except Exception as e:  # noqa: BLE001 - broad catch: last-resort handler (bulk operations continue despite individual failures)
                 logger.warning("Bulk action failed for finding %s: %s", fid, e)
                 results["failed"].append({"finding_id": fid, "error": "Operation failed"})
 

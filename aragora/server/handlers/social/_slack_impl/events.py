@@ -93,7 +93,7 @@ class EventsMixin(MessagingMixin):
             logger.warning(f"Invalid event data: {e}")
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Invalid event data")
             return json_response({"ok": True})  # Always 200 for events
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected events handler error: {e}")
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Internal error")
             return json_response({"ok": True})  # Always 200 for events
