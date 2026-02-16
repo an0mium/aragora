@@ -562,7 +562,7 @@ class TestFactStoreInitialization:
         # Patch FactStore to fail
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("DB not available"),
+            side_effect=RuntimeError("DB not available"),
         ):
             store = handler._get_fact_store()
 
@@ -579,7 +579,7 @@ class TestFactStoreInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("DB not available"),
+            side_effect=RuntimeError("DB not available"),
         ):
             store1 = handler._get_fact_store()
             store2 = handler._get_fact_store()
@@ -604,7 +604,7 @@ class TestQueryEngineInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("DB not available"),
+            side_effect=RuntimeError("DB not available"),
         ):
             engine = handler._get_query_engine()
 
@@ -621,7 +621,7 @@ class TestQueryEngineInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("DB not available"),
+            side_effect=RuntimeError("DB not available"),
         ):
             engine1 = handler._get_query_engine()
             engine2 = handler._get_query_engine()

@@ -348,7 +348,7 @@ class TestKnowledgeHandlerInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("Database unavailable"),
+            side_effect=RuntimeError("Database unavailable"),
         ):
             store = handler._get_fact_store()
 
@@ -364,7 +364,7 @@ class TestKnowledgeHandlerInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("Database unavailable"),
+            side_effect=RuntimeError("Database unavailable"),
         ):
             store1 = handler._get_fact_store()
             store2 = handler._get_fact_store()
@@ -379,7 +379,7 @@ class TestKnowledgeHandlerInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("Database unavailable"),
+            side_effect=RuntimeError("Database unavailable"),
         ):
             engine = handler._get_query_engine()
 
@@ -395,7 +395,7 @@ class TestKnowledgeHandlerInitialization:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("Database unavailable"),
+            side_effect=RuntimeError("Database unavailable"),
         ):
             engine1 = handler._get_query_engine()
             engine2 = handler._get_query_engine()
@@ -750,7 +750,7 @@ class TestFactsVerifyOperation:
 
         with patch(
             "aragora.server.handlers.knowledge_base.handler.FactStore",
-            side_effect=Exception("DB unavailable"),
+            side_effect=RuntimeError("DB unavailable"),
         ):
             result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1/verify", {}, handler)
 
@@ -1038,7 +1038,7 @@ class TestQueryOperation:
 
         with patch(
             "aragora.server.handlers.knowledge_base.query._run_async",
-            side_effect=Exception("Query engine error"),
+            side_effect=RuntimeError("Query engine error"),
         ):
             result = knowledge_handler.handle("/api/v1/knowledge/query", {}, handler)
 
@@ -1125,7 +1125,7 @@ class TestSearchOperation:
 
         with patch(
             "aragora.server.handlers.knowledge_base.search._run_async",
-            side_effect=Exception("Search engine error"),
+            side_effect=RuntimeError("Search engine error"),
         ):
             result = knowledge_handler.handle("/api/v1/knowledge/search", params, handler)
 

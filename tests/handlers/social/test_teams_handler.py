@@ -424,7 +424,7 @@ class TestTeamsErrorHandling:
         }
 
         with patch.object(handler, "_read_json_body", return_value=body):
-            with patch.object(handler, "_start_debate", side_effect=Exception("Test error")):
+            with patch.object(handler, "_start_debate", side_effect=RuntimeError("Test error")):
                 with patch("aragora.server.handlers.social.teams.logger") as mock_logger:
                     try:
                         await handler._handle_command(mock_http_handler)

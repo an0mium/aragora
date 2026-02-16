@@ -755,7 +755,7 @@ class TestErrorHandling:
             path="/api/v1/connectors",
         )
         # Make json() raise an exception
-        request.json = AsyncMock(side_effect=Exception("Invalid JSON"))
+        request.json = AsyncMock(side_effect=RuntimeError("Invalid JSON"))
 
         result = await connectors_handler.handle_request(request)
 

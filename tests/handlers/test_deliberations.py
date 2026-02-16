@@ -432,7 +432,7 @@ class TestBroadcast:
 
         # Add a mock client that will fail
         failing_queue = MagicMock()
-        failing_queue.put = AsyncMock(side_effect=Exception("Client disconnected"))
+        failing_queue.put = AsyncMock(side_effect=OSError("Client disconnected"))
         deliberations._stream_clients.append(failing_queue)
 
         # Should not raise
