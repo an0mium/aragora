@@ -521,7 +521,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             values = self._redis_client.mget(keys)
             valid_values = [v for v in values if v]
             return _batch_deserialize_json([(v,) for v in valid_values])
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
             logger.warning(f"Redis list_by_status failed, using fallback: {e}")
             return await self._fallback.list_by_status(status)
 

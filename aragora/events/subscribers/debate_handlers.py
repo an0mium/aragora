@@ -463,11 +463,11 @@ class DebateHandlersMixin:
                     provenance = mound.find_claim_provenance(claim_text)
                     if provenance:
                         logger.debug(f"Found provenance for claim in debate {debate_id}")
-            except Exception as e:
+            except (ImportError, RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
                 logger.debug(f"Provenance lookup failed: {e}")
 
             self.stats["mound_to_provenance"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error(f"Mound → Provenance handler error: {e}")
             self.stats["mound_to_provenance"]["errors"] += 1

@@ -1013,7 +1013,7 @@ class AlertManager:
                 if is_resolution:
                     alert.message = original_message
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.error(
                     f"Failed to send notification via {channel_name} for alert {rule.name}: {e}"
                 )

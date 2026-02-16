@@ -144,7 +144,7 @@ class SupabaseClient:
                 row = rows[0]
                 return row.get("id")
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to save cycle: {e}")
             return None
 
@@ -166,7 +166,7 @@ class SupabaseClient:
             if result.data:
                 return self._dict_to_cycle(cast(dict[str, Any], result.data))
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to get cycle: {e}")
             return None
 
@@ -198,7 +198,7 @@ class SupabaseClient:
             _log_slow_query("list_cycles", elapsed, f"limit={limit}, loop_id={loop_id}")
 
             return [self._dict_to_cycle(cast(dict[str, Any], d)) for d in result.data]
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to list cycles: {e}")
             return []
 
@@ -254,7 +254,7 @@ class SupabaseClient:
                 row = rows[0]
                 return row.get("id")
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to save debate: {e}")
             return None
 
