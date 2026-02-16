@@ -199,7 +199,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                     logger.info(
                         f"AragoraRLM initialized via factory (compression fallback), model={rlm_model}"
                     )
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.warning(f"Failed to get RLM from factory: {e}")
                 self._aragora_rlm = None
         else:
@@ -270,7 +270,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
             return result.answer
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"RLM query failed: {e}")
             return self._fallback_search(query, messages)
 
@@ -309,7 +309,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             if get_compressor is not None:
                 try:
                     self._compressor = get_compressor()
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                     logger.warning(f"Failed to get compressor from factory: {e}")
             else:
                 logger.warning("RLM factory not available, falling back to base limiter")
@@ -521,7 +521,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                         content=f"## Compressed Debate History ({len(messages)} messages)\n\n{result.answer}",
                         round=-1,
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"AragoraRLM compression failed: {e}")
 
         # Fallback: Use HierarchicalCompressor directly (compression-only approach)
@@ -553,7 +553,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                         content=f"## Compressed Debate History ({len(messages)} messages)\n\n{target_content}",
                         round=-1,
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, ImportError, OSError) as e:
                 logger.warning(f"HierarchicalCompressor failed, using rule-based fallback: {e}")
 
         # Fallback: rule-based summarization
@@ -860,7 +860,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
                 return result.answer
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"AragoraRLM query failed: {e}")
 
         # Fallback: search in messages without RLM

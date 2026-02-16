@@ -195,7 +195,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("ExplanationBuilder not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Explanation generation failed: %s", e)
             return None
 
@@ -233,7 +233,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("DecisionPlanFactory not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Plan creation failed: %s", e)
             return None
 
@@ -270,7 +270,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("Notification service not available")
             return False
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning("Notification failed: %s", e)
             return False
 
@@ -300,7 +300,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("PlanExecutor not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError, ConnectionError, KeyError) as e:
             logger.warning("Plan execution failed: %s", e)
             return None
 
@@ -364,7 +364,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("Decision integrity pipeline not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, KeyError) as e:
             logger.warning("Integrity package generation failed: %s", e)
             return None
 
@@ -443,7 +443,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("GauntletRunner not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning("Gauntlet validation failed: %s", e)
             return None
 
@@ -488,7 +488,7 @@ class PostDebateCoordinator:
         except ImportError:
             logger.debug("ImprovementQueue not available")
             return False
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError, KeyError) as e:
             logger.warning("Improvement queue failed: %s", e)
             return False
 

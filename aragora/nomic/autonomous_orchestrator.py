@@ -550,6 +550,8 @@ class AutonomousOrchestrator:
         agent_fabric: Any | None = None,
         use_harness: bool = False,
         event_emitter: Any | None = None,
+        enable_outcome_tracking: bool = False,
+        outcome_tracker: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -580,6 +582,11 @@ class AutonomousOrchestrator:
             agent_fabric: Optional AgentFabric for enhanced scheduling,
                 budget tracking, and inter-agent messaging
             event_emitter: Optional event emitter for IMPROVEMENT_CYCLE_* events
+            enable_outcome_tracking: Run debate quality benchmarks before/after
+                execution to detect silent regressions
+            outcome_tracker: Optional NomicOutcomeTracker instance. Created
+                automatically when enable_outcome_tracking is True and no
+                tracker is provided.
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -640,6 +647,17 @@ class AutonomousOrchestrator:
         self._active_assignments: list[AgentAssignment] = []
         self._completed_assignments: list[AgentAssignment] = []
         self._orchestration_id: str | None = None
+        # Outcome tracking: debate quality regression detection
+        self.enable_outcome_tracking = enable_outcome_tracking
+        self._outcome_tracker = outcome_tracker
+        if enable_outcome_tracking and outcome_tracker is None:
+            try:
+                from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+                self._outcome_tracker = NomicOutcomeTracker()
+            except ImportError:
+                logger.debug("Outcome tracker unavailable")
+
         # Convoy/bead IDs for tracking (populated when convoy tracking enabled)
         self._convoy_id: str | None = None
         self._bead_ids: dict[str, str] = {}  # subtask_id -> bead_id
@@ -715,6 +733,14 @@ class AutonomousOrchestrator:
             if self.enable_convoy_tracking:
                 await self._create_convoy_for_goal(goal, assignments)
 
+            # Step 2c: Capture outcome baseline if tracking enabled
+            _outcome_baseline = None
+            if self.enable_outcome_tracking and self._outcome_tracker is not None:
+                try:
+                    _outcome_baseline = await self._outcome_tracker.capture_baseline()
+                except (RuntimeError, OSError, ValueError) as e:
+                    logger.debug("outcome_baseline_capture_failed: %s", e)
+
             # Step 3: Execute assignments
             await self._execute_assignments(assignments, max_cycles)
 
@@ -742,6 +768,29 @@ class AutonomousOrchestrator:
 
             # Step 5: Run self-correction analysis for cross-cycle learning
             self._apply_self_correction(assignments, result)
+
+            # Step 5b: Outcome tracking - compare debate quality before/after
+            if (
+                self.enable_outcome_tracking
+                and self._outcome_tracker is not None
+                and _outcome_baseline is not None
+            ):
+                try:
+                    _outcome_after = await self._outcome_tracker.capture_after()
+                    _outcome_comparison = self._outcome_tracker.compare(
+                        _outcome_baseline, _outcome_after
+                    )
+                    if self._orchestration_id:
+                        self._outcome_tracker.record_cycle_outcome(
+                            self._orchestration_id, _outcome_comparison
+                        )
+                    if not _outcome_comparison.improved:
+                        logger.warning(
+                            "outcome_regression_detected recommendation=%s",
+                            _outcome_comparison.recommendation,
+                        )
+                except (RuntimeError, OSError, ValueError) as e:
+                    logger.debug("outcome_tracking_failed: %s", e)
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {

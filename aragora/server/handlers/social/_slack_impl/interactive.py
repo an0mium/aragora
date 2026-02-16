@@ -87,7 +87,7 @@ class InteractiveMixin(MessagingMixin):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid interactive payload data: {e}")
             return json_response({"text": "Sorry, an error occurred while processing your request."})
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected interactive handler error: {e}")
             return json_response({"text": "Sorry, an error occurred while processing your request."})
 

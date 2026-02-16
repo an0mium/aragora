@@ -250,6 +250,14 @@ from aragora.nomic.curriculum import (
     integrate_curriculum_with_orchestrator,
 )
 
+# Outcome tracking (debate quality regression detection)
+from aragora.nomic.outcome_tracker import (
+    DebateMetrics,
+    DebateScenario,
+    NomicOutcomeTracker,
+    OutcomeComparison,
+)
+
 # Cross-cycle learning
 from aragora.nomic.cycle_record import (
     AgentContribution,
@@ -507,6 +515,11 @@ __all__ = [
     "EventBus",
     "WorktreeEvent",
     "VALID_EVENT_TYPES",
+    # Outcome tracking
+    "NomicOutcomeTracker",
+    "DebateMetrics",
+    "DebateScenario",
+    "OutcomeComparison",
     # Cross-cycle learning
     "NomicCycleRecord",
     "AgentContribution",

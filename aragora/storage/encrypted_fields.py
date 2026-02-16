@@ -132,7 +132,7 @@ def encrypt_sensitive(
             sensitive_fields=present_sensitive_fields,
             associated_data=record_id,
         )
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         logger.error(f"Failed to encrypt sensitive fields: {e}")
         # In case of encryption failure, don't store unencrypted
         raise EncryptionError(f"Failed to encrypt data: {e}") from e
@@ -187,7 +187,7 @@ def decrypt_sensitive(
             sensitive_fields=encrypted_fields,
             associated_data=record_id,
         )
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         logger.error(f"Failed to decrypt sensitive fields: {e}")
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
 

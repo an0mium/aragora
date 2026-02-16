@@ -184,7 +184,7 @@ class MLDelegationStrategy(DelegationStrategy):
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(f"ML routing failed with data error: {e}, using fallback")
             return list(agents)[:team_size]
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected ML routing error: {e}, using fallback")
             return list(agents)[:team_size]
 
@@ -249,7 +249,7 @@ class MLDelegationStrategy(DelegationStrategy):
         except (ValueError, TypeError, KeyError) as e:
             logger.debug(f"ML scoring failed for {agent.name} with data error: {e}")
             return 2.5
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
             logger.warning(f"Unexpected ML scoring error for {agent.name}: {e}")
             return 2.5
 
@@ -315,7 +315,7 @@ class QualityGate:
         except (ValueError, TypeError, AttributeError) as e:
             logger.debug(f"Quality scoring failed with expected error: {e}")
             return (0.5, 0.0)
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
             logger.warning(f"Unexpected quality scoring error: {e}")
             return (0.5, 0.0)
 
@@ -528,7 +528,7 @@ class ConsensusEstimator:
                 "trend": "unknown",
                 "recommendation": "continue",
             }
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
             logger.warning(f"Unexpected consensus estimation error: {e}")
             return {
                 "probability": 0.5,
@@ -619,7 +619,7 @@ class ConsensusEstimator:
                 predictor.record_outcome(debate_id, reached_consensus)
             except (ValueError, TypeError, KeyError) as e:
                 logger.debug(f"Failed to record outcome: {e}")
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError, OSError, ConnectionError) as e:
                 logger.warning(f"Unexpected error recording outcome: {e}")
 
     def reset_history(self) -> None:

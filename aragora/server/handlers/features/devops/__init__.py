@@ -199,7 +199,7 @@ class DevOpsHandler(BaseHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response("Permission denied", 403)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Unhandled DevOps handler error: %s", e)
             return error_response("Internal server error", 500)
 

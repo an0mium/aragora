@@ -253,7 +253,7 @@ class DecisionResultStore:
             for idx_sql in indexes:
                 try:
                     self._backend.execute_write(idx_sql)
-                except Exception as e:
+                except (OSError, RuntimeError, sqlite3.Error) as e:
                     logger.debug(f"Index creation skipped: {e}")
             return
 
@@ -570,7 +570,7 @@ class DecisionResultStore:
             deleted = cursor.rowcount
             if deleted > 0:
                 logger.debug(f"Cleaned up {deleted} expired decision results")
-        except Exception as e:
+        except (OSError, RuntimeError, sqlite3.Error) as e:
             logger.warning(f"Failed to cleanup expired results: {e}")
 
     def _enforce_max_entries(self) -> None:
@@ -624,7 +624,7 @@ class DecisionResultStore:
                 )
                 conn.commit()
                 logger.info(f"LRU evicted {excess} decision results (max: {self._max_entries})")
-        except Exception as e:
+        except (OSError, RuntimeError, sqlite3.Error) as e:
             logger.warning(f"Failed to enforce max entries: {e}")
 
     def get_metrics(self) -> dict[str, Any]:
@@ -652,9 +652,8 @@ class DecisionResultStore:
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
                     logger.debug("Error closing connection: %s", e)
-                    pass
             self._connections.clear()
 
 

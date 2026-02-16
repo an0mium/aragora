@@ -123,7 +123,8 @@ class TestTeamSelectorInit:
         """Should initialize with None dependencies."""
         selector = TeamSelector()
         assert selector.elo_system is None
-        assert selector.calibration_tracker is None
+        # CalibrationTracker is auto-detected when available
+        assert selector.calibration_tracker is not None
         assert selector.circuit_breaker is None
         assert selector.config is not None
 

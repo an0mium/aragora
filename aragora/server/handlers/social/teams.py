@@ -331,7 +331,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON", 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Teams command error: {e}")
             return error_response("Internal server error", 500)
 
@@ -359,7 +359,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 logger.warning(f"Unknown Teams action: {action}")
                 return json_response({"status": "unknown_action"})
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Teams interactive error: {e}")
             return error_response("Internal server error", 500)
 
@@ -606,7 +606,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Teams debate error: {e}")
             await connector.send_message(
                 channel_id=conv_id,

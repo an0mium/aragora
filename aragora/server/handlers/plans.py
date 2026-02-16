@@ -57,7 +57,7 @@ def _fire_plan_notification(event: str, plan: Any, **kwargs: Any) -> None:
                 )
             elif event == "execution_started":
                 await notify_execution_started(plan)
-        except Exception as exc:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
             logger.debug("Plan notification (%s) failed: %s", event, exc)
 
     try:

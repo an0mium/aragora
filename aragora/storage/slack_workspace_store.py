@@ -233,9 +233,8 @@ class SlackWorkspaceStore:
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
                     logger.debug("Error closing connection: %s", e)
-                    pass
             self._connections.clear()
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
@@ -775,7 +774,7 @@ class SlackWorkspaceStore:
                     if workspace.signing_secret:
                         workspace.signing_secret = self._decrypt_token(workspace.signing_secret)
                     workspaces.append(workspace)
-                except Exception as e:
+                except (sqlite3.Error, ValueError, KeyError, TypeError) as e:
                     logger.error("Error loading workspace %s: %s", row["workspace_id"], e)
 
             logger.debug(

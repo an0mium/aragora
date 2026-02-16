@@ -502,7 +502,7 @@ class EmailWebhooksHandler(BaseHandler):
             )
             return False
 
-        except Exception as e:  # broad catch: last-resort handler for JWT verification failures
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:  # for JWT verification failures
             if should_allow_unverified("gmail_pubsub"):
                 log_verification_attempt(
                     "gmail_pubsub", True, "bypassed", f"JWT verification failed but bypassed: {e}"
@@ -599,7 +599,7 @@ class EmailWebhooksHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Error in webhook handler: {e}")
             return error_response("Internal server error", 500)
 

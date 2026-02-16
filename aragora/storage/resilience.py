@@ -856,12 +856,12 @@ class ResilientPostgresConnection:
                 conn.commit()
                 self.circuit_breaker.record_success()
                 return
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
                 last_error = e
                 if conn:
                     try:
                         conn.rollback()
-                    except Exception as rollback_err:
+                    except (OSError, RuntimeError, ConnectionError) as rollback_err:
                         logger.debug(f"Rollback failed: {rollback_err}")
 
                 if not is_postgres_transient_error(e) or attempt >= self.max_retries:
@@ -879,7 +879,7 @@ class ResilientPostgresConnection:
                 if conn:
                     try:
                         conn.close()
-                    except Exception as close_err:
+                    except (OSError, RuntimeError, ConnectionError) as close_err:
                         logger.debug(f"Connection close failed: {close_err}")
 
         if last_error:
@@ -965,7 +965,7 @@ def with_postgres_retry(
                     if circuit_breaker:
                         circuit_breaker.record_success()
                     return result
-                except Exception as e:
+                except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
                     last_error = e
 
                     if not is_postgres_transient_error(e) or attempt >= max_retries:

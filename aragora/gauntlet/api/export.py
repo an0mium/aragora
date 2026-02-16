@@ -74,6 +74,23 @@ class ExportOptions:
     include_export_metadata: bool = True
 
 
+def _emit_receipt_event(event_name: str, data: dict[str, Any]) -> None:
+    """Emit a RECEIPT_* event (best-effort)."""
+    try:
+        from aragora.events.types import StreamEvent, StreamEventType
+
+        event_type = getattr(StreamEventType, event_name, None)
+        if event_type is None:
+            return
+        from aragora.server.stream.emitter import get_global_emitter
+
+        emitter = get_global_emitter()
+        if emitter is not None:
+            emitter.emit(StreamEvent(type=event_type, data=data))
+    except (ImportError, AttributeError, TypeError):
+        pass
+
+
 def export_receipt(
     receipt: DecisionReceipt,
     format: ReceiptExportFormat = ReceiptExportFormat.JSON,
@@ -93,19 +110,25 @@ def export_receipt(
     opts = options or ExportOptions()
 
     if format == ReceiptExportFormat.JSON:
-        return _export_receipt_json(receipt, opts)
+        result = _export_receipt_json(receipt, opts)
     elif format == ReceiptExportFormat.MARKDOWN:
-        return receipt.to_markdown()
+        result = receipt.to_markdown()
     elif format == ReceiptExportFormat.HTML:
-        return receipt.to_html()
+        result = receipt.to_html()
     elif format == ReceiptExportFormat.CSV:
-        return _export_receipt_csv(receipt, opts)
+        result = _export_receipt_csv(receipt, opts)
     elif format == ReceiptExportFormat.SARIF:
-        return _export_receipt_sarif(receipt, opts)
+        result = _export_receipt_sarif(receipt, opts)
     elif format == ReceiptExportFormat.PDF:
-        return _export_receipt_pdf(receipt, opts)
+        result = _export_receipt_pdf(receipt, opts)
     else:
         raise ValueError(f"Unsupported format: {format}")
+
+    _emit_receipt_event("RECEIPT_EXPORTED", {
+        "receipt_id": getattr(receipt, "id", "unknown"),
+        "format": format.value,
+    })
+    return result
 
 
 def export_heatmap(

@@ -337,7 +337,7 @@ class ReceiptsHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:  # broad catch: last-resort top-level handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Error handling receipt request: {e}")
             return error_response(safe_error_message(e, "receipt request"), 500)
 

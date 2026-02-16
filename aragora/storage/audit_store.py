@@ -132,7 +132,7 @@ class AuditStore:
         try:
             yield cursor
             conn.commit()
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError) as e:
             conn.rollback()
             logger.debug("Transaction rolled back due to: %s", e)
             raise
@@ -171,7 +171,7 @@ class AuditStore:
         for idx_sql in indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except (OSError, RuntimeError, sqlite3.Error) as e:
                 logger.debug(f"Index creation skipped: {e}")
 
     # =========================================================================
@@ -503,9 +503,8 @@ class AuditStore:
                 for conn in self._connections:
                     try:
                         conn.close()
-                    except Exception as e:
+                    except (sqlite3.Error, OSError) as e:
                         logger.debug("Error closing connection during cleanup: %s", e)
-                        pass
                 self._connections.clear()
 
 

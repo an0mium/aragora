@@ -149,7 +149,7 @@ class LegalHandler:
 
             return error_response("Not found", 404)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Error in legal handler: {e}")
             return error_response("Internal server error", 500)
 

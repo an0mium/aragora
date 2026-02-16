@@ -227,8 +227,8 @@ class TestDocumentUploadEndpoint:
         assert "no content" in data["error"].lower()
 
     def test_upload_file_too_large_returns_413(self, doc_handler, mock_http_handler):
-        # Set content length to > 10MB
-        mock_http_handler.headers = {"Content-Length": str(11 * 1024 * 1024)}
+        # Set content length to > 100MB (MAX_FILE_SIZE default)
+        mock_http_handler.headers = {"Content-Length": str(101 * 1024 * 1024)}
 
         result = doc_handler.handle_post("/api/v1/documents/upload", {}, mock_http_handler)
         assert result.status_code == 413

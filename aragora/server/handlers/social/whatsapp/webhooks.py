@@ -197,7 +197,7 @@ class WebhookProcessor:
             status = "error"
             record_error("whatsapp", "json_parse")
             return json_response({"status": "ok"})
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Error handling WhatsApp webhook: {e}", exc_info=True)
             status = "error"
             record_error("whatsapp", "unknown")

@@ -566,7 +566,7 @@ class GmailIngestHandler(SecureHandler):
 
             logger.info(f"[Gmail] Sync completed for {user_id}: {result.items_synced} messages")
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"[Gmail] Sync failed for {user_id}: {e}")
             # Update job status on failure - needs event loop
             loop = asyncio.new_event_loop()

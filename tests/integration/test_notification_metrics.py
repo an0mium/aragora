@@ -64,22 +64,13 @@ class TestNotificationMetricsRecording:
     @pytest.mark.asyncio
     async def test_slack_metrics_on_failure(self, notification_service, sample_notification):
         """Test that metrics are recorded on Slack delivery failure."""
-        with patch("aiohttp.ClientSession") as mock_session:
-            # Mock failed response
-            mock_response = AsyncMock()
-            mock_response.status = 500
-            mock_response.text = AsyncMock(return_value="Internal Server Error")
+        provider = notification_service.get_provider(NotificationChannel.SLACK)
 
-            # session.post() must return an async context manager, not a coroutine
-            mock_post_cm = AsyncMock()
-            mock_post_cm.__aenter__.return_value = mock_response
-
-            mock_session_instance = AsyncMock()
-            mock_session_instance.post.return_value = mock_post_cm
-
-            mock_session.return_value.__aenter__.return_value = mock_session_instance
-
-            provider = notification_service.get_provider(NotificationChannel.SLACK)
+        # Simulate a network-level failure (ConnectionError is caught by the handler)
+        with patch.object(
+            provider, "_send_webhook", new_callable=AsyncMock,
+            side_effect=ConnectionError("Connection refused"),
+        ):
             result = await provider.send(sample_notification, "#test-channel")
 
             assert result.success is False
@@ -161,10 +152,14 @@ class TestNotificationMetricsRecording:
         )
 
         with patch("aiohttp.ClientSession") as mock_session:
-            mock_response = AsyncMock()
-            mock_response.status = 500
-            mock_response.text = AsyncMock(return_value="Server Error")
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+            # Simulate a network-level failure (ConnectionError is caught by the handler)
+            mock_session_instance = MagicMock()
+            mock_session_instance.post = MagicMock(
+                side_effect=ConnectionError("Connection refused")
+            )
+
+            mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.send(sample_notification, "test-endpoint")
 
@@ -188,16 +183,20 @@ class TestNotificationMetricsRecording:
     async def test_notification_latency_tracking(self, notification_service, sample_notification):
         """Test that latency is tracked for notifications."""
         with patch("aiohttp.ClientSession") as mock_session:
-            # Add artificial delay
-            async def delayed_post(*args, **kwargs):
-                await asyncio.sleep(0.1)
-                mock_response = AsyncMock()
-                mock_response.status = 200
-                return mock_response
+            mock_response = AsyncMock()
+            mock_response.status = 200
 
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value = await delayed_post()
-            mock_session.return_value.__aenter__.return_value.post.return_value = mock_context
+            # session.post() returns an async context manager (not a coroutine).
+            # Use MagicMock for post so it returns synchronously.
+            mock_post_cm = MagicMock()
+            mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm.__aexit__ = AsyncMock(return_value=False)
+
+            mock_session_instance = MagicMock()
+            mock_session_instance.post = MagicMock(return_value=mock_post_cm)
+
+            mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
+            mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
             start = time.perf_counter()
             provider = notification_service.get_provider(NotificationChannel.SLACK)

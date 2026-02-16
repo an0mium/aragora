@@ -84,7 +84,7 @@ class LazySubsystem(Generic[T]):
                 self.on_create(obj, instance)
 
             return instance
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - lazy factory isolation: user-provided factory can raise any exception
             logger.warning(f"[lazy] Failed to initialize {self.private_attr}: {e}")
             # Cache None to prevent repeated attempts
             setattr(obj, self.private_attr, None)
@@ -133,7 +133,7 @@ def lazy_property(
                     on_create(self, instance)
 
                 return instance
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - lazy factory isolation: user-provided factory can raise any exception
                 logger.warning(f"[lazy] Failed to initialize {func.__name__}: {e}")
                 setattr(self, private_attr, None)
                 return None
@@ -188,7 +188,7 @@ def create_lazy_knowledge_mound(arena: Arena):
     except (RuntimeError, ConnectionError, OSError) as e:
         logger.warning(f"[lazy] KM infrastructure error: {e}")
         return None
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError, KeyError) as e:
         logger.exception(f"[lazy] Unexpected KM error: {e}")
         return None
 
@@ -207,7 +207,7 @@ def create_lazy_population_manager(arena: Arena):
     except ImportError:
         logger.warning("[lazy] PopulationManager not available")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
         logger.warning(f"[lazy] Failed to initialize PopulationManager: {e}")
         return None
 
@@ -242,6 +242,6 @@ def create_lazy_cross_debate_memory(arena: Arena):
     except ImportError:
         logger.warning("[lazy] CrossDebateMemory not available")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
         logger.warning(f"[lazy] Failed to initialize CrossDebateMemory: {e}")
         return None

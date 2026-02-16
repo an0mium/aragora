@@ -223,7 +223,7 @@ class CommandsMixin(BlocksMixin):
 
             return result
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Slash command error: {e}", exc_info=True)
 
             # Audit log error
@@ -1402,7 +1402,7 @@ class CommandsMixin(BlocksMixin):
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error("Async debate creation failed: %s", e, exc_info=True)
             error_text = "Debate failed. Please try again later."
 

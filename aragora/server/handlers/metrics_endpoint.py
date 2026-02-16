@@ -340,7 +340,7 @@ class MetricsRegistry:
             logger.warning(f"Failed to initialize some metrics modules: {e}")
             cls._initialized = True
             return False
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Error initializing metrics: {e}", exc_info=True)
             cls._initialized = True
             return False

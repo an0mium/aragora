@@ -759,6 +759,25 @@ async def cleanup_debate_resources(
     if result and getattr(arena, "enable_auto_execution", False):
         result = await _auto_execute_plan(arena, result)
 
+    # Route result to originating channel (Slack, Teams, webhook, etc.)
+    if result and getattr(arena.protocol, "enable_result_routing", True):
+        try:
+            from aragora.server.result_router import route_result
+
+            if hasattr(result, "to_dict"):
+                result_dict = result.to_dict()
+            else:
+                result_dict = {
+                    "debate_id": state.debate_id,
+                    "winner": getattr(result, "winner", None),
+                    "consensus_reached": getattr(result, "consensus_reached", False),
+                    "final_answer": getattr(result, "final_answer", ""),
+                    "confidence": getattr(result, "confidence", 0.0),
+                }
+            await route_result(state.debate_id, result_dict)
+        except (ImportError, RuntimeError, OSError, TypeError, ValueError) as e:
+            logger.debug(f"[result_routing] Failed (non-critical): {e}")
+
     return result
 
 

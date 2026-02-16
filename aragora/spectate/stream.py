@@ -34,6 +34,7 @@ VALID_EVENT_TYPES = frozenset(
         SpectatorEvents.CONSENSUS,
         SpectatorEvents.CONVERGENCE,
         SpectatorEvents.CONVERGED,
+        SpectatorEvents.EARLY_STOP,
         SpectatorEvents.MEMORY_RECALL,
         SpectatorEvents.SYSTEM,
         SpectatorEvents.ERROR,

@@ -542,7 +542,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for federation registry storage")
             self._using_fallback = False
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
             logger.warning(f"Redis connection failed, using SQLite fallback: {e}")
             self._using_fallback = True
             self._redis_client = None
@@ -565,7 +565,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             if data:
                 return FederatedRegionConfig.from_json(data)
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Redis get failed, using fallback: {e}")
             return await self._fallback.get(region_id, workspace_id)
 
@@ -582,7 +582,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         try:
             key = self._make_key(region.region_id, region.workspace_id)
             self._redis_client.set(key, region.to_json())
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis save failed (SQLite fallback used): {e}")
 
     async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
@@ -595,7 +595,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         try:
             key = self._make_key(region_id, workspace_id)
             self._redis_client.delete(key)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Redis delete failed: {e}")
 
         return result
@@ -647,7 +647,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
                 logger.debug(f"Redis close failed (connection already closed): {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logger.debug(f"Redis close failed: {e}")
 
 

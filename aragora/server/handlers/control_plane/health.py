@@ -254,7 +254,7 @@ class HealthHandlerMixin:
                     "components": components,
                 }
             )
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Error getting detailed health: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 

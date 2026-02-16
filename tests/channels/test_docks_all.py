@@ -150,7 +150,7 @@ class TestDiscordDock:
         msg = _make_message()
 
         mock_client = AsyncMock()
-        mock_client.post.side_effect = Exception("Connection failed")
+        mock_client.post.side_effect = OSError("Connection failed")
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -485,7 +485,7 @@ class TestGoogleChatDock:
         """Test handling exception during send."""
         dock = self._make_dock()
         connector = AsyncMock()
-        connector.send_message.side_effect = Exception("Network error")
+        connector.send_message.side_effect = OSError("Network error")
         dock._connector = connector
         dock._initialized = True
 
@@ -614,7 +614,7 @@ class TestTeamsDock:
         msg = _make_message()
 
         mock_client = AsyncMock()
-        mock_client.post.side_effect = Exception("Timeout")
+        mock_client.post.side_effect = OSError("Timeout")
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -808,7 +808,7 @@ class TestTelegramDock:
         msg = _make_message()
 
         mock_client = AsyncMock()
-        mock_client.post.side_effect = Exception("DNS failure")
+        mock_client.post.side_effect = OSError("DNS failure")
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -1005,7 +1005,7 @@ class TestWhatsAppDock:
         msg = _make_message()
 
         mock_client = AsyncMock()
-        mock_client.post.side_effect = Exception("Timeout")
+        mock_client.post.side_effect = OSError("Timeout")
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 

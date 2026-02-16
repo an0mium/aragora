@@ -182,7 +182,7 @@ class ProtocolHandlerRegistry:
             try:
                 await handler(message)
                 handlers_called += 1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
                 logger.error(
                     f"Global handler failed for {message.message_type.value}: {e}",
                     exc_info=True,
@@ -194,7 +194,7 @@ class ProtocolHandlerRegistry:
                 try:
                     await handler(message)
                     handlers_called += 1
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
                     logger.error(
                         f"Handler failed for {message.message_type.value}: {e}",
                         exc_info=True,
@@ -206,7 +206,7 @@ class ProtocolHandlerRegistry:
                 try:
                     await class_handler.handle(message)
                     handlers_called += 1
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
                     await class_handler.on_error(message, e)
 
         return handlers_called
@@ -249,7 +249,7 @@ class ProtocolHandlerRegistry:
         try:
             await handler(message)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
             logger.error(
                 f"Handler failed for {message.message_type.value}: {e}",
                 exc_info=True,
@@ -261,7 +261,7 @@ class ProtocolHandlerRegistry:
         try:
             await handler.handle(message)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler dispatch isolation: user-provided handlers can raise any exception
             await handler.on_error(message, e)
             return False
 

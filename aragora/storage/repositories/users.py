@@ -38,7 +38,7 @@ def _encrypt_mfa_field(value: str, user_id: str) -> str:
         service = get_encryption_service()
         encrypted = service.encrypt(value, associated_data=user_id)
         return encrypted.to_base64()
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError, ImportError) as e:
         logger.warning(f"MFA field encryption failed: {e}")
         return value
 
@@ -57,7 +57,7 @@ def _decrypt_mfa_field(value: str, user_id: str) -> str:
             return value  # Legacy unencrypted
         service = get_encryption_service()
         return service.decrypt_string(value, associated_data=user_id)
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError, ImportError) as e:
         logger.debug(f"MFA field decryption failed (may be legacy): {e}")
         return value
 

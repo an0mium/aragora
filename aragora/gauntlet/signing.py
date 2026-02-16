@@ -533,7 +533,24 @@ def verify_receipt(signed_receipt: SignedReceipt) -> bool:
     Returns:
         True if valid
     """
-    return get_default_signer().verify(signed_receipt)
+    is_valid = get_default_signer().verify(signed_receipt)
+    event_name = "RECEIPT_VERIFIED" if is_valid else "RECEIPT_INTEGRITY_FAILED"
+    try:
+        from aragora.events.types import StreamEvent, StreamEventType
+
+        event_type = getattr(StreamEventType, event_name, None)
+        if event_type is not None:
+            from aragora.server.stream.emitter import get_global_emitter
+
+            emitter = get_global_emitter()
+            if emitter is not None:
+                emitter.emit(StreamEvent(type=event_type, data={
+                    "receipt_id": getattr(signed_receipt, "receipt_id", "unknown"),
+                    "valid": is_valid,
+                }))
+    except (ImportError, AttributeError, TypeError):
+        pass
+    return is_valid
 
 
 # ============================================================================

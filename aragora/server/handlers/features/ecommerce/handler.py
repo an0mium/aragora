@@ -275,7 +275,7 @@ class EcommerceHandler(SecureHandler):
             self._circuit_breaker.record_failure()
             logger.error(f"Ecommerce platform connection error: {e}")
             return self._error_response(503, "E-commerce platform unavailable")
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             # Don't count application-level errors as circuit breaker failures
             logger.error(f"Ecommerce handler error: {e}")
             raise

@@ -379,7 +379,8 @@ class TestTeamSelectorInitialization:
         selector = TeamSelector()
 
         assert selector.elo_system is None
-        assert selector.calibration_tracker is None
+        # CalibrationTracker is auto-detected when available
+        assert selector.calibration_tracker is not None
         assert selector.circuit_breaker is None
         assert selector.delegation_strategy is None
         assert selector.config is not None
@@ -524,6 +525,7 @@ class TestAgentScoring:
         """Test base score is applied to all agents."""
         config = TeamSelectionConfig(
             base_score=2.0,
+            calibration_weight=0.0,  # Isolate base score
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -1518,6 +1520,7 @@ class TestEdgeCases:
         elo_system = MockEloSystem(ratings={"claude-opus": 500.0})  # Below 1000 baseline
         config = TeamSelectionConfig(
             elo_weight=0.3,
+            calibration_weight=0.0,  # Isolate ELO contribution
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,

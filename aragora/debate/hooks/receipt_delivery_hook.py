@@ -414,7 +414,7 @@ class ReceiptDeliveryHook:
                 message_id=result.message_id,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, ImportError) as e:
             logger.warning("Receipt delivery failed (teams): %s", e)
             return DeliveryResult(
                 channel_type="teams",
@@ -466,7 +466,7 @@ class ReceiptDeliveryHook:
                 success=True,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning("Receipt delivery failed (email): %s", e)
             return DeliveryResult(
                 channel_type="email",
@@ -514,7 +514,7 @@ class ReceiptDeliveryHook:
                     error=f"HTTP {response.status_code}",
                 )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
             logger.warning("Receipt delivery failed (webhook): %s", e)
             return DeliveryResult(
                 channel_type="webhook",

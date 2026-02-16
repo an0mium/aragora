@@ -371,7 +371,7 @@ async def run_debate_async(
             evidence_store=evidence_store,
         )
 
-    except Exception as e:  # broad catch: last-resort handler
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
         logger.error(f"WhatsApp debate failed: {e}", exc_info=True)
         record_debate_failed("whatsapp")
         await send_text_message(

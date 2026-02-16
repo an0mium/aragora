@@ -105,7 +105,7 @@ def _encrypt_token(token: str, aad: str = "") -> str:
         service = get_encryption_service()
         encrypted = service.encrypt(token, associated_data=aad if aad else None)
         return encrypted.to_base64()
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError(
                 "encrypt",
@@ -134,7 +134,7 @@ def _decrypt_token(encrypted_token: str, aad: str = "") -> str:
     try:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_token, associated_data=aad if aad else None)
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
         logger.warning(f"Plaid token decryption failed (may be legacy token): {e}")
         return encrypted_token

@@ -79,7 +79,7 @@ class EmailWebhookHandler:
                 logger.warning(f"Unexpected SendGrid content type: {content_type}")
                 return error_response("Unsupported content type", status=415)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             self._error_count += 1
             self._last_error = "Internal server error"
             logger.exception("SendGrid webhook error: %s", e)
@@ -144,7 +144,7 @@ class EmailWebhookHandler:
                 }
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Failed to process SendGrid email: {e}")
             self._error_count += 1
             return json_response(
@@ -266,7 +266,7 @@ class EmailWebhookHandler:
                 }
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             self._error_count += 1
             self._last_error = "Internal server error"
             logger.exception("Mailgun webhook error: %s", e)
@@ -301,7 +301,7 @@ class EmailWebhookHandler:
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON", status=400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             self._error_count += 1
             self._last_error = "Internal server error"
             logger.exception("SES webhook error: %s", e)

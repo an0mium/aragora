@@ -236,6 +236,22 @@ class ImplementPhase:
             "patterns_found": patterns_found,
         }
 
+    def _emit_rollback_event(self, event_name: str, data: dict) -> None:
+        """Emit a ROLLBACK_* event (best-effort)."""
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is None:
+                return
+            from aragora.server.stream.emitter import get_global_emitter
+
+            emitter = get_global_emitter()
+            if emitter is not None:
+                emitter.emit(StreamEvent(type=event_type, data=data))
+        except (ImportError, AttributeError, TypeError):
+            pass
+
     async def create_backup(self, files: list[str]) -> dict:
         """
         Legacy API: Create backup of files before modification.
@@ -262,12 +278,17 @@ class ImplementPhase:
                 shutil.copy2(src, dst)
                 backed_up.append(file_path)
 
-        return {
+        manifest = {
             "path": str(backup_dir),
             "timestamp": timestamp,
             "files": backed_up,
             "files_created": [],
         }
+        self._emit_rollback_event("ROLLBACK_POINT_CREATED", {
+            "timestamp": timestamp,
+            "files_backed_up": len(backed_up),
+        })
+        return manifest
 
     async def write_files(self, code_changes: dict) -> dict:
         """
@@ -331,6 +352,11 @@ class ImplementPhase:
                 if src.exists():
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
+
+        self._emit_rollback_event("ROLLBACK_EXECUTED", {
+            "files_restored": len(backup_manifest.get("files", [])),
+            "files_removed": len(backup_manifest.get("files_created", [])),
+        })
 
     # =========================================================================
     # Original execute method

@@ -156,7 +156,7 @@ def get_supabase_postgres_dsn() -> str | None:
         dsn = f"postgresql://postgres:{db_password}@db.{project_ref}.supabase.co:5432/postgres"
         logger.debug(f"Derived Supabase PostgreSQL DSN for project: {project_ref}")
         return dsn
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.warning(f"Failed to derive Supabase PostgreSQL DSN: {e}")
         return None
 
@@ -414,7 +414,7 @@ async def _safe_store_init(store: Any, store_name: str) -> None:
     try:
         await store.initialize()
         logger.debug(f"[{store_name}] Async store initialization completed")
-    except Exception as e:
+    except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"[{store_name}] Async store initialization failed: {e}")
 
 
@@ -522,7 +522,7 @@ def create_persistent_store(
                         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
                         logger.info(f"[{store_name}] Using shared pool ({backend_name})")
                         return store
-                    except Exception as e:
+                    except (OSError, RuntimeError, ConnectionError, TimeoutError, ValueError) as e:
                         logger.warning(f"[{store_name}] Shared pool store creation failed: {e}")
         except ImportError:
             pass  # pool_manager not available
@@ -563,7 +563,7 @@ def create_persistent_store(
                     backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
                     logger.info(f"[{store_name}] Initialized with {backend_name}")
                     return store
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError, ImportError) as e:
                 logger.warning(f"[{store_name}] PostgreSQL unavailable: {e}")
                 if not allow_sqlite:
                     raise RuntimeError(

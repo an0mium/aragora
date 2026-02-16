@@ -162,6 +162,7 @@ def _make_ctx(agents=None, winner="claude", domain="general"):
     result.confidence = 0.9
     result.consensus_reached = True
     result.votes = []
+    result.critiques = []  # No critiques by default
     ctx.result = result
 
     if agents is None:
@@ -181,7 +182,13 @@ def _make_ctx(agents=None, winner="claude", domain="general"):
 
 
 class TestUpdateGenomeFitnessWithElo:
-    """Test that update_genome_fitness applies ELO-based adjustments."""
+    """Test that update_genome_fitness applies ELO-based adjustments.
+
+    Each agent with a genome_id gets up to 3 update_fitness calls:
+    1. Rate-based (consensus_win, critique_accepted, prediction_correct)
+    2. Outcome delta (WIN_FITNESS_DELTA or LOSS_FITNESS_DELTA)
+    3. ELO fitness delta (only when elo_system is available and returns != 0)
+    """
 
     def test_elo_adjustment_applied(self):
         from aragora.debate.phases.feedback_evolution import EvolutionFeedback
@@ -199,26 +206,33 @@ class TestUpdateGenomeFitnessWithElo:
         ctx = _make_ctx()
         fb.update_genome_fitness(ctx)
 
-        # Should have called update_fitness twice per agent:
-        # once for consensus/prediction, once for ELO delta
+        # 2 agents x 3 calls each: base + outcome_delta + ELO
         calls = mock_pm.update_fitness.call_args_list
-        assert len(calls) == 4  # 2 agents x 2 calls each
+        assert len(calls) == 6
 
-        # First call for claude: consensus_win + prediction
+        # Call 0: claude rate-based (consensus_win + critique + prediction)
         assert calls[0].args[0] == "genome-aaa"
         assert calls[0].kwargs.get("consensus_win") is True
 
-        # Second call for claude: ELO fitness_delta (positive)
+        # Call 1: claude outcome delta (winner -> +0.10)
         assert calls[1].args[0] == "genome-aaa"
-        assert calls[1].kwargs["fitness_delta"] > 0.0
+        assert calls[1].kwargs["fitness_delta"] == EvolutionFeedback.WIN_FITNESS_DELTA
 
-        # Third call for gpt4: consensus_win + prediction
-        assert calls[2].args[0] == "genome-bbb"
-        assert calls[2].kwargs.get("consensus_win") is False
+        # Call 2: claude ELO fitness_delta (positive, above baseline)
+        assert calls[2].args[0] == "genome-aaa"
+        assert calls[2].kwargs["fitness_delta"] > 0.0
 
-        # Fourth call for gpt4: ELO fitness_delta (negative)
+        # Call 3: gpt4 rate-based
         assert calls[3].args[0] == "genome-bbb"
-        assert calls[3].kwargs["fitness_delta"] < 0.0
+        assert calls[3].kwargs.get("consensus_win") is False
+
+        # Call 4: gpt4 outcome delta (loser -> -0.05)
+        assert calls[4].args[0] == "genome-bbb"
+        assert calls[4].kwargs["fitness_delta"] == EvolutionFeedback.LOSS_FITNESS_DELTA
+
+        # Call 5: gpt4 ELO fitness_delta (negative, below baseline)
+        assert calls[5].args[0] == "genome-bbb"
+        assert calls[5].kwargs["fitness_delta"] < 0.0
 
     def test_no_elo_system_skips_adjustment(self):
         from aragora.debate.phases.feedback_evolution import EvolutionFeedback
@@ -228,9 +242,9 @@ class TestUpdateGenomeFitnessWithElo:
         ctx = _make_ctx()
         fb.update_genome_fitness(ctx)
 
-        # Only the base update_fitness calls (1 per agent with genome_id)
+        # 2 agents x 2 calls each: base + outcome_delta (no ELO call)
         calls = mock_pm.update_fitness.call_args_list
-        assert len(calls) == 2
+        assert len(calls) == 4
 
     def test_elo_error_does_not_cascade(self):
         from aragora.debate.phases.feedback_evolution import EvolutionFeedback
@@ -245,9 +259,10 @@ class TestUpdateGenomeFitnessWithElo:
         ctx = _make_ctx()
         fb.update_genome_fitness(ctx)
 
-        # Base calls still happen; ELO adjustment returns 0.0, no extra call
+        # ELO error -> returns 0.0 -> no ELO call, but outcome_delta still fires
+        # 2 agents x 2 calls each: base + outcome_delta
         calls = mock_pm.update_fitness.call_args_list
-        assert len(calls) == 2  # only base calls
+        assert len(calls) == 4
 
     def test_agents_without_genome_id_skipped(self):
         from aragora.debate.phases.feedback_evolution import EvolutionFeedback
@@ -268,6 +283,21 @@ class TestUpdateGenomeFitnessWithElo:
 
         mock_pm.update_fitness.assert_not_called()
         mock_elo.get_rating.assert_not_called()
+
+    def test_no_winner_skips_outcome_delta(self):
+        """When no winner is determined, no outcome delta is applied."""
+        from aragora.debate.phases.feedback_evolution import EvolutionFeedback
+
+        mock_pm = MagicMock()
+        fb = EvolutionFeedback(population_manager=mock_pm, elo_system=None)
+        ctx = _make_ctx(winner=None)
+        fb.update_genome_fitness(ctx)
+
+        # 2 agents x 1 call each: only base (no outcome delta when winner=None)
+        calls = mock_pm.update_fitness.call_args_list
+        assert len(calls) == 2
+        for call in calls:
+            assert "fitness_delta" not in call.kwargs
 
 
 # ---------------------------------------------------------------------------

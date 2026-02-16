@@ -139,6 +139,77 @@ class KnowledgeAPI:
             payload["metadata"] = metadata
         return self._client.request("POST", "/api/v1/knowledge/facts", json=payload)
 
+    def get_fact(self, fact_id: str) -> dict[str, Any]:
+        """Get a specific fact by ID."""
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")
+
+    def verify_fact(self, fact_id: str) -> dict[str, Any]:
+        """Verify a fact."""
+        return self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/verify")
+
+    def get_fact_contradictions(self, fact_id: str) -> dict[str, Any]:
+        """Get contradictions for a specific fact."""
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
+
+    def get_fact_relations(
+        self, fact_id: str, limit: int = 50
+    ) -> dict[str, Any]:
+        """Get relations for a specific fact."""
+        params: dict[str, Any] = {"limit": limit}
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params)
+
+    def create_fact_relation(
+        self,
+        source_id: str,
+        target_id: str,
+        relation_type: str,
+    ) -> dict[str, Any]:
+        """Create a relation between facts."""
+        payload: dict[str, Any] = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "relation_type": relation_type,
+        }
+        return self._client.request("POST", "/api/v1/knowledge/facts/relations", json=payload)
+
+    def create_embeddings(
+        self, text: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Create embeddings for text."""
+        payload: dict[str, Any] = {"text": text, **kwargs}
+        return self._client.request("POST", "/api/v1/knowledge/embeddings", json=payload)
+
+    def get_entry_embeddings(self, entry_id: str) -> dict[str, Any]:
+        """Get embeddings for a knowledge entry."""
+        return self._client.request("GET", f"/api/v1/knowledge/entries/{entry_id}/embeddings")
+
+    def get_entry_sources(self, entry_id: str) -> dict[str, Any]:
+        """Get sources for a knowledge entry."""
+        return self._client.request("GET", f"/api/v1/knowledge/entries/{entry_id}/sources")
+
+    def export_knowledge(
+        self, format: str = "json", workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Export knowledge data."""
+        params: dict[str, Any] = {"format": format}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/knowledge/export", params=params)
+
+    def refresh(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Refresh knowledge base."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/knowledge/refresh", json=payload)
+
+    def validate(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Validate knowledge base integrity."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/knowledge/validate", json=payload)
+
     def get_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get knowledge base statistics."""
         params: dict[str, Any] = {}
@@ -304,6 +375,150 @@ class KnowledgeAPI:
         """Sync a knowledge mound entry to a target."""
         return self._client.request("POST", f"/api/v1/knowledge/mound/sync/{target_id}")
 
+    # ========== Mound Node Detail Operations ==========
+
+    def get_node(self, node_id: str) -> dict[str, Any]:
+        """Get a specific knowledge node by ID."""
+        return self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}")
+
+    def get_node_relationships(self, node_id: str) -> dict[str, Any]:
+        """Get relationships for a specific node."""
+        return self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/relationships")
+
+    def get_node_visibility(self, node_id: str) -> dict[str, Any]:
+        """Get visibility settings for a node."""
+        return self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/visibility")
+
+    def get_node_access(self, node_id: str) -> dict[str, Any]:
+        """Get access grants for a node."""
+        return self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/access")
+
+    # ========== Bulk Revalidation & Sync ==========
+
+    def revalidate(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Trigger bulk revalidation of stale knowledge."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/knowledge/mound/revalidate", json=payload)
+
+    def sync(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Trigger bulk sync of knowledge mound."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/knowledge/mound/sync", json=payload)
+
+    # ========== Sharing ==========
+
+    def share(
+        self,
+        item_id: str,
+        target_id: str,
+        target_type: str = "user",
+        permission: str = "read",
+    ) -> dict[str, Any]:
+        """Share a knowledge item."""
+        payload: dict[str, Any] = {
+            "item_id": item_id,
+            "target_id": target_id,
+            "target_type": target_type,
+            "permission": permission,
+        }
+        return self._client.request("POST", "/api/v1/knowledge/mound/share", json=payload)
+
+    def get_shared_with_me(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get items shared with the current user."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/knowledge/mound/shared-with-me", params=params)
+
+    def get_my_shares(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get items shared by the current user."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/knowledge/mound/my-shares", params=params)
+
+    # ========== Global Knowledge ==========
+
+    def get_global_knowledge(
+        self, query: str | None = None
+    ) -> dict[str, Any]:
+        """Get global knowledge entries."""
+        params: dict[str, Any] = {}
+        if query:
+            params["query"] = query
+        return self._client.request("GET", "/api/v1/knowledge/mound/global", params=params)
+
+    def get_global_facts(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get global knowledge facts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/knowledge/mound/global/facts", params=params)
+
+    def promote_to_global(
+        self, node_id: str
+    ) -> dict[str, Any]:
+        """Promote a knowledge node to global scope."""
+        return self._client.request("POST", "/api/v1/knowledge/mound/global/promote", json={"node_id": node_id})
+
+    # ========== Federation ==========
+
+    def list_federation_regions(self) -> dict[str, Any]:
+        """List federation regions."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/federation/regions")
+
+    def delete_federation_region(self, region_id: str) -> dict[str, Any]:
+        """Delete a federation region."""
+        return self._client.request("DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}")
+
+    def get_federation_status(self) -> dict[str, Any]:
+        """Get federation sync status."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/federation/status")
+
+    def federation_sync_push(
+        self, region_id: str
+    ) -> dict[str, Any]:
+        """Push knowledge to a federation region."""
+        return self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/push", json={"region_id": region_id})
+
+    def federation_sync_pull(
+        self, region_id: str
+    ) -> dict[str, Any]:
+        """Pull knowledge from a federation region."""
+        return self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/pull", json={"region_id": region_id})
+
+    def federation_sync_all(self) -> dict[str, Any]:
+        """Sync knowledge across all federation regions."""
+        return self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/all", json={})
+
+    # ========== Index ==========
+
+    def index_repository(
+        self, url: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Index a repository into the knowledge mound."""
+        payload: dict[str, Any] = {"url": url, **kwargs}
+        return self._client.request("POST", "/api/v1/knowledge/mound/index/repository", json=payload)
+
+    # ========== Governance (additional) ==========
+
+    def list_governance_permissions(self) -> dict[str, Any]:
+        """List all governance permissions."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
+
+    def get_user_audit(
+        self, user_id: str | None = None, limit: int = 50
+    ) -> dict[str, Any]:
+        """Get governance audit trail for a user."""
+        params: dict[str, Any] = {"limit": limit}
+        if user_id:
+            params["user_id"] = user_id
+        return self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user", params=params)
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""
@@ -418,6 +633,79 @@ class AsyncKnowledgeAPI:
         if metadata is not None:
             payload["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/knowledge/facts", json=payload)
+
+    async def get_fact(self, fact_id: str) -> dict[str, Any]:
+        """Get a specific fact by ID."""
+        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")
+
+    async def verify_fact(self, fact_id: str) -> dict[str, Any]:
+        """Verify a fact."""
+        return await self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/verify")
+
+    async def get_fact_contradictions(self, fact_id: str) -> dict[str, Any]:
+        """Get contradictions for a specific fact."""
+        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
+
+    async def get_fact_relations(
+        self, fact_id: str, limit: int = 50
+    ) -> dict[str, Any]:
+        """Get relations for a specific fact."""
+        params: dict[str, Any] = {"limit": limit}
+        return await self._client.request(
+            "GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params
+        )
+
+    async def create_fact_relation(
+        self,
+        source_id: str,
+        target_id: str,
+        relation_type: str,
+    ) -> dict[str, Any]:
+        """Create a relation between facts."""
+        payload: dict[str, Any] = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "relation_type": relation_type,
+        }
+        return await self._client.request("POST", "/api/v1/knowledge/facts/relations", json=payload)
+
+    async def create_embeddings(
+        self, text: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Create embeddings for text."""
+        payload: dict[str, Any] = {"text": text, **kwargs}
+        return await self._client.request("POST", "/api/v1/knowledge/embeddings", json=payload)
+
+    async def get_entry_embeddings(self, entry_id: str) -> dict[str, Any]:
+        """Get embeddings for a knowledge entry."""
+        return await self._client.request("GET", f"/api/v1/knowledge/entries/{entry_id}/embeddings")
+
+    async def get_entry_sources(self, entry_id: str) -> dict[str, Any]:
+        """Get sources for a knowledge entry."""
+        return await self._client.request("GET", f"/api/v1/knowledge/entries/{entry_id}/sources")
+
+    async def export_knowledge(
+        self, format: str = "json", workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Export knowledge data."""
+        params: dict[str, Any] = {"format": format}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/knowledge/export", params=params)
+
+    async def refresh(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Refresh knowledge base."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/knowledge/refresh", json=payload)
+
+    async def validate(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Validate knowledge base integrity."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/knowledge/validate", json=payload)
 
     async def get_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
         params: dict[str, Any] = {}
@@ -681,6 +969,156 @@ class AsyncKnowledgeAPI:
     async def sync_entry(self, target_id: str) -> dict[str, Any]:
         """Sync a knowledge mound entry to a target."""
         return await self._client.request("POST", f"/api/v1/knowledge/mound/sync/{target_id}")
+
+    # ========== Mound Node Detail Operations ==========
+
+    async def get_node(self, node_id: str) -> dict[str, Any]:
+        """Get a specific knowledge node by ID."""
+        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}")
+
+    async def get_node_relationships(self, node_id: str) -> dict[str, Any]:
+        """Get relationships for a specific node."""
+        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/relationships")
+
+    async def get_node_visibility(self, node_id: str) -> dict[str, Any]:
+        """Get visibility settings for a node."""
+        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/visibility")
+
+    async def get_node_access(self, node_id: str) -> dict[str, Any]:
+        """Get access grants for a node."""
+        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/access")
+
+    # ========== Bulk Revalidation & Sync ==========
+
+    async def revalidate(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Trigger bulk revalidation of stale knowledge."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/knowledge/mound/revalidate", json=payload)
+
+    async def sync(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Trigger bulk sync of knowledge mound."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/knowledge/mound/sync", json=payload)
+
+    # ========== Sharing ==========
+
+    async def share(
+        self,
+        item_id: str,
+        target_id: str,
+        target_type: str = "user",
+        permission: str = "read",
+    ) -> dict[str, Any]:
+        """Share a knowledge item."""
+        payload: dict[str, Any] = {
+            "item_id": item_id,
+            "target_id": target_id,
+            "target_type": target_type,
+            "permission": permission,
+        }
+        return await self._client.request("POST", "/api/v1/knowledge/mound/share", json=payload)
+
+    async def get_shared_with_me(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get items shared with the current user."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/knowledge/mound/shared-with-me", params=params)
+
+    async def get_my_shares(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get items shared by the current user."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/knowledge/mound/my-shares", params=params)
+
+    # ========== Global Knowledge ==========
+
+    async def get_global_knowledge(
+        self, query: str | None = None
+    ) -> dict[str, Any]:
+        """Get global knowledge entries."""
+        params: dict[str, Any] = {}
+        if query:
+            params["query"] = query
+        return await self._client.request("GET", "/api/v1/knowledge/mound/global", params=params)
+
+    async def get_global_facts(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get global knowledge facts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/knowledge/mound/global/facts", params=params)
+
+    async def promote_to_global(
+        self, node_id: str
+    ) -> dict[str, Any]:
+        """Promote a knowledge node to global scope."""
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/global/promote", json={"node_id": node_id}
+        )
+
+    # ========== Federation ==========
+
+    async def list_federation_regions(self) -> dict[str, Any]:
+        """List federation regions."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/federation/regions")
+
+    async def delete_federation_region(self, region_id: str) -> dict[str, Any]:
+        """Delete a federation region."""
+        return await self._client.request("DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}")
+
+    async def get_federation_status(self) -> dict[str, Any]:
+        """Get federation sync status."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/federation/status")
+
+    async def federation_sync_push(
+        self, region_id: str
+    ) -> dict[str, Any]:
+        """Push knowledge to a federation region."""
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/federation/sync/push", json={"region_id": region_id}
+        )
+
+    async def federation_sync_pull(
+        self, region_id: str
+    ) -> dict[str, Any]:
+        """Pull knowledge from a federation region."""
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/federation/sync/pull", json={"region_id": region_id}
+        )
+
+    async def federation_sync_all(self) -> dict[str, Any]:
+        """Sync knowledge across all federation regions."""
+        return await self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/all", json={})
+
+    # ========== Index ==========
+
+    async def index_repository(
+        self, url: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Index a repository into the knowledge mound."""
+        payload: dict[str, Any] = {"url": url, **kwargs}
+        return await self._client.request("POST", "/api/v1/knowledge/mound/index/repository", json=payload)
+
+    # ========== Governance (additional) ==========
+
+    async def list_governance_permissions(self) -> dict[str, Any]:
+        """List all governance permissions."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
+
+    async def get_user_audit(
+        self, user_id: str | None = None, limit: int = 50
+    ) -> dict[str, Any]:
+        """Get governance audit trail for a user."""
+        params: dict[str, Any] = {"limit": limit}
+        if user_id:
+            params["user_id"] = user_id
+        return await self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user", params=params)
 
     # ========== Dashboard & Metrics ==========
 

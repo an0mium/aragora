@@ -497,7 +497,7 @@ class FolderUploadHandler(BaseHandler):
 
             self._update_job_status(folder_id, FolderUploadStatus.COMPLETED)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Folder upload job {folder_id} failed: {e}")
             self._update_job_error(folder_id, "Folder upload failed")
             self._update_job_status(folder_id, FolderUploadStatus.FAILED)

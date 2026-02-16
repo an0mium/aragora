@@ -535,7 +535,7 @@ class VoiceHandler:
                 self.voice.mark_debate_started(call_sid, debate_id)
                 logger.info(f"Debate {debate_id} started from call {call_sid}")
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to start debate from voice: {e}")
 
 

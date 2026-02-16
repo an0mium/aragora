@@ -441,7 +441,7 @@ class CreateOperationsMixin:
             # Moderation explicitly rejected content
             logger.warning(f"Content moderation error: {e}")
             return error_response("Invalid request", 400)
-        except Exception as e:  # broad catch: last-resort handler (fail-open for spam check)
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Spam check failed unexpectedly: {e}", exc_info=True)
             return None
 

@@ -298,7 +298,7 @@ class BatchOperationsMixin:
                 }
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 

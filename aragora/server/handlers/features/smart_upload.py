@@ -505,7 +505,7 @@ async def process_file(
             if knowledge_result and knowledge_result.get("knowledge_processing"):
                 result["knowledge_processing"] = knowledge_result.get("knowledge_processing")
 
-    except Exception as e:  # broad catch: last-resort handler
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
         logger.error(f"Error processing {filename}: {e}")
         result["error"] = "Internal server error"
 
@@ -1027,7 +1027,7 @@ async def smart_upload(
                 result.result = {}
             result.result["content_type_warning"] = validation.mismatch_warning
 
-    except Exception as e:  # broad catch: last-resort handler
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
         logger.error("Smart upload failed for %s: %s", filename, e)
         result.status = "failed"
         result.error = "Internal server error"

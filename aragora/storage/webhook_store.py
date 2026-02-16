@@ -263,7 +263,7 @@ class SQLiteWebhookStore(WebhookStoreBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
                     logger.debug("Error closing connection: %s", e)
             self._connections.clear()
 
@@ -388,7 +388,7 @@ class PostgresWebhookStore(WebhookStoreBackend):
                 from aragora.utils.async_utils import run_async
 
                 run_async(self.cleanup_expired_async())
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.debug(f"Background cleanup failed: {e}")
 
     def size(self) -> int:

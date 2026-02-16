@@ -122,7 +122,7 @@ def _encrypt_config(
         encrypted = service.encrypt_fields(config, keys_to_encrypt, aad)
         logger.debug(f"Encrypted {len(keys_to_encrypt)} sensitive fields for {config_type}")
         return encrypted
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError("encrypt", str(e), "notification_config_store") from e
         logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
@@ -152,7 +152,7 @@ def _decrypt_config(
         decrypted = service.decrypt_fields(config, encrypted_keys, aad)
         logger.debug(f"Decrypted {len(encrypted_keys)} fields for {config_type}")
         return decrypted
-    except Exception as e:
+    except (ValueError, RuntimeError, OSError) as e:
         logger.warning(f"Decryption failed for {config_type}: {e}")
         return config
 
@@ -360,7 +360,7 @@ class NotificationConfigStore:
                 self._backend.execute_write(
                     "CREATE INDEX IF NOT EXISTS idx_recipients_org ON email_recipients(org_id)"
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, sqlite3.Error) as e:
                 logger.debug(f"Index creation skipped: {e}")
 
             logger.info(f"NotificationConfigStore initialized with {self.backend_type} backend")
@@ -743,9 +743,8 @@ class NotificationConfigStore:
                 for conn in self._connections:
                     try:
                         conn.close()
-                    except Exception as e:
+                    except (sqlite3.Error, OSError) as e:
                         logger.debug("Error closing connection during cleanup: %s", e)
-                        pass
                 self._connections.clear()
 
 

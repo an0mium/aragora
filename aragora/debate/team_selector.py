@@ -187,6 +187,26 @@ class TeamSelector:
         continuum_memory: ContinuumMemory | None = None,
     ):
         self.elo_system = elo_system
+        # Auto-detect default CalibrationTracker if none provided.
+        # CalibrationTracker from aragora.agents.calibration implements the
+        # CalibrationScorer protocol (get_brier_score) and provides SDPO-compatible
+        # Brier scoring backed by SQLite persistence.
+        if calibration_tracker is None:
+            try:
+                from aragora.agents.calibration import CalibrationTracker
+
+                calibration_tracker = CalibrationTracker()
+                logger.debug("Auto-detected CalibrationTracker as default calibration scorer")
+            except (ImportError, RuntimeError, TypeError, OSError, ValueError):
+                # Graceful degradation: calibration scoring is optional.
+                # ImportError: module not available
+                # RuntimeError/TypeError: instantiation issues
+                # OSError: database file access (includes sqlite3.OperationalError)
+                # ValueError: configuration issues
+                logger.debug(
+                    "CalibrationTracker not available for auto-detection, "
+                    "proceeding without calibration scoring"
+                )
         self.calibration_tracker = calibration_tracker
         self.circuit_breaker = circuit_breaker
         self.delegation_strategy = delegation_strategy

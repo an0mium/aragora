@@ -693,7 +693,7 @@ class TrainingHandler(BaseHandler):
             except (ValueError, RuntimeError, AttributeError) as e:
                 logger.debug(f"SFT exporter availability check failed: {e}")
                 stats["sft_available"] = False
-            except Exception as e:  # broad catch: last-resort handler
+            except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
                 logger.warning(f"Unexpected error checking SFT exporter availability: {e}")
                 stats["sft_available"] = False
 

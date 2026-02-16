@@ -441,7 +441,7 @@ class OAuthHandler(
                     )
                 return None
 
-            except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
+            except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                 error_name = type(e).__name__
                 # Check for retryable database connection errors
                 is_retryable = error_name in (

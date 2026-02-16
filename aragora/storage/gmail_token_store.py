@@ -637,7 +637,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
                 data = redis.get(self._token_key(user_id))
                 if data:
                     return GmailUserState.from_json(data)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.debug(f"Redis get failed, falling back to SQLite: {e}")
 
         state = await self._sqlite.get(user_id)
@@ -660,7 +660,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         if redis:
             try:
                 redis.setex(self._token_key(state.user_id), self.REDIS_TTL, state.to_json())
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"Redis cache update failed: {e}")
 
     async def delete(self, user_id: str) -> bool:

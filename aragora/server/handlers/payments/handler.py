@@ -349,7 +349,7 @@ async def _resilient_stripe_call(operation: str, func, *args, **kwargs):
         result = await _execute()
         _stripe_cb.record_success()
         return result
-    except Exception as e:  # broad catch: last-resort handler
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         _stripe_cb.record_failure(e)
         logger.error(f"Stripe {operation} failed: {e}")
         raise
@@ -383,7 +383,7 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
         result = await _execute()
         _authnet_cb.record_success()
         return result
-    except Exception as e:  # broad catch: last-resort handler
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         _authnet_cb.record_failure(e)
         logger.error(f"Authorize.net {operation} failed: {e}")
         raise

@@ -351,10 +351,10 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception as handler_error:
+                    except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
                         logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
                 logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
                 results.append(None)
@@ -362,7 +362,7 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception as handler_error:
+                    except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
                         logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
 
@@ -424,10 +424,10 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception as handler_error:
+                    except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
                         logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - hook isolation boundary: user-provided callbacks can raise any exception
                 # Unexpected errors from hook callback
                 logger.exception(f"Hook {hook.name} failed with unexpected error: {e}")
                 results.append(None)
@@ -435,7 +435,7 @@ class HookManager:
                 if self._error_handler:
                     try:
                         self._error_handler(hook.name, e)
-                    except Exception as handler_error:
+                    except Exception as handler_error:  # noqa: BLE001 - error handler isolation: prevent handler failures from cascading
                         # Don't let error handler failures cascade
                         logger.debug(f"Error handler failed for hook {hook.name}: {handler_error}")
 

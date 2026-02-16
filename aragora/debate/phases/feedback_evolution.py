@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 class EvolutionFeedback:
     """Handles Genesis/evolution-related feedback operations."""
 
+    # Fitness deltas applied to genomes based on debate outcomes.
+    # These are additive adjustments on top of the rate-based fitness
+    # calculated by AgentGenome.update_fitness(), ensuring that debate
+    # wins/losses create strong selection pressure for breeding.
+    WIN_FITNESS_DELTA: float = 0.10
+    LOSS_FITNESS_DELTA: float = -0.05
+
     def __init__(
         self,
         population_manager: PopulationManagerProtocol | None = None,
@@ -51,7 +58,14 @@ class EvolutionFeedback:
         """Update genome fitness scores based on debate outcome.
 
         For agents with genome_id attributes (evolved via Genesis),
-        update their fitness scores based on debate performance.
+        update their fitness scores based on debate performance:
+
+        1. ``consensus_win`` / ``prediction_correct`` / ``critique_accepted``
+           feed into the rate-based fitness in AgentGenome.update_fitness().
+        2. An explicit win/loss ``fitness_delta`` creates direct selection
+           pressure so that winning agents are more likely to be chosen as
+           parents in the next breeding round.
+        3. ELO performance is layered on top as an additional delta.
         """
         if not self.population_manager:
             return
@@ -61,6 +75,10 @@ class EvolutionFeedback:
             return
 
         winner_agent = getattr(result, "winner", None)
+
+        # Pre-compute which agents had their critiques accepted so
+        # we can pass this signal into the genome fitness update.
+        accepted_critics = self._compute_accepted_critiques(ctx)
 
         for agent in ctx.agents:
             genome_id = getattr(agent, "genome_id", None)
@@ -74,12 +92,26 @@ class EvolutionFeedback:
                 # Check if agent's prediction was correct
                 prediction_correct = self._check_agent_prediction(agent, ctx)
 
-                # Update fitness in population manager
+                # Check if any of this agent's critiques were accepted
+                critique_accepted = agent.name in accepted_critics
+
+                # Update fitness in population manager (rate-based)
                 self.population_manager.update_fitness(
                     genome_id,
                     consensus_win=consensus_win,
+                    critique_accepted=critique_accepted,
                     prediction_correct=prediction_correct,
                 )
+
+                # Apply direct win/loss fitness delta for breeding selection
+                outcome_delta = (
+                    self.WIN_FITNESS_DELTA if consensus_win
+                    else self.LOSS_FITNESS_DELTA
+                )
+                if winner_agent is not None and outcome_delta != 0.0:
+                    self.population_manager.update_fitness(
+                        genome_id, fitness_delta=outcome_delta,
+                    )
 
                 # Factor ELO performance into genome fitness
                 elo_adj = self._compute_elo_fitness_adjustment(agent.name, ctx.domain)
@@ -89,10 +121,13 @@ class EvolutionFeedback:
                     )
 
                 logger.debug(
-                    "[genesis] Updated fitness for genome %s: win=%s pred=%s elo_adj=%+.4f",
+                    "[genesis] Updated fitness for genome %s: win=%s crit=%s pred=%s "
+                    "outcome_delta=%+.2f elo_adj=%+.4f",
                     genome_id[:8],
                     consensus_win,
+                    critique_accepted,
                     prediction_correct,
+                    outcome_delta if winner_agent is not None else 0.0,
                     elo_adj,
                 )
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
@@ -122,6 +157,47 @@ class EvolutionFeedback:
                 return canonical == winner
 
         return False
+
+    def _compute_accepted_critiques(self, ctx: DebateContext) -> set[str]:
+        """Determine which agents had their critiques accepted.
+
+        A critique is considered "accepted" when the critiquing agent
+        targeted a non-winning agent (i.e., the critique correctly
+        identified weaknesses that prevented the target from winning).
+        This rewards agents whose critical judgment aligns with the
+        final debate outcome.
+
+        Returns:
+            Set of agent names whose critiques were vindicated by the
+            debate outcome.
+        """
+        result = ctx.result
+        if not result:
+            return set()
+
+        winner = getattr(result, "winner", None)
+        if not winner:
+            return set()
+
+        critiques = getattr(result, "critiques", None)
+        if not critiques:
+            return set()
+
+        accepted: set[str] = set()
+        for critique in critiques:
+            critic_name = getattr(critique, "agent", None)
+            target_name = getattr(critique, "target_agent", None) or getattr(
+                critique, "target", None
+            )
+            if not critic_name or not target_name:
+                continue
+            # A critique is accepted when it targeted a non-winner,
+            # meaning the critic correctly identified flaws in a
+            # losing proposal.
+            if target_name != winner:
+                accepted.add(critic_name)
+
+        return accepted
 
     def _compute_elo_fitness_adjustment(
         self,

@@ -142,7 +142,7 @@ class OrganizationStore:
         try:
             yield cursor
             conn.commit()
-        except Exception as e:
+        except (sqlite3.Error, OSError, ValueError) as e:
             conn.rollback()
             logger.debug("Transaction rolled back due to: %s", e)
             raise
@@ -792,7 +792,7 @@ class OrganizationStore:
                 for conn in self._connections:
                     try:
                         conn.close()
-                    except Exception as e:
+                    except (sqlite3.Error, OSError) as e:
                         logger.debug("Error closing connection: %s", e)
                 self._connections.clear()
 

@@ -673,7 +673,7 @@ class TranscriptionHandler(BaseHandler):
                 try:
                     result = await transcribe_audio(temp_path, language=language, backend=backend)
                     _transcription_circuit_breaker.record_success()
-                except Exception as transcribe_error:  # broad catch: last-resort handler
+                except (ValueError, KeyError, TypeError, RuntimeError, OSError) as transcribe_error:
                     _transcription_circuit_breaker.record_failure()
                     _save_job(
                         job_id,
@@ -799,7 +799,7 @@ class TranscriptionHandler(BaseHandler):
                 try:
                     result = await transcribe_video(temp_path, language=language, backend=backend)
                     _transcription_circuit_breaker.record_success()
-                except Exception as transcribe_error:  # broad catch: last-resort handler
+                except (ValueError, KeyError, TypeError, RuntimeError, OSError) as transcribe_error:
                     _transcription_circuit_breaker.record_failure()
                     _save_job(
                         job_id,
@@ -938,7 +938,7 @@ class TranscriptionHandler(BaseHandler):
                     },
                 )
                 return error_response("Invalid request", 400)
-            except Exception as transcribe_error:  # broad catch: last-resort handler
+            except (ValueError, KeyError, TypeError, RuntimeError, OSError) as transcribe_error:
                 # Service failure - record for circuit breaker
                 _transcription_circuit_breaker.record_failure()
                 _save_job(

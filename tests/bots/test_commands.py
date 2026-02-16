@@ -286,7 +286,7 @@ class TestCommandRegistry:
         result = await registry.execute(sample_context)
 
         assert result.success is False
-        assert "error" in result.error.lower() or "wrong" in result.error.lower()
+        assert "failed" in result.error.lower()
 
 
 # ===========================================================================

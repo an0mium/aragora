@@ -26,6 +26,7 @@ class SpectatorEvents:
     CONSENSUS = "consensus"
     CONVERGENCE = "convergence"
     CONVERGED = "converged"
+    EARLY_STOP = "early_stop"
 
     # Memory/Learning
     MEMORY_RECALL = "memory_recall"
@@ -54,6 +55,7 @@ EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.CONSENSUS: ("🤝", "\033[92m"),  # Green
     SpectatorEvents.CONVERGENCE: ("📊", "\033[92m"),
     SpectatorEvents.CONVERGED: ("🎉", "\033[92m"),
+    SpectatorEvents.EARLY_STOP: ("⏹️", "\033[93m"),  # Yellow - early termination
     SpectatorEvents.MEMORY_RECALL: ("🧠", "\033[94m"),  # Blue - memory retrieval
     SpectatorEvents.BREAKPOINT: ("⚠️", "\033[33m"),  # Yellow/orange - needs attention
     SpectatorEvents.BREAKPOINT_RESOLVED: ("✅", "\033[32m"),  # Green - resolved
@@ -75,6 +77,7 @@ EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.CONSENSUS: "[CONSENSUS]",
     SpectatorEvents.CONVERGENCE: "[CONVERGE]",
     SpectatorEvents.CONVERGED: "[DONE]",
+    SpectatorEvents.EARLY_STOP: "[EARLY_STOP]",
     SpectatorEvents.MEMORY_RECALL: "[MEMORY]",
     SpectatorEvents.BREAKPOINT: "[BREAK]",
     SpectatorEvents.BREAKPOINT_RESOLVED: "[RESOLVED]",

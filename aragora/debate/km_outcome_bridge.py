@@ -229,7 +229,7 @@ class KMOutcomeBridge:
                     self._validations_applied.append(validation)
                     self._total_validations += 1
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
                 logger.error(f"Error validating KM item {item_id}: {e}")
 
         # Auto-propagate if enabled
@@ -241,7 +241,7 @@ class KMOutcomeBridge:
                         validation=validation,
                         depth=self._config.max_propagation_depth,
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
                     logger.error(f"Error propagating validation: {e}")
 
         logger.info(
@@ -399,7 +399,7 @@ class KMOutcomeBridge:
                 result.items_updated += 1
                 result.depth_reached = max(result.depth_reached, relationship_depth)
 
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
                 error_msg = f"Error propagating to {related_id}: {e}"
                 logger.error(error_msg)
                 result.errors.append(error_msg)
@@ -434,7 +434,7 @@ class KMOutcomeBridge:
             else:
                 # Mock/fallback for testing
                 return {"id": item_id, "confidence": 0.7}
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             logger.error(f"Error getting KM item {item_id}: {e}")
             return None
 
@@ -463,7 +463,7 @@ class KMOutcomeBridge:
                 # Log success for testing even without real KM
                 logger.debug(f"Would update {item_id} confidence to {new_confidence}")
                 return True
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             logger.error(f"Error updating KM item {item_id}: {e}")
             return False
 
@@ -498,7 +498,7 @@ class KMOutcomeBridge:
                     target_id = rel.get("target_id") or rel.get("to_id")
                     if target_id and target_id != item_id:
                         related.append((target_id, 1))
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             logger.error(f"Error getting related items for {item_id}: {e}")
 
         return related

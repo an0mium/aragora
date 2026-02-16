@@ -329,19 +329,19 @@ def check_multi_instance_readiness() -> dict[str, bool]:
     try:
         int_store = get_integration_store()
         stores["integration_store"] = getattr(int_store, "_uses_distributed", False)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ImportError) as e:
         logger.debug(f"Could not check integration_store: {e}")
 
     try:
         webhook_store = get_webhook_store()
         stores["webhook_store"] = getattr(webhook_store, "_uses_distributed", False)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ImportError) as e:
         logger.debug(f"Could not check webhook_store: {e}")
 
     try:
         gmail_store = get_gmail_token_store()
         stores["gmail_token_store"] = getattr(gmail_store, "_uses_distributed", False)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ImportError) as e:
         logger.debug(f"Could not check gmail_token_store: {e}")
 
     # Check user store - critical for authentication
@@ -350,7 +350,7 @@ def check_multi_instance_readiness() -> dict[str, bool]:
 
         user_store = get_user_store()
         stores["user_store"] = isinstance(user_store, PostgresUserStore)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ImportError) as e:
         logger.debug(f"Could not check user_store: {e}")
 
     # Check audit log - critical for compliance
@@ -362,7 +362,7 @@ def check_multi_instance_readiness() -> dict[str, bool]:
         # For distributed deployments, implement PostgresAuditLog backend
         # when horizontal scaling of audit data is required.
         stores["audit_log"] = getattr(audit_log, "_uses_distributed", False)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, ImportError) as e:
         logger.debug(f"Could not check audit_log: {e}")
 
     return stores

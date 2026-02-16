@@ -602,6 +602,21 @@ class DebateRoundsPhase:
                 logger.debug("Round latency metrics not available")
 
         if should_break:
+            # Emit early stop event for convergence-based termination
+            similarity = convergence_result.similarity if convergence_result else 0.0
+            self._emit_early_stop_event(
+                ctx, round_num, "convergence",
+                f"Semantic convergence detected (similarity={similarity:.2f})",
+            )
+            if ctx.result is not None:
+                if ctx.result.metadata is None:
+                    ctx.result.metadata = {}
+                ctx.result.metadata["early_termination"] = True
+                ctx.result.metadata["early_termination_source"] = "convergence"
+                ctx.result.metadata["early_termination_round"] = round_num
+                ctx.result.metadata["early_termination_reason"] = (
+                    f"Semantic convergence (similarity={similarity:.2f})"
+                )
             return False  # Converged - exit round execution early, stop debate loop
 
         # Fork detection: when debate is NOT converging and forking is enabled,
@@ -634,12 +649,17 @@ class DebateRoundsPhase:
 
         # Termination checks (only if not last round)
         if round_num < total_rounds:
-            if await self._should_terminate(ctx, round_num):
-                # Signal early termination by setting a flag
+            source, details = await self._check_termination_conditions(ctx, round_num)
+            if source is not None:
+                self._emit_early_stop_event(ctx, round_num, source, details)
+                # Signal early termination by setting metadata flags
                 if ctx.result is not None:
                     if ctx.result.metadata is None:
                         ctx.result.metadata = {}
                     ctx.result.metadata["early_termination"] = True
+                    ctx.result.metadata["early_termination_source"] = source
+                    ctx.result.metadata["early_termination_round"] = round_num
+                    ctx.result.metadata["early_termination_reason"] = details
                 return False  # Stop debate loop
 
         return True  # Continue to next round
@@ -1284,12 +1304,32 @@ class DebateRoundsPhase:
 
         Uses timeout protection on callbacks to prevent indefinite hangs.
         Includes RLM ready signal quorum check for agent self-termination.
+
+        Note: Prefer calling _check_termination_conditions() directly when
+        you need the termination source (e.g., for spectator events and metadata).
+        This method is retained for backward compatibility.
+        """
+        source, _details = await self._check_termination_conditions(ctx, round_num)
+        return source is not None
+
+    async def _check_termination_conditions(
+        self, ctx: DebateContext, round_num: int
+    ) -> tuple[str | None, str]:
+        """Check all termination conditions and return the source that triggered.
+
+        Returns:
+            Tuple of (source, details) where source is None if no termination,
+            or one of "rlm_ready", "judge", "agent_vote", "stability".
         """
         # RLM ready signal check (agents self-signal readiness)
         # This is the most responsive - agents explicitly say "I'm done"
         if self._convergence_tracker.check_rlm_ready_quorum(ctx, round_num):
             logger.info("debate_terminate_rlm_ready round=%s", round_num)
-            return True
+            try:
+                avg_conf = float(self._convergence_tracker.collective_readiness.avg_confidence)
+                return "rlm_ready", f"Agent quorum ready (confidence={avg_conf:.2f})"
+            except (TypeError, ValueError):
+                return "rlm_ready", "Agent quorum ready"
 
         # Judge-based termination (with timeout protection)
         if self._check_judge_termination:
@@ -1300,7 +1340,7 @@ class DebateRoundsPhase:
             )
             should_continue, reason = result
             if not should_continue:
-                return True
+                return "judge", reason or "Judge determined debate is conclusive"
 
         # Early stopping (agent votes) with timeout protection
         if self._check_early_stopping:
@@ -1310,7 +1350,7 @@ class DebateRoundsPhase:
                 default=True,  # Continue on timeout
             )
             if not should_continue:
-                return True
+                return "agent_vote", "Agents voted to stop early"
 
         # Statistical stability detection (Beta-Binomial model)
         # Uses KS-distance between vote distributions to detect consensus stability
@@ -1334,9 +1374,63 @@ class DebateRoundsPhase:
                             stability_result.stability_score,
                             stability_result.ks_distance,
                         )
-                    return True
+                    return (
+                        "stability",
+                        f"Vote distribution stabilized "
+                        f"(score={stability_result.stability_score:.3f}, "
+                        f"ks={stability_result.ks_distance:.3f})",
+                    )
 
-        return False
+        return None, ""
+
+    def _emit_early_stop_event(
+        self,
+        ctx: DebateContext,
+        round_num: int,
+        source: str,
+        details: str,
+    ) -> None:
+        """Emit spectator and hook events for early termination.
+
+        Args:
+            ctx: The debate context
+            round_num: Round number where early stop was triggered
+            source: Termination source (rlm_ready, judge, agent_vote, stability)
+            details: Human-readable reason for termination
+        """
+        total_rounds = self.protocol.rounds if self.protocol else 0
+        rounds_saved = max(0, total_rounds - round_num)
+
+        logger.info(
+            "debate_early_terminated round=%s/%s source=%s details=%s",
+            round_num,
+            total_rounds,
+            source,
+            details[:100],
+        )
+
+        # Emit spectator event for real-time visualization
+        if self._notify_spectator:
+            self._notify_spectator(
+                "early_stop",
+                agent="system",
+                details=f"Early stop at round {round_num}/{total_rounds}: {details} "
+                f"(source={source}, saved {rounds_saved} rounds)",
+                metric=float(round_num),
+                round_number=round_num,
+            )
+
+        # Emit via EventEmitter for WebSocket clients
+        if self.event_emitter:
+            self.event_emitter.emit_sync(
+                event_type="debate_early_terminated",
+                debate_id=ctx.debate_id if hasattr(ctx, "debate_id") else "",
+                round_num=round_num,
+                total_rounds=total_rounds,
+                source=source,
+                details=details,
+                rounds_saved=rounds_saved,
+            )
 
     async def _refresh_evidence_for_round(self, ctx: DebateContext, round_num: int) -> None:
         """Refresh evidence based on claims made in the current round."""

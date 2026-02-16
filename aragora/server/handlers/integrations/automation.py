@@ -401,7 +401,7 @@ class AutomationHandler(SecureHandler):
                 status=201,
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"[AutomationHandler] Subscribe failed: {e}")
             return error_response("Subscription creation failed", status=500)
 

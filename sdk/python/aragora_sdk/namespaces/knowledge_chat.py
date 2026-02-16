@@ -199,7 +199,16 @@ class KnowledgeChatAPI:
         return self._client.request("POST", "/api/v1/chat/knowledge/store", json=data)
 
     # =========================================================================
-    # Channel Summary
+    # Channel Knowledge
+    # =========================================================================
+
+    def get_channel_knowledge(self, channel_id: str) -> dict[str, Any]:
+        """Get knowledge entries for a specific channel."""
+        return self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}")
+
+    def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
+        """Get a knowledge summary for a specific channel."""
+        return self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")
 
 
 class AsyncKnowledgeChatAPI:
@@ -305,4 +314,13 @@ class AsyncKnowledgeChatAPI:
         return await self._client.request("POST", "/api/v1/chat/knowledge/store", json=data)
 
     # =========================================================================
-    # Channel Summary
+    # Channel Knowledge
+    # =========================================================================
+
+    async def get_channel_knowledge(self, channel_id: str) -> dict[str, Any]:
+        """Get knowledge entries for a specific channel."""
+        return await self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}")
+
+    async def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
+        """Get a knowledge summary for a specific channel."""
+        return await self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")

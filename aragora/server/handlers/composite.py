@@ -324,7 +324,7 @@ class CompositeHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in full-context handler: {e}")
             return self._error_response("Invalid data", 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
 
@@ -381,7 +381,7 @@ class CompositeHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in reliability handler: {e}")
             return self._error_response("Invalid data", 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error in reliability handler: {e}")
             return self._error_response("Internal server error", 500)
 
@@ -440,7 +440,7 @@ class CompositeHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in compression-analysis handler: {e}")
             return self._error_response("Invalid data", 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error in compression-analysis handler: {e}")
             return self._error_response("Internal server error", 500)
 
@@ -485,7 +485,7 @@ class CompositeHandler(BaseHandler):
                     fallback["error"] = "Data unavailable"
                 return fallback
             return fallback_value
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error fetching {subsystem}: {e}")
             circuit_breaker.record_failure()
             if fallback_value is not None:

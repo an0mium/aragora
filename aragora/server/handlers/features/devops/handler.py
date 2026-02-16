@@ -233,7 +233,7 @@ class DevOpsHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Error in devops handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -1062,7 +1062,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:  # broad catch: last-resort handler (webhooks must always return 200)
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Error processing PagerDuty webhook: {e}")
             return success_response({"received": True, "error": "Webhook processing failed"})
 

@@ -568,7 +568,7 @@ class TelegramCommandsMixin:
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.error("Telegram debate failed: %s", e, exc_info=True)
             record_debate_failed("telegram")
             await self._send_message_async(

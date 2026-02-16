@@ -228,6 +228,20 @@ class WorkflowTemplatesHandler(BaseHandler):
 
         return error_response("Invalid path", 400)
 
+    def _emit_template_event(self, event_name: str, data: dict[str, Any]) -> None:
+        """Emit a TEMPLATE_* event if event emitter is available."""
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event_type = getattr(StreamEventType, event_name, None)
+            if event_type is None:
+                return
+            emitter = self.ctx.get("event_emitter") if self.ctx else None
+            if emitter:
+                emitter.emit(StreamEvent(type=event_type, data=data))
+        except (ImportError, AttributeError, TypeError):
+            pass
+
     @handle_errors("list templates")
     def _list_templates(self, query_params: dict) -> HandlerResult:
         """List available workflow templates."""
@@ -369,8 +383,16 @@ class WorkflowTemplatesHandler(BaseHandler):
             engine = WorkflowEngine()
             # Convert template dict to WorkflowDefinition
             workflow_def = WorkflowDefinition.from_dict(template)
+            self._emit_template_event("TEMPLATE_EXECUTION_STARTED", {
+                "template_id": template_id,
+                "workflow_id": workflow_def.id,
+            })
             result = asyncio.run(engine.execute(workflow_def, inputs))
 
+            self._emit_template_event("TEMPLATE_EXECUTION_COMPLETE", {
+                "template_id": template_id,
+                "success": result.success if hasattr(result, "success") else True,
+            })
             return json_response(
                 {
                     "status": "completed",
@@ -380,6 +402,10 @@ class WorkflowTemplatesHandler(BaseHandler):
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Template execution failed: {e}")
+            self._emit_template_event("TEMPLATE_EXECUTION_FAILED", {
+                "template_id": template_id,
+                "error": type(e).__name__,
+            })
             return json_response(
                 {
                     "status": "failed",
@@ -418,6 +444,10 @@ class WorkflowTemplatesHandler(BaseHandler):
 
             def read_body(self):
                 return self._data
+
+        self._emit_template_event("TEMPLATE_INSTANTIATED", {
+            "template_id": template_id,
+        })
 
         # Return response indicating async execution would start
         return json_response(

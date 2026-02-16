@@ -219,7 +219,7 @@ class PhaseExecutor:
             success = False
             error = f"Execution timed out after {self._config.total_timeout_seconds}s"
             final_output = None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
             logger.exception(f"Phase execution failed: {e}")
             success = False
             error = f"Execution failed: {type(e).__name__}"
@@ -303,7 +303,7 @@ class PhaseExecutor:
                 result = self._config.pre_phase_callback(phase_name, context)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.debug(f"Pre-phase callback failed for '{phase_name}': {e}")
 
         started_at = datetime.now(timezone.utc)
@@ -327,7 +327,7 @@ class PhaseExecutor:
                 post_result = self._config.post_phase_callback(phase_name, context, result)
                 if asyncio.iscoroutine(post_result):
                     await post_result
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.debug(f"Post-phase callback failed for '{phase_name}': {e}")
 
         return result
@@ -393,7 +393,7 @@ class PhaseExecutor:
                         error=f"Timed out after {self._config.phase_timeout_seconds}s",
                     )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
                 duration_ms = (time.time() - start_time) * 1000
                 logger.exception(f"Phase '{phase_name}' failed: {e}")
                 span.record_exception(e)
@@ -464,7 +464,7 @@ class PhaseExecutor:
                     error=f"Timed out after {self._config.phase_timeout_seconds}s",
                 )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase execution boundary: user-provided phases can raise any exception
             duration_ms = (time.time() - start_time) * 1000
             logger.exception(f"Phase '{phase_name}' failed: {e}")
 

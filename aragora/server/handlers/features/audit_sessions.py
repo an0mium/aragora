@@ -900,7 +900,7 @@ class AuditSessionsHandler(SecureHandler):
 
                 logger.info(f"Completed audit session {session_id}")
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Error in audit session {session_id}: {e}")
             _cancellation_tokens.pop(session_id, None)
             if session_id in _sessions:

@@ -585,7 +585,7 @@ class TranscriptionHandler(BaseHandler):
                     except (RuntimeError, ValueError, TypeError, OSError) as e:
                         logger.warning("Transcript knowledge ingestion failed: %s", e)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Transcription failed for {job_id}: {e}")
             self._update_job(
                 job_id,

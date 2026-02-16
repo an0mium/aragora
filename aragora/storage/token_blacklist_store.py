@@ -268,9 +268,8 @@ class SQLiteBlacklist(BlacklistBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (sqlite3.Error, OSError) as e:
                     logger.debug("Error closing connection: %s", e)
-                    pass
             self._connections.clear()
 
 
@@ -490,7 +489,7 @@ def get_blacklist_backend() -> BlacklistBackend:
         else:
             try:
                 _blacklist_backend = RedisBlacklist(redis_url)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
                 logger.warning(f"Redis connection failed: {e}. Falling back to SQLite.")
                 _blacklist_backend = SQLiteBlacklist(fallback_db_path)
     else:

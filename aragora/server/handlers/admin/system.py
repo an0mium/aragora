@@ -408,7 +408,7 @@ class SystemHandler(BaseHandler):
         except OSError as e:
             logger.error("Filesystem error during maintenance '%s': %s", task, e)
             return error_response(f"Filesystem error during maintenance task '{task}'", 500)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Maintenance task '{task}' failed: {e}")
             return error_response(safe_error_message(e, "maintenance"), 500)
 

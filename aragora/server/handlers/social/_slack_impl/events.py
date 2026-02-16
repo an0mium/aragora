@@ -93,7 +93,7 @@ class EventsMixin(MessagingMixin):
             logger.warning(f"Invalid event data: {e}")
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Invalid event data")
             return json_response({"ok": True})  # Always 200 for events
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected events handler error: {e}")
             self._audit_event_error(team_id, event_type or inner_type or "unknown", "Internal error")
             return json_response({"ok": True})  # Always 200 for events
@@ -298,6 +298,6 @@ class EventsMixin(MessagingMixin):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid debate request data: {e}")
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected DM debate creation error: {e}")
             await self._post_message_async(channel, "Sorry, an error occurred while processing your request.")

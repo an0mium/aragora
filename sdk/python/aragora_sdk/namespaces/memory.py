@@ -334,6 +334,166 @@ class MemoryAPI:
         """
         return self._client.request("GET", "/api/v1/memory/viewer")
 
+    # ===========================================================================
+    # Advanced Operations
+    # ===========================================================================
+
+    def compact(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Trigger memory compaction."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/memory/compact", json=body)
+
+    def get_context(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get memory context for current session."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/memory/context", params=params)
+
+    def get_cross_debate(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get cross-debate memory entries."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/v1/memory/cross-debate", params=params)
+
+    def inject_cross_debate(
+        self,
+        debate_id: str,
+        entries: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Inject cross-debate memories into a debate."""
+        body: dict[str, Any] = {"debate_id": debate_id}
+        if entries:
+            body["entries"] = entries
+        return self._client.request("POST", "/api/v1/memory/cross-debate/inject", json=body)
+
+    def export_memories(
+        self,
+        format: str = "json",
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Export memories."""
+        body: dict[str, Any] = {"format": format}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/memory/export", json=body)
+
+    def import_memories(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Import memories from exported data."""
+        return self._client.request("POST", "/api/v1/memory/import", json=data)
+
+    def prune(
+        self,
+        workspace_id: str | None = None,
+        max_age_days: int | None = None,
+    ) -> dict[str, Any]:
+        """Prune old or low-importance memories."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        if max_age_days is not None:
+            body["max_age_days"] = max_age_days
+        return self._client.request("POST", "/api/v1/memory/prune", json=body)
+
+    def query(
+        self,
+        prompt: str,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Query memories using natural language."""
+        body: dict[str, Any] = {"prompt": prompt}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/memory/query", json=body)
+
+    def rebuild_index(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Rebuild the memory search index."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/memory/rebuild-index", json=body)
+
+    def semantic_search(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_similarity: float = 0.5,
+    ) -> dict[str, Any]:
+        """Perform semantic search across memories."""
+        body: dict[str, Any] = {
+            "query": query,
+            "limit": limit,
+            "min_similarity": min_similarity,
+        }
+        return self._client.request("POST", "/api/v1/memory/semantic-search", json=body)
+
+    def list_snapshots(
+        self, limit: int = 20, offset: int = 0
+    ) -> dict[str, Any]:
+        """List memory snapshots."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/memory/snapshots", params=params)
+
+    def get_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Get a specific memory snapshot."""
+        return self._client.request("GET", f"/api/v1/memory/snapshots/{snapshot_id}")
+
+    def restore_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Restore a memory snapshot."""
+        return self._client.request("POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json={})
+
+    def sync_memories(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Sync memories across tiers."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/v1/memory/sync", json=body)
+
+    def get_tier(self, tier: str) -> dict[str, Any]:
+        """Get detailed information about a specific memory tier."""
+        return self._client.request("GET", f"/api/v1/memory/tier/{tier}")
+
+    def vacuum(self) -> dict[str, Any]:
+        """Run vacuum to reclaim storage space."""
+        return self._client.request("POST", "/api/v1/memory/vacuum", json={})
+
+    def promote(
+        self, key: str, target_tier: str | None = None
+    ) -> dict[str, Any]:
+        """Promote a memory entry to a higher tier."""
+        body: dict[str, Any] = {}
+        if target_tier:
+            body["target_tier"] = target_tier
+        return self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
+
+    def demote(
+        self, key: str, target_tier: str | None = None
+    ) -> dict[str, Any]:
+        """Demote a memory entry to a lower tier."""
+        body: dict[str, Any] = {}
+        if target_tier:
+            body["target_tier"] = target_tier
+        return self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
+
+    def move(self, key: str, target_tier: str) -> dict[str, Any]:
+        """Move a memory entry to a specific tier."""
+        body: dict[str, Any] = {"target_tier": target_tier}
+        return self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)
+
 
 class AsyncMemoryAPI:
     """Asynchronous Memory API."""
@@ -599,4 +759,168 @@ class AsyncMemoryAPI:
     async def get_viewer(self) -> dict[str, Any]:
         """Get memory viewer HTML interface. GET /api/v1/memory/viewer"""
         return await self._client.request("GET", "/api/v1/memory/viewer")
+
+    # ===========================================================================
+    # Advanced Operations
+    # ===========================================================================
+
+    async def compact(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Trigger memory compaction."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/memory/compact", json=body)
+
+    async def get_context(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get memory context for current session."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/memory/context", params=params)
+
+    async def get_cross_debate(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Get cross-debate memory entries."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return await self._client.request("GET", "/api/v1/memory/cross-debate", params=params)
+
+    async def inject_cross_debate(
+        self,
+        debate_id: str,
+        entries: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Inject cross-debate memories into a debate."""
+        body: dict[str, Any] = {"debate_id": debate_id}
+        if entries:
+            body["entries"] = entries
+        return await self._client.request(
+            "POST", "/api/v1/memory/cross-debate/inject", json=body
+        )
+
+    async def export_memories(
+        self,
+        format: str = "json",
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Export memories."""
+        body: dict[str, Any] = {"format": format}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/memory/export", json=body)
+
+    async def import_memories(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Import memories from exported data."""
+        return await self._client.request("POST", "/api/v1/memory/import", json=data)
+
+    async def prune(
+        self,
+        workspace_id: str | None = None,
+        max_age_days: int | None = None,
+    ) -> dict[str, Any]:
+        """Prune old or low-importance memories."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        if max_age_days is not None:
+            body["max_age_days"] = max_age_days
+        return await self._client.request("POST", "/api/v1/memory/prune", json=body)
+
+    async def query(
+        self,
+        prompt: str,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Query memories using natural language."""
+        body: dict[str, Any] = {"prompt": prompt}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/memory/query", json=body)
+
+    async def rebuild_index(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Rebuild the memory search index."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/memory/rebuild-index", json=body)
+
+    async def semantic_search(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_similarity: float = 0.5,
+    ) -> dict[str, Any]:
+        """Perform semantic search across memories."""
+        body: dict[str, Any] = {
+            "query": query,
+            "limit": limit,
+            "min_similarity": min_similarity,
+        }
+        return await self._client.request("POST", "/api/v1/memory/semantic-search", json=body)
+
+    async def list_snapshots(
+        self, limit: int = 20, offset: int = 0
+    ) -> dict[str, Any]:
+        """List memory snapshots."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/memory/snapshots", params=params)
+
+    async def get_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Get a specific memory snapshot."""
+        return await self._client.request("GET", f"/api/v1/memory/snapshots/{snapshot_id}")
+
+    async def restore_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Restore a memory snapshot."""
+        return await self._client.request(
+            "POST", f"/api/v1/memory/snapshots/{snapshot_id}/restore", json={}
+        )
+
+    async def sync_memories(
+        self, workspace_id: str | None = None
+    ) -> dict[str, Any]:
+        """Sync memories across tiers."""
+        body: dict[str, Any] = {}
+        if workspace_id:
+            body["workspace_id"] = workspace_id
+        return await self._client.request("POST", "/api/v1/memory/sync", json=body)
+
+    async def get_tier(self, tier: str) -> dict[str, Any]:
+        """Get detailed information about a specific memory tier."""
+        return await self._client.request("GET", f"/api/v1/memory/tier/{tier}")
+
+    async def vacuum(self) -> dict[str, Any]:
+        """Run vacuum to reclaim storage space."""
+        return await self._client.request("POST", "/api/v1/memory/vacuum", json={})
+
+    async def promote(
+        self, key: str, target_tier: str | None = None
+    ) -> dict[str, Any]:
+        """Promote a memory entry to a higher tier."""
+        body: dict[str, Any] = {}
+        if target_tier:
+            body["target_tier"] = target_tier
+        return await self._client.request("POST", f"/api/v1/memory/{key}/promote", json=body)
+
+    async def demote(
+        self, key: str, target_tier: str | None = None
+    ) -> dict[str, Any]:
+        """Demote a memory entry to a lower tier."""
+        body: dict[str, Any] = {}
+        if target_tier:
+            body["target_tier"] = target_tier
+        return await self._client.request("POST", f"/api/v1/memory/{key}/demote", json=body)
+
+    async def move(self, key: str, target_tier: str) -> dict[str, Any]:
+        """Move a memory entry to a specific tier."""
+        body: dict[str, Any] = {"target_tier": target_tier}
+        return await self._client.request("POST", f"/api/v1/memory/{key}/move", json=body)
 

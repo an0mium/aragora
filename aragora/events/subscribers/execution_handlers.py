@@ -232,6 +232,27 @@ class ExecutionHandlersMixin:
             )
             logger.debug("MetaLearner fed outcome for plan %s", plan_id)
 
+            # Emit META_LEARNING_EVALUATED event
+            try:
+                from aragora.events.types import StreamEvent, StreamEventType
+
+                from aragora.server.stream.emitter import get_global_emitter
+
+                emitter = get_global_emitter()
+                if emitter is not None:
+                    emitter.emit(StreamEvent(
+                        type=StreamEventType.META_LEARNING_EVALUATED,
+                        data={
+                            "plan_id": plan_id,
+                            "debate_id": debate_id,
+                            "success": success,
+                            "tasks_completed": tasks_completed,
+                            "tasks_total": tasks_total,
+                        },
+                    ))
+            except (ImportError, AttributeError, TypeError):
+                pass
+
         except ImportError:
             logger.debug("KnowledgeBridgeHub not available for MetaLearner feedback")
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:

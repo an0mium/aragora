@@ -489,7 +489,7 @@ async def handle_trigger_pr_review(
                     f"[PRReview] Completed review {review_id} for {repository}#{pr_number}: {verdict.value}"
                 )
 
-            except Exception as e:  # broad catch: last-resort handler for async review task
+            except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:  # for async review task
                 logger.exception(f"Review {review_id} failed: {e}")
                 with _storage_lock:
                     result.status = ReviewStatus.FAILED
@@ -514,7 +514,7 @@ async def handle_trigger_pr_review(
             "repository": repository,
         }
 
-    except Exception as e:  # broad catch: last-resort handler
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError, ConnectionError) as e:
         logger.exception(f"Failed to trigger PR review: {e}")
         return {
             "success": False,

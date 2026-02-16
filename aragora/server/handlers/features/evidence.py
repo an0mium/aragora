@@ -485,7 +485,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         except RuntimeError as e:
             logger.exception(f"Evidence collection failed: {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 500)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Evidence collection failed (unexpected error): {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 500)
 

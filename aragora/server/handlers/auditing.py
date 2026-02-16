@@ -426,7 +426,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 500)
 
@@ -591,7 +591,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid capability probe request data: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected capability probe error: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
@@ -773,7 +773,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid deep audit request data: {e}")
             return error_response(_safe_error_message(e, "deep_audit"), 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected deep audit error: {e}")
             return error_response(_safe_error_message(e, "deep_audit"), 500)
 
@@ -980,7 +980,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid red team analysis request data for debate {debate_id}: {e}")
             return error_response(_safe_error_message(e, "red_team_analysis"), 400)
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected red team analysis error for debate {debate_id}: {e}")
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 

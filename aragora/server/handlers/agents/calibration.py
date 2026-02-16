@@ -418,7 +418,7 @@ class CalibrationHandler(SecureHandler):
             if ece_scores:
                 result["summary"]["avg_ece"] = round(sum(ece_scores) / len(ece_scores), 4)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"Calibration visualization error: {e}")
 
         return json_response(result)

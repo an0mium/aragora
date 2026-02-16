@@ -76,7 +76,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
                 return client
         except ImportError:
             logger.debug("Redis cluster module not available")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to initialize Redis cluster: {e}")
 
     # Fall back to standalone Redis
@@ -94,7 +94,7 @@ def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None
     except ImportError:
         logger.debug("redis package not installed")
         return None
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError) as e:
         logger.debug(f"Redis not available: {e}")
         if redis_url is None:
             _initialized = True

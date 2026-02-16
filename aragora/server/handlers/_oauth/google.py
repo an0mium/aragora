@@ -181,7 +181,7 @@ class GoogleOAuthMixin:
             logger.info("OAuth callback: looking up user by OAuth ID...")
             user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
-        except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
+        except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
             logger.error("OAuth callback: _find_user_by_oauth failed: %s", e, exc_info=True)
             error_name = type(e).__name__
             if error_name in ("InterfaceError", "ConnectionDoesNotExistError", "TimeoutError"):
@@ -203,7 +203,7 @@ class GoogleOAuthMixin:
                 logger.info(
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
-            except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
+            except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                 logger.error("OAuth callback: get_user_by_email failed: %s", e, exc_info=True)
                 return self._redirect_with_error(
                     "A database error occurred during login. Please try again."
@@ -228,7 +228,7 @@ class GoogleOAuthMixin:
                     logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
                     user = await _maybe_await(self._create_oauth_user(user_store, user_info))
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
-                except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
+                except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
                     logger.error("OAuth callback: _create_oauth_user failed: %s", e, exc_info=True)
                     return self._redirect_with_error(
                         "Failed to create your account. Please try again."
@@ -246,7 +246,7 @@ class GoogleOAuthMixin:
                 await update_async(user.id, last_login_at=datetime.now(timezone.utc))
             else:
                 user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
-        except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
+        except Exception as e:  # noqa: BLE001 - DB driver exceptions (asyncpg.InterfaceError, psycopg2.Error) lack common importable base
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue
 

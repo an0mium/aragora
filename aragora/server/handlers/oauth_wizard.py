@@ -262,7 +262,7 @@ class OAuthWizardHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.exception(f"Error in OAuth wizard handler: {e}")
             return error_response("Internal server error", 500)
 

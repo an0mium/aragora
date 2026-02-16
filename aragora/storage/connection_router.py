@@ -173,7 +173,7 @@ class ConnectionRouter:
                 logger.info(
                     f"[router] Primary pool initialized (size: {self._primary_pool.get_size()})"
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.error(f"[router] Failed to initialize primary pool: {e}")
                 return False
 
@@ -195,7 +195,7 @@ class ConnectionRouter:
                     f"[router] Replica pool '{replica_config.name}' initialized "
                     f"(size: {pool.get_size()})"
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                 logger.warning(
                     f"[router] Failed to initialize replica '{replica_config.name}': {e}"
                 )
@@ -236,7 +236,7 @@ class ConnectionRouter:
                     async with pool.acquire() as conn:
                         yield conn
                     return
-                except Exception as e:
+                except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
                     logger.warning(f"[router] Replica connection failed: {e}")
                     self._metrics.replica_failovers += 1
                     # Fall through to primary if failover enabled
