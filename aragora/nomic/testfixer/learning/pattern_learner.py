@@ -451,7 +451,7 @@ class PatternLearner:
                 if pattern.id not in self.patterns:
                     self.patterns[pattern.id] = pattern
                     imported += 1
-            except (RuntimeError, ValueError, OSError) as e:
+            except (RuntimeError, ValueError, OSError, KeyError, TypeError) as e:
                 logger.warning("pattern_learner.import_failed: %s", e)
 
         if imported > 0:
