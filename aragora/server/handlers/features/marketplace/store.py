@@ -101,7 +101,7 @@ def _load_templates() -> dict[str, TemplateMetadata]:
         cb.record_success()
         return _templates_cache
 
-    except (yaml.YAMLError, OSError, ValueError, KeyError) as e:
+    except (yaml.YAMLError, OSError, ValueError, KeyError, RuntimeError) as e:
         logger.exception(f"Error loading templates: {e}")
         cb.record_failure()
         return _templates_cache
