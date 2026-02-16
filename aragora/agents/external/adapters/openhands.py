@@ -171,7 +171,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
 
             return task_id
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"OpenHands task submission failed: {e}")
             raise ExternalAgentError(
@@ -207,7 +207,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
 
             return status
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             if "404" in str(e) or "not found" in str(e).lower():
                 raise TaskNotFoundError(
                     f"Task {task_id} not found",
@@ -276,7 +276,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
 
         except TaskNotCompleteError:
             raise
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             if "404" in str(e) or "not found" in str(e).lower():
                 raise TaskNotFoundError(
                     f"Task {task_id} not found",
@@ -304,7 +304,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
             self._active_tasks.pop(task_id, None)
             return True
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as e:
             logger.error(f"OpenHands task cancellation failed: {e}")
             return False
 
@@ -332,7 +332,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                 metadata={"sandbox": self._config.sandbox_type},
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             return HealthStatus(
                 adapter_name=self.adapter_name,
                 healthy=False,
@@ -358,7 +358,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
             async for progress in self._stream_via_websocket(task_id):
                 yield progress
             return
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, ImportError) as e:
             logger.debug(f"WebSocket streaming failed, falling back to polling: {e}")
 
         # Fall back to polling

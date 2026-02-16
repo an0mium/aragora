@@ -200,7 +200,7 @@ class AuditBridge:
         if self._storage:
             try:
                 await self._storage.store_event(event.to_dict())
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to store audit event: {e}")
 
     async def _flush_buffer(self) -> None:
@@ -212,7 +212,7 @@ class AuditBridge:
             try:
                 events = [e.to_dict() for e in self._event_buffer]
                 await self._storage.store_events_batch(events)
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to flush audit buffer: {e}")
 
         self._event_buffer.clear()

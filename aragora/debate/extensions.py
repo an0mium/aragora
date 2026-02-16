@@ -170,7 +170,7 @@ class ArenaExtensions:
                     raise RuntimeError("Budget suspended")
             except RuntimeError:
                 raise
-            except Exception as e:
+            except (AttributeError, ImportError, ValueError, TypeError) as e:
                 logger.debug("Budget suspension check skipped: %s", e)
 
         if not self.has_debate_budget:
@@ -189,7 +189,7 @@ class ArenaExtensions:
                 debate_id,
                 self.debate_budget_limit_usd,
             )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("debate_budget_setup_failed: %s", e)
 
     def check_debate_budget(self, debate_id: str) -> dict:
@@ -206,7 +206,7 @@ class ArenaExtensions:
 
         try:
             return self.cost_tracker.check_debate_budget(debate_id)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("debate_budget_check_failed: %s", e)
             return {"allowed": True, "message": f"Budget check failed: {e}"}
 
@@ -221,7 +221,7 @@ class ArenaExtensions:
 
         try:
             self.cost_tracker.clear_debate_budget(debate_id)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("debate_budget_cleanup_failed: %s", e)
 
     def on_debate_complete(
@@ -341,7 +341,7 @@ class ArenaExtensions:
                     debate_id,
                     self.org_id,
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 # Don't fail the debate if usage tracking fails
                 logger.warning("usage_tracking_failed error=%s", e)
 
@@ -370,7 +370,7 @@ class ArenaExtensions:
                 from aragora.billing.cost_tracker import get_cost_tracker
 
                 self.cost_tracker = get_cost_tracker()
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 logger.debug("cost_tracker_init_skipped: %s", e)
                 return
 
@@ -440,7 +440,7 @@ class ArenaExtensions:
         except DebateBudgetExceededError:
             # Re-raise budget exceeded errors
             raise
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
             logger.debug("agent_cost_recording_failed: %s", e)
 
     def _sync_usage_to_stripe(self) -> None:
@@ -466,7 +466,7 @@ class ArenaExtensions:
             # Trigger sync for this org (by ID lookup)
             self.usage_sync_service.sync_org_by_id(self.org_id)
             logger.debug("usage_sync_triggered org_id=%s", self.org_id)
-        except Exception as e:
+        except (ImportError, RuntimeError, ConnectionError, OSError, ValueError, TypeError) as e:
             # Don't fail the debate if Stripe sync fails
             logger.warning("usage_sync_failed org=%s error=%s", self.org_id, e)
 
@@ -530,7 +530,7 @@ class ArenaExtensions:
 
             logger.debug("km_adapter_sync_complete workspace=%s", workspace_id)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as e:
             # Don't fail the debate if KM sync fails
             logger.warning("km_adapter_sync_failed: %s", e)
 
@@ -617,7 +617,7 @@ class ArenaExtensions:
                             score.score,
                             score.confidence,
                         )
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
                     logger.warning("evaluation_async_failed: %s", e)
 
             # Try to schedule in running loop, otherwise skip
@@ -631,7 +631,7 @@ class ArenaExtensions:
                 except (RuntimeError, asyncio.CancelledError, OSError):
                     logger.debug("evaluation_skipped: no async context")
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("evaluation_failed: %s", e)
 
     def _emit_debate_notifications(
@@ -749,7 +749,7 @@ class ArenaExtensions:
             )
         except ImportError as e:
             logger.debug("notification_skipped: import failed: %s", e)
-        except Exception as e:
+        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
             # Don't fail the debate if notification fails
             logger.warning("notification_emission_failed error=%s", e)
 
@@ -810,7 +810,7 @@ class ArenaExtensions:
             )
         except ImportError:
             logger.debug("explanation_skipped: explainability module not available")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("explanation_failed: %s", e)
 
     def _auto_execute_plan(
@@ -873,7 +873,7 @@ class ArenaExtensions:
                     "auto_execute_plan_failed: %s",
                     issue_result.get("error", "unknown error"),
                 )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning("auto_execute_plan_failed: %s", e)
 
     def _export_training_data(
@@ -924,7 +924,7 @@ class ArenaExtensions:
                     export_result.get("sft_examples", 0),
                     export_result.get("dpo_examples", 0),
                 )
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             # Don't fail the debate if training export fails
             logger.warning("training_export_failed error=%s", e)
 
@@ -1091,7 +1091,7 @@ def check_pre_debate_compliance(
             len(result.warnings),
             len(result.frameworks_checked),
         )
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.warning("Pre-debate compliance check error: %s", e)
         # Don't block debate on compliance check failure
         result.warnings.append(f"Compliance check error: {e}")

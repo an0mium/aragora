@@ -743,7 +743,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 sarif_path.parent.mkdir(parents=True, exist_ok=True)
                 sarif_path.write_text(sarif_json)
                 print(f"SARIF output written to: {sarif_path}", file=sys.stderr)
-            except Exception as e:
+            except (OSError, ValueError, KeyError) as e:
                 print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
 
         print("\n---", file=sys.stderr)
@@ -851,7 +851,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 focus_areas=args.focus.split(",") if args.focus else None,
             )
         )
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error running review: {e}", file=sys.stderr)
         return 1
 
@@ -941,7 +941,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 f"Gauntlet complete: verdict={gauntlet_verdict}, vulnerabilities={gauntlet_vulns}",
                 file=sys.stderr,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             print(f"Warning: Gauntlet stress-test failed: {e}", file=sys.stderr)
             logger.debug("Gauntlet error details", exc_info=True)
 
@@ -955,7 +955,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             sarif_path.parent.mkdir(parents=True, exist_ok=True)
             sarif_path.write_text(sarif_json)
             print(f"SARIF output written to: {sarif_path}", file=sys.stderr)
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
             logger.debug("SARIF export error details", exc_info=True)
 

@@ -287,7 +287,7 @@ class SharedControlPlaneState:
             # Load existing state into memory cache
             self._load_sqlite_state()
 
-        except Exception as e:
+        except (OSError, sqlite3.Error) as e:
             logger.warning(f"Failed to initialize SQLite fallback: {e}")
             self._sqlite_initialized = False
 
@@ -331,7 +331,7 @@ class SharedControlPlaneState:
                 f"Loaded {len(self._local_agents)} agents, {len(self._local_tasks)} tasks from SQLite"
             )
 
-        except Exception as e:
+        except (OSError, sqlite3.Error, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load state from SQLite: {e}")
 
     async def connect(self) -> bool:
@@ -369,7 +369,7 @@ class SharedControlPlaneState:
             self._connected = False
             self._init_sqlite()
             return False
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             if is_distributed_state_required():
                 raise DistributedStateError(
                     "shared_state",
@@ -655,7 +655,7 @@ class SharedControlPlaneState:
                     )
                     conn.commit()
                     conn.close()
-                except Exception as e:
+                except (OSError, sqlite3.Error) as e:
                     logger.debug(f"Failed to persist metric to SQLite: {e}")
 
     # --- Stream/Events ---
@@ -683,7 +683,7 @@ class SharedControlPlaneState:
             try:
                 channel = f"{self._key_prefix}events"
                 await self._redis.publish(channel, json.dumps(event))
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to publish event to Redis: {e}")
 
     # --- Internal Storage Methods ---
@@ -736,7 +736,7 @@ class SharedControlPlaneState:
                     )
                     conn.commit()
                     conn.close()
-                except Exception as e:
+                except (OSError, sqlite3.Error) as e:
                     logger.debug(f"Failed to persist agent to SQLite: {e}")
 
     async def _get_task(self, task_id: str) -> TaskState | None:
@@ -827,7 +827,7 @@ class SharedControlPlaneState:
                     )
                     conn.commit()
                     conn.close()
-                except Exception as e:
+                except (OSError, sqlite3.Error) as e:
                     logger.debug(f"Failed to persist task to SQLite: {e}")
 
     def _calculate_avg_duration(self, agents: list[AgentState]) -> float:

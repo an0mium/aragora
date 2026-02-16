@@ -385,7 +385,7 @@ class ReplicationHealthMonitor:
         if self._alert_callback:
             try:
                 self._alert_callback(alert_type, health)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to invoke alert callback: {e}")
 
     def _update_metrics(self) -> None:
@@ -419,7 +419,7 @@ class ReplicationHealthMonitor:
             if self._replication_rate is not None:
                 REPLICATION_RATE_BYTES.labels(**labels).set(self._replication_rate)
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to update metrics: {e}")
 
     def _record_failure_metric(self, error_type: str) -> None:
@@ -431,7 +431,7 @@ class ReplicationHealthMonitor:
             labels = {"primary": self._primary_host, "standby": self._standby_host}
             REPLICATION_FAILURES.labels(**labels, error_type=error_type).inc()
             REPLICATION_TOTAL.labels(**labels, status="failure").inc()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to record failure metric: {e}")
 
     def get_health(self) -> ReplicationHealth:
@@ -539,7 +539,7 @@ class ReplicationHealthMonitor:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, RuntimeError, ConnectionError) as e:
                 logger.error(f"Error in replication monitoring loop: {e}")
                 await asyncio.sleep(self._config.check_interval_seconds)
 

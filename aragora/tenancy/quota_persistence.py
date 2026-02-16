@@ -194,7 +194,7 @@ class QuotaPersistence:
                 logger.debug("QuotaPersistence: using in-memory fallback (Redis unavailable)")
         except ImportError:
             logger.debug("QuotaPersistence: using in-memory fallback (redis_config not available)")
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.warning("QuotaPersistence: Redis init failed, using fallback: %s", e)
 
         self._redis_checked = True
@@ -206,7 +206,7 @@ class QuotaPersistence:
             try:
                 self._redis_scripts["increment"] = self._redis.register_script(LUA_INCREMENT)
                 self._redis_scripts["decrement"] = self._redis.register_script(LUA_DECREMENT)
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError) as e:
                 logger.warning("Failed to register Lua scripts: %s", e)
 
     async def increment(
@@ -245,7 +245,7 @@ class QuotaPersistence:
                     if new_count == amount and ttl > 0:
                         await redis.expire(key, ttl)
                     return new_count
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis increment failed, using fallback: %s", e)
 
         # In-memory fallback
@@ -286,7 +286,7 @@ class QuotaPersistence:
                     new_val = max(0, current - amount)
                     await redis.set(key, new_val, keepttl=True)
                     return new_val
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis decrement failed, using fallback: %s", e)
 
         # In-memory fallback
@@ -323,7 +323,7 @@ class QuotaPersistence:
                 ttl = await redis.ttl(key)
                 if ttl > 0:
                     expires_at = time.time() + ttl
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis get_usage failed, using fallback: %s", e)
                 count = await self._memory_get(tenant_id, resource, period)
         else:
@@ -367,7 +367,7 @@ class QuotaPersistence:
                 else:
                     await redis.set(key, count)
                 return
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis set_usage failed, using fallback: %s", e)
 
         # In-memory fallback
@@ -419,7 +419,7 @@ class QuotaPersistence:
                         reset_count += len(keys)
                     if cursor == 0:
                         break
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis reset_usage failed: %s", e)
 
         # Also reset in-memory
@@ -479,7 +479,7 @@ class QuotaPersistence:
                             )
                     if cursor == 0:
                         break
-            except Exception as e:
+            except (ConnectionError, OSError, TypeError, ValueError) as e:
                 logger.warning("Redis get_all_usage failed: %s", e)
 
         return usages

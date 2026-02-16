@@ -71,7 +71,7 @@ async def handle_agent_operation(
         logger.warning(f"[Autonomic] Agent {agent_name} {operation_name} connection error: {e}")
         return cast(T, fallback_message if fallback_message else fallback_value)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: autonomic error handler is the last-resort safety net keeping debates alive
         # Use ErrorClassifier for more detailed categorization
         _, category = ErrorClassifier.classify_error(e)
         logger.exception(

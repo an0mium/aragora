@@ -351,7 +351,7 @@ class SQLiteBackend:
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as exc:
+            except (OSError, RuntimeError) as exc:
                 logger.debug("Failed to close connection: %s", exc)
         self._connections.clear()
         self._conn_var.set(None)
@@ -415,7 +415,7 @@ class PostgreSQLBackend:
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning("Failed to close audit log connection: %s", e)
         self._connections.clear()
         self._conn_var.set(None)
@@ -479,14 +479,14 @@ class AuditLog:
                         StorageMode.FILE,
                         "Audit log using file backend - configure PostgreSQL for multi-instance deployments.",
                     )
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     logger.debug("Failed to require distributed store for audit log: %s", e)
                 storage_path = getattr(self._persistence_backend, "storage_path", None)
                 if storage_path:
                     logger.info("Audit log using file backend: %s", storage_path)
                 else:
                     logger.info("Audit log using file backend")
-            except Exception as e:
+            except (ImportError, OSError, RuntimeError) as e:
                 logger.warning("File audit backend unavailable, falling back to SQLite: %s", e)
                 self._persistence_backend = None
 
@@ -500,7 +500,7 @@ class AuditLog:
                     self._backend = PostgreSQLBackend(database_url)
                     self._backend_type = "postgresql"
                     logger.info("Audit log using PostgreSQL backend")
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.warning(
                         f"PostgreSQL audit backend unavailable, falling back to SQLite: {e}"
                     )
@@ -510,7 +510,7 @@ class AuditLog:
                             StorageMode.SQLITE,
                             f"PostgreSQL backend unavailable: {e}",
                         )
-                    except Exception as e:
+                    except (ValueError, RuntimeError, OSError) as e:
                         logger.debug("Failed to require distributed store for audit log: %s", e)
 
         if self._backend is None and self._persistence_backend is None:

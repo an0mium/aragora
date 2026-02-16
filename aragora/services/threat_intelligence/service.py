@@ -182,7 +182,7 @@ class ThreatIntelligenceService(
         for handler in self._event_handlers:
             try:
                 handler(event_type, data)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError) as e:
                 logger.warning(f"Error in threat event handler: {e}")
 
     # =========================================================================

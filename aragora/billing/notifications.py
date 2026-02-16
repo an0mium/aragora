@@ -119,7 +119,7 @@ class BillingNotifier:
             logger.info(f"Sent billing email to {to_email}: {subject}")
             return NotificationResult(success=True, method="email")
 
-        except Exception as e:
+        except (smtplib.SMTPException, OSError, ConnectionError, TimeoutError, ssl.SSLError) as e:
             logger.error(f"Failed to send email to {to_email}: {e}")
             return NotificationResult(success=False, method="email", error="Email delivery failed")
 

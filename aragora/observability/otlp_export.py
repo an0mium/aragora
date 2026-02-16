@@ -467,7 +467,7 @@ def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
             "Install with: pip install opentelemetry-api opentelemetry-sdk"
         )
         return None
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.error(f"Failed to configure OTLP exporter: {e}")
         return None
 
@@ -492,7 +492,7 @@ def shutdown_otlp() -> None:
         try:
             _tracer_provider.shutdown()
             logger.info("OTLP tracer provider shutdown complete")
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             logger.error(f"Error shutting down OTLP tracer: {e}")
         finally:
             _tracer_provider = None

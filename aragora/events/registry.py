@@ -279,7 +279,7 @@ class EventRegistry:
             try:
                 if not self._validators[event_name](payload):
                     return False, "Custom validation failed"
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError) as e:
                 return False, f"Validation error: {e}"
 
         return True, ""

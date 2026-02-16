@@ -117,7 +117,7 @@ async def record_debate_tokens(
                 )
                 total_cost += record.total_cost
                 agents_recorded += 1
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Failed to record agent token usage: {e}")
 
             total_input += agent_input
@@ -139,7 +139,7 @@ async def record_debate_tokens(
                 metadata=metadata,
             )
             debate_recorded = True
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
             logger.warning(f"Failed to record debate usage: {e}")
 
     logger.info(
@@ -219,7 +219,7 @@ async def record_agent_tokens(
             "input_cost": str(record.input_cost),
             "output_cost": str(record.output_cost),
         }
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.warning(f"Failed to record agent tokens: {e}")
         return {
             "record_id": None,
@@ -273,7 +273,7 @@ async def record_api_call(
             "record_id": record.id,
             "endpoint": endpoint,
         }
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.warning(f"Failed to record API call: {e}")
         return {
             "record_id": None,
@@ -342,7 +342,7 @@ class MeteredUsageTracker:
                     model=model,
                     metadata=metadata,
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Legacy tracker failed: {e}")
 
         # Record to new metering system (async wrapper)
@@ -454,7 +454,7 @@ class MeteredUsageTracker:
                     provider=provider,
                     model=model,
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Legacy tracker failed: {e}")
 
         # Record to new metering system

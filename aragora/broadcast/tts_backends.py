@@ -368,7 +368,7 @@ class ElevenLabsBackend(TTSBackend):
                 logger.debug(f"ElevenLabs generated: {result}")
                 return result
 
-        except Exception as e:
+        except (OSError, RuntimeError, ExternalServiceError) as e:
             logger.warning(f"ElevenLabs synthesis failed: {e}")
 
         return None
@@ -441,7 +441,7 @@ class XTTSBackend(TTSBackend):
                 self._model = TTS(model_name).to(device)
 
                 logger.info("XTTS model loaded successfully")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Logs and re-raises; model loading can fail in unpredictable ways
                 logger.error(f"Failed to load XTTS model: {e}")
                 raise
 
@@ -516,7 +516,7 @@ class XTTSBackend(TTSBackend):
                 logger.debug(f"XTTS generated: {result}")
                 return result
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"XTTS synthesis failed: {e}")
 
         return None
@@ -616,7 +616,7 @@ class EdgeTTSBackend(TTSBackend):
             error_msg = stderr.decode("utf-8", errors="replace").strip()
             logger.warning(f"Edge-TTS failed: {error_msg[:200]}")
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"Edge-TTS synthesis failed: {e}")
 
         return None
@@ -652,7 +652,7 @@ class PollyBackend(TTSBackend):
             creds = session.get_credentials()
             if creds is None:
                 return False
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"AWS credentials check failed: {e}")
             return False
         return True
@@ -729,7 +729,7 @@ class PollyBackend(TTSBackend):
                 logger.debug(f"Polly generated: {result}")
                 return result
 
-        except Exception as e:
+        except (OSError, RuntimeError, ExternalServiceError) as e:
             logger.warning(f"Polly synthesis failed: {e}")
 
         return None
@@ -789,7 +789,7 @@ class Pyttsx3Backend(TTSBackend):
                 logger.debug(f"pyttsx3 generated: {result}")
                 return result
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"pyttsx3 synthesis failed: {e}")
 
         return None
@@ -918,7 +918,7 @@ class FallbackTTSBackend(TTSBackend):
                 )
                 if result:
                     return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Fallback chain must try all backends regardless of error type
                 logger.debug(f"{backend.name} failed, trying next: {e}")
                 continue
 

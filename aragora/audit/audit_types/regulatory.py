@@ -459,7 +459,7 @@ If no issues, respond with: []"""
                 except json.JSONDecodeError as e:
                     logger.debug("Failed to parse JSON data: %s", e)
 
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
             logger.debug(f"Regulatory LLM analysis skipped: {e}")
 
         return findings

@@ -243,7 +243,7 @@ def cmd_security_status(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1
 
@@ -294,7 +294,7 @@ def cmd_rotate_key(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1
 
@@ -354,7 +354,7 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1
 
@@ -386,7 +386,7 @@ def cmd_health(args: argparse.Namespace) -> int:
         try:
             service = get_encryption_service()
             print("  ✓ Encryption service initialized")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             issues.append(f"Encryption service error: {e}")
             print(f"  ❌ Encryption service error: {e}")
             return 1
@@ -419,7 +419,7 @@ def cmd_health(args: argparse.Namespace) -> int:
             else:
                 issues.append("Encrypt/decrypt round-trip failed")
                 print("  ❌ Encrypt/decrypt round-trip failed")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             issues.append(f"Encrypt/decrypt error: {e}")
             print(f"  ❌ Encrypt/decrypt error: {e}")
 
@@ -439,7 +439,7 @@ def cmd_health(args: argparse.Namespace) -> int:
             print("✓ All health checks passed")
             return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Health check error: {e}")
         return 1
 
@@ -523,7 +523,7 @@ def cmd_rotate_token(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n  Aborted.")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1
 
@@ -561,7 +561,7 @@ def cmd_list_tokens(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1
 
@@ -590,6 +590,6 @@ def cmd_verify_token(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"❌ Import error: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"❌ Error: {e}")
         return 1

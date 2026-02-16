@@ -259,7 +259,7 @@ class Web3Provider:
         try:
             w3 = self.get_web3(chain_id)
             return w3.is_connected()
-        except Exception as exc:
+        except (RuntimeError, ConnectionError, ValueError, OSError) as exc:
             logger.debug("Chain connection check failed: %s", exc)
             return False
 

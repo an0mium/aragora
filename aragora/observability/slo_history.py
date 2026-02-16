@@ -400,7 +400,7 @@ def slo_history_callback(breach) -> None:
             message=breach.message,
             timestamp=getattr(breach, "timestamp", None),
         )
-    except Exception as e:
+    except (OSError, sqlite3.Error, AttributeError) as e:
         logger.error(f"Failed to persist SLO violation: {e}")
 
 

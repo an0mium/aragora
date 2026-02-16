@@ -261,7 +261,7 @@ class KeyRotationScheduler:
 
             return key_age_days >= self.config.rotation_interval_days
 
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.error(f"Error checking rotation due: {e}")
             return False
 
@@ -278,7 +278,7 @@ class KeyRotationScheduler:
 
             return (datetime.now(timezone.utc) - active_key.created_at).days
 
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.error(f"Error getting key age: {e}")
             return None
 
@@ -294,7 +294,7 @@ class KeyRotationScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Scheduler loop must survive any error to keep running
                 logger.error(f"Error in scheduler loop: {e}")
                 await asyncio.sleep(60)  # Wait before retry
 
@@ -388,7 +388,7 @@ class KeyRotationScheduler:
                             count = await self._re_encrypt_store(store)
                             records_re_encrypted += count
                             logger.info(f"Re-encrypted {count} records in {store}")
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - Per-store re-encryption must not abort the overall rotation
                         error = f"{store}: {e}"
                         re_encryption_errors.append(error)
                         logger.error(f"Error re-encrypting {store}: {e}")
@@ -435,7 +435,7 @@ class KeyRotationScheduler:
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Rotation failure handler must capture any error for audit/alerting
             duration = time.perf_counter() - start_time
             error_msg = str(e)
             logger.error(f"Key rotation failed: {e}")
@@ -540,7 +540,7 @@ class KeyRotationScheduler:
                         (json.dumps(re_encrypted), record_id),
                     )
                     count += 1
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, TypeError, KeyError, OSError) as e:
                     logger.error(f"Error re-encrypting integration {record_id}: {e}")
 
             conn.commit()
@@ -585,7 +585,7 @@ class KeyRotationScheduler:
                         (re_encrypted.to_base64(), webhook_id),
                     )
                     count += 1
-                except Exception as e:
+                except (ValueError, TypeError, KeyError, OSError) as e:
                     logger.error(f"Error re-encrypting webhook {webhook_id}: {e}")
 
             conn.commit()
@@ -639,7 +639,7 @@ class KeyRotationScheduler:
                             params,
                         )
                         count += 1
-                except Exception as e:
+                except (ValueError, TypeError, KeyError, OSError) as e:
                     logger.error(f"Error re-encrypting tokens for {user_id}: {e}")
 
             conn.commit()
@@ -686,7 +686,7 @@ class KeyRotationScheduler:
                         (json.dumps(re_encrypted), config_id),
                     )
                     count += 1
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, TypeError, KeyError, OSError) as e:
                     logger.error(f"Error re-encrypting sync config {config_id}: {e}")
 
             conn.commit()
@@ -723,7 +723,7 @@ class KeyRotationScheduler:
         if self.alert_callback:
             try:
                 self.alert_callback(severity, message, details)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Alert callback failure must not crash the rotation scheduler
                 logger.error(f"Error in alert callback: {e}")
 
 

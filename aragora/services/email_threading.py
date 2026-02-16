@@ -322,7 +322,7 @@ class EmailThreader:
             # Use AI summarizer
             try:
                 return self._ai_summarize(thread, summarizer)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"AI summarization failed: {e}")
 
         # Fallback to heuristic summary

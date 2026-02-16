@@ -425,7 +425,7 @@ class FindingWorkflow:
         for hook in self._transition_hooks:
             try:
                 hook(transition)
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Transition hook error: {e}")
 
         logger.info(

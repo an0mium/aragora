@@ -465,7 +465,7 @@ def init_slo_webhooks(
     except ImportError as e:
         logger.debug(f"Could not initialize SLO webhooks: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, TypeError, AttributeError, ValueError) as e:
         logger.warning(f"Failed to initialize SLO webhooks: {e}")
         return False
 
@@ -521,7 +521,7 @@ def notify_slo_violation(
     if _webhook_callback is not None:
         try:
             result = _webhook_callback(violation_data)
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
             logger.debug(f"Failed to send SLO violation webhook: {e}")
 
     # Invoke registered external callbacks (e.g., SLO Alert Bridge)
@@ -599,7 +599,7 @@ def notify_slo_recovery(
             }
             result = dispatcher.enqueue(event)
 
-    except Exception as e:
+    except (ImportError, OSError, ConnectionError, RuntimeError) as e:
         logger.debug(f"Failed to send SLO recovery webhook: {e}")
 
     # Invoke registered external callbacks (e.g., SLO Alert Bridge)
@@ -854,7 +854,7 @@ def _invoke_callbacks(
             else:
                 # Sync callback
                 callback(data)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability callbacks must not crash app
             logger.warning(f"SLO callback {callback.__name__} failed: {e}")
 
 

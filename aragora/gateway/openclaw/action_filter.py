@@ -1104,7 +1104,7 @@ class ActionFilter:
             if self._alert_callback:
                 try:
                     self._alert_callback(decision)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided alert callback
                     logger.error(f"Alert callback failed: {e}")
 
         entry = ActionAuditEntry(

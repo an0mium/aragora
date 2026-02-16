@@ -465,7 +465,7 @@ def trace_span(
                         try:
                             result = await func(*args, **kwargs)
                             return result
-                        except Exception as e:
+                        except Exception as e:  # noqa: BLE001 - OTel must record all exceptions before re-raising
                             if record_exception:
                                 span.record_exception(e)
                             if set_status_on_exception:
@@ -501,7 +501,7 @@ def trace_span(
                         try:
                             result = func(*args, **kwargs)
                             return result
-                        except Exception as e:
+                        except Exception as e:  # noqa: BLE001 - OTel must record all exceptions before re-raising
                             if record_exception:
                                 span.record_exception(e)
                             if set_status_on_exception:

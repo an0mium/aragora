@@ -129,7 +129,7 @@ class BudgetAlertNotifier:
                     )
             finally:
                 loop.close()
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError, TypeError) as e:
             logger.error(f"Failed to deliver budget alert: {e}", exc_info=True)
 
     async def deliver_alert(self, alert: BudgetAlert) -> list[DeliveryResult]:
@@ -222,7 +222,7 @@ class BudgetAlertNotifier:
                 status=NotificationStatus.SUCCESS,
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, ImportError) as e:
             logger.error(
                 f"Failed to deliver to {channel_type}:{subscription.channel_id}: {e}",
                 exc_info=True,

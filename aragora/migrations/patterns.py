@@ -545,7 +545,7 @@ def validate_migration_safety(
         row_count = 0
         try:
             row_count = get_table_row_count(backend, table)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug("Failed to get row count for table %s: %s", table, e)
 
         is_large_table = row_count > 100_000

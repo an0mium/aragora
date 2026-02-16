@@ -150,7 +150,7 @@ async def create_checkpoint_tool(
 
     except ImportError as e:
         return {"error": f"Checkpoint module not available: {e}"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to create checkpoint: {e}"}
 
 
@@ -199,7 +199,7 @@ async def list_checkpoints_tool(
 
     except ImportError:
         return {"error": "Checkpoint module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to list checkpoints: {e}"}
 
 
@@ -240,7 +240,7 @@ async def resume_checkpoint_tool(
 
     except ImportError:
         return {"error": "Checkpoint module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to resume checkpoint: {e}"}
 
 
@@ -274,7 +274,7 @@ async def delete_checkpoint_tool(
 
     except ImportError:
         return {"error": "Checkpoint module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to delete checkpoint: {e}"}
 
 

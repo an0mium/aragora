@@ -304,7 +304,7 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error getting convoy status: {e}")
         return 1
 
@@ -353,7 +353,7 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
                 for convoy in convoys:
                     for bead_id in convoy.bead_ids:
                         convoy_map.setdefault(bead_id, convoy.id)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.debug("Unable to load convoys for bead list: %s", e)
 
         if not beads:
@@ -390,7 +390,7 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error listing beads: {e}")
         return 1
 
@@ -411,7 +411,7 @@ def cmd_bead_assign(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error assigning bead: {e}")
         return 1
 
@@ -473,7 +473,7 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error listing agents: {e}")
         return 1
 
@@ -517,7 +517,7 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error promoting agent: {e}")
         return 1
 
@@ -557,7 +557,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
                 print("\nRecommendations:")
                 for rec in report.recommendations[:5]:
                     print(f"  - {rec}")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.debug(f"Could not generate health report: {e}")
 
         return 0
@@ -565,7 +565,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
     except ImportError as e:
         print(f"Witness module not available: {e}")
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"Error getting witness status: {e}")
         return 1
 

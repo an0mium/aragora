@@ -783,7 +783,7 @@ class MeetingDetector:
                                 calendar_source="google",
                             )
                         )
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to check Google Calendar: {e}")
 
         # Check Outlook Calendar
@@ -804,7 +804,7 @@ class MeetingDetector:
                                 calendar_source="outlook",
                             )
                         )
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to check Outlook Calendar: {e}")
 
         return conflicts

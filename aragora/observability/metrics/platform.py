@@ -373,7 +373,7 @@ def get_platform_metrics_summary() -> dict[str, Any]:
         else:
             summary["metrics_available"] = False
 
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:
         summary["error"] = str(e)[:100]
 
     return summary

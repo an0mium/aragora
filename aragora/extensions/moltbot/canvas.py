@@ -665,7 +665,7 @@ class CanvasManager:
                     await callback(event)
                 else:
                     callback(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"Canvas event broadcast error: {e}")
 
     # ========== Statistics ==========

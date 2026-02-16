@@ -396,7 +396,7 @@ class ExternalAgentGateway:
                     execution_time_ms=(time.monotonic() - start_time) * 1000,
                 )
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.exception(f"External agent execution failed: {e}")
                 return ExternalAgentResult(
                     task_id=task.task_id,
@@ -498,7 +498,7 @@ class ExternalAgentGateway:
             try:
                 healthy = await adapter.health_check()
                 results[name] = {"healthy": healthy, "error": None}
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 results[name] = {"healthy": False, "error": str(e)}
         return {
             "gateway_healthy": all(r["healthy"] for r in results.values()),

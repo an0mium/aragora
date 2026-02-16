@@ -467,7 +467,7 @@ class LocalGateway:
                 return {"success": True, "result": result}
             except asyncio.TimeoutError:
                 return {"success": False, "error": "Command timed out"}
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:
                 device.errors += 1
                 self._devices[device.id] = device
                 await self._mirror_registry_device(device)
@@ -567,7 +567,7 @@ class LocalGateway:
                     await callback(event)
                 else:
                     callback(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied subscriber
                 logger.error(f"Event subscriber error: {e}")
 
     # ========== Heartbeat Monitoring ==========
@@ -580,7 +580,7 @@ class LocalGateway:
                 await self._check_heartbeats()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Heartbeat monitor error: {e}")
 
     async def _check_heartbeats(self) -> None:

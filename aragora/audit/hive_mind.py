@@ -338,7 +338,7 @@ class QueenOrchestrator:
                         for finding in result.findings:
                             await self.hook_manager.trigger("on_finding", finding=finding)
 
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     logger.error(f"Worker {worker_name} failed on task {task.id}: {e}")
                     self._worker_stats[worker_name]["tasks_failed"] += 1
 
@@ -393,7 +393,7 @@ class QueenOrchestrator:
                 success=False,
                 error="Task timed out",
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             task.status = TaskStatus.FAILED
             return WorkerResult(
                 task_id=task.id,
@@ -495,7 +495,7 @@ If no issues found, respond with: NO FINDINGS"""
                 )
                 findings.append(finding)
 
-            except Exception as e:
+            except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Failed to parse finding block: {e}")
                 continue
 
@@ -663,7 +663,7 @@ Is this a valid security/compliance finding that should be addressed?"""
                         f"(success={result.success}, confidence={result.confidence:.2f})"
                     )
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Consensus verification failed: {e}")
 
         return verified

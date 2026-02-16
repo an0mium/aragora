@@ -388,7 +388,7 @@ class OnboardingOrchestrator:
             if handler:
                 try:
                     await handler(session, current_step, data)
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError) as e:  # step handler callback
                     logger.error(f"Step handler error: {e}")
 
             # Determine next step

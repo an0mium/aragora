@@ -1088,7 +1088,7 @@ class TenantRouter:
         for handler in self._event_handlers:
             try:
                 handler(entry)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
                 logger.error(f"Audit event handler failed: {e}")
 
         # Log to standard logger

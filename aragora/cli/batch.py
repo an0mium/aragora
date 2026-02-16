@@ -146,7 +146,7 @@ def _read_input_file(input_path: Path) -> list[dict[str, Any]]:
                         items.append(json.loads(line))
                     except json.JSONDecodeError as e:
                         print(f"Warning: Skipping invalid JSON on line {line_num}: {e}")
-    except Exception as e:
+    except (OSError, ValueError, json.JSONDecodeError) as e:
         print(f"Error reading input file: {e}")
         sys.exit(1)
     return items
@@ -246,7 +246,7 @@ def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None)
 
             time.sleep(poll_interval)
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             print(f"\nWarning: Poll error: {e}")
             time.sleep(poll_interval)
 
@@ -295,7 +295,7 @@ def _batch_local(items: list[dict[str, Any]], args: argparse.Namespace) -> None:
                 f"    => {'Consensus' if result.consensus_reached else 'No consensus'} ({result.confidence:.0%})"
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             results.append(
                 {
                     "question": question,

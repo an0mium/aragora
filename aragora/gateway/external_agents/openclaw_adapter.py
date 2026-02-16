@@ -240,7 +240,7 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
                     isolation_level=self._isolation_level,
                 )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             execution_time_ms = (time.time() - start_time) * 1000
             logger.error(f"OpenClaw execution failed: {e}")
 
@@ -269,7 +269,7 @@ class OpenClawExternalAdapter(BaseExternalAgentAdapter):
                     timeout=aiohttp.ClientTimeout(total=5),
                 ) as response:
                     return response.status == 200
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"OpenClaw health check failed: {e}")
             return False
 

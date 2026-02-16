@@ -286,7 +286,7 @@ Return JSON:
                 questions_raised=data.get("questions", [])[: self.config.max_questions_per_chunk],
                 confidence=data.get("confidence", 0.5),
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.warning(f"[{self.name}] Failed to parse chunk understanding: {e}")
             return ChunkUnderstanding(
                 chunk_id=chunk.id if hasattr(chunk, "id") else "unknown",
@@ -345,7 +345,7 @@ Confidence: {understanding.confidence}
                     )
                 )
             return questions
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"[{self.name}] Failed to generate questions: {e}")
             return []
 
@@ -382,7 +382,7 @@ Confidence: {understanding.confidence}
             reference.target_chunk = data.get("target_location")
             reference.resolution_notes = data.get("resolution_notes", "")
             return reference
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"[{self.name}] Failed to trace reference: {e}")
             reference.resolution_notes = f"Error: {e}"
             return reference
@@ -446,7 +446,7 @@ Confidence: {understanding.confidence}
                 gaps=data.get("gaps", []),
                 confidence=data.get("confidence", 0.5),
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"[{self.name}] Failed to synthesize: {e}")
             return SynthesizedUnderstanding(
                 summary=f"Error synthesizing: {e}",
@@ -484,7 +484,7 @@ Confidence: {understanding.confidence}
                 "contradicting_evidence": data.get("contradicting_evidence", []),
                 "confidence": data.get("confidence", 0.5),
             }
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.warning(f"[{self.name}] Failed to verify insight: {e}")
             return {
                 "verdict": "uncertain",

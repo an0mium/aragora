@@ -336,7 +336,7 @@ class CredentialVault:
         # Encrypt the value
         try:
             encrypted_value = self._encrypt(value, key)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             raise EncryptionError(f"Failed to encrypt credential: {e}") from e
 
         # Calculate expiration
@@ -549,7 +549,7 @@ class CredentialVault:
         # Decrypt
         try:
             value = self._decrypt(credential.encrypted_value, key)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             raise EncryptionError(f"Failed to decrypt credential: {e}") from e
 
         # Update access tracking
@@ -748,7 +748,7 @@ class CredentialVault:
         # Encrypt new value
         try:
             encrypted_value = self._encrypt(new_value, key)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             await self._log_audit(
                 CredentialAuditEvent.ROTATION_FAILED,
                 user_id,

@@ -275,7 +275,7 @@ class AssignmentManager:
         for hook in self._assignment_hooks:
             try:
                 hook(assignment)
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Assignment hook error: {e}")
 
         logger.info(f"Assigned finding {finding_id} to user {user_id} (priority: {priority.value})")

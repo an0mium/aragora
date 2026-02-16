@@ -192,7 +192,7 @@ class LocalLLMDetector:
             # JSON parsing or data extraction issues
             logger.debug(f"Error parsing {name} response: {e}")
             return server
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
             # Unexpected - log at info level
             logger.info(f"Unexpected error probing {name}: {type(e).__name__}: {e}")
             return server

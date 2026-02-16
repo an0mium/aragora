@@ -445,7 +445,7 @@ class AuditRegistry:
                                     f"from {plugin_dir / module_info.name}.py"
                                 )
 
-                except Exception as e:
+                except (ImportError, ValueError, OSError, RuntimeError) as e:
                     logger.warning(f"Failed to load plugin {module_info.name}: {e}")
 
         return count
@@ -482,7 +482,7 @@ class AuditRegistry:
                     self.register_preset(preset)
                     count += 1
                     logger.debug(f"Discovered preset: {preset.name} from {yaml_file}")
-                except Exception as e:
+                except (ValueError, OSError, RuntimeError) as e:
                     logger.warning(f"Failed to load preset {yaml_file}: {e}")
 
             for yaml_file in preset_dir.glob("*.yml"):
@@ -490,7 +490,7 @@ class AuditRegistry:
                     preset = PresetConfig.from_file(yaml_file)
                     self.register_preset(preset)
                     count += 1
-                except Exception as e:
+                except (ValueError, OSError, RuntimeError) as e:
                     logger.warning(f"Failed to load preset {yaml_file}: {e}")
 
         return count

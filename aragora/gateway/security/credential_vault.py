@@ -197,7 +197,7 @@ class CredentialVault:
         """Try to decrypt data, falling back to legacy SHA-256 key if needed."""
         try:
             return self._decrypt_with_key(encrypted_data, key)
-        except Exception as exc:
+        except (ValueError, RuntimeError, OSError) as exc:
             logger.debug("Primary decryption failed: %s", exc)
             # Try legacy SHA-256 key derivation
             env_key = os.environ.get("ARAGORA_CREDENTIAL_VAULT_KEY")
@@ -210,7 +210,7 @@ class CredentialVault:
                         "will be re-encrypted with PBKDF2 on next write"
                     )
                     return decrypted
-                except Exception as legacy_exc:
+                except (ValueError, RuntimeError, OSError) as legacy_exc:
                     logger.warning("Legacy key decryption also failed: %s", legacy_exc)
             return None
 

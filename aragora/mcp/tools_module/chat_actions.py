@@ -67,7 +67,7 @@ async def send_message_tool(
             "sent_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to send message: {e}")
         return {
             "error": str(e),
@@ -146,7 +146,7 @@ async def create_poll_tool(
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to create poll: {e}")
         return {"error": str(e), "channel_id": channel_id}
 
@@ -233,7 +233,7 @@ async def trigger_debate_tool(
             "confidence": result.get("confidence"),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
         logger.error(f"Failed to trigger debate: {e}")
         return {"error": str(e), "channel_id": channel_id}
 
@@ -313,7 +313,7 @@ async def post_receipt_tool(
             "posted_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ImportError, ValueError) as e:
         logger.error(f"Failed to post receipt: {e}")
         return {"error": str(e), "debate_id": debate_id}
 
@@ -355,7 +355,7 @@ async def update_message_tool(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to update message: {e}")
         return {"error": str(e), "message_id": message_id}
 
@@ -396,7 +396,7 @@ async def add_reaction_tool(
             "emoji": emoji,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to add reaction: {e}")
         return {"error": str(e), "message_id": message_id}
 

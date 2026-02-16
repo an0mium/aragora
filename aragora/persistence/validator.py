@@ -107,7 +107,7 @@ def _check_table_exists(db_path: Path, table_name: str) -> bool:
         result = cursor.fetchone() is not None
         conn.close()
         return result
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Error checking table {table_name} in {db_path}: {e}")
         return False
 
@@ -120,7 +120,7 @@ def _get_table_count(db_path: Path) -> int:
         count: int = cursor.fetchone()[0]
         conn.close()
         return count
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.debug(f"Failed to get table count for {db_path}: {type(e).__name__}: {e}")
         return 0
 
@@ -211,7 +211,7 @@ def validate_schema_versions() -> ValidationResult:
             else:
                 warnings.append(f"{db_name}: No _schema_versions table")
             conn.close()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             warnings.append(f"{db_name}: Error reading schema versions: {e}")
 
     return ValidationResult(len(errors) == 0, errors, warnings)

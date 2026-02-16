@@ -380,7 +380,7 @@ def _policy_validate(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (ValueError, ImportError, OSError) as e:
         print(f"\nPolicy validation failed: {e}")
         return 1
 

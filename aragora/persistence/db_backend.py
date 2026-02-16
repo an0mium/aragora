@@ -319,7 +319,7 @@ class UnifiedBackend:
         try:
             self._async_pool = await self._async_pool_factory()
             return self._async_pool
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to create async pool: {e}")
             return None
 
@@ -380,7 +380,7 @@ class UnifiedBackend:
         """Close all connections and pools."""
         try:
             self.sync.close()
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.warning(f"Error closing sync backend: {e}")
 
     async def close_async(self) -> None:
@@ -389,7 +389,7 @@ class UnifiedBackend:
             try:
                 await self._async_pool.close()
                 self._async_pool = None
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Error closing async pool: {e}")
 
     def __repr__(self) -> str:
@@ -508,7 +508,7 @@ def _create_postgres_backend() -> UnifiedBackend:
 
     try:
         sync_backend = PostgreSQLBackend(dsn)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError) as e:
         logger.warning(f"PostgreSQL connection failed ({e}), falling back to SQLite")
         return _create_sqlite_backend()
 
@@ -532,7 +532,7 @@ def _create_postgres_backend() -> UnifiedBackend:
             from aragora.storage.postgres_store import get_postgres_pool
 
             return await get_postgres_pool(dsn=dsn)
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to create async PostgreSQL pool: {e}")
             return None
 

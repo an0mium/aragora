@@ -231,7 +231,7 @@ class PostgresMigrationRunner:
                     applied_count += 1
                     current_version = version
                     logger.info(f"Migration {version} applied successfully")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     error_msg = f"Migration {version} failed: {e}"
                     logger.error(error_msg)
                     errors.append(error_msg)
@@ -349,7 +349,7 @@ class PostgresMigrationRunner:
                     rolled_back_count += 1
                     current_version = version - 1
                     logger.info(f"Migration {version} rolled back successfully")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     error_msg = f"Rollback of migration {version} failed: {e}"
                     logger.error(error_msg)
                     errors.append(error_msg)

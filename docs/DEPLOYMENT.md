@@ -153,3 +153,168 @@ This adds:
 - Grafana (port 3001) — pre-configured dashboards
 - Jaeger (port 16686) — distributed tracing via OpenTelemetry
 - Loki + Promtail — log aggregation
+
+## TLS / HTTPS
+
+### With Traefik (recommended)
+
+Traefik reverse proxy with automatic Let's Encrypt certificates:
+
+```bash
+cd deploy/traefik
+docker compose up -d
+```
+
+Configure in `deploy/traefik/dynamic.yml`:
+
+```yaml
+http:
+  routers:
+    aragora:
+      rule: "Host(`aragora.yourdomain.com`)"
+      entryPoints: ["websecure"]
+      service: aragora
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    aragora:
+      loadBalancer:
+        servers:
+          - url: "http://aragora-backend:8080"
+```
+
+### Manual TLS (Nginx/Caddy)
+
+If using an external reverse proxy, terminate TLS there and proxy to port 8080:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name aragora.yourdomain.com;
+
+    ssl_certificate /etc/ssl/certs/aragora.crt;
+    ssl_certificate_key /etc/ssl/private/aragora.key;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /ws {
+        proxy_pass http://localhost:8765;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+Set `ARAGORA_ALLOWED_ORIGINS=https://aragora.yourdomain.com` for CORS.
+
+## Backup & Restore
+
+### Automated Backups
+
+Aragora includes `BackupManager` with incremental backup support:
+
+```python
+from aragora.backup.manager import BackupManager
+
+manager = BackupManager(backup_dir="/backups")
+manager.create_backup()          # Full backup
+manager.create_incremental()     # Incremental (since last full)
+```
+
+### Database Backup (PostgreSQL)
+
+```bash
+# Backup
+docker exec aragora-postgres pg_dump -U aragora aragora > backup_$(date +%Y%m%d).sql
+
+# Restore
+docker exec -i aragora-postgres psql -U aragora aragora < backup_20260216.sql
+```
+
+### Scheduled Backups
+
+Add to crontab or use the Docker Compose backup service:
+
+```bash
+# Daily backup at 2 AM
+0 2 * * * docker exec aragora-postgres pg_dump -U aragora aragora | gzip > /backups/aragora_$(date +\%Y\%m\%d).sql.gz
+
+# Retention: keep 30 days
+0 3 * * * find /backups -name "*.sql.gz" -mtime +30 -delete
+```
+
+### Disaster Recovery
+
+1. Stop services: `docker compose down`
+2. Restore PostgreSQL: `psql < backup.sql`
+3. Redis rebuilds from PostgreSQL on startup (no separate backup needed)
+4. Start services: `docker compose up -d`
+5. Verify: `curl http://localhost:8080/healthz`
+
+## Upgrading
+
+### Docker Compose
+
+```bash
+# Pull latest images
+docker compose pull
+
+# Rolling restart (zero-downtime if using replicas)
+docker compose up -d --no-deps aragora-backend
+
+# Verify
+curl http://localhost:8080/healthz
+```
+
+### Database Migrations
+
+Migrations run automatically on startup. To run manually:
+
+```bash
+docker exec aragora-backend python -m aragora.db.migrate upgrade
+```
+
+Rollback:
+
+```bash
+docker exec aragora-backend python -m aragora.db.migrate downgrade --version <target>
+```
+
+### Version Pinning
+
+Pin to a specific version in `docker-compose.yml`:
+
+```yaml
+services:
+  aragora-backend:
+    image: aragora/aragora:2.7.4  # Pin to known-good version
+```
+
+### Pre-upgrade Checklist
+
+1. Backup database (see above)
+2. Check changelog for breaking changes
+3. Test upgrade in staging/offline mode first
+4. Verify health endpoints after upgrade
+5. Check `/api/v1/status` for feature status
+
+## Production Hardening Checklist
+
+- [ ] TLS configured (Traefik, Nginx, or Caddy)
+- [ ] `ARAGORA_API_TOKEN` set (not default)
+- [ ] `ARAGORA_ALLOWED_ORIGINS` restricted to your domain
+- [ ] Database passwords changed from defaults
+- [ ] Automated backups configured
+- [ ] Monitoring enabled (`--profile monitoring`)
+- [ ] Rate limiting configured (default: enabled)
+- [ ] MFA enabled for admin accounts
+- [ ] Secrets in AWS Secrets Manager (not `.env` in production)
+- [ ] Health check endpoints integrated with load balancer
+- [ ] Log aggregation configured (Loki/ELK)
+- [ ] Resource limits set in Docker/K8s

@@ -255,7 +255,7 @@ Make only the changes specified. Follow existing code style."""
                     use_cache=False,
                 )
                 self._dynamic_agents[key] = agent
-            except Exception as exc:
+            except (ImportError, RuntimeError, ValueError) as exc:
                 logger.warning("Failed to initialize agent %s: %s", agent_type, exc)
                 return None
 
@@ -545,7 +545,7 @@ Follow existing code style and tests.""",
             task_id = f"{critic_name}:impl_review"
             with streaming_task_context(task_id):
                 response = await critic.generate(review_prompt, context=[])
-        except Exception as exc:
+        except (RuntimeError, OSError, TimeoutError) as exc:
             logger.warning("Review failed: %s", exc)
             return {"approved": None, "issues": [], "suggestions": [], "error": str(exc)}
 
@@ -587,7 +587,7 @@ Follow existing code style and tests.""",
             )
             diff = self._get_git_diff(files=task.files)
             return adapt_to_implement_result(result, task_id=task.id, diff=diff)
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"    Harness error: {e}")
             return TaskResult(
                 task_id=task.id,
@@ -691,7 +691,7 @@ Follow existing code style and tests.""",
                 duration_seconds=duration,
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             duration = time.time() - start_time
             logger.error(f"    Error: {e}")
             return TaskResult(
@@ -1175,7 +1175,7 @@ Be constructive but thorough."""
                 "model": "codex-o3",
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             duration = time.time() - start_time
             logger.error(f"    Review failed after {duration:.1f}s: {e}")
             return {

@@ -539,7 +539,7 @@ class EmailCategorizer:
                 await self.gmail.add_label(email_id, label_id)
                 return True
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to apply label: {e}")
 
         return False

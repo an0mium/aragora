@@ -249,7 +249,7 @@ class BudgetManager:
         if self._alert_callback:
             try:
                 await self._alert_callback(entity_id, status)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"Alert callback error: {e}")
 
     async def reset_period(self, entity_id: str) -> None:

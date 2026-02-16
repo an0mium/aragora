@@ -150,7 +150,7 @@ class SpamClassifier:
             self._db_conn.commit()
             logger.info("Spam feedback database initialized")
 
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to initialize feedback database: {e}")
 
     async def classify_email(
@@ -347,7 +347,7 @@ class SpamClassifier:
 
             return True
 
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to record feedback: {e}")
             return False
 
@@ -370,7 +370,7 @@ class SpamClassifier:
             if untrained_count >= self.config.min_training_samples // 10:
                 await self._retrain_model()
 
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to check retrain status: {e}")
 
     async def _retrain_model(self) -> None:
@@ -415,7 +415,7 @@ class SpamClassifier:
 
             logger.info(f"Retrained spam model with {trained} feedback samples")
 
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to retrain model: {e}")
 
     def _hash_content(self, content: str) -> str:
@@ -448,7 +448,7 @@ class SpamClassifier:
                     spam_score=row[3],
                     model_used="cached",
                 )
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.debug("Failed to retrieve cached classification result: %s", e)
         return None
 
@@ -474,7 +474,7 @@ class SpamClassifier:
                 ),
             )
             self._db_conn.commit()
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning("Failed to cache spam classification result: %s", e)
 
     async def _invalidate_cache(self, content_hash: str) -> None:
@@ -489,7 +489,7 @@ class SpamClassifier:
                 (content_hash,),
             )
             self._db_conn.commit()
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError) as e:
             logger.warning("Failed to invalidate cached classification: %s", e)
 
     async def get_statistics(self) -> dict[str, Any]:
@@ -513,7 +513,7 @@ class SpamClassifier:
 
                 cursor.execute("SELECT COUNT(*) FROM classification_cache")
                 stats["cached_results"] = cursor.fetchone()[0]
-            except Exception as e:
+            except (ValueError, OSError, RuntimeError) as e:
                 logger.debug("Failed to retrieve classifier statistics from DB: %s", e)
 
         return stats

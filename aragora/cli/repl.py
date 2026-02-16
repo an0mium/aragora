@@ -160,7 +160,7 @@ class AragoraREPL:
             print(f"  Total critiques: {stats.get('total_critiques', 0)}")
             print(f"  Avg confidence: {stats.get('avg_confidence', 0):.2f}")
             print()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             print(f"Could not load stats: {e}")
 
     def _show_history(self) -> None:
@@ -183,7 +183,7 @@ class AragoraREPL:
                 severity = critique.severity
                 print(f"  - {agent} -> {target} (severity: {severity:.2f})")
             print()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             print(f"Could not load history: {e}")
 
     def _show_config(self) -> None:
@@ -213,7 +213,7 @@ class AragoraREPL:
                 issue_text = p.issue_text[:80] if p.issue_text else ""
                 print(f"  - [{p.issue_type}] {issue_text}...")
             print()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             print(f"Memory query failed: {e}")
 
     async def run_debate(self, task: str) -> None:
@@ -260,7 +260,7 @@ class AragoraREPL:
 
         except KeyboardInterrupt:
             print("\n\nDebate interrupted.")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             print(f"\nDebate failed: {e}")
 
     def run(self) -> None:

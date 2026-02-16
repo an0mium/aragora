@@ -392,7 +392,7 @@ def validate_access_token(
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-        except Exception as e:  # nosec - Fail closed: any store error denies token validation
+        except Exception as e:  # noqa: BLE001 - Fail closed: any user_store error must deny token validation for security
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )
@@ -465,7 +465,7 @@ def validate_refresh_token(
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-        except Exception as e:  # nosec - Fail closed: any store error denies token validation
+        except Exception as e:  # noqa: BLE001 - Fail closed: any user_store error must deny token validation for security
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )

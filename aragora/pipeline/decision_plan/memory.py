@@ -196,7 +196,7 @@ async def record_plan_outcome(
                 except (KeyError, ValueError, OSError):
                     logger.debug("Failed to update debate memory outcome", exc_info=True)
 
-        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
+        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError, AttributeError) as e:
             err = f"ContinuumMemory write failed: {e}"
             logger.warning(err)
             results["errors"].append(err)
@@ -227,7 +227,7 @@ async def record_plan_outcome(
             results["mound_id"] = item_id
             logger.info("Recorded plan outcome to KnowledgeMound: %s", item_id)
 
-        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError) as e:
+        except (OSError, ConnectionError, RuntimeError, TypeError, ValueError, AttributeError) as e:
             err = f"KnowledgeMound write failed: {e}"
             logger.warning(err)
             results["errors"].append(err)

@@ -429,7 +429,7 @@ class CredentialProxy:
 
             return result
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             usage.error_message = str(e)
             raise
 
@@ -501,7 +501,7 @@ class CredentialProxy:
         for callback in self._audit_callbacks:
             try:
                 await callback(usage)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided audit callback
                 logger.error(f"Audit callback failed: {e}")
 
     def get_usage_history(

@@ -153,7 +153,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     try:
                         total = self._get_identity_contract().get_total_supply()
                         agent_ids = list(range(1, min(total + 1, 1001)))
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                         logger.warning(f"Could not get total supply: {e}")
                         agent_ids = []
 
@@ -171,7 +171,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                                 summary = self._get_reputation_contract().get_summary(agent_id)
                                 await self._store_reputation_node(summary)
                                 synced += 1
-                            except Exception as e:
+                            except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                                 logger.debug(f"No reputation for agent {agent_id}: {e}")
                                 skipped += 1
 
@@ -187,16 +187,16 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                                     )
                                     await self._store_validation_node(record)
                                     synced += 1
-                            except Exception as e:
+                            except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                                 logger.debug(f"No validations for agent {agent_id}: {e}")
                                 skipped += 1
 
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                         failed += 1
                         logger.warning("Failed to sync agent %s: %s", agent_id, e)
                         errors.append(f"Agent {agent_id}: sync failed")
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:
             logger.warning("sync_to_km failed: %s", e)
             errors.append("Sync failed")
 
@@ -300,7 +300,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     skipped += receipt_result["skipped"]
                     errors.extend(receipt_result["errors"])
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:
             logger.warning("sync_from_km failed: %s", e)
             errors.append("Reverse sync failed")
 
@@ -503,11 +503,11 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     )
                     updated += 1
 
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     logger.warning("Failed to push reputation for %s: %s", agent_id, e)
                     errors.append(f"Failed to push reputation for {agent_id}")
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning("Error processing agent %s: %s", agent_id, e)
                 errors.append(f"Error processing agent {agent_id}")
 
@@ -570,7 +570,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
             elo_system = EloSystem()
             calibration_engine = CalibrationEngine(db_path=":memory:", elo_system=elo_system)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             return {
                 "analyzed": 0,
                 "updated": 0,
@@ -645,7 +645,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     )
                     updated += 1
 
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     logger.warning("Failed to push calibration for %s: %s", agent_id, e)
                     errors.append(f"Failed to push calibration for {agent_id}")
 
@@ -680,13 +680,13 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         )
                         updated += 1
 
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                         logger.debug(
                             f"Failed to push domain calibration {domain} "
                             f"for {agent_id}: {e}"
                         )
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning("Error processing calibration for %s: %s", agent_id, e)
                 errors.append(f"Error processing calibration for {agent_id}")
 
@@ -769,7 +769,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     f"tx={tx_hash[:16]}..."
                 )
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 result["status"] = "local_only"
                 result["error"] = f"On-chain commitment failed: {type(e).__name__}"
                 logger.warning(
@@ -939,7 +939,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         )
                         updated += 1
 
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                         logger.warning(
                             "Failed to push validation for receipt %s, agent %s: %s",
                             receipt_id, agent_id, e,
@@ -948,7 +948,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                             f"Failed to push validation for receipt {receipt_id}, agent {agent_id}"
                         )
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.warning("Error processing receipt %s: %s", receipt_id, e)
                 errors.append(f"Error processing receipt {receipt_id}")
 
@@ -977,7 +977,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 "has_signer": self._signer is not None,
                 "rpc_health": provider.get_health_status(),
             }
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             return {
                 "adapter": self.adapter_name,
                 "connected": False,

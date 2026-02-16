@@ -46,7 +46,7 @@ def get_demo_records() -> list[dict]:
     try:
         with open(demo_file) as f:
             return json.load(f)
-    except Exception as e:
+    except (json.JSONDecodeError, OSError) as e:
         logger.error(f"Failed to load demo consensus: {e}")
         return []
 
@@ -101,7 +101,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
     try:
         with open(demo_file) as f:
             demos = json.load(f)
-    except Exception as e:
+    except (json.JSONDecodeError, OSError) as e:
         logger.error(f"Failed to load demo consensus: {e}")
         return 0
 
@@ -124,7 +124,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
             logger.info(f"Consensus memory already has {total} topics, skipping seed")
             return 0
         logger.info("Database is empty, proceeding with seeding")
-    except Exception as e:
+    except (OSError, KeyError, TypeError, AttributeError) as e:
         logger.warning(f"Could not check existing data: {e}, proceeding with seeding")
 
     # Seed the demos
@@ -159,7 +159,7 @@ def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
                 )
                 seeded += 1
                 logger.debug(f"Successfully seeded demo {i + 1}")
-            except Exception as e:
+            except (KeyError, TypeError, ValueError, OSError) as e:
                 logger.warning(
                     f"Failed to seed demo {i + 1} '{demo.get('topic', 'unknown')[:30]}': {e}"
                 )
@@ -200,7 +200,7 @@ def ensure_demo_agents() -> int:
             if existing:
                 logger.debug(f"ELO system already has {len(existing)} agents, skipping seed")
                 return 0
-        except Exception as e:
+        except (OSError, KeyError, TypeError, AttributeError) as e:
             logger.debug("Failed to check existing ELO leaderboard, proceeding with seeding: %s", e)
 
         # Create demo agents with simulated match history
@@ -213,7 +213,7 @@ def ensure_demo_agents() -> int:
                     loser=opponent,
                     domain="general",
                 )
-            except Exception as e:
+            except (OSError, TypeError, ValueError) as e:
                 logger.debug(f"Failed to record demo match for {agent}: {e}")
 
         logger.info(f"Demo agents initialized: {len(demo_agents)} agents")
@@ -221,7 +221,7 @@ def ensure_demo_agents() -> int:
     except ImportError:
         logger.debug("EloSystem not available, skipping demo agents")
         return 0
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logger.warning(f"Failed to initialize demo agents: {e}")
         return 0
 
@@ -241,5 +241,5 @@ def ensure_demo_data():
         agents = ensure_demo_agents()
         if agents > 0:
             logger.info(f"Demo agents initialized: {agents} agents")
-    except Exception as e:
+    except (OSError, TypeError, ValueError, KeyError) as e:
         logger.warning(f"Failed to ensure demo data: {e}")

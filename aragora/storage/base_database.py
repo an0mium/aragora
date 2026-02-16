@@ -107,7 +107,7 @@ class BaseDatabase:
             try:
                 yield conn
                 conn.execute("COMMIT")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
                 logger.warning(
                     f"Exception during transaction, rolling back: {type(e).__name__}: {e}"
                 )

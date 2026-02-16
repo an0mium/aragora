@@ -304,7 +304,7 @@ class ControlPlaneCoordinator:
                 except (ConnectionError, OSError, AttributeError) as e:
                     logger.debug(f"Failed to record watchdog issue in KM: {e}")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"Error handling watchdog issue: {e}")
 
     @classmethod
@@ -742,7 +742,7 @@ class ControlPlaneCoordinator:
                             role="proposer",
                             min_agents=0,  # Don't raise, log warning instead
                         )
-                    except Exception as e:
+                    except (RuntimeError, ValueError, KeyError) as e:
                         logger.warning(
                             "deliberation_agent_creation_failed",
                             task_id=task.task_id,
@@ -787,7 +787,7 @@ class ControlPlaneCoordinator:
 
                 return outcome
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 latency_ms = (time.monotonic() - start) * 1000
                 add_span_attributes(span, {"error": str(e), "latency_ms": latency_ms})
                 logger.error(

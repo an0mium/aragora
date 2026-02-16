@@ -176,7 +176,7 @@ class AuditKnowledgeAdapter:
                 )
                 enriched.append(enriched_chunk)
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to enrich chunk {chunk_id}: {e}")
                 enriched.append(
                     EnrichedChunk(
@@ -258,7 +258,7 @@ class AuditKnowledgeAdapter:
             logger.debug(f"Stored finding {finding.id} as fact {fact.id}")
             return fact.id
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to store finding as fact: {e}")
             return None
 
@@ -354,7 +354,7 @@ class AuditKnowledgeAdapter:
                         }
                     )
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Cross-reference query failed: {e}")
 
         return references
@@ -422,7 +422,7 @@ class AuditKnowledgeAdapter:
                 "support_score": len(supporting) * 0.1,
             }
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Knowledge validation failed: {e}")
             return {"validated": False, "reason": str(e)}
 

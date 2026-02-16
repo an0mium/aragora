@@ -95,7 +95,7 @@ class PolicyEnforcer:
                 from aragora.utils.async_utils import run_async
 
                 run_async(coro)
-            except Exception as e:
+            except (RuntimeError, ValueError) as e:
                 logger.debug("async_schedule_failed", error=str(e))
         else:
             loop.create_task(coro)
@@ -160,7 +160,7 @@ class PolicyEnforcer:
                         workspace_id=violation.workspace_id,
                     )
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, ImportError) as e:
             logger.debug("policy_notification_failed", error=str(e))
 
     def _should_sync_policies_from_store(self) -> bool:
@@ -262,7 +262,7 @@ class PolicyEnforcer:
             )
             return 0
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError) as e:
             # Log warning but don't fail startup - policy sync is non-critical
             logger.warning(
                 "policy_sync_failed",

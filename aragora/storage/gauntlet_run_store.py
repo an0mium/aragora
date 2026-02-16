@@ -597,7 +597,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
                 self._redis_client.close()
             except (ConnectionError, OSError) as e:
                 logger.debug(f"Redis close failed (connection already closed): {e}")
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
                 logger.debug(f"Redis close failed: {e}")
 
 

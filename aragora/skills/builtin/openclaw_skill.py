@@ -148,7 +148,7 @@ class OpenClawSkill(Skill):
             else:
                 return SkillResult.create_failure(f"Unhandled action: {action}")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ConnectionError) as e:
             logger.exception(f"OpenClaw action failed: {e}")
             return SkillResult.create_failure(f"Action failed: {e}")
 

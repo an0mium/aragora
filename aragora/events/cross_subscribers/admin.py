@@ -152,7 +152,7 @@ class AdminMixin:
             if _METRICS_AVAILABLE:
                 _set_cb_state(name, False)  # Closed = not open
             return True
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as e:
             logger.debug(f"Circuit breaker reset failed for '{name}': {type(e).__name__}: {e}")
             return False
 

@@ -373,7 +373,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email send failed: %s", e)
 
@@ -450,7 +450,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email reply failed: %s", e)
 
@@ -515,7 +515,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email archive failed: %s", e)
 
@@ -576,7 +576,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email trash failed: %s", e)
 
@@ -651,7 +651,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email snooze failed: %s", e)
 
@@ -707,7 +707,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email mark_read failed: %s", e)
 
@@ -759,7 +759,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email star failed: %s", e)
 
@@ -813,7 +813,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email move_to_folder failed: %s", e)
 
@@ -870,7 +870,7 @@ class EmailActionsService:
                 details=result,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.warning("Email batch_archive failed: %s", e)
 

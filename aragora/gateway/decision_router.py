@@ -860,7 +860,7 @@ class DecisionRouter:
                         ),
                         rule.rule_id,
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError, TypeError) as e:  # noqa: BLE001 - user-provided rule condition callback
                 logger.warning(f"Error evaluating rule {rule.rule_id}: {e}")
                 continue
 
@@ -1152,7 +1152,7 @@ class DecisionRouter:
                         result = handler(entry)
                         if asyncio.iscoroutine(result):
                             await result
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
                         logger.error(f"Event handler error: {e}")
 
         logger.debug(
@@ -1225,7 +1225,7 @@ class DecisionRouter:
                         "destination": decision.destination.value,
                     },
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to send anomaly alert: {e}")
 
     # =========================================================================

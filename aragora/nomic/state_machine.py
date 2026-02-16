@@ -121,7 +121,7 @@ class NomicStateMachine:
                 from aragora.nomic.metrics import nomic_metrics_callback
 
                 self.on_transition(nomic_metrics_callback)
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 logger.debug("Nomic metrics unavailable: %s", e)
 
     def register_handler(self, state: NomicState, handler: StateHandler) -> None:
@@ -204,7 +204,7 @@ class NomicStateMachine:
                 from aragora.nomic.metrics import track_cycle_start
 
                 track_cycle_start(self.context.cycle_id)
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 logger.debug("Nomic metrics unavailable: %s", e)
 
         # Send start event
@@ -403,7 +403,7 @@ class NomicStateMachine:
                         )
                     else:
                         callback(current, next_state, trigger_event)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - callback errors must not break state machine
                 logger.error(f"Transition callback error: {e}")
 
         # Checkpoint if required
@@ -481,7 +481,7 @@ class NomicStateMachine:
             event = timeout_event(state.name.lower(), timeout)
             await self._process_event(event)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - state machine must catch all to decide retry/recovery
             logger.error(f"Error in state {state.name}: {e}")
             # Check if we can retry
             retry_count = self.context.retry_counts.get(state.name, 0)
@@ -508,7 +508,7 @@ class NomicStateMachine:
                             await callback(state, e)
                         else:
                             callback(state, e)
-                    except Exception as cb_err:
+                    except Exception as cb_err:  # noqa: BLE001 - callback errors must not break error handling
                         logger.error(f"Error callback failed: {cb_err}")
 
                 event = error_event(

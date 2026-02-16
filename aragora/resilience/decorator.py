@@ -70,7 +70,7 @@ def with_resilience(
                     if circuit_breaker:
                         circuit_breaker.record_success()
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - resilience wrapper must catch all to decide retry
                     last_exception = e
                     if circuit_breaker:
                         circuit_breaker.record_failure()

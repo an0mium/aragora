@@ -660,7 +660,7 @@ class AuditInterceptor:
         for handler in self._event_handlers:
             try:
                 handler(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event handler callback
                 logger.error("Error in audit event handler: %s", e)
 
     async def _send_webhook(self, record: AuditRecord) -> None:
@@ -697,7 +697,7 @@ class AuditInterceptor:
                         )
         except ImportError:
             logger.warning("aiohttp not installed, webhook disabled")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.error("Webhook error: %s", e)
 
 

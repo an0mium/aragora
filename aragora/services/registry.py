@@ -384,7 +384,7 @@ class ServiceRegistry:
                                 hooks_called += 1
                                 logger.debug(f"Called {method_name}() on {service_type.__name__}")
                                 break  # Only call one cleanup method
-                        except Exception as e:
+                        except (RuntimeError, TypeError, ValueError, OSError) as e:
                             logger.warning(
                                 f"Error calling {method_name}() on {service_type.__name__}: {e}"
                             )

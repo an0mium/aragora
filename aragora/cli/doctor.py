@@ -116,7 +116,7 @@ def check_storage() -> list[tuple[str, str, bool | None]]:
         conn.execute("SELECT 1")
         conn.close()
         checks.append(("SQLite", "working", True))
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         checks.append(("SQLite", f"error: {e}", False))
 
     # Check PostgreSQL
@@ -244,7 +244,7 @@ def main() -> int:
             print(f"  {check_icon(ok)} {name}: {status}")
             if ok is False:
                 all_ok = False
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError) as e:
         print(f"  {check_icon(None)} Server check: skipped ({e})")
 
     # Summary

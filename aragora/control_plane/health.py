@@ -355,7 +355,7 @@ class HealthMonitor:
                 await asyncio.sleep(self._probe_interval)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Error in health monitor loop: {e}")
                 await asyncio.sleep(self._probe_interval)
 
@@ -409,7 +409,7 @@ class HealthMonitor:
             error_msg = "Health probe timeout"
             if cb:
                 cb.record_failure()
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Health probe failed for agent: {e}")
             error_msg = "Health probe failed"
             if cb:
@@ -463,7 +463,7 @@ class HealthMonitor:
                 for callback in self._on_recovered:
                     try:
                         callback(agent_id, check)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided recovery callback
                         logger.error(f"Recovery callback error: {e}")
 
         else:
@@ -490,7 +490,7 @@ class HealthMonitor:
                 for callback in self._on_unhealthy:
                     try:
                         callback(agent_id, check)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided unhealthy callback
                         logger.error(f"Unhealthy callback error: {e}")
 
         # Store health check
@@ -520,5 +520,5 @@ class HealthMonitor:
                     await self._registry.update_status(agent_id, AgentStatus.FAILED)
                 elif status == HealthStatus.HEALTHY and was_healthy is False:
                     await self._registry.update_status(agent_id, AgentStatus.READY)
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Could not update registry for {agent_id}: {e}")

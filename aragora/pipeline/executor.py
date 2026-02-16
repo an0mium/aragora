@@ -433,7 +433,7 @@ class PlanExecutor:
                 continuum_memory=self._continuum_memory,
                 knowledge_mound=self._knowledge_mound,
             )
-        except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Failed to record plan outcome to memory: %s", e)
 
         # Generate receipt (best-effort)

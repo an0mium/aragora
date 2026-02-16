@@ -670,7 +670,7 @@ def record_span_error(span: Any, exception: BaseException) -> None:
     try:
         if hasattr(span, "record_exception"):
             span.record_exception(exception)
-    except Exception as e:
+    except (TypeError, RuntimeError) as e:
         logger.debug("Failed to record exception on span: %s", e)
 
     try:
@@ -683,7 +683,7 @@ def record_span_error(span: Any, exception: BaseException) -> None:
         try:
             if hasattr(span, "set_status"):
                 span.set_status("ERROR")
-        except Exception as e:
+        except (TypeError, RuntimeError, AttributeError) as e:
             logger.debug("Failed to set span error status: %s", e)
 
 
@@ -733,7 +733,7 @@ def inject_context(carrier: dict[str, str]) -> dict[str, str]:
 
             _propagator.inject(carrier, context.get_current())
             return carrier
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError) as e:
             logger.debug("Failed to inject trace context via propagator: %s", e)
 
     # Fall back to manual injection from internal tracing
@@ -770,7 +770,7 @@ def extract_context(carrier: dict[str, str]) -> Any:
     if _propagator is not None:
         try:
             return _propagator.extract(carrier)
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError) as e:
             logger.debug("Failed to extract trace context: %s", e)
 
     return None
@@ -967,7 +967,7 @@ def export_debate_span_to_otel(span: Any) -> None:
             else:
                 set_span_ok(otel_span)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - observability must not crash app
         logger.debug("Failed to export debate span to OTel: %s", e)
 
 

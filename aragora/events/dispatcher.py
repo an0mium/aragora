@@ -260,7 +260,7 @@ def dispatch_webhook(
         logger.warning(f"Webhook timeout for {webhook.url}")
         return False, 0, "Request timed out"
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.error(f"Webhook delivery error for {webhook.url}: {e}")
         return False, 0, str(e)
 

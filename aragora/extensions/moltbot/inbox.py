@@ -440,7 +440,7 @@ class InboxManager:
             try:
                 await handler(message, channel)
                 return True
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # delivery handler
                 logger.error(f"Failed to deliver message {message.id}: {e}")
                 return False
 

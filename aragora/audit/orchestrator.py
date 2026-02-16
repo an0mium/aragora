@@ -306,7 +306,7 @@ class AuditOrchestrator:
             if auditor_class:
                 try:
                     self._auditors[vertical] = auditor_class()
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     logger.warning(f"Failed to initialize {vertical.value} auditor: {e}")
 
     async def run(
@@ -454,7 +454,7 @@ class AuditOrchestrator:
                             for finding in chunk_findings:
                                 if auditor.validate_finding(finding, context):
                                     auditor_findings.append(finding)
-                        except Exception as e:
+                        except (ValueError, RuntimeError, OSError) as e:
                             logger.warning(f"Error in {vertical.value} on chunk {chunk.id}: {e}")
 
                     # Cross-document analysis
@@ -464,7 +464,7 @@ class AuditOrchestrator:
                             for finding in cross_findings:
                                 if auditor.validate_finding(finding, context):
                                     auditor_findings.append(finding)
-                        except Exception as e:
+                        except (ValueError, RuntimeError, OSError) as e:
                             logger.warning(f"Cross-doc analysis error in {vertical.value}: {e}")
 
                     # Post-audit hook
@@ -475,7 +475,7 @@ class AuditOrchestrator:
                         f"Completed {vertical.value} with {len(auditor_findings)} findings"
                     )
 
-                except Exception as e:
+                except (ValueError, RuntimeError, OSError) as e:
                     error_msg = f"Auditor {vertical.value} failed: {e}"
                     logger.error(error_msg)
                     self._errors.append(error_msg)
@@ -516,7 +516,7 @@ class AuditOrchestrator:
                 auditor_findings = await auditor.post_audit_hook(auditor_findings, context)
                 self._findings.extend(auditor_findings)
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 error_msg = f"Auditor {vertical.value} failed: {e}"
                 logger.error(error_msg)
                 self._errors.append(error_msg)

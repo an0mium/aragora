@@ -150,7 +150,7 @@ class WebSearchSkill(Skill):
                 provider=provider,
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.exception(f"Web search failed: {e}")
             return SkillResult.create_failure(f"Search failed: {e}")
 
@@ -197,7 +197,7 @@ class WebSearchSkill(Skill):
                             source="duckduckgo",
                         )
                     )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"DuckDuckGo search error: {e}")
 
         return results
@@ -246,7 +246,7 @@ class WebSearchSkill(Skill):
                     )
                 return results
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Tavily search error: {e}")
             return await self._search_duckduckgo(query, max_results, None, None)
 
@@ -295,7 +295,7 @@ class WebSearchSkill(Skill):
                     )
                 return results
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Google search error: {e}")
             return await self._search_duckduckgo(query, max_results, None, None)
 

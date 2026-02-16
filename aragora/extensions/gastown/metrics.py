@@ -92,7 +92,7 @@ def get_beads_completed_count(hours: int = 24) -> int:
     except ImportError:
         logger.debug("BeadStore not available, returning 0 for beads_completed_count")
         return 0
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Error getting beads completed count: {e}")
         return 0
 
@@ -139,7 +139,7 @@ def get_convoy_completion_rate() -> float:
     except ImportError:
         logger.debug("Convoy module not available, returning 0.0 for convoy_completion_rate")
         return 0.0
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Error getting convoy completion rate: {e}")
         return 0.0
 
@@ -191,12 +191,12 @@ def get_gupp_recovery_count(hours: int = 24) -> int:
                                     logger.debug("Failed to parse datetime value: %s", e)
                         except (json.JSONDecodeError, KeyError):
                             continue
-            except Exception as e:
+            except (OSError, ValueError) as e:  # file I/O errors
                 logger.debug(f"Error reading hook file {hook_file}: {e}")
                 continue
 
         return recovery_count
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Error getting GUPP recovery count: {e}")
         return 0
 

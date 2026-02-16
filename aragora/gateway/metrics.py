@@ -161,7 +161,7 @@ def init_gateway_metrics() -> bool:
             _init_noop_metrics()
             _initialized = True
             return False
-    except Exception as exc:
+    except (RuntimeError, ValueError, OSError) as exc:
         # If observability config is unavailable fall through to Prometheus
         logger.debug("Observability config unavailable: %s", exc)
 
@@ -236,7 +236,7 @@ def init_gateway_metrics() -> bool:
         _init_noop_metrics()
         _initialized = True
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.error(f"Failed to initialize gateway metrics: {e}")
         _init_noop_metrics()
         _initialized = True

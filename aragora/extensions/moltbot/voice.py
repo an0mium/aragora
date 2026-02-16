@@ -265,7 +265,7 @@ class VoiceProcessor:
                 "is_final": True,
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"STT error: {e}")
             return {"success": False, "error": "Speech-to-text processing failed"}
 
@@ -336,7 +336,7 @@ class VoiceProcessor:
                 "sample_rate": session.config.sample_rate,
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"TTS error: {e}")
             return {"success": False, "error": "Text-to-speech synthesis failed"}
 

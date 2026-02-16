@@ -233,7 +233,7 @@ class SLOAlertBridge:
 
         except ImportError:
             logger.debug("PagerDuty connector not available")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to create PagerDuty incident: {e}")
 
         return None
@@ -327,7 +327,7 @@ class SLOAlertBridge:
 
         except ImportError:
             logger.debug("Notification manager not available")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to send Slack alert: {e}")
 
         return False
@@ -433,7 +433,7 @@ class SLOAlertBridge:
                         f"Occurrences: {violation.count}",
                     )
                     logger.info(f"Resolved PagerDuty incident {violation.pagerduty_incident_id}")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
                     logger.error(f"Failed to resolve PagerDuty incident: {e}")
 
             # Send recovery notification to Slack
@@ -456,7 +456,7 @@ class SLOAlertBridge:
                             "occurrence_count": violation.count,
                         },
                     )
-                except Exception as e:
+                except (ImportError, OSError, ConnectionError, RuntimeError) as e:
                     logger.error(f"Failed to send recovery notification: {e}")
 
             # Clean up

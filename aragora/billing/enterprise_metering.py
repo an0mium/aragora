@@ -970,7 +970,7 @@ class EnterpriseMeter:
                 logger.warning(
                     f"Failed to send {failed_count} budget alert email(s) for tenant {tenant_id}"
                 )
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
             logger.error(f"Error sending budget alert emails: {e}")
 
     async def forecast_usage(

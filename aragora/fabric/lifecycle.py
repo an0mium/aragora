@@ -214,7 +214,7 @@ class LifecycleManager:
                 await self._check_all_health()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Health check error: {e}")
 
     async def _check_all_health(self) -> None:

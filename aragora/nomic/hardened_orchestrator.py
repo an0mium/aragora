@@ -297,7 +297,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             logger.info("receipt_generated subtask=%s", assignment.subtask.id)
         except ImportError:
             logger.debug("DecisionReceipt unavailable")
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.debug("Receipt generation failed: %s", e)
 
     # =========================================================================
@@ -395,7 +395,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     "completed": result.completed_subtasks,
                     "failed": result.failed_subtasks,
                 }
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.warning(
                     "coordinated_assignment_failed track=%s: %s",
                     ta.goal.track.value,
@@ -471,7 +471,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         except ImportError:
             logger.warning("MetaPlanner unavailable for coordination")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.warning("MetaPlanner failed: %s", e)
             return []
 
@@ -625,7 +625,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             logger.debug(
                 "KnowledgeMound unavailable, skipping cross-cycle recording"
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.debug("cross_cycle_record_error: %s", e)
 
     # =========================================================================
@@ -709,7 +709,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         except ImportError:
             logger.debug("MetaPlanner unavailable, using original goal")
             return goal
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.warning("meta_planner_failed error=%s, using original goal", e)
             return goal
 
@@ -1986,7 +1986,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     # Generate receipt after successful merge
                     self._generate_assignment_receipt(assignment)
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning(
                 "worktree_execution_failed subtask=%s: %s",
                 assignment.subtask.id,
@@ -2044,7 +2044,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         except ImportError:
             logger.debug("Gauntlet unavailable, skipping validation")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(
                 "gauntlet_error subtask=%s: %s",
                 assignment.subtask.id,

@@ -364,7 +364,7 @@ class AuditLog:
                 "Redis not available, using in-memory audit log (not suitable for production)"
             )
             self._redis = None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             try:
                 from aragora.storage.production_guards import require_distributed_store, StorageMode
             except ImportError:
@@ -752,7 +752,7 @@ class AuditLog:
             logger.info(f"Retention enforcement removed {removed} Redis entries")
             return removed
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to enforce retention: {e}")
             return 0
 
@@ -772,7 +772,7 @@ class AuditLog:
                     _, data = oldest[0]
                     entry_data = json.loads(data.get("data", "{}"))
                     oldest_entry = datetime.fromisoformat(entry_data.get("timestamp", ""))
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to get retention status: {e}")
         else:
             total_entries = len(self._local_entries)
@@ -821,7 +821,7 @@ class AuditLog:
                 entry_data = json.loads(data.get("data", "{}"))
                 self._sequence_number = entry_data.get("sequence_number", 0)
                 self._last_hash = entry_data.get("entry_hash")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to initialize audit chain: {e}")
 
     async def _store_entry(self, entry: AuditEntry) -> None:
@@ -835,7 +835,7 @@ class AuditLog:
                         "data": json.dumps(entry.to_dict()),
                     },
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Failed to store audit entry: {e}")
                 # Fall back to local storage
                 self._local_entries.append(entry)
@@ -871,7 +871,7 @@ class AuditLog:
                 if query.matches(entry):
                     entries.append(entry)
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, json.JSONDecodeError) as e:
             logger.error(f"Failed to query audit log: {e}")
 
         # Apply pagination

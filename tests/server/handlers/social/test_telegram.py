@@ -1432,20 +1432,44 @@ class TestDebateAsync:
     @pytest.mark.asyncio
     async def test_run_debate_async_no_agents(self, handler):
         """Test debate fails gracefully when no agents available."""
+        import aragora as _aragora_mod
+
         mock_arena = MagicMock()
         mock_protocol = MagicMock()
         mock_env = MagicMock()
-        with patch("aragora.Arena", mock_arena, create=True), \
-             patch("aragora.DebateProtocol", mock_protocol, create=True), \
-             patch("aragora.Environment", mock_env, create=True), \
-             patch("aragora.agents.get_agents_by_names", return_value=[]):
-            with patch.object(handler, "_send_message_async") as mock_send:
-                await handler._run_debate_async(123, 456, "user", "Test debate topic here")
 
-                mock_send.assert_called()
-                # Check the message indicates failure
-                call_args = mock_send.call_args_list[-1]
-                assert "No agents" in call_args[0][1] or "failed" in call_args[0][1].lower()
+        # Pre-populate aragora module dict so that
+        # ``from aragora import Arena, DebateProtocol, Environment``
+        # inside _run_debate_async resolves without triggering __getattr__
+        # (which may fail with ImportError in some environments).
+        _sentinel = object()
+        orig = {}
+        for name, mock_obj in [
+            ("Arena", mock_arena),
+            ("DebateProtocol", mock_protocol),
+            ("Environment", mock_env),
+        ]:
+            orig[name] = getattr(_aragora_mod, name, _sentinel)
+            setattr(_aragora_mod, name, mock_obj)
+
+        try:
+            with patch("aragora.agents.get_agents_by_names", return_value=[]):
+                with patch.object(handler, "_send_message_async") as mock_send:
+                    await handler._run_debate_async(123, 456, "user", "Test debate topic here")
+
+                    mock_send.assert_called()
+                    # Check the message indicates failure
+                    call_args = mock_send.call_args_list[-1]
+                    assert "No agents" in call_args[0][1] or "failed" in call_args[0][1].lower()
+        finally:
+            for name, val in orig.items():
+                if val is _sentinel:
+                    try:
+                        delattr(_aragora_mod, name)
+                    except AttributeError:
+                        pass
+                else:
+                    setattr(_aragora_mod, name, val)
 
     @pytest.mark.asyncio
     async def test_run_debate_async_exception(self, handler):

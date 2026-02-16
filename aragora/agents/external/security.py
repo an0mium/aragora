@@ -445,7 +445,7 @@ class ExternalAgentSecurityPolicy:
         if self._audit_logger:
             try:
                 self._audit_logger(event_type, data)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, OSError) as e:
                 logger.warning(f"Audit log failed: {e}")
         else:
             logger.info(f"AUDIT [{event_type}]: {data}")

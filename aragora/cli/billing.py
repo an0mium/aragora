@@ -125,7 +125,7 @@ def cmd_status_local(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError reading local usage: {e}")
         return 1
 
@@ -229,7 +229,7 @@ def cmd_usage_local(args: argparse.Namespace, period_start: datetime, period_end
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"\nError reading local usage: {e}")
         return 1
 

@@ -196,7 +196,7 @@ class CalibrationCostBridge:
 
         try:
             return self.calibration_tracker.get_calibration_summary(agent_name)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, AttributeError) as e:
             logger.warning(f"Failed to get calibration for {agent_name}: {e}")
             return None
 
@@ -217,7 +217,7 @@ class CalibrationCostBridge:
                     # Estimate calls (rough approximation)
                     api_calls = stats.get("api_calls", 1)
                     return total_cost / max(1, api_calls)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, ZeroDivisionError, AttributeError) as e:
             logger.debug(f"Could not get cost for {agent_name}: {e}")
 
         return Decimal("0")

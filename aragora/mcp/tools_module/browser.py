@@ -111,7 +111,7 @@ async def browser_navigate_tool(
 
     except ValueError as e:
         return {"success": False, "error": str(e)}
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser navigation failed: {e}")
         return {"success": False, "error": f"Navigation failed: {str(e)}"}
 
@@ -143,7 +143,7 @@ async def browser_click_tool(
             "error": result.error,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser click failed: {e}")
         return {"success": False, "error": f"Click failed: {str(e)}"}
 
@@ -175,7 +175,7 @@ async def browser_fill_tool(
             "error": result.error,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser fill failed: {e}")
         return {"success": False, "error": f"Fill failed: {str(e)}"}
 
@@ -209,7 +209,7 @@ async def browser_screenshot_tool(
             "selector": selector if selector else None,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser screenshot failed: {e}")
         return {"success": False, "error": f"Screenshot failed: {str(e)}"}
 
@@ -238,7 +238,7 @@ async def browser_get_text_tool(
             "selector": selector,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser get_text failed: {e}")
         return {"success": False, "error": f"Get text failed: {str(e)}"}
 
@@ -276,7 +276,7 @@ async def browser_extract_tool(
             "selectors": selector_map,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError, ValueError) as e:
         logger.error(f"Browser extract failed: {e}")
         return {"success": False, "error": f"Extract failed: {str(e)}"}
 
@@ -302,7 +302,7 @@ async def browser_execute_script_tool(
             "result": result,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError, ValueError) as e:
         logger.error(f"Browser execute_script failed: {e}")
         return {"success": False, "error": f"Script execution failed: {str(e)}"}
 
@@ -334,7 +334,7 @@ async def browser_wait_for_tool(
             "state": state,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser wait_for failed: {e}")
         return {"success": False, "error": f"Wait failed: {str(e)}"}
 
@@ -362,7 +362,7 @@ async def browser_get_html_tool(
             "length": len(html),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser get_html failed: {e}")
         return {"success": False, "error": f"Get HTML failed: {str(e)}"}
 
@@ -381,7 +381,7 @@ async def browser_close_tool() -> dict[str, Any]:
             "message": "Browser session closed",
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         logger.error(f"Browser close failed: {e}")
         return {"success": False, "error": f"Close failed: {str(e)}"}
 
@@ -408,7 +408,7 @@ async def browser_get_cookies_tool(
             "count": len(cookies),
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.error(f"Browser get_cookies failed: {e}")
         return {"success": False, "error": f"Get cookies failed: {str(e)}"}
 
@@ -429,7 +429,7 @@ async def browser_clear_cookies_tool() -> dict[str, Any]:
             "message": "Cookies cleared",
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         logger.error(f"Browser clear_cookies failed: {e}")
         return {"success": False, "error": f"Clear cookies failed: {str(e)}"}
 

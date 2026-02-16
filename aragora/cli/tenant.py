@@ -147,7 +147,7 @@ def cmd_list_local(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"\nError: {e}")
         return 1
 
@@ -225,7 +225,7 @@ def cmd_create_local(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"\nError: {e}")
         return 1
 
@@ -272,7 +272,7 @@ def cmd_delete_local(args: argparse.Namespace) -> int:
             print(f"\nTenant '{args.tenant}' not found.")
             return 1
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"\nError: {e}")
         return 1
 
@@ -361,7 +361,7 @@ def cmd_quota_get_local(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"\nError: {e}")
         return 1
 
@@ -505,7 +505,7 @@ def cmd_export_local(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"\nError: {e}")
         return 1
 

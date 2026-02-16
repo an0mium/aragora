@@ -57,7 +57,7 @@ def _safe_log(level: int, msg: str) -> None:
         return
     try:
         logger.log(level, msg)
-    except Exception as exc:  # noqa: F841
+    except Exception as exc:  # noqa: BLE001, F841 - intentional broad catch: logging may fail in any way during interpreter shutdown
         # Logging failed (likely during shutdown), ignore silently
         # Cannot log this error since logging itself failed
         # exc: captured for debugging if needed
@@ -321,7 +321,7 @@ class SchemaManager:
             try:
                 self.conn.executescript(initial_schema)
                 self.conn.commit()
-            except Exception as e:
+            except sqlite3.Error as e:
                 self.conn.rollback()
                 logger.error(f"[{self.module_name}] Schema initialization failed: {e}")
                 raise
@@ -357,7 +357,7 @@ class SchemaManager:
                     self.conn.commit()
                     current = migration.to_version
                     self.set_version(current)
-                except Exception as e:
+                except (sqlite3.Error, ValueError) as e:
                     self.conn.rollback()
                     logger.error(
                         f"[{self.module_name}] Migration to v{migration.to_version} failed: {e}"
@@ -655,7 +655,7 @@ class DatabaseManager:
             logger.error(f"Database error in DatabaseManager.connection(): {e}", exc_info=True)
             conn.rollback()
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
                 f"Non-database exception in DatabaseManager.connection(), rolling back: {type(e).__name__}: {e}"
@@ -681,7 +681,7 @@ class DatabaseManager:
             logger.error(f"Database error in DatabaseManager.transaction(): {e}", exc_info=True)
             conn.execute("ROLLBACK")
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
                 f"Non-database exception in transaction context, rolling back: {type(e).__name__}: {e}"
@@ -712,7 +712,7 @@ class DatabaseManager:
             )
             conn.rollback()
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             logger.warning(
                 f"Non-database exception in fresh_connection context, rolling back: {type(e).__name__}: {e}"
             )
@@ -834,11 +834,10 @@ class DatabaseManager:
         """
         try:
             self.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - intentional broad catch: __del__ runs during interpreter shutdown when any exception type is possible
             # Silently ignore errors during shutdown - logging may be unavailable
             # and we just want to close connections without raising
             _safe_log(logging.DEBUG, f"Error in DatabaseManager.__del__: {e}")
-            pass
 
     def __repr__(self) -> str:
         return f"DatabaseManager({self.db_path!r})"
@@ -1111,7 +1110,7 @@ class ConnectionPool:
             logger.error(f"Database error in ConnectionPool.connection(): {e}", exc_info=True)
             conn.rollback()
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - must rollback on any user code exception before re-raising
             # Rollback on any exception from user code, then re-raise unchanged
             logger.warning(
                 f"Non-database exception in ConnectionPool.connection(), rolling back: {type(e).__name__}: {e}"
@@ -1169,10 +1168,9 @@ class ConnectionPool:
         try:
             if not self._closed:
                 self.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - intentional broad catch: __del__ runs during interpreter shutdown when any exception type is possible
             # Silently ignore errors during shutdown
             _safe_log(logging.DEBUG, f"Error in ConnectionPool.__del__: {e}")
-            pass
 
     def __repr__(self) -> str:
         stats = self.stats()

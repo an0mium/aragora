@@ -31,7 +31,7 @@ async def _get_coordinator() -> Any:
 
         _coordinator = await ControlPlaneCoordinator.create()
         return _coordinator
-    except Exception as e:
+    except (ImportError, RuntimeError, OSError) as e:
         logger.warning(f"Could not create coordinator: {e}")
         return None
 
@@ -91,7 +91,7 @@ async def register_agent_tool(
                 "registered_at": agent.registered_at,
             },
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to register agent: {e}"}
 
 
@@ -119,7 +119,7 @@ async def unregister_agent_tool(agent_id: str) -> dict[str, Any]:
             "agent_id": agent_id,
             "message": "Agent unregistered" if success else "Agent not found",
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to unregister agent: {e}"}
 
 
@@ -182,7 +182,7 @@ async def list_registered_agents_tool(
             "count": len(agents),
             "filter": {"capability": capability, "only_available": only_available},
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to list agents: {e}"}
 
 
@@ -231,7 +231,7 @@ async def get_agent_health_tool(agent_id: str) -> dict[str, Any]:
                 else None
             ),
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to get agent health: {e}"}
 
 
@@ -311,7 +311,7 @@ async def submit_task_tool(
             "timeout_seconds": timeout_seconds,
             "message": "Task submitted successfully",
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to submit task: {e}"}
 
 
@@ -354,7 +354,7 @@ async def get_task_status_tool(task_id: str) -> dict[str, Any]:
             "error": task.error,
             "is_timed_out": task.is_timed_out(),
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to get task status: {e}"}
 
 
@@ -382,7 +382,7 @@ async def cancel_task_tool(task_id: str) -> dict[str, Any]:
             "task_id": task_id,
             "message": "Task cancelled" if success else "Task not found or already completed",
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to cancel task: {e}"}
 
 
@@ -428,7 +428,7 @@ async def list_pending_tasks_tool(
             "count": len(tasks),
             "filter": {"task_type": task_type} if task_type else None,
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to list pending tasks: {e}"}
 
 
@@ -467,7 +467,7 @@ async def get_control_plane_status_tool() -> dict[str, Any]:
             "config": stats.get("config", {}),
             "knowledge_mound": stats.get("knowledge_mound"),
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to get control plane status: {e}"}
 
 
@@ -513,7 +513,7 @@ async def trigger_health_check_tool(agent_id: str = "") -> dict[str, Any]:
                 "agents_available": len([a for a in agents if a.is_available()]),
                 "agents_offline": len([a for a in agents if not a.is_available()]),
             }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to trigger health check: {e}"}
 
 
@@ -550,7 +550,7 @@ async def get_resource_utilization_tool() -> dict[str, Any]:
             "tasks_by_type": scheduler_stats.get("by_type", {}),
             "tasks_by_priority": scheduler_stats.get("by_priority", {}),
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         return {"error": f"Failed to get resource utilization: {e}"}
 
 

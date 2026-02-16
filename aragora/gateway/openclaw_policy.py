@@ -456,7 +456,7 @@ class OpenClawPolicy:
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
                 logger.warning(f"Event callback failed: {e}")
 
     def add_rule(self, rule: PolicyRule) -> None:

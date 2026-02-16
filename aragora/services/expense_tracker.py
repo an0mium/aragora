@@ -460,7 +460,7 @@ class ExpenseTracker:
                 operation=f"expense_tracker.{operation}",
                 metadata={"service": "expense_tracker"},
             )
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to emit usage event: {e}")
 
     async def process_receipt(
@@ -568,9 +568,9 @@ class ExpenseTracker:
                     for page in reader.pages:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
-                except Exception as e:
+                except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(f"PDF extraction failed: {e}")
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"pdfplumber extraction failed: {e}")
 
         # Try image OCR with pytesseract if available
@@ -588,7 +588,7 @@ class ExpenseTracker:
                     "[Image OCR requires pytesseract - install with: pip install pytesseract]"
                 )
                 confidence = 0.0
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Image OCR failed: {e}")
 
         # Parse extracted text for receipt data
@@ -901,7 +901,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                     else:
                         logger.warning(f"OpenAI API error: {response.status_code}")
                         return None
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"LLM categorization failed: {e}")
             return None
 
@@ -1013,7 +1013,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                 result.synced_ids.append(expense.id)
                 logger.info(f"Synced expense {expense.id} to QBO as {qbo_id}")
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 result.failed_count += 1
                 result.failed_ids.append(expense.id)
                 result.errors.append(
@@ -1074,7 +1074,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
             logger.info(f"Created QBO expense {qbo_id} for expense {expense.id}")
             return qbo_id
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.exception(f"Failed to create QBO expense: {e}")
             # Return mock ID on failure so sync can continue
             return f"qbo_error_{uuid4().hex[:8]}"

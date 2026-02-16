@@ -80,7 +80,7 @@ async def _run_sica_cycle(
             SICAConfig,
             SICAImprover,
         )
-    except Exception as exc:
+    except (ImportError, RuntimeError) as exc:
         log_fn(f"[sica] Unavailable: {exc}")
         return {"status": "unavailable", "error": str(exc)}
 
@@ -184,7 +184,7 @@ async def context_handler(
                 "error": result.get("error"),
             }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Context phase error: {e}")
         raise
 
@@ -223,7 +223,7 @@ async def debate_handler(
         if learning_context_builder:
             try:
                 learning = learning_context_builder()
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to build learning context: {e}")
 
         result = await debate_phase.execute(
@@ -257,7 +257,7 @@ async def debate_handler(
                 "reason": "no_improvement_proposed",
             }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Debate phase error: {e}")
         raise
 
@@ -300,7 +300,7 @@ async def design_handler(
         if belief_context_builder:
             try:
                 belief = belief_context_builder()
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to build belief context: {e}")
 
         result = await design_phase.execute(
@@ -323,7 +323,7 @@ async def design_handler(
                 "phase": "design",
             }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Design phase error: {e}")
         raise
 
@@ -386,7 +386,7 @@ async def implement_handler(
                     "phase": "implement",
                 }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Implement phase error: {e}")
         raise
 
@@ -455,7 +455,7 @@ async def verify_handler(
             "sica": sica_result,
         }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Verify phase error: {e}")
         raise
 
@@ -545,7 +545,7 @@ async def commit_handler(
                 "reason": reason,
             }
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Commit phase error: {e}")
         raise
 
@@ -832,7 +832,7 @@ def create_handlers(
                 log_fn(
                     f"  [implement] GastownConvoyExecutor created with {len(implementers)} agents"
                 )
-        except Exception as exc:
+        except (ImportError, RuntimeError, TypeError) as exc:
             logger.warning("Failed to initialize GastownConvoyExecutor: %s", exc)
             executor = None
 
@@ -861,7 +861,7 @@ def create_handlers(
                     f"  [implement] ConvoyImplementExecutor created with "
                     f"{len(implementer_names)} agents"
                 )
-        except Exception as exc:
+        except (ImportError, RuntimeError, TypeError) as exc:
             logger.warning("Failed to initialize ConvoyImplementExecutor: %s", exc)
             executor = None
 
@@ -870,7 +870,7 @@ def create_handlers(
 
         try:
             return await generate_implement_plan(design, repo_path)
-        except Exception as exc:
+        except (RuntimeError, OSError, ValueError) as exc:
             if log_fn:
                 log_fn(f"  [implement] Plan generation failed, using fallback: {exc}")
             return create_single_task_plan(design, repo_path)

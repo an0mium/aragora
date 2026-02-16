@@ -671,7 +671,7 @@ class RecoveryProgressMonitor:
         if self._progress_callback:
             try:
                 self._progress_callback(progress)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Progress callback failed: {e}")
 
         return progress
@@ -754,7 +754,7 @@ class RecoveryProgressMonitor:
         if self._progress_callback:
             try:
                 self._progress_callback(progress)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Progress callback failed: {e}")
 
         return progress
@@ -816,7 +816,7 @@ class RecoveryProgressMonitor:
         if self._progress_callback:
             try:
                 self._progress_callback(progress)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Progress callback failed: {e}")
 
         return progress
@@ -862,7 +862,7 @@ class RecoveryProgressMonitor:
                     value = 1 if p == progress.phase else 0
                     RECOVERY_PHASE.labels(**labels, phase=p.value).set(value)
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to update recovery metrics: {e}")
 
     def health_check(self) -> dict[str, Any]:

@@ -67,7 +67,7 @@ async def query_memory_tool(
 
     except ImportError:
         logger.warning("Continuum memory not available")
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.warning(f"Memory query failed: {e}")
 
     return {
@@ -128,7 +128,7 @@ async def store_memory_tool(
 
     except ImportError:
         return {"error": "Continuum memory not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to store memory: {e}"}
 
 
@@ -166,7 +166,7 @@ async def get_memory_pressure_tool() -> dict[str, Any]:
 
     except ImportError:
         return {"error": "Continuum memory not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to get memory pressure: {e}"}
 
 

@@ -205,7 +205,7 @@ class BatchExplainabilityWorker:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:  # noqa: BLE001 - worker isolation
                 logger.error(f"Error in batch worker loop: {e}", exc_info=True)
                 await asyncio.sleep(poll_interval)
 
@@ -275,7 +275,7 @@ class BatchExplainabilityWorker:
                 f"Batch job {job_id} completed: {progress.succeeded}/{progress.total} succeeded"
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Batch job {job_id} failed: {e}", exc_info=True)
             await self._queue.fail(job_id=job_id, error=str(e))
         finally:
@@ -306,7 +306,7 @@ class BatchExplainabilityWorker:
                 progress.succeeded += 1
                 self._debates_processed += 1
 
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 progress.errors.append(
                     {
                         "debate_id": debate_id,

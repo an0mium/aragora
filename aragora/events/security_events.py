@@ -294,14 +294,14 @@ class SecurityEventEmitter:
         for handler in handlers:
             try:
                 await handler(event)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
                 logger.warning(f"Security event handler failed for {event.event_type.value}: {e}")
 
         # Notify global handlers
         for handler in self._global_handlers:
             try:
                 await handler(event)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
                 logger.warning(f"Global security event handler failed: {e}")
 
         # Auto-trigger debate for critical findings
@@ -546,7 +546,7 @@ async def trigger_security_debate(
     except ImportError as e:
         logger.warning(f"Arena not available for security debate: {e}")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.exception(f"Failed to run security debate: {e}")
         return None
 

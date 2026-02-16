@@ -214,7 +214,7 @@ class AutonomicExecutor:
                     recoverable=recoverable,
                     phase=phase,
                 )
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, ValueError) as e:
                 logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
 
     def _should_power_sample(self, agent: Agent, phase: str) -> bool:
@@ -252,7 +252,7 @@ class AutonomicExecutor:
                 temperature_schedule=temps,
                 timeout_seconds=float(getattr(cfg, "sample_timeout", 30.0)),
             )
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, AttributeError) as e:
             logger.debug("[Autonomic] Power sampling config resolution failed: %s", e)
             self._power_sampling_runtime_config = None
 
@@ -283,7 +283,7 @@ class AutonomicExecutor:
 
                 return _FuncScorer()
             return scorer
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, TypeError, ModuleNotFoundError) as e:
             logger.debug("[Autonomic] Failed to load custom scorer %s: %s", path, e)
             return None
 
@@ -296,7 +296,7 @@ class AutonomicExecutor:
                 from aragora.reasoning.sampling.power_sampling import PowerSampler
 
                 self._power_sampler = PowerSampler(config=self._power_sampling_runtime_config)
-            except Exception as e:
+            except (ImportError, RuntimeError, TypeError, ValueError) as e:
                 logger.debug("[Autonomic] Failed to initialize PowerSampler: %s", e)
                 self._power_sampler = None
         return self._power_sampler
@@ -329,7 +329,7 @@ class AutonomicExecutor:
         try:
             result = await sampler.sample_best_reasoning(generator, prompt, scorer)
             return result.best_response or await generator(prompt)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("[Autonomic] Power sampling failed: %s", e)
             return await generator(prompt)
 
@@ -390,7 +390,7 @@ class AutonomicExecutor:
         except (TypeError, ValueError, OSError) as e:
             # Expected telemetry issues: serialization, I/O
             logger.debug(f"[telemetry] Emission failed: {e}")
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             # Unexpected errors - log at warning level
             logger.warning(f"[telemetry] Unexpected emission error: {type(e).__name__}: {e}")
 

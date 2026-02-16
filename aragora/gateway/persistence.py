@@ -408,7 +408,7 @@ class FileGatewayStore:
                 try:
                     msg = _dict_to_message(msg_data)
                     self._messages[msg.message_id] = msg
-                except Exception as e:
+                except (KeyError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to load message: {e}")
 
             # Load devices
@@ -416,7 +416,7 @@ class FileGatewayStore:
                 try:
                     device = _dict_to_device(dev_data)
                     self._devices[device.device_id] = device
-                except Exception as e:
+                except (KeyError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to load device: {e}")
 
             # Load rules
@@ -424,7 +424,7 @@ class FileGatewayStore:
                 try:
                     rule = _dict_to_rule(rule_data)
                     self._rules[rule.rule_id] = rule
-                except Exception as e:
+                except (KeyError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to load rule: {e}")
 
             # Load sessions
@@ -433,7 +433,7 @@ class FileGatewayStore:
                     session_id = session_data.get("session_id")
                     if session_id:
                         self._sessions[session_id] = session_data
-                except Exception as e:
+                except (KeyError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to load session: {e}")
 
             logger.debug(
@@ -443,7 +443,7 @@ class FileGatewayStore:
             )
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse gateway state file: {e}")
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"Failed to load gateway state: {e}")
 
     async def _save(self, force: bool = False) -> None:
@@ -477,7 +477,7 @@ class FileGatewayStore:
             self._dirty = False
             self._last_save = now
             logger.debug(f"Saved gateway state to {self._path}")
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"Failed to save gateway state: {e}")
 
     async def save_message(self, message: InboxMessage) -> None:
@@ -761,7 +761,7 @@ class RedisGatewayStore:
                 try:
                     msg = _dict_to_message(json.loads(data))
                     messages.append(msg)
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
                     logger.warning(f"Failed to parse message: {e}")
         return messages
 
@@ -838,7 +838,7 @@ class RedisGatewayStore:
                 try:
                     device = _dict_to_device(json.loads(data))
                     devices.append(device)
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
                     logger.warning(f"Failed to parse device: {e}")
         return devices
 
@@ -882,7 +882,7 @@ class RedisGatewayStore:
                 try:
                     rule = _dict_to_rule(json.loads(data))
                     rules.append(rule)
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
                     logger.warning(f"Failed to parse rule: {e}")
         return rules
 
@@ -932,7 +932,7 @@ class RedisGatewayStore:
                     sess = json.loads(data)
                     if isinstance(sess, dict):
                         sessions.append(sess)
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
                     logger.warning(f"Failed to parse session: {e}")
         return sessions
 

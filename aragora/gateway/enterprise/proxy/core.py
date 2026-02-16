@@ -469,7 +469,7 @@ class EnterpriseProxy:
                 proxy_request = result
             except ProxyError:
                 raise
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided pre-request hook
                 logger.error(f"Pre-request hook failed: {e}")
                 raise ProxyError(
                     f"Pre-request hook failed: {e}",
@@ -486,12 +486,12 @@ class EnterpriseProxy:
                 skip_circuit_breaker=skip_circuit_breaker,
                 skip_retry=skip_retry,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             # Run error hooks
             for error_hook in self._error_hooks:
                 try:
                     await error_hook(proxy_request, e)
-                except Exception as hook_error:
+                except (RuntimeError, ValueError, TypeError) as hook_error:  # noqa: BLE001 - user-provided error hook
                     logger.error(f"Error hook failed: {hook_error}")
             raise
 
@@ -694,7 +694,7 @@ class EnterpriseProxy:
                 for hook in self._post_request_hooks:
                     try:
                         await hook(request, proxy_response)
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided post-request hook
                         logger.error(f"Post-request hook failed: {e}")
 
                 return proxy_response
@@ -791,7 +791,7 @@ class EnterpriseProxy:
                 consecutive_failures=0,
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             prev_result = self._health_results.get(framework)
             consecutive_failures = prev_result.consecutive_failures + 1 if prev_result else 1
 
@@ -823,7 +823,7 @@ class EnterpriseProxy:
                 if config.health_check_path:
                     try:
                         await self.check_health(name)
-                    except Exception as e:
+                    except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                         logger.error(f"Health check failed for {name}: {e}")
 
                     await asyncio.sleep(config.health_check_interval)

@@ -113,7 +113,7 @@ class PowerSamplingMixin:
             except asyncio.TimeoutError:
                 logger.warning(f"[{getattr(self, 'name', 'agent')}] Sample generation timed out")
                 return None
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 logger.warning(f"[{getattr(self, 'name', 'agent')}] Sample generation failed: {e}")
                 return None
 

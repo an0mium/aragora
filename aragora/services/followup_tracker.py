@@ -324,7 +324,7 @@ class FollowUpTracker:
                             logger.info(f"Reply received for follow-up {followup_id}")
                             break
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Error checking thread {thread_id}: {e}")
 
         return received_replies
@@ -401,10 +401,10 @@ class FollowUpTracker:
                         )
                         created.append(item)
 
-                except Exception as e:
+                except (ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Error processing message {msg_id}: {e}")
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Error auto-detecting sent emails: {e}")
 
         logger.info(f"Auto-detected {len(created)} emails needing follow-up")

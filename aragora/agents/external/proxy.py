@@ -329,7 +329,7 @@ class ExternalAgentProxy:
                 logger.warning(
                     f"{operation} timeout, attempt {attempt + 1}/{self._config.max_retries}"
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, ValueError) as e:
                 last_error = e
                 logger.warning(
                     f"{operation} failed: {e}, attempt {attempt + 1}/{self._config.max_retries}"

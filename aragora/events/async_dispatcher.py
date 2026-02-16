@@ -201,7 +201,7 @@ class AsyncWebhookDispatcher:
             else:
                 return False, response.status_code, f"HTTP {response.status_code}"
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"Async webhook delivery error for {webhook.url}: {e}")
             return False, 0, str(e)
 

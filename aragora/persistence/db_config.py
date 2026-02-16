@@ -229,7 +229,7 @@ def get_db_path(
                 db_type = DatabaseType(db_type.value)
             else:
                 db_type = DatabaseType(str(db_type))
-        except Exception as exc:
+        except (ValueError, KeyError) as exc:
             raise KeyError(db_type) from exc
 
     if mode == DatabaseMode.CONSOLIDATED:

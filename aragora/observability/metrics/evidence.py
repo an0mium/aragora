@@ -64,7 +64,7 @@ def init_evidence_metrics() -> None:
         _initialized = True
         logger.debug("Evidence metrics initialized")
 
-    except Exception as e:
+    except (ImportError, RuntimeError, TypeError, ValueError) as e:
         logger.warning(f"Failed to initialize evidence metrics: {e}")
         _init_noop_metrics()
         _initialized = True

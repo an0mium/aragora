@@ -628,8 +628,7 @@ class AuthorizationAuditor:
             ) as e:
                 logger.error(f"Error in audit handler: {e}")
                 # Continue to next handler
-            except Exception as e:
-                # Catch-all to ensure all handlers run even if one fails unexpectedly
+            except Exception as e:  # noqa: BLE001 - catch-all ensures all audit handlers run even if one fails unexpectedly
                 logger.error(f"Unexpected error in audit handler: {e}")
 
         # Buffer for batch processing

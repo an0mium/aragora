@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -586,14 +587,14 @@ class CostTracker:
         for callback in self._alert_callbacks:
             try:
                 callback(alert)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.error(f"Alert callback failed: {e}")
 
         # Store to Knowledge Mound if adapter configured
         if self._km_adapter:
             try:
                 self._km_adapter.store_alert(alert)
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to store alert to KM: {e}")
 
         logger.warning(f"budget_alert {alert.message}")
@@ -1034,7 +1035,7 @@ class CostTracker:
 
         try:
             return self._km_adapter.get_cost_patterns(workspace_id, agent_id)
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to query KM cost patterns: {e}")
             return {}
 
@@ -1060,7 +1061,7 @@ class CostTracker:
 
         try:
             return self._km_adapter.get_workspace_alerts(workspace_id, min_level, limit)
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
             logger.error(f"Failed to query KM alerts: {e}")
             return []
 
@@ -1136,7 +1137,7 @@ class CostTracker:
                             amount=anomaly_dict.get("actual", 0.0),
                             expected=anomaly_dict.get("expected", 0.0),
                         )
-                    except Exception as enforce_err:
+                    except (RuntimeError, OSError, sqlite3.Error, ValueError) as enforce_err:
                         logger.warning(
                             "Budget enforcement failed for critical anomaly: %s",
                             enforce_err,
@@ -1147,7 +1148,7 @@ class CostTracker:
             self._last_advisory[workspace_id] = advisory
 
             return stored, advisory
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, KeyError, TypeError) as e:
             logger.error(f"Failed to detect/store anomalies: {e}")
             return [], no_action
 
@@ -1234,7 +1235,7 @@ def get_cost_tracker() -> CostTracker:
         except (RuntimeError, ConnectionError) as e:
             logger.warning(f"UsageTracker initialization failed: {e}")
             usage_tracker = None
-        except Exception as e:
+        except (OSError, sqlite3.Error, ValueError, TypeError) as e:
             logger.exception(f"Unexpected error creating UsageTracker: {e}")
             usage_tracker = None
         _cost_tracker = CostTracker(usage_tracker=usage_tracker)
@@ -1248,7 +1249,7 @@ def get_cost_tracker() -> CostTracker:
             logger.info("CostTracker KM adapter wired for bidirectional sync")
         except ImportError:
             logger.debug("KM CostAdapter not available, cost tracking will run without KM sync")
-        except Exception as km_e:
+        except (RuntimeError, OSError, ConnectionError, ValueError, TypeError) as km_e:
             logger.warning(f"Failed to wire KM CostAdapter: {km_e}")
 
     return _cost_tracker

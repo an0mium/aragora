@@ -422,7 +422,7 @@ def cli_error_handler(verbose: bool = False):
                 sys.exit(130)
             except SystemExit:
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - CLI top-level error handler
                 handle_cli_error(e, verbose=verbose)
 
         return wrapper

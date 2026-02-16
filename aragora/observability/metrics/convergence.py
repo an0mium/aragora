@@ -63,7 +63,7 @@ def init_convergence_metrics() -> None:
     except (ImportError, ValueError):
         _init_noop_metrics()
         _initialized = True
-    except Exception as e:
+    except (RuntimeError, TypeError) as e:
         logger.warning(f"Failed to initialize convergence metrics: {e}")
         _init_noop_metrics()
         _initialized = True

@@ -963,7 +963,7 @@ class SecurityScanner:
                 report.findings.extend(findings)
                 report.files_scanned += 1
 
-            except Exception as e:
+            except (SyntaxError, ValueError, OSError) as e:
                 logger.warning(f"[{scan_id}] Error scanning {file_path}: {e}")
 
         report.lines_scanned = total_lines

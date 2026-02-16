@@ -207,7 +207,7 @@ class MigrationRunner:
             )
             logger.info(f"[{db_name}] Backup created: {backup.id}")
             return backup.id
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"[{db_name}] Failed to create backup: {e}")
             return None
 
@@ -231,7 +231,7 @@ class MigrationRunner:
             manager.restore_backup(backup_id, str(db_path))
             logger.info(f"Restored database from backup {backup_id}")
             return True
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to restore from backup {backup_id}: {e}")
             return False
 
@@ -489,7 +489,7 @@ class MigrationRunner:
         try:
             cursor = conn.execute("SELECT version, checksum FROM _migration_checksums")
             return {row[0]: row[1] for row in cursor.fetchall()}
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to get applied checksums: {type(e).__name__}: {e}")
             return {}
 
@@ -508,7 +508,7 @@ class MigrationRunner:
                 )
                 for row in cursor.fetchall()
             }
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to get applied migration details: {type(e).__name__}: {e}")
             return {}
 
@@ -635,7 +635,7 @@ class MigrationRunner:
 
                     logger.info(f"[{db_name}] Applied migration {migration.version} successfully")
 
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     conn.rollback()
                     errors.append(
                         {
@@ -830,7 +830,7 @@ class MigrationRunner:
                             (migration.version,),
                         )
                         conn.commit()
-                    except Exception as e:
+                    except (OSError, RuntimeError, ValueError) as e:
                         logger.warning(
                             "Failed to remove migration checksum for version %s: %s",
                             migration.version,
@@ -840,7 +840,7 @@ class MigrationRunner:
                     rolled_back.append(migration.version)
                     logger.info(f"[{db_name}] Rolled back migration {migration.version}")
 
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     conn.rollback()
                     errors.append(
                         {
@@ -985,7 +985,7 @@ class MigrationRunner:
                     "rolled_back": migration.version,
                 }
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 conn.rollback()
                 logger.error(f"[{db_name}] Rollback failed: {e}")
                 return {

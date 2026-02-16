@@ -315,7 +315,7 @@ class ExternalAgentAdapter(ABC):
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError) as e:
                 logger.warning(f"[{self.adapter_name}] Event emission failed: {e}")
 
     def _record_success(self) -> None:

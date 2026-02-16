@@ -81,7 +81,7 @@ async def benchmark_agent(
             name=f"bench_{agent_type}",
             role="proposer",
         )
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         print(f"  Error creating agent {agent_type}: {e}")
         result.errors = iterations
         return result
@@ -111,7 +111,7 @@ async def benchmark_agent(
         except (ConnectionError, RuntimeError) as e:
             print(f"  Iteration {i + 1}: Agent error - {e}")
             result.errors += 1
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             print(f"  Iteration {i + 1}: Unexpected error - {e}")
             result.errors += 1
 

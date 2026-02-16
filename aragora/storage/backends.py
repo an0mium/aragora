@@ -514,7 +514,7 @@ def get_database_backend(
 
             settings = get_settings()
             db_settings = settings.database
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
             logger.warning(f"Could not load settings, using SQLite: {e}")
             db_settings = None
 

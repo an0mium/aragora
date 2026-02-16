@@ -294,7 +294,7 @@ class FallbackChain:
                     fallback_reasons[agent_name] = FallbackReason.TIMEOUT
                     break  # Move to next agent
 
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     logger.warning(f"Agent {agent_name} failed on attempt {retry + 1}: {e}")
                     if retry < self._max_retries - 1:
                         await asyncio.sleep(self._retry_delay_ms / 1000)

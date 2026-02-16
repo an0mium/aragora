@@ -642,7 +642,7 @@ class AuthBridge:
 
         except AuthBridgeError:
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"Authentication verification failed: {e}")
             if self._enable_audit and context:
                 await self._log_audit(
@@ -690,7 +690,7 @@ class AuthBridge:
                 try:
                     claims = await provider._validate_id_token(token)
                     return self._claims_to_context(claims, TokenType.OIDC_ID)
-                except Exception as e:
+                except (ValueError, RuntimeError, KeyError) as e:
                     # Fall back to userinfo fetch with access token
                     logger.debug(
                         f"ID token validation failed, falling back to userinfo: {type(e).__name__}: {e}"
@@ -704,7 +704,7 @@ class AuthBridge:
 
         except AuthenticationError:
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"OIDC token verification failed: {e}")
             raise AuthenticationError(
                 f"OIDC token verification failed: {e}",
@@ -747,7 +747,7 @@ class AuthBridge:
 
         except AuthenticationError:
             raise
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"SAML assertion verification failed: {e}")
             raise AuthenticationError(
                 f"SAML assertion verification failed: {e}",
@@ -790,7 +790,7 @@ class AuthBridge:
                 metadata={"api_key_hash": key_hash},
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"API key verification failed: {e}")
             raise AuthenticationError(
                 f"API key verification failed: {e}",
@@ -824,7 +824,7 @@ class AuthBridge:
             for hook in self._lifecycle_hooks:
                 try:
                     await hook.on_session_expired(session)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                     logger.warning(f"Session expired hook failed: {e}")
             raise SessionExpiredError(session_id)
 
@@ -839,7 +839,7 @@ class AuthBridge:
         for hook in self._lifecycle_hooks:
             try:
                 await hook.on_session_accessed(session)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                 logger.warning(f"Session accessed hook failed: {e}")
 
         return session.auth_context
@@ -1223,7 +1223,7 @@ class AuthBridge:
             logger.info(f"Token exchanged for user {context.user_id} targeting {target_audience}")
             return result
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"Token exchange failed: {e}")
             raise AuthenticationError(
                 f"Token exchange failed: {e}",
@@ -1270,7 +1270,7 @@ class AuthBridge:
         for hook in self._lifecycle_hooks:
             try:
                 await hook.on_session_created(session, context)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                 logger.warning(f"Session created hook failed: {e}")
 
         if self._enable_audit:
@@ -1330,7 +1330,7 @@ class AuthBridge:
         for hook in self._lifecycle_hooks:
             try:
                 await hook.on_session_destroyed(session, reason)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                 logger.warning(f"Session destroyed hook failed: {e}")
 
         if self._enable_audit and session.auth_context:

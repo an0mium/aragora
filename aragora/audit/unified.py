@@ -302,7 +302,7 @@ class UnifiedAuditLogger:
         for handler in self._handlers:
             try:
                 handler(event)
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Audit handler error: {e}")
 
     def _dispatch_to_compliance(self, event: UnifiedAuditEvent) -> None:
@@ -342,7 +342,7 @@ class UnifiedAuditLogger:
                 ip_address=event.ip_address,
                 details=event.details,
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Compliance audit dispatch error: {e}")
 
     def _dispatch_to_privacy(self, event: UnifiedAuditEvent) -> None:
@@ -375,7 +375,7 @@ class UnifiedAuditLogger:
                 success=event.outcome == AuditOutcome.SUCCESS,
                 metadata=event.details,
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Privacy audit dispatch error: {e}")
 
     def _dispatch_to_rbac(self, event: UnifiedAuditEvent) -> None:
@@ -404,7 +404,7 @@ class UnifiedAuditLogger:
                     reason=event.reason,
                     context=event.details,
                 )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"RBAC audit dispatch error: {e}")
 
     def _dispatch_to_immutable(self, event: UnifiedAuditEvent) -> None:
@@ -421,7 +421,7 @@ class UnifiedAuditLogger:
                 resource=event.resource_id,
                 details=event.to_dict(),
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Immutable audit dispatch error: {e}")
 
     def _dispatch_to_middleware(self, event: UnifiedAuditEvent) -> None:
@@ -452,7 +452,7 @@ class UnifiedAuditLogger:
                 request_id=event.request_id,
                 ip_address=event.ip_address,
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Middleware audit dispatch error: {e}")
 
     # Convenience methods for common audit events

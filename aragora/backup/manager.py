@@ -421,7 +421,7 @@ class BackupManager:
                 backup_meta.duration_seconds,
             )
 
-        except Exception as e:
+        except (OSError, IOError, RuntimeError) as e:
             backup_meta.status = BackupStatus.FAILED
             backup_meta.error = str(e)
             self._backups[backup_id] = backup_meta
@@ -491,7 +491,7 @@ class BackupManager:
                 result.errors.append(
                     f"Checksum mismatch: expected {backup_meta.checksum}, got {current_checksum}"
                 )
-        except Exception as e:
+        except (OSError, IOError, RuntimeError) as e:
             result.verified = False
             result.errors.append(f"Checksum computation failed: {e}")
 
@@ -538,7 +538,7 @@ class BackupManager:
                 # Clean up
                 tmp_path.unlink()
 
-            except Exception as e:
+            except (OSError, IOError, RuntimeError) as e:
                 result.verified = False
                 result.errors.append(f"Restore test failed: {e}")
 
@@ -630,7 +630,7 @@ class BackupManager:
             self._emit_restore_metrics(backup_id, success=True)
             return True
 
-        except Exception as e:
+        except (OSError, IOError, RuntimeError) as e:
             logger.error("Restore failed: %s", e)
             self._emit_restore_metrics(backup_id, success=False)
             raise
@@ -710,7 +710,7 @@ class BackupManager:
                 del self._backups[backup_id]
                 deleted.append(backup_id)
 
-            except Exception as e:
+            except (OSError, IOError, RuntimeError) as e:
                 logger.error("Failed to delete backup %s: %s", backup_id, e)
 
         self._save_manifest()
@@ -1037,7 +1037,7 @@ class BackupManager:
                                 f"{safe_table}.{safe_col} has {null_count} NULL values"
                             )
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             result.valid = False
             result.data_type_errors.append(f"Integrity check failed: {e}")
         finally:
@@ -1081,7 +1081,7 @@ class BackupManager:
                         hasher.update(row_str.encode())
 
                     checksums[table] = hasher.hexdigest()
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     # Some tables may not have rowid (e.g., WITHOUT ROWID tables)
                     logger.warning(f"Could not compute checksum for table {table}: {e}")
                     checksums[table] = ""
@@ -1194,7 +1194,7 @@ class BackupManager:
             # Clean up
             tmp_path.unlink()
 
-        except Exception as e:
+        except (OSError, IOError, RuntimeError) as e:
             result.verified = False
             result.all_errors.append(f"Comprehensive verification failed: {e}")
 
@@ -1239,7 +1239,7 @@ class BackupManager:
                     self._backups = {
                         k: BackupMetadata.from_dict(v) for k, v in data.get("backups", {}).items()
                     }
-            except Exception as e:
+            except (OSError, ValueError, KeyError) as e:
                 logger.error("Failed to load manifest: %s", e)
                 self._backups = {}
 

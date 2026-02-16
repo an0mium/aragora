@@ -311,7 +311,7 @@ class ConsensusPhase:
         if ctx.hook_manager:
             try:
                 await ctx.hook_manager.trigger("pre_consensus", ctx=ctx, proposals=ctx.proposals)
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                 logger.debug("PRE_CONSENSUS hook failed: %s", e)
 
         consensus_mode = self.protocol.consensus if self.protocol else "none"
@@ -337,7 +337,7 @@ class ConsensusPhase:
                 timeout,
             )
             await self._handle_fallback_consensus(ctx, reason="timeout")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - phase isolation: consensus must never crash the debate
             category, msg, _ = _build_error_action(e, "consensus")
             logger.error(
                 "consensus_error mode=%s category=%s error=%s",
@@ -372,9 +372,9 @@ class ConsensusPhase:
                                 role="synthesis",
                                 round_num=(self.protocol.rounds if self.protocol else 3) + 1,
                             )
-                    except Exception as hook_err:
+                    except (RuntimeError, AttributeError, TypeError) as hook_err:  # noqa: BLE001 - phase isolation
                         logger.warning("on_message hook failed in fallback: %s", hook_err)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.error("synthesis_or_hooks_failed: %s", e, exc_info=True)
         finally:
             logger.info("consensus_phase_emitting_guaranteed_events")
@@ -403,7 +403,7 @@ class ConsensusPhase:
                     )
                 except RuntimeError:
                     logger.debug("No running event loop for POST_CONSENSUS hook")
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                 logger.debug("POST_CONSENSUS hook failed: %s", e)
 
         if self.hooks and "on_consensus" in self.hooks:
@@ -415,7 +415,7 @@ class ConsensusPhase:
                     synthesis=ctx.result.synthesis or "",
                 )
                 logger.debug("consensus_event_emitted reached=%s", ctx.result.consensus_reached)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001 - phase isolation
                 logger.warning("Failed to emit consensus event: %s", e)
 
         if self.hooks and "on_debate_end" in self.hooks:
@@ -426,7 +426,7 @@ class ConsensusPhase:
                     rounds=ctx.result.rounds_used,
                 )
                 logger.debug("debate_end_event_emitted duration=%.1fs", duration)
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001 - phase isolation
                 logger.warning("Failed to emit debate_end event: %s", e)
 
     async def _execute_consensus(self, ctx: "DebateContext", consensus_mode: str) -> None:
@@ -730,7 +730,7 @@ class ConsensusPhase:
                 judge_candidates = await self._select_judge.__self__.get_judge_candidates(
                     proposals, ctx.context_messages, max_candidates=3
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                 logger.debug("Failed to get judge candidates: %s", e)
 
         if not judge_candidates:
@@ -806,7 +806,7 @@ class ConsensusPhase:
 
             except asyncio.TimeoutError:
                 logger.warning("judge_timeout judge=%s timeout=%ss", judge.name, judge_timeout)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
                 logger.error("judge_error judge=%s error=%s: %s", judge.name, type(e).__name__, e)
 
         logger.warning("judge_all_failed tried=%s falling back to majority voting", tried_judges)
@@ -816,7 +816,7 @@ class ConsensusPhase:
             if result.consensus_reached:
                 logger.info("judge_fallback_majority_success")
                 return
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.warning("judge_fallback_majority_failed error=%s", e)
 
         await self._handle_fallback_consensus(ctx, reason="judge_and_majority_failed")
@@ -854,7 +854,7 @@ class ConsensusPhase:
                 judge_candidates = await self._select_judge.__self__.get_judge_candidates(
                     proposals, ctx.context_messages, max_candidates=3
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                 logger.debug("Failed to get judge candidates: %s", e)
 
         if not judge_candidates or len(judge_candidates) < 2:
@@ -935,7 +935,7 @@ class ConsensusPhase:
                 else:
                     await self._handle_fallback_consensus(ctx, reason="deliberation_rejected")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.error("judge_deliberation_error: %s", e)
             await self._handle_fallback_consensus(ctx, reason="deliberation_error")
 
@@ -975,7 +975,7 @@ class ConsensusPhase:
                     metric=0.8,
                 )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.error("single_judge_synthesis_error judge=%s: %s", judge.name, e)
             await self._handle_fallback_consensus(ctx, reason="synthesis_error")
 
@@ -1087,7 +1087,7 @@ class ConsensusPhase:
                 # Fall back to majority voting
                 await self._handle_majority_consensus(ctx)
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.error("byzantine_consensus_error: %s", e, exc_info=True)
             # Fall back to majority voting
             await self._handle_majority_consensus(ctx)
@@ -1237,7 +1237,7 @@ class ConsensusPhase:
                     )
                 else:
                     adjusted_votes.append(vote)
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, AttributeError) as e:  # noqa: BLE001 - phase isolation
                 logger.debug("Calibration adjustment failed for %s: %s", vote.agent, e)
                 adjusted_votes.append(vote)
 
@@ -1444,7 +1444,7 @@ class ConsensusPhase:
                             },
                         )
                     )
-                except Exception as e:
+                except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
                     logger.debug("formal_verification_event_error: %s", e)
 
         except asyncio.TimeoutError:
@@ -1461,7 +1461,7 @@ class ConsensusPhase:
                 "reason": "Formal verification module not available",
                 "is_verified": False,
             }
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:  # noqa: BLE001 - phase isolation
             logger.warning("formal_verification_error: %s", e)
             result.formal_verification = {
                 "status": "error",

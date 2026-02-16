@@ -395,7 +395,7 @@ class FindingVerifier:
                         )
                     )
 
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.error(f"Error getting verification from {agent_name}: {e}")
                 # Add abstain vote on error
                 votes.append(

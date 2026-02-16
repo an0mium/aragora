@@ -288,7 +288,7 @@ class OpenClawAdapter:
                 result = callback(session, "created")
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided session callback
                 logger.error(f"Session callback error: {e}")
 
         return session
@@ -378,7 +378,7 @@ class OpenClawAdapter:
                 result = callback(session, "closed")
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided session callback
                 logger.error(f"Session callback error: {e}")
 
         return session
@@ -768,7 +768,7 @@ class OpenClawAdapter:
                 action_id,
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.exception(f"Action {action_id} failed")
             action_result = ActionResult(
                 action_id=action_id,
@@ -794,7 +794,7 @@ class OpenClawAdapter:
                 cb_result = callback(action_result)
                 if asyncio.iscoroutine(cb_result):
                     await cb_result
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided action callback
                 logger.error(f"Action callback error: {e}")
 
         return action_result
@@ -1021,7 +1021,7 @@ class OpenClawAdapter:
                 actor_id,
                 permission,
             )
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError) as e:
             # Fallback to sync check
             logger.debug(
                 f"Async permission check failed, falling back to sync: {type(e).__name__}: {e}"
@@ -1050,7 +1050,7 @@ class OpenClawAdapter:
                 details,
                 severity,
             )
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError) as e:
             # Fallback to sync log
             logger.debug(f"Async audit log failed, falling back to sync: {type(e).__name__}: {e}")
             self.audit_logger.log(

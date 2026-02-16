@@ -80,7 +80,7 @@ async def trigger_external_webhook_tool(
     except ImportError:
         logger.warning(f"{platform} integration not available")
         return {"error": f"{platform} integration module not available"}
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to trigger {platform} webhook: {e}")
         return {"error": "Webhook trigger failed"}
 
@@ -123,7 +123,7 @@ async def list_integrations_tool(
             ]
     except ImportError:
         logger.debug("Zapier integration not available")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to list Zapier integrations: {e}")
 
     try:
@@ -144,7 +144,7 @@ async def list_integrations_tool(
             ]
     except ImportError:
         logger.debug("Make integration not available")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to list Make integrations: {e}")
 
     try:
@@ -165,7 +165,7 @@ async def list_integrations_tool(
             ]
     except ImportError:
         logger.debug("n8n integration not available")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to list n8n integrations: {e}")
 
     # Calculate totals
@@ -243,7 +243,7 @@ async def test_integration_tool(
 
     except ImportError:
         return {"error": f"{platform} integration module not available"}
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to test {platform} integration: {e}")
         return {"error": "Integration test failed"}
 
@@ -301,7 +301,7 @@ async def get_integration_events_tool(
 
     except ImportError:
         return {"error": f"{platform} integration module not available"}
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.error(f"Failed to get {platform} events: {e}")
         return {"error": "Failed to retrieve integration events"}
 

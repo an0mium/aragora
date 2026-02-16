@@ -276,7 +276,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
 
             return
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             if requested_api:
                 print(f"API run failed: {e}", file=sys.stderr)
                 raise SystemExit(1)
@@ -320,7 +320,7 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
                 role=role,
             )
             agents.append(agent)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             failed_agents.append((agent_type, str(e)))
             print(f"Warning: Could not create agent {agent_type}: {e}")
 
@@ -515,7 +515,7 @@ Examples:
     except ImportError:
         # Gauntlet personas module not available - use defaults
         persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.debug(f"Could not load personas, using defaults: {e}")
         persona_choices = ["gdpr", "hipaa", "ai_act", "security", "sox"]
     gauntlet_parser.add_argument(

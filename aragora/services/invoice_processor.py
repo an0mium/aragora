@@ -430,7 +430,7 @@ class InvoiceProcessor:
                 operation=f"invoice_processor.{operation}",
                 metadata={"service": "invoice_processor"},
             )
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to emit usage event: {e}")
 
     async def extract_invoice_data(
@@ -542,9 +542,9 @@ class InvoiceProcessor:
                     for page in reader.pages:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
-                except Exception as e:
+                except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(f"PDF extraction failed: {e}")
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"pdfplumber extraction failed: {e}")
 
         # Try image OCR with pytesseract
@@ -560,7 +560,7 @@ class InvoiceProcessor:
                 logger.info("pytesseract not available - install for image OCR")
                 extracted_text = "[Image OCR requires pytesseract]"
                 confidence = 0.0
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Image OCR failed: {e}")
 
         # Parse extracted text for invoice data

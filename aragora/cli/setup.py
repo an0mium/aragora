@@ -126,7 +126,7 @@ def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
 
     except ImportError:
         return True, "Stored (httpx not installed for validation)"
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
         return False, f"Connection error: {str(e)[:50]}"
 
 

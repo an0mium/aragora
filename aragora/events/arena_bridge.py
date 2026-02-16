@@ -117,7 +117,7 @@ class ArenaEventBridge:
         try:
             stream_event = self._convert_to_stream_event(event, stream_event_type)
             self._cross_manager._dispatch_event(stream_event)
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.warning(f"ArenaEventBridge dispatch failed: {e}")
 
     def _convert_to_stream_event(

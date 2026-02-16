@@ -124,7 +124,7 @@ class NaiveBayesClassifier:
         except FileNotFoundError:
             logger.warning(f"Model file not found: {path}")
             return False
-        except Exception as e:
+        except OSError as e:
             logger.warning(f"Failed to load model: {e}")
             return False
 

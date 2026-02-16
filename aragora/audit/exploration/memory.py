@@ -158,7 +158,7 @@ class ExplorationMemory:
         if embed_fn:
             try:
                 stored.embedding = await embed_fn(f"{insight.title}: {insight.description}")
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to compute embedding: {e}")
 
         # Store in tier
@@ -190,7 +190,7 @@ class ExplorationMemory:
                         "tags": insight.tags,
                     },
                 )
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to store in ContinuumMemory: {e}")
 
         return stored

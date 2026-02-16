@@ -378,7 +378,7 @@ class ContextRelevanceAgent(BaseDebateAgent):
                     score += 0.1
                     signals.append("Sender in knowledge base")
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Context query failed: {e}")
 
         # Check for project keywords (would integrate with actual project tracking)

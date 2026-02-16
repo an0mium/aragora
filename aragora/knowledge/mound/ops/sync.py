@@ -23,6 +23,7 @@ pattern for proper type checking without runtime overhead.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import TYPE_CHECKING, Any, Protocol
@@ -486,7 +487,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         )
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning("Failed to create request for fact %s: %s", fact.id, e)
                         errors.append(f"facts:{fact.id}: request creation failed")
@@ -502,7 +503,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to query facts: %s", e)
             errors.append("facts:query: query failed")
 
@@ -577,7 +578,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         )
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning("Failed to create request for evidence %s: %s", ev.id, e)
                         errors.append(f"evidence:{ev.id}: request creation failed")
@@ -593,7 +594,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to search evidence: %s", e)
             errors.append("evidence:search: search failed")
 
@@ -672,7 +673,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         )
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning(
                             "Failed to create request for critique pattern %s: %s", pattern.id, e
@@ -690,7 +691,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to search critique patterns: %s", e)
             errors.append("critique:search: search failed")
 
@@ -846,7 +847,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     )
                     requests.append(request)
 
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                     nodes_skipped += 1
                     logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
                     errors.append(f"continuum:{entry.id}: request creation failed")
@@ -861,7 +862,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                 nodes_skipped += skipped
                 errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to retrieve continuum entries: %s", e)
             errors.append("continuum:retrieve: retrieval failed")
 
@@ -987,7 +988,7 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, KeyError, IndexError, json.JSONDecodeError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning("Failed to create request for consensus record %s: %s", row[0], e)
                         errors.append(f"consensus:{row[0]}: request creation failed")
@@ -1003,7 +1004,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to query consensus records: %s", e)
             errors.append("consensus:query: query failed")
 
@@ -1112,7 +1113,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         )
                         requests.append(request)
 
-                    except Exception as e:
+                    except (RuntimeError, ValueError, AttributeError, KeyError) as e:  # noqa: BLE001 - adapter isolation
                         nodes_skipped += 1
                         logger.warning("Failed to create request for fact %s: %s", fact.id, e)
                         errors.append(f"facts:{fact.id}: request creation failed")
@@ -1128,7 +1129,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                     relationships_created += rels
                     errors.extend(batch_errors)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning("Failed to query facts: %s", e)
             errors.append("facts:query: query failed")
 

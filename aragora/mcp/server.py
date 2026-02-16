@@ -47,7 +47,7 @@ try:
     )
 
     MCP_AVAILABLE = True
-except Exception:  # pragma: no cover - handled by MCP_AVAILABLE flag
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - handled by MCP_AVAILABLE flag
     MCP_AVAILABLE = False
     Tool = TextContent = TextResourceContents = Resource = ResourceTemplate = None  # type: ignore[assignment,misc]
     ListToolsRequest = ListToolsResult = None  # type: ignore[assignment,misc]
@@ -319,7 +319,7 @@ class AragoraMCPServer:
             if isinstance(result, Awaitable):
                 result = await result
             return result if isinstance(result, dict) else {"result": result}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - MCP tool dispatch must catch all to return error dict
             logger.exception("Tool %s failed", name)
             return {"error": f"Tool execution failed: {e}"}
 
@@ -579,7 +579,7 @@ def main() -> None:
         asyncio.run(run_server(transport=args.transport))
     except SystemExit:
         raise
-    except Exception as e:
+    except (OSError, RuntimeError, ImportError) as e:
         logger.error("MCP server failed: %s", e)
         raise SystemExit(1) from e
 

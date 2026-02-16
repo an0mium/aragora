@@ -306,7 +306,7 @@ class ComputerUseOrchestrator:
             return
         try:
             callback(step_result)
-        except Exception as exc:
+        except (RuntimeError, ValueError, AttributeError) as exc:  # user-supplied callback
             logger.debug("Computer-use progress callback failed: %s", exc)
 
     async def run_task(
@@ -511,7 +511,7 @@ class ComputerUseOrchestrator:
             result.error = "Task timeout"
             self._metrics.failed_tasks += 1
 
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             result.status = TaskStatus.FAILED
             result.error = str(e)
             self._metrics.failed_tasks += 1

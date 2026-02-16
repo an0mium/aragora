@@ -176,7 +176,7 @@ class ApprovalFlow:
         if self.notification_callback:
             try:
                 self.notification_callback(request)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - User-supplied callback must not crash the approval flow
                 logger.error(f"Notification callback failed: {e}")
 
         logger.info(f"Approval requested: {request_id} - {title} ({risk_level} risk)")
@@ -340,7 +340,7 @@ class ApprovalFlow:
                 rejection_reason=data.get("rejection_reason"),
                 metadata=data.get("metadata", {}),
             )
-        except Exception as e:
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to load approval request {request_id}: {e}")
             return None
 
@@ -415,7 +415,7 @@ class RollbackManager:
             )
             if result.returncode == 0:
                 point.git_commit = result.stdout.strip()
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning(f"Failed to capture git commit: {e}")
 
         # Backup specific files
@@ -468,7 +468,7 @@ class RollbackManager:
                     if Path(backup_path).exists():
                         shutil.copy2(backup_path, original_path)
                         logger.info(f"Restored file: {original_path}")
-                except Exception as e:
+                except OSError as e:
                     logger.error(f"Failed to restore {original_path}: {e}")
                     success = False
 
@@ -486,7 +486,7 @@ class RollbackManager:
                     success = False
                 else:
                     logger.info(f"Git reset to: {point.git_commit}")
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as e:
                 logger.error(f"Failed to reset git: {e}")
                 success = False
 
@@ -563,7 +563,7 @@ class RollbackManager:
                     metadata=data.get("metadata", {}),
                 )
                 self._rollback_points.append(point)
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError, OSError) as e:
                 logger.warning(f"Failed to load rollback point from {path}: {e}")
 
     def _cleanup_old_points(self) -> None:
@@ -685,7 +685,7 @@ class CodeVerifier:
                 ast.parse(content)
             except SyntaxError as e:
                 errors.append(f"{file_path}:{e.lineno}: {e.msg}")
-            except Exception as e:
+            except (OSError, UnicodeDecodeError) as e:
                 errors.append(f"{file_path}: {str(e)}")
 
         return errors
@@ -709,7 +709,7 @@ class CodeVerifier:
             )
             if result.stdout:
                 warnings = result.stdout.strip().split("\n")
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning(f"Lint check failed: {e}")
 
         return warnings
@@ -770,7 +770,7 @@ class CodeVerifier:
         except subprocess.TimeoutExpired:
             logger.warning("Test execution timed out")
             return {"total": 0, "passed": 0, "failed": 0, "timeout": True}
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning(f"Test execution failed: {e}")
             return {"total": 0, "passed": 0, "failed": 0, "error": str(e)}
 
@@ -800,7 +800,7 @@ class CodeVerifier:
                     for line in result.stdout.strip().split("\n")
                     if line and not line.startswith("[")
                 ]
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning(f"Security scan failed: {e}")
 
         return issues

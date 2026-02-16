@@ -100,6 +100,5 @@ def emit_handler_event(
 
     try:
         dispatch_fn(event_type, data)
-    except Exception as e:
-        # Never let event emission break handler logic
+    except Exception as e:  # noqa: BLE001 - intentional broad catch: event emission must never break handler logic
         logger.debug("Failed to emit handler event %s: %s", event_type, e)

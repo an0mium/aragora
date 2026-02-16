@@ -226,7 +226,7 @@ class WebhookNotifier(ApprovalNotifier):
                 )
                 if response.status_code >= 400:
                     logger.warning(f"Webhook failed: {response.status_code}")
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             logger.error(f"Webhook error: {e}")
 
     async def notify_request(self, request: ApprovalRequest) -> None:
@@ -547,7 +547,7 @@ class ApprovalWorkflow:
                     await notifier.notify_decision(request)
                 elif event_type == "expiry":
                     await notifier.notify_expiry(request)
-            except Exception as e:
+            except (RuntimeError, OSError, TimeoutError) as e:
                 logger.error(f"Notifier error: {e}")
 
     async def get_request(self, request_id: str) -> ApprovalRequest | None:

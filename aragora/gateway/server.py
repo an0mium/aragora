@@ -732,7 +732,7 @@ class LocalGateway:
         # Send protocol challenge to align with OpenClaw connection flow.
         try:
             await ws.send_json(protocol.create_challenge_event())
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.debug("Failed to send WebSocket challenge: %s", e)
 
         # Add to subscribers
@@ -795,7 +795,7 @@ class LocalGateway:
             if not ws.closed:
                 try:
                     await ws.send_json(event)
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
                     logger.debug(f"Failed to send to WebSocket subscriber: {type(e).__name__}: {e}")
                     self._ws_subscribers.discard(ws)
 
@@ -903,7 +903,7 @@ class LocalGateway:
                 if not ws.closed:
                     try:
                         await ws.close(code=1001, message=b"Server shutting down")
-                    except Exception as exc:
+                    except (OSError, ConnectionError, RuntimeError) as exc:
                         logger.debug("Cleanup failed during shutdown: %s", exc)
             logger.info(f"Closed {ws_count} WebSocket connection(s)")
 
@@ -915,7 +915,7 @@ class LocalGateway:
                 await store.close()
             if session_store and session_store is not store:
                 await session_store.close()
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Error closing stores: {e}")
 
         # Phase 4: Stop HTTP server

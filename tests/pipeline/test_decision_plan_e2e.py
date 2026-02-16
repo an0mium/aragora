@@ -543,7 +543,7 @@ class TestMemoryIntegration:
 
         # Create mock that raises an error
         broken_continuum = MagicMock()
-        broken_continuum.store = AsyncMock(side_effect=Exception("DB connection failed"))
+        broken_continuum.store = AsyncMock(side_effect=ConnectionError("DB connection failed"))
 
         # Should not raise, should handle gracefully
         results = await record_plan_outcome(

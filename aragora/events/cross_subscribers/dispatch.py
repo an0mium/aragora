@@ -148,7 +148,7 @@ class DispatchMixin:
                         if name in self._stats:
                             self._stats[name].events_skipped += 1
                         continue
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError) as e:
                     logger.warning(f"Filter error for {name}: {e}")
 
             # Apply sampling
@@ -175,7 +175,7 @@ class DispatchMixin:
                     handler(event)
                     success = True
                     break
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - intentional broad catch for event handler isolation
                     retries += 1
                     if retries <= retry_config.max_retries:
                         # Calculate backoff delay

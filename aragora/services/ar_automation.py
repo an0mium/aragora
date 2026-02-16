@@ -505,7 +505,7 @@ class ARAutomation:
                 text_body=text_body,
             )
             return success
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Error sending invoice email: {e}")
             return False
 
@@ -795,7 +795,7 @@ class ARAutomation:
                 text_body=text_body,
             )
             return success
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Error sending reminder email: {e}")
             return False
 

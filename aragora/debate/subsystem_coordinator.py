@@ -500,7 +500,7 @@ class SubsystemCoordinator:
         except ImportError:
             logger.debug("SDPO not available - skipping SDPO initialization")
             self._init_errors.append("SDPO import failed")
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
             logger.warning("SDPO auto-init failed: %s", e)
             self._init_errors.append(f"SDPO init failed: {e}")
 
@@ -882,7 +882,7 @@ class SubsystemCoordinator:
                     priority=1,
                 )
                 logger.debug("Registered ContinuumAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("ContinuumAdapter registration failed: %s", e)
 
         # 2. ELO adapter (ranking adjustments)
@@ -896,7 +896,7 @@ class SubsystemCoordinator:
                     priority=2,
                 )
                 logger.debug("Registered ELOAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("ELOAdapter registration failed: %s", e)
 
         # 3. Belief adapter (belief network calibration)
@@ -910,7 +910,7 @@ class SubsystemCoordinator:
                     priority=3,
                 )
                 logger.debug("Registered BeliefAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("BeliefAdapter registration failed: %s", e)
 
         # 4. Insights adapter (flip detection thresholds)
@@ -924,7 +924,7 @@ class SubsystemCoordinator:
                     priority=4,
                 )
                 logger.debug("Registered InsightsAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("InsightsAdapter registration failed: %s", e)
 
         # 5. Critique adapter (pattern boosting)
@@ -938,7 +938,7 @@ class SubsystemCoordinator:
                     priority=5,
                 )
                 logger.debug("Registered CritiqueAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("CritiqueAdapter registration failed: %s", e)
 
         # 6. Pulse adapter (topic scheduling feedback)
@@ -952,7 +952,7 @@ class SubsystemCoordinator:
                     priority=6,
                 )
                 logger.debug("Registered PulseAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("PulseAdapter registration failed: %s", e)
 
         # 7. Obsidian adapter (optional local vault ingestion)
@@ -966,7 +966,7 @@ class SubsystemCoordinator:
                     priority=0,
                 )
                 logger.debug("Registered ObsidianAdapter with KM coordinator")
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("ObsidianAdapter registration failed: %s", e)
 
         registered = (
@@ -990,7 +990,7 @@ class SubsystemCoordinator:
         if self.moment_detector and isinstance(self.moment_detector, Resettable):
             try:
                 self.moment_detector.reset()
-            except Exception as e:
+            except (RuntimeError, AttributeError, TypeError) as e:
                 logger.debug("MomentDetector reset failed: %s", e)
 
     def on_round_complete(
@@ -1017,7 +1017,7 @@ class SubsystemCoordinator:
                         debate_id=ctx.debate_id,
                         round_num=round_num,
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                     logger.debug("Position recording failed: %s", e)
 
     def on_debate_complete(
@@ -1066,7 +1066,7 @@ class SubsystemCoordinator:
                     agreeing_agents=participants,  # Simplified: assume all agree at consensus
                     metadata={"debate_id": ctx.debate_id},
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
                 logger.warning("Consensus memory update failed: %s", e)
 
         # Update calibration if agents made predictions
@@ -1094,7 +1094,7 @@ class SubsystemCoordinator:
                         domain=ctx.domain,
                         debate_id=ctx.debate_id,
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.debug("Calibration update failed: %s", e)
 
         # SDPO retrospective learning from debate trajectory
@@ -1126,7 +1126,7 @@ class SubsystemCoordinator:
                         "confidence": confidence,
                     },
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
                 logger.debug("Continuum memory update failed: %s", e)
 
         # Update selection feedback loop with debate outcome
@@ -1147,7 +1147,7 @@ class SubsystemCoordinator:
                     domain=getattr(ctx, "domain", "general") or "general",
                     confidence=confidence,
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.debug("Selection feedback loop update failed: %s", e)
 
     # ---------------------------------------------------------------------
@@ -1162,7 +1162,7 @@ class SubsystemCoordinator:
         except RuntimeError:
             try:
                 asyncio.run(coro)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.debug("Failed to run async task: %s", e)
 
     def _build_sdpo_trajectory(
@@ -1173,7 +1173,7 @@ class SubsystemCoordinator:
         """Construct an SDPO trajectory from debate messages."""
         try:
             from aragora.agents.learning.sdpo import TrajectoryRecord, ActionType
-        except Exception as e:
+        except (ImportError, AttributeError) as e:
             logger.debug("SDPO types unavailable: %s", e)
             return None
 
@@ -1250,7 +1250,7 @@ class SubsystemCoordinator:
                 self.sdpo_learner.update_calibration(insights)
             if self.sdpo_bridge is not None:
                 await self.sdpo_bridge.sync_trajectory_to_calibration(trajectory)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("SDPO trajectory processing failed: %s", e)
 
     # =========================================================================
@@ -1280,7 +1280,7 @@ class SubsystemCoordinator:
             # Extract relevant dissents from the result dict
             dissents = result.get("relevant_dissents", [])
             return dissents[:limit]
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.debug("Dissent retrieval failed: %s", e)
             return []
 
@@ -1340,7 +1340,7 @@ class SubsystemCoordinator:
                 content = summary or mem.content
                 lines.append(f"- {content}")
             return "\n".join(lines)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("Continuum context retrieval failed: %s", e)
             return ""
 

@@ -63,7 +63,7 @@ async def search_evidence_tool(
 
     except ImportError:
         logger.warning("Evidence collector not available")
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.warning(f"Evidence search failed: {e}")
 
     return {
@@ -128,7 +128,7 @@ async def cite_evidence_tool(
             "citation_count": len(citations),
         }
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, KeyError) as e:
         logger.warning("Failed to add citation: %s", e)
         return {"error": "Failed to add citation"}
 
@@ -163,7 +163,7 @@ async def verify_citation_tool(
             }
     except asyncio.TimeoutError:
         return {"url": url, "valid": False, "error": "Timeout"}
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError) as e:
         logger.warning("Citation verification failed for %s: %s", url, e)
         return {"url": url, "valid": False, "error": "Verification failed"}
 

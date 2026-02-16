@@ -356,7 +356,7 @@ class SecureDeviceRegistry:
                 await asyncio.sleep(self._heartbeat_interval)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Error in presence monitor: {e}")
                 await asyncio.sleep(self._heartbeat_interval)
 
@@ -377,7 +377,7 @@ class SecureDeviceRegistry:
                     if self._on_device_offline:
                         try:
                             self._on_device_offline(device.device_id)
-                        except Exception as e:
+                        except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided offline callback
                             logger.error(f"Error in offline callback: {e}")
 
     async def heartbeat(self, device_id: str) -> bool:

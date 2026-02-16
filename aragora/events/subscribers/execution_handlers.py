@@ -82,7 +82,7 @@ class ExecutionHandlersMixin:
                 latency_ms,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.error("PLAN_COMPLETED handler error: %s", e)
             self.stats.setdefault("plan_completed", {"events": 0, "errors": 0})
             self.stats["plan_completed"]["errors"] += 1
@@ -131,7 +131,7 @@ class ExecutionHandlersMixin:
                 latency_ms,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.error("PLAN_FAILED handler error: %s", e)
             self.stats.setdefault("plan_failed", {"events": 0, "errors": 0})
             self.stats["plan_failed"]["errors"] += 1
@@ -196,7 +196,7 @@ class ExecutionHandlersMixin:
 
         except ImportError:
             logger.debug("EloSystem not available for execution feedback")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as e:
             logger.debug("ELO update from execution outcome failed: %s", e)
 
     @staticmethod
@@ -234,5 +234,5 @@ class ExecutionHandlersMixin:
 
         except ImportError:
             logger.debug("KnowledgeBridgeHub not available for MetaLearner feedback")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.debug("MetaLearner feedback failed: %s", e)

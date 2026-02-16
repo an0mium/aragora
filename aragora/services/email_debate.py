@@ -253,7 +253,7 @@ class EmailDebateService:
             reputation = await history.get_sender_reputation(user_id, sender)
             if reputation:
                 return reputation.reputation_score
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to get sender reputation: {e}")
         return None
 
@@ -342,7 +342,7 @@ Consider:
                 duration=elapsed,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Debate failed: {e}")
             return self._fallback_prioritization(email, sender_reputation)
 
@@ -477,7 +477,7 @@ Consider:
             async with semaphore:
                 try:
                     return await self.prioritize_email(email, user_id)
-                except Exception as e:
+                except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                     errors.append(f"{email.message_id}: {e}")
                     return None
 

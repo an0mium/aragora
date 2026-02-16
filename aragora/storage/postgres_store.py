@@ -470,7 +470,7 @@ async def acquire_connection_resilient(
                 f"pool utilization: {pool.get_size()}/{pool.get_max_size()}"
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError) as e:
             _pool_metrics["failed_acquisitions"] += 1
             last_error = e
 

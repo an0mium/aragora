@@ -229,7 +229,7 @@ class ReplicaAwarePool:
                         max_size=self._max_size,
                     )
                     logger.info("Primary PostgreSQL pool initialized")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
                     logger.error(f"Failed to initialize primary pool: {e}")
                     raise
 
@@ -246,7 +246,7 @@ class ReplicaAwarePool:
                     self._replica_pools.append(pool)
                     self._replica_health[dsn] = ReplicaHealth(dsn=dsn)
                     logger.info(f"Replica pool initialized: {dsn[:30]}...")
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(f"Failed to initialize replica pool {dsn[:30]}...: {e}")
 
             if self._replica_pools:
@@ -368,7 +368,7 @@ class ReplicaAwarePool:
                 await self._check_replica_health()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Health check failed: {e}")
 
     async def _check_replica_health(self) -> None:
@@ -394,7 +394,7 @@ class ReplicaAwarePool:
                 health.latency_ms = (time.perf_counter() - start) * 1000
                 health.last_check = time.time()
 
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError, asyncio.TimeoutError) as e:
                 health.consecutive_failures += 1
                 if health.consecutive_failures >= 3:
                     health.healthy = False

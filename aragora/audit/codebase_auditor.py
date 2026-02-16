@@ -267,7 +267,7 @@ class CodebaseAuditor:
                         }
                     )
 
-            except Exception as e:
+            except (SyntaxError, ValueError, OSError) as e:
                 logger.warning(f"[{session_id}] Failed to process {file_path}: {e}")
 
         logger.info(f"[{session_id}] Created {len(all_chunks)} chunks, {total_tokens:,} tokens")
@@ -336,7 +336,7 @@ class CodebaseAuditor:
             )
             findings = await self.consistency_auditor.audit(chunks, mock_session)
             return findings
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Consistency audit failed: {e}")
             return []
 
@@ -587,7 +587,7 @@ class CodebaseAuditor:
                             "file_type": file_path.suffix,
                         }
                     )
-            except Exception as e:
+            except (SyntaxError, ValueError, OSError) as e:
                 logger.warning(f"Failed to process {file_path}: {e}")
 
         # Run pattern audits only for speed
@@ -631,7 +631,7 @@ class CodebaseAuditor:
                 timeout=30,
             )
             changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"[{session_id}] Failed to get git diff: {e}")
             return IncrementalAuditResult(
                 session_id=session_id,
@@ -655,7 +655,7 @@ class CodebaseAuditor:
                 )
                 untracked = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
                 changed_files.extend(untracked)
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"[{session_id}] Failed to get untracked files: {e}")
 
         # Filter to auditable files

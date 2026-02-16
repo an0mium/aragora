@@ -214,7 +214,7 @@ class VoiceWakeManager:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Error in listen loop for {device_id}: {e}")
                 await asyncio.sleep(1.0)
 
@@ -511,7 +511,7 @@ class VoiceWakeManager:
                     await callback(event)
                 else:
                     callback(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"Wake callback error: {e}")
 
     async def _notify_command_processed(self, command: VoiceCommand) -> None:
@@ -522,7 +522,7 @@ class VoiceWakeManager:
                     await callback(command)
                 else:
                     callback(command)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"Command callback error: {e}")
 
     async def _notify_state_change(
@@ -537,7 +537,7 @@ class VoiceWakeManager:
                     await callback(device_id, state)
                 else:
                     callback(device_id, state)
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"State callback error: {e}")
 
     # ========== Device State ==========

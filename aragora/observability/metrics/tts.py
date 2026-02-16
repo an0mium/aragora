@@ -58,7 +58,7 @@ def init_tts_metrics() -> None:
         _initialized = True
         logger.debug("TTS metrics initialized")
 
-    except Exception as e:
+    except (ImportError, RuntimeError, TypeError, ValueError) as e:
         logger.warning(f"Failed to initialize TTS metrics: {e}")
         _init_noop_metrics()
         _initialized = True

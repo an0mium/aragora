@@ -368,7 +368,7 @@ class EmailPrioritizer:
         sender_addresses = list({email.from_address for email in emails if email.from_address})
         try:
             sender_profiles = await self._get_sender_profiles_batch(sender_addresses)
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to batch load sender profiles: {e}")
             sender_profiles = {}
 
@@ -445,7 +445,7 @@ class EmailPrioritizer:
         if self.sender_history and self.user_id:
             try:
                 is_blocked = await self.sender_history.is_blocked(self.user_id, email_address)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to check blocklist for {email_address}: {e}")
 
         # Create profile
@@ -473,7 +473,7 @@ class EmailPrioritizer:
                         profile.last_interaction = datetime.fromisoformat(
                             history["last_interaction"]
                         )
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to load sender history: {e}")
 
         self._sender_profiles[email_address] = profile
@@ -528,7 +528,7 @@ class EmailPrioritizer:
                     for addr, result in zip(uncached_addresses, results):
                         if isinstance(result, bool) and result:
                             blocked_addresses.add(addr)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to batch check blocklist: {e}")
 
         # Batch load sender histories from knowledge mound
@@ -536,7 +536,7 @@ class EmailPrioritizer:
         if self.mound:
             try:
                 sender_histories = await self._load_sender_histories_batch(uncached_addresses)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to batch load sender histories: {e}")
 
         # Pre-compute VIP and internal domain lookups (case-insensitive)
@@ -618,7 +618,7 @@ class EmailPrioritizer:
                     if result and hasattr(result, "items") and result.items:
                         histories[addr] = result.items[0].metadata
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Batch sender history load failed: {e}")
 
         return histories
@@ -636,7 +636,7 @@ class EmailPrioritizer:
             )
             if results and hasattr(results, "items") and results.items:
                 return results.items[0].metadata
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"No sender history found: {e}")
 
         return None
@@ -669,7 +669,7 @@ class EmailPrioritizer:
             )
             return result
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Threat check failed for email {email.id}: {e}")
             return None
 
@@ -902,7 +902,7 @@ Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]""
                 time_sensitivity_score=tier_1_result.time_sensitivity_score,
             )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Tier 2 scoring failed, using Tier 1 result: {e}")
             tier_1_result.tier_used = ScoringTier.TIER_2_LIGHTWEIGHT
             tier_1_result.rationale += " (Tier 2 fallback to rules)"
@@ -985,7 +985,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     agent_dissent=result.dissent if hasattr(result, "dissent") else None,
                 )
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Tier 3 debate failed, using Tier 2 result: {e}")
             tier_2_result.tier_used = ScoringTier.TIER_3_DEBATE
             tier_2_result.rationale += " (Tier 3 fallback to lightweight)"
@@ -1072,7 +1072,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     logger.debug(f"Service registry unavailable, creating temporary instance: {e}")
                     history_service = SenderHistoryService()
                     await history_service.initialize()
-                except Exception as e:
+                except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(f"Unexpected error getting history service: {e}")
                     history_service = SenderHistoryService()
                     await history_service.initialize()
@@ -1095,7 +1095,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                         "labels": email.labels,
                     },
                 )
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to record sender history: {e}")
 
         # Store action in knowledge mound for learning
@@ -1116,7 +1116,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     },
                 )
                 await self.mound.store(request)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to store in knowledge mound: {e}")
 
         # Update sender profile if we have the email
@@ -1132,7 +1132,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                     )
 
                 profile.last_interaction = datetime.now()
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to update sender profile: {e}")
 
 

@@ -145,7 +145,7 @@ class RedisTTLCache(Generic[T]):
                 self._misses += 1
                 self._redis_misses += 1
                 return None
-            except Exception as e:
+            except (ConnectionError, OSError, json.JSONDecodeError, TypeError, ValueError) as e:
                 logger.debug(f"Redis get failed, using fallback: {e}")
                 # Fall through to memory cache
 

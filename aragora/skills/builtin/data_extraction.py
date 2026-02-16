@@ -202,7 +202,7 @@ class DataExtractionSkill(Skill):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.exception(f"Data extraction failed: {e}")
             return SkillResult.create_failure(f"Extraction failed: {e}")
 

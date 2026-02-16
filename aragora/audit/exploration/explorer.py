@@ -161,7 +161,7 @@ class DocumentExplorer:
         if self.event_emitter:
             try:
                 await self.event_emitter.emit(event, data)
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to emit event {event}: {e}")
 
     async def explore(
@@ -224,7 +224,7 @@ class DocumentExplorer:
         except asyncio.TimeoutError:
             logger.warning(f"Exploration timed out after {self.config.total_timeout}s")
             session.completed_at = datetime.now(timezone.utc)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"Exploration failed: {e}")
             session.completed_at = datetime.now(timezone.utc)
             raise
@@ -273,7 +273,7 @@ class DocumentExplorer:
 
                 logger.info(f"Loaded {len(chunks)} chunks from {doc_id}")
 
-            except Exception as e:
+            except (ValueError, OSError, RuntimeError) as e:
                 logger.warning(f"Failed to load document {doc_id}: {e}")
 
         await self._emit(

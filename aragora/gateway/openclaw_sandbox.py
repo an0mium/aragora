@@ -299,7 +299,7 @@ class OpenClawActionSandbox:
             workspace = Path(session.workspace_path)
             if workspace.exists():
                 shutil.rmtree(workspace.parent)  # Remove sandbox directory
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.warning(f"Failed to clean up workspace: {e}")
 
         session.status = "terminated"
@@ -418,7 +418,7 @@ class OpenClawActionSandbox:
                 error=f"Command timed out after {timeout}s",
                 execution_time_ms=(time.time() - start_time) * 1000,
             )
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error(f"Command execution failed: {e}")
             return SandboxActionResult(
                 success=False,
@@ -485,7 +485,7 @@ class OpenClawActionSandbox:
                 execution_time_ms=(time.time() - start_time) * 1000,
             )
 
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return SandboxActionResult(
                 success=False,
                 action_id=action_id,
@@ -561,7 +561,7 @@ class OpenClawActionSandbox:
                 execution_time_ms=(time.time() - start_time) * 1000,
             )
 
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return SandboxActionResult(
                 success=False,
                 action_id=action_id,
@@ -628,7 +628,7 @@ class OpenClawActionSandbox:
                 execution_time_ms=(time.time() - start_time) * 1000,
             )
 
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             return SandboxActionResult(
                 success=False,
                 action_id=action_id,
@@ -745,7 +745,7 @@ class OpenClawActionSandbox:
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
                 logger.warning(f"Event callback failed: {e}")
 
     async def cleanup_all(self) -> int:

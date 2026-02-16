@@ -219,7 +219,7 @@ class PlaywrightActionExecutor:
                 await self._browser.close()
             if self._playwright:
                 await self._playwright.stop()
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             logger.warning(f"Error stopping executor: {e}")
 
         self._page = None
@@ -282,7 +282,7 @@ class PlaywrightActionExecutor:
                         error=f"Unknown action type: {action.action_type}",
                     )
 
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             self._error_count += 1
             logger.exception(f"Action {action.action_id} failed: {e}")
             return ActionResult(
@@ -341,7 +341,7 @@ class PlaywrightActionExecutor:
         try:
             await self._page.goto(url)
             return True
-        except Exception as e:
+        except (RuntimeError, OSError, TimeoutError) as e:
             logger.error(f"Navigation failed: {e}")
             return False
 

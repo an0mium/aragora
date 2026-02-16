@@ -370,7 +370,7 @@ class ReconciliationService:
                 include_pending=False,
             )
             return txns
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"[Reconciliation] Failed to fetch bank transactions: {e}")
             return []
 
@@ -393,7 +393,7 @@ class ReconciliationService:
             expenses = await self.qbo.list_expenses(start_dt, end_dt)
 
             return invoices + expenses
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"[Reconciliation] Failed to fetch book transactions: {e}")
             return []
 
@@ -594,7 +594,7 @@ Format: EXPLANATION: ... ACTION: ... CONFIDENCE: ..."""
 
         except ImportError:
             logger.warning("[Reconciliation] Debate arena not available")
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"[Reconciliation] Agent resolution failed: {e}")
 
     async def resolve_discrepancy(

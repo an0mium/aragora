@@ -176,7 +176,7 @@ class SandboxExecutor:
                 status=ExecutionStatus.TIMEOUT,
                 error_message=f"Execution timed out after {timeout} seconds",
             )
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.exception(f"Sandbox execution error: {e}")
             return ExecutionResult(
                 execution_id=execution_id,
@@ -430,7 +430,7 @@ class SandboxExecutor:
                 stderr=asyncio.subprocess.DEVNULL,
             )
             return True
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Failed to kill Docker container sandbox-%s: %s", execution_id, e)
 
         return False

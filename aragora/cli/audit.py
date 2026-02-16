@@ -290,7 +290,7 @@ async def list_presets(args: Any, use_api: bool, server_url: str, api_key: str |
                 )
                 print()
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -381,7 +381,7 @@ async def show_preset(args: Any, use_api: bool, server_url: str, api_key: str | 
                     category = rule.get("category", "general")
                     print(f"  [{severity}] {title} ({category})")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -462,7 +462,7 @@ async def list_types(args: Any, use_api: bool, server_url: str, api_key: str | N
                 print(f"    Capabilities: {', '.join(caps) or 'none'}")
                 print()
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -505,7 +505,7 @@ async def create_audit(args: Any, use_api: bool, server_url: str, api_key: str |
             print(f"Session created: {response.session_id}")
             print(f"Run: aragora audit start {response.session_id}")
             return 0
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             print(f"Error: {e}")
             return 1
 
@@ -542,7 +542,7 @@ async def create_audit(args: Any, use_api: bool, server_url: str, api_key: str |
         print(f"Session created: {session.id}")
         print(f"Run: aragora audit start {session.id}")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -572,7 +572,7 @@ async def start_audit(args: Any, use_api: bool, server_url: str, api_key: str | 
 
         print(f"Completed: {len(result.findings)} findings")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -605,7 +605,7 @@ async def audit_status(args: Any, use_api: bool, server_url: str, api_key: str |
         print(f"Progress: {session.progress * 100:.0f}%")
         print(f"Findings: {len(session.findings)}")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -650,7 +650,7 @@ async def audit_findings(args: Any, use_api: bool, server_url: str, api_key: str
             for f in findings:
                 print(f"[{f.severity.value}] {f.title}")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -706,7 +706,7 @@ async def export_audit(args: Any, use_api: bool, server_url: str, api_key: str |
             json.dump(report, f, indent=2, default=str)
         print(f"Exported to: {args.output}")
         return 0
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 
@@ -818,6 +818,6 @@ async def generate_report(args: Any, use_api: bool, server_url: str, api_key: st
         if "weasyprint" in str(e).lower():
             print("For PDF support, install weasyprint: pip install weasyprint")
         return 1
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         print(f"Error generating report: {e}")
         return 1

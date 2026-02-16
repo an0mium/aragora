@@ -116,7 +116,7 @@ def _encrypt_secret(secret: str) -> str:
         service = get_encryption_service()
         encrypted = service.encrypt(secret)
         return encrypted.to_base64()
-    except (EncryptionError, ValueError, TypeError, AttributeError, OSError) as e:
+    except (EncryptionError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError(
                 "encrypt",
@@ -141,7 +141,7 @@ def _decrypt_secret(encrypted_secret: str) -> str:
     try:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_secret)
-    except (EncryptionError, ValueError, TypeError, AttributeError, OSError) as e:
+    except (EncryptionError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
         return encrypted_secret  # Return as-is if decryption fails
 

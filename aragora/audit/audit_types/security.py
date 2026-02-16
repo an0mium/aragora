@@ -343,7 +343,7 @@ If no issues found, respond with empty array: []"""
                 except json.JSONDecodeError as e:
                     logger.debug("Failed to parse JSON data: %s", e)
 
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, OSError, RuntimeError) as e:
             logger.debug(f"LLM security analysis skipped: {e}")
 
         return findings

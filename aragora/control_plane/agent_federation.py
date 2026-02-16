@@ -243,7 +243,7 @@ class FederatedAgentPool:
                 await self._discover_remote_agents()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"[FederatedAgentPool] Discovery error: {e}")
 
     async def _discover_remote_agents(self) -> None:
@@ -278,7 +278,7 @@ class FederatedAgentPool:
                 f"[FederatedAgentPool] Published {len(self.list_local_agents())} agents for discovery"
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"[FederatedAgentPool] Discovery broadcast failed: {e}")
 
     async def _health_check_loop(self) -> None:
@@ -289,7 +289,7 @@ class FederatedAgentPool:
                 await self._check_agent_health()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"[FederatedAgentPool] Health check error: {e}")
 
     async def _check_agent_health(self) -> None:
@@ -376,7 +376,7 @@ class FederatedAgentPool:
                         agent.last_success_at = time.time()
                         agent.consecutive_failures = 0
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.error(f"[FederatedAgentPool] Error handling remote event: {e}")
 
     def find_agents(
@@ -560,7 +560,7 @@ class FederatedAgentPool:
                     },
                 )
                 await self._event_bus.publish(event)
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"[FederatedAgentPool] Failed to broadcast agent registration: {e}")
 
         logger.info(f"[FederatedAgentPool] Registered agent {agent_id}")
@@ -599,7 +599,7 @@ class FederatedAgentPool:
                         },
                     )
                     await self._event_bus.publish(event)
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(
                         f"[FederatedAgentPool] Failed to broadcast agent unregistration: {e}"
                     )

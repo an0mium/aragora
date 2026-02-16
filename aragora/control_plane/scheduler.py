@@ -435,7 +435,7 @@ class TaskScheduler:
                     error=str(e),
                 )
                 self._redis = None
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - redis-specific exceptions are not subclasses of built-in types
                 # Catch redis-specific exceptions (RedisConnectionError, RedisTimeoutError)
                 # These are not subclasses of built-in exceptions
                 error_name = type(e).__name__
@@ -845,7 +845,7 @@ class TaskScheduler:
                 side_effect = getattr(self._redis.get, "side_effect", None)
                 if isinstance(side_effect, list):
                     self._redis.get.side_effect = iter(side_effect)
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 logger.debug(f"Mock side_effect normalization skipped: {e}")
             data = await self._redis.get(key)
             if data:

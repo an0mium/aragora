@@ -73,7 +73,7 @@ async def fetch_channel_context_tool(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to fetch channel context: {e}")
         return {
             "error": str(e),
@@ -143,7 +143,7 @@ async def fetch_debate_context_tool(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, ImportError) as e:
         logger.error(f"Failed to fetch debate context: {e}")
         return {
             "error": str(e),
@@ -248,7 +248,7 @@ async def get_thread_context_tool(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to fetch thread context: {e}")
         return {"error": str(e), "thread_id": thread_id}
 
@@ -294,7 +294,7 @@ async def get_user_context_tool(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         logger.error(f"Failed to fetch user context: {e}")
         return {"error": str(e), "user_id": user_id}
 
@@ -437,7 +437,7 @@ def _analyze_activity(messages: list[dict[str, Any]]) -> dict[str, Any]:
                     timestamps.append(datetime.fromisoformat(ts.replace("Z", "+00:00")))
                 elif isinstance(ts, datetime):
                     timestamps.append(ts)
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.debug("Could not parse timestamp %r: %s", ts, e)
 
     activity: dict[str, Any] = {

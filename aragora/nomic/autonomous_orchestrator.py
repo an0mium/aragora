@@ -564,7 +564,7 @@ class AutonomousOrchestrator:
                     config=curriculum_config,
                 )
                 logger.info("SOAR curriculum enabled for autonomous orchestrator")
-            except Exception as e:
+            except (ImportError, RuntimeError) as e:
                 logger.debug("SOAR curriculum unavailable: %s" % e)
 
         # Concurrency semaphore for parallel task execution
@@ -689,7 +689,7 @@ class AutonomousOrchestrator:
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.warning("orchestration_failed", orchestration_id=self._orchestration_id, error_type=type(e).__name__)
 
@@ -833,7 +833,7 @@ class AutonomousOrchestrator:
             for task in done:
                 try:
                     await task
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     logger.exception(f"Task failed: {e}")
 
         # Merge completed branches and cleanup worktrees
@@ -1013,7 +1013,7 @@ class AutonomousOrchestrator:
                         assignment.status = "failed"
                         await self._update_bead_status(subtask.id, "failed")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("assignment_failed", subtask_id=subtask.id, error_type=type(e).__name__)
             assignment.status = "failed"
             assignment.result = {"error": f"Assignment execution failed: {type(e).__name__}"}
@@ -1597,7 +1597,7 @@ class AutonomousOrchestrator:
         except ImportError:
             logger.debug("DecisionPlanFactory not available, using standard workflow")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"Failed to build DecisionPlan workflow: {e}")
             return None
 
@@ -1659,7 +1659,7 @@ class AutonomousOrchestrator:
                 bead_count=len(beads),
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Failed to create convoy: {e}")
 
     async def _update_bead_status(
@@ -1683,7 +1683,7 @@ class AutonomousOrchestrator:
                 await self.workspace_manager.complete_bead(bead_id)
             elif status == "failed":
                 await self.workspace_manager.fail_bead(bead_id, error or "Unknown error")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.debug(f"Failed to update bead {bead_id}: {e}")
 
     async def _complete_convoy(
@@ -1703,7 +1703,7 @@ class AutonomousOrchestrator:
             else:
                 tracker = self.workspace_manager._convoy_tracker
                 await tracker.fail_convoy(self._convoy_id, error or "Orchestration failed")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.debug(f"Failed to complete convoy: {e}")
 
     def _hierarchical_to_orchestration_result(

@@ -434,7 +434,7 @@ class NudgeRouter:
                 result = callback(message)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                 logger.error(f"Callback error for agent {agent_id}: {e}")
 
     async def get_pending_count(self, agent_id: str) -> int:
@@ -465,7 +465,7 @@ class NudgeRouter:
                 await self._cleanup_expired()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.error(f"Cleanup error: {e}")
 
     async def _cleanup_expired(self) -> int:

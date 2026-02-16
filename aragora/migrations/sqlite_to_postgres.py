@@ -687,7 +687,7 @@ class MigrationOrchestrator:
                 f"Migrated {result.rows_migrated} rows for {table} ({result.rows_skipped} skipped)"
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - data migration must capture all DB driver errors (asyncpg, sqlite3) and type coercion failures
             result.errors.append(f"Migration error: {e}")
             logger.exception(f"Error migrating table {table} from {db_path.name}")
         finally:
@@ -709,7 +709,7 @@ class MigrationOrchestrator:
             try:
                 await conn.executemany(insert_sql, batch)
                 result.rows_migrated += len(batch)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - asyncpg raises various driver-specific errors; fallback to row-by-row insert
                 error_msg = str(e)
                 # Try row-by-row on batch failure to maximize migration
                 if "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
@@ -721,7 +721,7 @@ class MigrationOrchestrator:
                         try:
                             await conn.execute(insert_sql, *row)
                             migrated += 1
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - individual row insert may fail with any asyncpg error; skip and continue
                             logger.debug("Skipped row during migration of table %s: %s", table, exc)
                             skipped += 1
                     result.rows_migrated += migrated
@@ -808,7 +808,7 @@ class MigrationOrchestrator:
             try:
                 row = await conn.fetchval(f'SELECT COUNT(*) FROM "{table}"')  # noqa: S608
                 result.rows_total_target = row or 0
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 result.errors.append(f"Verification error: {e}")
 
         return result
@@ -830,7 +830,7 @@ class MigrationOrchestrator:
                 await conn.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')  # noqa: S608
                 logger.info(f"Rolled back table: {table}")
                 return True
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to rollback table {table}: {e}")
                 return False
 
@@ -908,7 +908,7 @@ class MigrationOrchestrator:
                             logger.info(f"[DRY RUN] Schema for {table}:\n{ddl}")
                         db_result.tables.append(table_result)
                         continue
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
                     table_result = TableMigrationResult(
                         database=db_path.name,
                         table=table,

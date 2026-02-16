@@ -254,7 +254,7 @@ class ProcessSandbox(SandboxBackend):
                 completed_at=datetime.now(timezone.utc),
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             instance["state"] = SandboxState.FAILED
             logger.error(f"Process sandbox execution failed: {e}")
             return SandboxExecution(
@@ -277,7 +277,7 @@ class ProcessSandbox(SandboxBackend):
             try:
                 instance["process"].kill()
                 await instance["process"].wait()
-            except Exception as e:
+            except (OSError, ProcessLookupError) as e:
                 logger.debug(f"Failed to kill sandbox process: {type(e).__name__}: {e}")
 
         # Clean up work directory
@@ -285,7 +285,7 @@ class ProcessSandbox(SandboxBackend):
         if work_dir and os.path.exists(work_dir):
             try:
                 shutil.rmtree(work_dir)
-            except Exception as e:
+            except (OSError, PermissionError) as e:
                 logger.warning(f"Failed to clean up sandbox dir: {e}")
 
         del self._instances[instance_id]
@@ -331,7 +331,7 @@ class DockerSandbox(SandboxBackend):
             proc.kill()
             await proc.wait()
             return False
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.debug(f"Docker availability check failed: {type(e).__name__}: {e}")
             return False
 
@@ -418,7 +418,7 @@ class DockerSandbox(SandboxBackend):
             logger.info(f"Created Docker sandbox: {instance_id}")
             return instance_id
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error(f"Failed to create Docker sandbox: {e}")
             raise
 
@@ -515,7 +515,7 @@ class DockerSandbox(SandboxBackend):
                 completed_at=datetime.now(timezone.utc),
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             logger.error(f"Docker sandbox execution failed: {e}")
             return SandboxExecution(
                 execution_id=instance_id,

@@ -226,7 +226,7 @@ def traced_job(
                 span.set_tag("job.traced", True)
                 try:
                     return await fn(*args, **kwargs)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - span error recording before re-raising
                     span.set_error(exc)
                     raise
 

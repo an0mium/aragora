@@ -316,7 +316,7 @@ class QueryPlanAnalyzer:
                         plan_details=plan_text[:500],
                     )
 
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError, ValueError) as e:
             logger.debug(f"EXPLAIN analysis failed: {e}")
 
         return None

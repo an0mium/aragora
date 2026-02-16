@@ -102,7 +102,7 @@ async def query_knowledge_tool(
                         }
                         for edge in graph_result.edges[:5]
                     ]
-                except Exception as exc:
+                except (RuntimeError, ValueError, OSError, AttributeError) as exc:
                     logger.debug("Failed to retrieve knowledge relationships: %s", exc)
                     result_item["relationships"] = []
 
@@ -110,7 +110,7 @@ async def query_knowledge_tool(
 
     except ImportError:
         logger.warning("Knowledge Mound not available")
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.error(f"Knowledge query failed: {e}")
         return {
             "error": "Knowledge query failed",
@@ -199,7 +199,7 @@ async def store_knowledge_tool(
     except ImportError:
         logger.warning("Knowledge Mound not available")
         return {"error": "Knowledge Mound module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Failed to store knowledge: {e}")
         return {"error": "Failed to store knowledge"}
 
@@ -246,7 +246,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
             "error": "Knowledge Mound module not available",
             "total_nodes": 0,
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.error(f"Failed to get knowledge stats: {e}")
         return {"error": "Failed to retrieve knowledge stats"}
 
@@ -331,7 +331,7 @@ async def get_decision_receipt_tool(
 
         return receipt
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, KeyError) as e:
         logger.error(f"Failed to generate decision receipt: {e}")
         return {"error": "Receipt generation failed"}
 
@@ -380,7 +380,7 @@ async def verify_decision_receipt_tool(
 
         return result
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Receipt verification failed: {e}")
         return {"error": "Receipt verification failed"}
 
@@ -431,7 +431,7 @@ async def build_decision_integrity_tool(
         )
         return package.to_dict()
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, ImportError) as e:
         logger.error(f"Failed to build decision integrity package: {e}")
         return {"error": "Decision integrity build failed"}
 

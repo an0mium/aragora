@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -313,7 +314,7 @@ class ContainerPool:
             self._state = PoolState.RUNNING
             logger.info(f"Container pool started with {len(self._containers)} containers")
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"Failed to start container pool: {e}")
             self._state = PoolState.STOPPED
             raise
@@ -438,7 +439,7 @@ class ContainerPool:
                         duration_ms = (time.time() - start) * 1000
                         self._record_acquire_time(duration_ms)
                         return container
-                    except Exception as e:
+                    except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                         logger.warning(f"Failed to create container: {e}")
 
             # Wait briefly before retrying
@@ -628,7 +629,7 @@ class ContainerPool:
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Failed to cleanup partial container %s: %s", container_name, e)
 
     async def _destroy_container(self, container_id: str) -> None:
@@ -654,7 +655,7 @@ class ContainerPool:
             await asyncio.wait_for(proc.wait(), timeout=10.0)
             logger.debug(f"Destroyed container {container_id}")
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning(f"Failed to destroy container {container_id}: {e}")
 
     # ==========================================================================
@@ -669,7 +670,7 @@ class ContainerPool:
                 await self._run_health_checks()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.error(f"Health check error: {e}")
 
     async def _run_health_checks(self) -> None:
@@ -713,7 +714,7 @@ class ContainerPool:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
             return stdout.decode().strip().lower() == "true"
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.debug(f"Container health check failed: {type(e).__name__}: {e}")
             return False
 
@@ -725,7 +726,7 @@ class ContainerPool:
                 await self._cleanup_expired_containers()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.error(f"Cleanup error: {e}")
 
     async def _cleanup_expired_containers(self) -> None:
@@ -764,7 +765,7 @@ class ContainerPool:
                 await self._scale_pool()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.error(f"Scaling error: {e}")
 
     async def _scale_pool(self) -> None:

@@ -350,7 +350,7 @@ class CrossChannelContextService:
                 presence = await self.slack.get_user_presence(slack_user_id)
                 signal.is_online = presence.get("presence") == "active"
                 signal.activity_score += 0.2 if signal.is_online else 0.0
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to get Slack presence: {e}")
 
             # Get recent messages from user
@@ -384,7 +384,7 @@ class CrossChannelContextService:
                         signal.urgent_threads = [m.get("ts") for m in messages[:urgent_count]]
                         signal.activity_score += min(0.2, urgent_count * 0.05)
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to search Slack messages: {e}")
 
             # Get mentions of this user
@@ -395,7 +395,7 @@ class CrossChannelContextService:
                 )
                 signal.recent_mentions = len(mentions) if mentions else 0
                 signal.activity_score += min(0.2, signal.recent_mentions * 0.02)
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to search Slack mentions: {e}")
 
             signal.activity_score = min(1.0, signal.activity_score)
@@ -403,7 +403,7 @@ class CrossChannelContextService:
 
             return signal
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to get Slack signal for {user_email}: {e}")
             return signal
 
@@ -421,7 +421,7 @@ class CrossChannelContextService:
                     # Populate in-memory cache
                     self._email_to_slack_id[email] = mapping.platform_user_id
                     return mapping.platform_user_id
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to load mapping from store: {e}")
 
         if not self.slack:
@@ -451,11 +451,11 @@ class CrossChannelContextService:
                         )
                         await self._store.save_user_mapping(mapping)
                         logger.debug(f"Persisted Slack mapping: {email} -> {slack_user_id}")
-                    except Exception as e:
+                    except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                         logger.debug(f"Failed to persist mapping: {e}")
 
                 return slack_user_id
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to resolve Slack user for {email}: {e}")
 
         return None
@@ -600,7 +600,7 @@ class CrossChannelContextService:
                             boost.drive_relevance_boost += 0.1
                             boost.drive_reason = f"Related to recent document: {item.metadata.get('title', 'Unknown')}"
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Failed to query knowledge mound: {e}")
 
     def _calculate_derived_signals(self, context: ChannelContext) -> ChannelContext:
@@ -665,7 +665,7 @@ class CrossChannelContextService:
 
             logger.info(f"Loaded {len(mappings)} Slack user mappings from store")
             return len(mappings)
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to load mappings from store: {e}")
             return 0
 
@@ -708,7 +708,7 @@ async def create_context_service(
     except (RuntimeError, ConnectionError) as e:
         logger.warning(f"Integration store unavailable: {e}")
         integration_store = None
-    except Exception as e:
+    except (ValueError, TypeError, OSError) as e:
         logger.exception(f"Unexpected error getting integration store: {e}")
         integration_store = None
 

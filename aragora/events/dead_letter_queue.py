@@ -583,7 +583,7 @@ class EventDLQ:
                 self._cache_pending_count = max(0, self._cache_pending_count - 1)
             logger.info("DLQ retry succeeded: %s", event_id)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - intentional broad catch for DLQ retry isolation
             # Update with new error, increment retry count
             event.retry_count += 1
             event.error_message = str(e)

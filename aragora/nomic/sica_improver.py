@@ -477,7 +477,7 @@ class SICAImprover:
                 else:
                     result.patches_successful += 1
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"sica_cycle_error error={e}")
             raise
 
@@ -853,7 +853,7 @@ Only return the JSON array, no other text."""
                     )
                     for i, item in enumerate(items)
                 ]
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, KeyError) as e:
             logger.debug(f"LLM analysis failed: {e}")
 
         return []
@@ -961,7 +961,7 @@ Preserve all existing functionality while fixing the issue."""
             elif "```" in response:
                 response = response.split("```")[1].split("```")[0]
             return response.strip()
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.debug(f"LLM patch generation failed: {e}")
             return None
 
@@ -1081,7 +1081,7 @@ Preserve all existing functionality while fixing the issue."""
             return result.returncode == 0, result.stdout + result.stderr
         except ValueError as e:
             return False, f"Validation error: {e}"
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning("Lint execution failed for %s: %s", file_path, e)
             return False, f"Lint execution failed: {type(e).__name__}"
 
@@ -1101,7 +1101,7 @@ Preserve all existing functionality while fixing the issue."""
             return result.returncode == 0, result.stdout + result.stderr
         except ValueError as e:
             return False, f"Validation error: {e}"
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning("Typecheck execution failed for %s: %s", file_path, e)
             return False, f"Typecheck execution failed: {type(e).__name__}"
 
@@ -1126,7 +1126,7 @@ Preserve all existing functionality while fixing the issue."""
             return result.returncode == 0, result.stdout + result.stderr
         except ValueError as e:
             return False, f"Validation error: {e}"
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             logger.warning("Test execution failed for %s: %s", file_path, e)
             return False, f"Test execution failed: {type(e).__name__}"
 
@@ -1239,7 +1239,7 @@ Preserve all existing functionality while fixing the issue."""
                 await self.config.on_patch_applied(patch)
 
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error(f"sica_patch_apply_failed patch_id={patch.id} error={e}")
             return False
 
@@ -1287,7 +1287,7 @@ Preserve all existing functionality while fixing the issue."""
 
             logger.info(f"sica_patch_rolled_back patch_id={patch.id}")
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error(f"sica_rollback_failed patch_id={patch.id} error={e}")
             return False
 

@@ -866,7 +866,7 @@ class RulesStore:
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as exc:
+            except OSError as exc:
                 logger.debug("Failed to close connection: %s", exc)
         self._connections.clear()
         self._conn_var.set(None)

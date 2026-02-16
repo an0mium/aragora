@@ -285,7 +285,7 @@ class HookRunner:
 
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Hook execution timed out"}
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Hook execution failed: %s", e)
             return {"success": False, "error": "Hook execution failed"}
 
@@ -400,7 +400,7 @@ class HookRunner:
                 "stderr": result.stderr,
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Git commit failed: %s", e)
             return {"success": False, "error": "Git commit failed"}
 
@@ -450,7 +450,7 @@ class HookRunner:
                 "branch": branch,
             }
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Worktree creation failed: %s", e)
             return {"success": False, "error": "Worktree creation failed"}
 
@@ -479,7 +479,7 @@ class HookRunner:
             logger.info(f"Removed worktree at {worktree_path}")
             return {"success": True}
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.warning("Worktree removal failed: %s", e)
             return {"success": False, "error": "Worktree removal failed"}
 

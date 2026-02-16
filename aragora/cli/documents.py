@@ -368,7 +368,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
                     if not json_output:
                         print(f"  [{i + 1}/{len(all_files)}] {file_path.name} -> FAILED")
 
-            except Exception as e:
+            except (OSError, IOError, RuntimeError, ValueError) as e:
                 results.append(
                     {
                         "file": str(file_path),
@@ -393,7 +393,7 @@ async def _upload_async(args: argparse.Namespace) -> int:
 
         return 0 if failed == 0 else 1
 
-    except Exception as e:
+    except (OSError, IOError, RuntimeError, ValueError) as e:
         print(f"Error: {e}")
         return 1
 

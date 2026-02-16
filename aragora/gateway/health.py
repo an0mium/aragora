@@ -214,7 +214,7 @@ class GatewayHealthChecker:
                     status=HealthStatus.UNHEALTHY,
                     error=f"Health check timed out after {self.check_timeout}s",
                 )
-            except Exception as exc:
+            except (OSError, ConnectionError, RuntimeError) as exc:
                 components[name] = ComponentHealth(
                     name=name,
                     status=HealthStatus.UNHEALTHY,
@@ -297,7 +297,7 @@ class GatewayHealthChecker:
                 latency_ms=latency_ms,
                 error="aiohttp not installed; cannot probe OpenClaw",
             )
-        except Exception as exc:
+        except (OSError, ConnectionError, TimeoutError) as exc:
             latency_ms = (time.perf_counter() - start) * 1000
             return ComponentHealth(
                 name="openclaw",
@@ -347,7 +347,7 @@ class GatewayHealthChecker:
                 latency_ms=latency_ms,
                 error="Credential vault module not available",
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, AttributeError) as exc:
             latency_ms = (time.perf_counter() - start) * 1000
             return ComponentHealth(
                 name="vault",
@@ -392,7 +392,7 @@ class GatewayHealthChecker:
                 latency_ms=latency_ms,
                 error="Audit module not available",
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             latency_ms = (time.perf_counter() - start) * 1000
             return ComponentHealth(
                 name="audit",
@@ -426,7 +426,7 @@ class GatewayHealthChecker:
                 latency_ms=latency_ms,
                 error="Federation registry module not available",
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, AttributeError) as exc:
             latency_ms = (time.perf_counter() - start) * 1000
             return ComponentHealth(
                 name="federation",

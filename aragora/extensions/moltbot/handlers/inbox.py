@@ -48,7 +48,7 @@ def get_inbox() -> InboxManager:
             if state and state.inbox_manager is not None:
                 _inbox = state.inbox_manager
                 return _inbox
-        except Exception as exc:
+        except (ImportError, RuntimeError, AttributeError) as exc:
             logger.debug("Failed to get inbox from extension state: %s", exc)
             pass
 
@@ -60,7 +60,7 @@ def get_inbox() -> InboxManager:
                 from aragora.gateway.canonical_api import GatewayRuntime
 
                 gateway_inbox = GatewayRuntime().inbox
-        except Exception as exc:
+        except (ImportError, RuntimeError, AttributeError) as exc:
             logger.debug("Failed to get gateway inbox from canonical API: %s", exc)
             gateway_inbox = None
 

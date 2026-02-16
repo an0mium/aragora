@@ -424,7 +424,7 @@ Include proper type hints and docstrings.""",
                         next_task.id,
                         error=f"Timeout after {next_task.timeout_seconds or config.timeout_seconds}s",
                     )
-                except Exception as exc:
+                except (RuntimeError, OSError, ValueError) as exc:
                     await self.fabric.complete_task(next_task.id, error=str(exc))
 
         worker_tasks = [asyncio.create_task(worker(agent_id)) for agent_id in agent_ids]

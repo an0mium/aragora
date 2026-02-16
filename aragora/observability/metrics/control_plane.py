@@ -211,7 +211,7 @@ def _init_control_plane_metrics() -> bool:
         _init_noop_metrics()
         _initialized = True
         return False
-    except Exception as e:
+    except (RuntimeError, TypeError, ValueError) as e:
         logger.error(f"Failed to initialize control plane metrics: {e}")
         _init_noop_metrics()
         _initialized = True

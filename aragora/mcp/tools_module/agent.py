@@ -29,7 +29,7 @@ async def list_agents_tool() -> dict[str, Any]:
             "agents": agents,
             "count": len(agents),
         }
-    except Exception as e:
+    except (ImportError, RuntimeError, OSError) as e:
         logger.warning(f"Could not list agents: {e}")
         # Fallback list
         return {
@@ -83,7 +83,7 @@ async def get_agent_history_tool(
             result["wins"] = agent_rating.wins
             result["losses"] = agent_rating.losses
             result["total_debates"] = agent_rating.debates_count
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         logger.debug(f"Could not get ELO: {e}")
 
     # Get performance stats from storage
@@ -123,7 +123,7 @@ async def get_agent_history_tool(
                 }
                 for d in filtered_debates[:limit]
             ]
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError, OSError) as e:
         logger.debug(f"Could not get agent history: {e}")
 
     return result
@@ -209,7 +209,7 @@ async def get_agent_lineage_tool(
 
     except ImportError:
         return {"error": "Genesis module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Failed to get lineage: {e}"}
 
 
@@ -295,7 +295,7 @@ async def breed_agents_tool(
 
     except ImportError:
         return {"error": "Genesis/breeding module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Breeding failed: {e}"}
 
 

@@ -373,7 +373,7 @@ class SecurityDispatcher:
             logger.info(f"Debate for event {event.id} was cancelled")
             return None
 
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Debate for event {event.id} failed: {e}")
             self._stats.debates_failed += 1
             return None

@@ -182,7 +182,7 @@ class ExplanationBuilder:
                     scores = await self._get_evidence_scores(proposal_text)
                     link.quality_scores = scores
                     link.relevance_score = scores.get("semantic_relevance", 0.8)
-                except Exception as e:
+                except (KeyError, TypeError, AttributeError, ValueError) as e:
                     logger.debug(f"Evidence scoring failed: {e}")
 
             evidence.append(link)
@@ -210,7 +210,7 @@ class ExplanationBuilder:
             try:
                 provenance_evidence = self._extract_provenance_evidence()
                 evidence.extend(provenance_evidence)
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.debug(f"Provenance extraction failed: {e}")
 
         return evidence
@@ -231,7 +231,7 @@ class ExplanationBuilder:
         except (KeyError, TypeError, AttributeError) as e:
             logger.debug(f"Evidence scoring returned incomplete data: {e}")
             return {}
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Unexpected error during evidence scoring: {e}")
             return {}
 
@@ -255,7 +255,7 @@ class ExplanationBuilder:
                         metadata={"provenance": True},
                     )
                 )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.debug(f"Provenance claim extraction failed: {e}")
 
         return evidence
@@ -340,7 +340,7 @@ class ExplanationBuilder:
                 base *= max(0.5, min(2.0, 1.0 + elo_factor * 0.3))
             except (KeyError, AttributeError) as e:
                 logger.debug(f"ELO rating not available for {agent}: {e}")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
 
         # Calibration contribution
@@ -350,7 +350,7 @@ class ExplanationBuilder:
                 base *= calibration
             except (KeyError, AttributeError) as e:
                 logger.debug(f"Calibration weight not available for {agent}: {e}")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 logger.warning(f"Unexpected error getting calibration for {agent}: {e}")
 
         return base
@@ -365,7 +365,7 @@ class ExplanationBuilder:
         except (KeyError, AttributeError) as e:
             logger.debug(f"Calibration adjustment not available for {agent}: {e}")
             return None
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             logger.warning(f"Unexpected error getting calibration adjustment for {agent}: {e}")
             return None
 
@@ -379,7 +379,7 @@ class ExplanationBuilder:
         except (KeyError, AttributeError) as e:
             logger.debug(f"ELO rating not available for {agent}: {e}")
             return None
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             logger.warning(f"Unexpected error getting ELO rating for {agent}: {e}")
             return None
 
@@ -416,7 +416,7 @@ class ExplanationBuilder:
                             trigger_source=change.trigger_source,
                         )
                     )
-            except Exception as e:
+            except (KeyError, TypeError, AttributeError, ValueError) as e:
                 logger.debug(f"Belief network extraction failed: {e}")
 
         # Extract from result's position history if available
@@ -501,7 +501,7 @@ class ExplanationBuilder:
                 )
             except (KeyError, AttributeError, ZeroDivisionError) as e:
                 logger.debug(f"Calibration factor calculation skipped: {e}")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 logger.warning(f"Unexpected error calculating calibration factor: {e}")
 
         # Rounds to consensus factor

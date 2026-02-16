@@ -469,9 +469,9 @@ class UsageSyncService:
                     logger.error(f"Failed to reconcile sync {record_id} for org {org_id}: {e}")
                     self._fail_sync(record_id, f"Stripe verification failed: {e}")
 
-                except Exception as e:
+                except (RuntimeError, OSError, sqlite3.Error, ValueError, TypeError, AttributeError) as e:
                     logger.error(f"Unexpected error reconciling sync {record_id}: {e}")
-                    self._fail_sync(record_id, f"Reconciliation error: {e}")
+                    self._fail_sync(record_id, "Reconciliation error")
 
         except sqlite3.Error as e:
             logger.error(f"Failed to reconcile pending syncs: {e}")
@@ -596,7 +596,7 @@ class UsageSyncService:
                 break
             try:
                 self.sync_all()
-            except Exception as e:
+            except (StripeAPIError, RuntimeError, OSError, sqlite3.Error, ValueError, TypeError) as e:
                 logger.error(f"Error in usage sync loop: {e}")
 
     def sync_all(self) -> list[UsageSyncRecord]:
@@ -633,7 +633,7 @@ class UsageSyncService:
             try:
                 org_records = self.sync_org(config)
                 records.extend(org_records)
-            except Exception as e:
+            except (StripeAPIError, RuntimeError, OSError, sqlite3.Error, ValueError, TypeError) as e:
                 logger.error(f"Error syncing org {org_id}: {e}")
                 records.append(
                     UsageSyncRecord(

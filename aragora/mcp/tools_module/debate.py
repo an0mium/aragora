@@ -67,7 +67,7 @@ async def run_debate_tool(
                 role=role,
             )
             agent_list.append(agent)
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError) as e:
             logger.warning(f"Could not create agent {agent_name}: {e}")
 
     if not agent_list:
@@ -138,7 +138,7 @@ async def get_debate_tool(debate_id: str) -> dict[str, Any]:
             debate = db.get(debate_id)
             if debate:
                 return debate
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, ImportError) as e:
         logger.warning(f"Could not fetch debate from storage: {e}")
 
     return {"error": f"Debate {debate_id} not found"}
@@ -198,7 +198,7 @@ async def search_debates_tool(
                 if consensus_only and not debate_dict.get("consensus_reached", False):
                     continue
                 results.append(debate_dict)
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, ImportError) as e:
         logger.warning(f"Could not search debates: {e}")
 
     results = results[:limit]
@@ -286,7 +286,7 @@ async def fork_debate_tool(
 
     except ImportError as e:
         return {"error": f"Required module not available: {e}"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Fork creation failed: {e}"}
 
 
@@ -340,7 +340,7 @@ async def get_forks_tool(
             "count": len(forks),
         }
 
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, ImportError) as e:
         return {"error": f"Failed to get forks: {e}"}
 
 

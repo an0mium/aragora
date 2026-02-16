@@ -1050,7 +1050,7 @@ class DatabaseConsolidator:
             try:
                 shutil.copy2(db_file, backup_dir / db_file.name)
                 logger.info(f"Backed up: {db_file.name}")
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 self.errors.append(f"Backup failed for {db_file.name}: {e}")
                 return False
 
@@ -1123,13 +1123,13 @@ class DatabaseConsolidator:
                     stats.rows_written += 1
                 except sqlite3.IntegrityError:
                     stats.rows_skipped += 1
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     stats.errors.append(f"Row error: {e}")
                     stats.rows_skipped += 1
 
             target_conn.commit()
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             stats.errors.append(f"Table migration error: {e}")
 
         return stats
@@ -1209,7 +1209,7 @@ class DatabaseConsolidator:
                                 rows_read=count,
                             )
                             self.stats.append(stats)
-                        except Exception as e:
+                        except (OSError, RuntimeError, ValueError) as e:
                             logger.warning(f"Could not count {source_table}: {e}")
                     else:
                         stats = self._migrate_table(
@@ -1286,7 +1286,7 @@ class DatabaseConsolidator:
 
                 databases[db_name] = {"tables": db_tables, "size_bytes": db_path.stat().st_size}
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 issues.append(f"Error verifying {db_name}: {e}")
             finally:
                 conn.close()

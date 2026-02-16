@@ -102,7 +102,7 @@ def cmd_backup_create(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, IOError, RuntimeError, ValueError) as e:
         print(f"\nError: Backup failed - {e}")
         return 1
 
@@ -213,7 +213,7 @@ def cmd_backup_restore(args: argparse.Namespace) -> int:
         print(f"  Restored to: {target_path}")
         return 0
 
-    except Exception as e:
+    except (OSError, IOError, RuntimeError, ValueError) as e:
         print(f"\nError: Restore failed - {e}")
         return 1
 

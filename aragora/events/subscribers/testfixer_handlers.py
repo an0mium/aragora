@@ -120,7 +120,7 @@ class TestFixerHandlersMixin:
                     "success",
                 )
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.warning(f"TestFixer → MetaPlanner accumulation failed: {e}")
             if "testfixer_to_planner" in self.stats:
                 self.stats["testfixer_to_planner"]["errors"] += 1
@@ -193,7 +193,7 @@ class TestFixerHandlersMixin:
                     "success",
                 )
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.warning(f"TestFixer loop complete handling failed: {e}")
             if "testfixer_loop_complete" in self.stats:
                 self.stats["testfixer_loop_complete"]["errors"] += 1
@@ -238,7 +238,7 @@ class TestFixerHandlersMixin:
 
         except ImportError:
             logger.debug("MetaPlanner not available for test failure submission")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
             logger.warning(f"Failed to submit failures to MetaPlanner: {e}")
         finally:
             # Clear accumulator after flush attempt
@@ -281,7 +281,7 @@ class TestFixerHandlersMixin:
 
         except ImportError:
             logger.debug("KnowledgeMound not available for pattern storage")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.warning(f"Failed to submit patterns to KM: {e}")
 
     def register_testfixer_handlers(self, dispatcher: Any) -> None:
@@ -299,5 +299,5 @@ class TestFixerHandlersMixin:
             try:
                 dispatcher.subscribe(event_type, handler)
                 logger.debug(f"Registered TestFixer handler for {event_type.value}")
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, ValueError) as e:
                 logger.warning(f"Failed to register handler for {event_type}: {e}")

@@ -285,7 +285,7 @@ class MultiInboxManager:
                 try:
                     profile = await connector._api_request("/profile")
                     email_address = profile.get("emailAddress", f"{account_id}@unknown")
-                except Exception as e:
+                except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                     logger.warning(f"Failed to get email address: {e}")
                     email_address = f"{account_id}@unknown"
 
@@ -377,7 +377,7 @@ class MultiInboxManager:
             logger.info(f"[MultiInbox] Synced {len(messages)} messages from {account_id}")
             return len(messages)
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             account.sync_error = str(e)
             logger.error(f"[MultiInbox] Sync failed for {account_id}: {e}")
             raise
@@ -399,7 +399,7 @@ class MultiInboxManager:
             try:
                 count = await self.sync_account(account_id, max_messages_per_account)
                 return account_id, count
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"[MultiInbox] Failed to sync {account_id}: {e}")
                 return account_id, 0
 
@@ -484,7 +484,7 @@ class MultiInboxManager:
 
                     all_emails.append(unified)
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"[MultiInbox] Failed to fetch from {account_id}: {e}")
 
         # Prioritize all emails
@@ -544,7 +544,7 @@ class MultiInboxManager:
 
                 email.unified_score = min(1.0, base_score)
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Failed to prioritize email {email.email.id}: {e}")
                 email.unified_score = 0.5
 
@@ -732,7 +732,7 @@ class MultiInboxManager:
                     action=action,
                     email_id=email_id,
                 )
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.debug(f"Failed to record in sender history: {e}")
 
     def get_stats(self) -> dict[str, Any]:

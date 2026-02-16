@@ -878,7 +878,7 @@ class BudgetManager:
                     for callback in self._alert_callbacks:
                         try:
                             callback(alert)
-                        except Exception as e:
+                        except (TypeError, ValueError, RuntimeError, OSError) as e:
                             logger.error(f"Alert callback failed: {e}")
 
     def _create_alert(self, budget: Budget, threshold: BudgetThreshold) -> BudgetAlert:

@@ -164,7 +164,7 @@ class GatewayProtocolAdapter:
                         **data,
                     }
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided audit hook callback
                 logger.warning(f"Audit hook failed: {e}")
 
     def set_policy(self, policy: OpenClawPolicy) -> None:
@@ -224,7 +224,7 @@ class GatewayProtocolAdapter:
         if self._post_session_hook:
             try:
                 self._post_session_hook(session)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided post-session hook callback
                 logger.warning(f"Post-session hook failed: {e}")
 
         self._emit_audit(

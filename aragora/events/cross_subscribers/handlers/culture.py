@@ -119,7 +119,7 @@ class CultureHandlersMixin:
 
         except ImportError as e:
             logger.debug(f"Culture retrieval import failed: {e}")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"Culture→Debate retrieval failed: {e}")
 
     def _store_debate_culture(
@@ -185,7 +185,7 @@ class CultureHandlersMixin:
                 f"Stored culture context for debate {debate_id}: {len(protocol_hints)} hints"
             )
 
-        except Exception as e:
+        except (TypeError, AttributeError, ValueError, KeyError) as e:
             logger.debug(f"Failed to store debate culture: {e}")
 
     def get_debate_culture_hints(self, debate_id: str) -> dict:
@@ -236,5 +236,5 @@ class CultureHandlersMixin:
 
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, KeyError) as e:
             logger.debug(f"Staleness→Debate check failed: {e}")

@@ -150,7 +150,7 @@ def main(args: argparse.Namespace) -> None:
     elif args.debate_id:
         try:
             artifact = load_artifact_from_debate(args.debate_id, getattr(args, "db", None))
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             print(f"Error loading debate: {e}")
             print("Use --demo for a sample export, or ensure the debate ID exists.")
             return

@@ -96,7 +96,7 @@ class PostgresBackend(AuditPersistenceBackend):
                 conn = psycopg2.connect(self.database_url)
                 self._conn_var.set(conn)
                 self._connections.append(conn)
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 raise PersistenceError(f"Failed to connect to PostgreSQL: {e}")
         return conn
 
@@ -150,7 +150,7 @@ class PostgresBackend(AuditPersistenceBackend):
                 )
             conn.commit()
             return event.id
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             conn.rollback()
             raise PersistenceError(f"Failed to store audit event: {e}")
 
@@ -350,7 +350,7 @@ class PostgresBackend(AuditPersistenceBackend):
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"Failed to close PostgreSQL connection: {e}")
         self._connections.clear()
         self._conn_var.set(None)

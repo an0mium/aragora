@@ -158,7 +158,7 @@ def _list_templates_api(
     try:
         response = client.request("GET", "/api/v1/marketplace/templates", params=params)
         templates = response.get("templates", [])
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -256,7 +256,7 @@ def _search_templates_api(client, query: str, category: str | None, tags: str | 
     try:
         response = client.request("GET", "/api/v1/marketplace/search", params=params)
         templates = response.get("templates", [])
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -335,7 +335,7 @@ def _get_template_api(client, template_id: str, json_output: bool):
             "GET",
             f"/api/v1/marketplace/templates/{template_id}",
         )
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -448,7 +448,7 @@ def _export_template_api(client, template_id: str, output: str | None):
             f"/api/v1/marketplace/templates/{template_id}/export",
         )
         json_str = json.dumps(response, indent=2)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -503,7 +503,7 @@ def _import_template_api(client, file_path: str):
     except json.JSONDecodeError as e:
         click.echo(f"Invalid JSON: {e}", err=True)
         sys.exit(1)
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -541,7 +541,7 @@ def _list_categories_api(client):
     try:
         response = client.request("GET", "/api/v1/marketplace/categories")
         categories = response.get("categories", [])
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -593,7 +593,7 @@ def _rate_template_api(client, template_id: str, score: int, review: str | None)
         avg = response.get("average_rating", score)
         click.echo(f"Rated {template_id}: {'★' * score} ({score}/5)")
         click.echo(f"Average rating: {avg:.1f}")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 
@@ -644,7 +644,7 @@ def _use_template_api(client, template_id: str, task: str, rounds: int):
             "GET",
             f"/api/v1/marketplace/templates/{template_id}",
         )
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
         click.echo(f"API error: {e}", err=True)
         sys.exit(1)
 

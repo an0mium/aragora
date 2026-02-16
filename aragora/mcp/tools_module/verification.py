@@ -55,7 +55,7 @@ async def get_consensus_proofs_tool(
                     for proof in debate["proofs"]:
                         if proof_type == "all" or proof.get("type") == proof_type:
                             proofs.append(proof)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ImportError) as e:
             logger.debug(f"Failed to fetch proofs for debate {debate_id}: {e}")
 
     proofs = proofs[:limit]
@@ -127,7 +127,7 @@ async def verify_consensus_tool(
 
     except ImportError:
         return {"error": "Verification module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Verification failed: {e}"}
 
 
@@ -171,7 +171,7 @@ async def generate_proof_tool(
 
     except ImportError:
         return {"error": "Verification module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         return {"error": f"Proof generation failed: {e}"}
 
 
@@ -284,7 +284,7 @@ async def verify_plan_tool(
     except ImportError as e:
         logger.error("Required module not available for plan verification: %s", e)
         return {"error": f"Required module not available: {e}"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error("Plan verification failed: %s", e)
         return {"error": f"Plan verification failed: {e}"}
 
@@ -418,7 +418,7 @@ async def get_receipt_tool(
     except json.JSONDecodeError as e:
         logger.error("Failed to parse receipt file: %s", e)
         return {"error": f"Failed to parse receipt file: {e}"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error("Failed to retrieve receipt: %s", e)
         return {"error": f"Failed to retrieve receipt: {e}"}
 

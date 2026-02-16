@@ -413,7 +413,7 @@ class FindingEvidenceCollector:
                     )
                 )
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to collect external evidence: {e}")
 
         return sources

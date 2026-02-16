@@ -473,7 +473,7 @@ class DocumentAuditor:
         except asyncio.CancelledError:
             session.status = AuditStatus.CANCELLED
             logger.info(f"Audit session {session_id} cancelled")
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             session.status = AuditStatus.FAILED
             session.errors.append(str(e))
             logger.error(f"Audit session {session_id} failed: {e}")
@@ -515,7 +515,7 @@ class DocumentAuditor:
             try:
                 stored_count = await self._knowledge_adapter.store_session_findings(session)
                 logger.info(f"Stored {stored_count} findings as facts in knowledge base")
-            except Exception as e:
+            except (ValueError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to store findings in knowledge base: {e}")
                 session.errors.append(f"Knowledge storage error: {e}")
 
@@ -622,7 +622,7 @@ class DocumentAuditor:
             logger.warning("Hive-Mind not available, falling back to standard pipeline")
             return await self._execute_standard_pipeline(session, chunks)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"Hive-Mind execution failed: {e}, falling back to standard")
             session.errors.append(f"Hive-Mind error: {e}")
             return await self._execute_standard_pipeline(session, chunks)
@@ -780,7 +780,7 @@ Format as JSON array of findings."""
                 "initial_scanner",
             )
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"Initial scan failed: {e}")
             session.errors.append(f"Initial scan error: {e}")
 
@@ -800,7 +800,7 @@ Format as JSON array of findings."""
 
         try:
             return await handler.audit(chunks, session)
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"{audit_type.value} audit failed: {e}")
             session.errors.append(f"{audit_type.value} audit error: {e}")
             return []
@@ -878,7 +878,7 @@ Is this a valid finding? Respond with:
                     finding.confidence *= 0.8
                     verified.append(finding)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
             logger.error(f"Verification failed: {e}")
             # Return unverified findings if verification fails
             return findings

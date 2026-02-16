@@ -246,7 +246,7 @@ class ComputerUseStorage:
         for idx_sql in task_indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except (RuntimeError, OSError) as e:  # DB index creation errors
                 logger.debug(f"Index creation skipped: {e}")
 
         # Create policies table
@@ -273,7 +273,7 @@ class ComputerUseStorage:
         for idx_sql in policy_indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except (RuntimeError, OSError) as e:  # DB index creation errors
                 logger.debug(f"Index creation skipped: {e}")
 
     # =========================================================================

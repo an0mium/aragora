@@ -340,7 +340,7 @@ class IsolationEnforcer:
             logger.debug(f"Network egress blocked for {host}: not in allowlist")
             return False
 
-        except Exception as e:
+        except (ValueError, AttributeError) as e:  # URL parsing errors
             logger.warning(f"Failed to parse URL {url}: {e}")
             return False
 

@@ -282,7 +282,7 @@ class SIEMClient:
                     logger.info(f"SIEM event: {event.to_json()}")
 
             logger.debug(f"Sent {len(events)} events to {self.config.backend.value}")
-        except Exception as e:
+        except (OSError, ConnectionError, ImportError, ValueError) as e:
             logger.error(f"Failed to send SIEM batch: {e}")
 
     def _send_to_splunk(self, events: list[SecurityEvent]) -> None:

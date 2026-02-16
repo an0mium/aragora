@@ -365,7 +365,7 @@ async def decompose_failed_task(
 
         return subtasks
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"    Decomposition failed: {e}, keeping original task")
         return [task]
 

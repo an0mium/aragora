@@ -301,7 +301,7 @@ class AgentScheduler:
             for callback in self._on_complete.get(task_id, []):
                 try:
                     await callback(handle)
-                except Exception as e:
+                except (RuntimeError, ValueError, AttributeError) as e:  # user-supplied callback
                     logger.warning(f"Callback error for task {task_id}: {e}")
 
             logger.debug(f"Task {task_id} completed (status={handle.status.value})")

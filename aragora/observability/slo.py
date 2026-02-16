@@ -269,7 +269,7 @@ def _init_slo_metrics() -> bool:
         _init_noop_slo_metrics()
         _slo_metrics_initialized = True
         return False
-    except Exception as e:
+    except (RuntimeError, TypeError, ValueError) as e:
         logger.error(f"Failed to initialize SLO metrics: {e}")
         _init_noop_slo_metrics()
         _slo_metrics_initialized = True
@@ -834,7 +834,7 @@ class SLOAlertMonitor:
             result = callback(breach)
             if asyncio.iscoroutine(result):
                 await result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.error(f"SLO alert callback failed: {e}")
 
     async def check_and_alert(self) -> list[SLOBreach]:
@@ -877,7 +877,7 @@ class SLOAlertMonitor:
                     f"burn rate: {result.burn_rate:.2f}x"
                 )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - observability must not crash app
             logger.error(f"SLO check failed: {e}")
 
         return breaches
@@ -908,7 +908,7 @@ class SLOAlertMonitor:
         while self._running:
             try:
                 await self.check_and_alert()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - observability must not crash app
                 logger.error(f"SLO monitor error: {e}")
 
             await asyncio.sleep(self.check_interval)
@@ -962,7 +962,7 @@ async def webhook_alert_callback(
 
     except ImportError:
         logger.warning("HTTP client pool not available, webhook alert skipped")
-    except Exception as e:
+    except (OSError, ConnectionError, RuntimeError) as e:
         logger.error(f"Failed to send webhook alert: {e}")
 
 
@@ -1028,7 +1028,7 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
 
         except ImportError:
             logger.warning("HTTP client pool not available, Slack alert skipped")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to send Slack alert: {e}")
 
     return slack_callback
@@ -1077,7 +1077,7 @@ def create_notification_callback() -> AlertCallback:
 
         except ImportError:
             logger.warning("Notification system not available")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Failed to dispatch notification: {e}")
 
     return notification_callback

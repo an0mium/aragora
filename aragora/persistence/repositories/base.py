@@ -245,7 +245,7 @@ class BaseRepository(ABC, Generic[T]):
             try:
                 yield conn
                 conn.commit()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - rollback before re-raising
                 logger.debug("Transaction rolled back: %s", e)
                 conn.rollback()
                 raise

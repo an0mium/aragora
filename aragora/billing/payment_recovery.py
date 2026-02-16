@@ -498,7 +498,7 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
                 )
                 results["notification_sent"] += 1
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Error processing grace period expiry for {failure.org_id}: {e}")
             results["errors"] += 1
 

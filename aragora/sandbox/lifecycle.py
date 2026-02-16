@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -364,7 +365,7 @@ class SessionContainerManager:
             logger.info(f"Created session {session_id} with container {container.container_id}")
             return session
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"Failed to create session {session_id}: {e}")
             raise SessionError(f"Failed to create session: {e}") from e
 
@@ -477,7 +478,7 @@ class SessionContainerManager:
         if session.container:
             try:
                 await self.pool.release(session_id)
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.warning(f"Failed to release container for {session_id}: {e}")
                 # Force destroy if release fails
                 await self.pool.destroy(session_id)
@@ -568,7 +569,7 @@ class SessionContainerManager:
                 error_message=f"Execution timed out after {timeout:.1f}s",
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"Execution error in session {session_id}: {e}")
             return SessionExecutionResult(
                 session_id=session_id,
@@ -657,7 +658,7 @@ class SessionContainerManager:
             try:
                 proc.kill()
                 await proc.wait()
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.warning("Failed to kill timed-out process: %s", e)
             raise
 
@@ -736,7 +737,7 @@ class SessionContainerManager:
                 await self._cleanup_expired_sessions()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.error(f"Session cleanup error: {e}")
 
     async def _cleanup_expired_sessions(self) -> None:

@@ -133,7 +133,7 @@ async def run_workflow_tool(
     except ImportError:
         logger.warning("Workflow engine not available")
         return {"error": "Workflow engine module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Workflow execution failed: {e}")
         return {"error": f"Execution failed: {str(e)}"}
 
@@ -175,7 +175,7 @@ async def get_workflow_status_tool(
     except ImportError:
         logger.warning("Workflow engine not available")
         return {"error": "Workflow engine module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Failed to get workflow status: {e}")
         return {"error": f"Status check failed: {str(e)}"}
 
@@ -247,7 +247,7 @@ async def list_workflow_templates_tool(
             "category": category,
             "note": "Default templates - workflow engine not available",
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Failed to list templates: {e}")
         return {"error": f"List failed: {str(e)}"}
 
@@ -284,7 +284,7 @@ async def cancel_workflow_tool(
     except ImportError:
         logger.warning("Workflow engine not available")
         return {"error": "Workflow engine module not available"}
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.error(f"Failed to cancel workflow: {e}")
         return {"error": f"Cancel failed: {str(e)}"}
 

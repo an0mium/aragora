@@ -681,7 +681,7 @@ def start_metrics_server(port: int = 9090) -> bool:
             from aragora.observability.metrics import server as _server
 
             _server._metrics_server = port
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.debug("Could not sync metrics server state to submodule: %s", e)
         logger.info("Metrics server started on port %s", port)
         return True
@@ -716,7 +716,7 @@ def stop_metrics_server() -> bool:
         from aragora.observability.metrics import server as _server
 
         _server._metrics_server = None
-    except Exception as e:
+    except (ImportError, AttributeError, RuntimeError) as e:
         logger.debug("Could not sync metrics server shutdown to submodule: %s", e)
     logger.info("Metrics server on port %s marked for shutdown", port)
     return True

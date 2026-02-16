@@ -257,7 +257,7 @@ class KnowledgeMoundCore:
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"PostgreSQL init failed: {e}, falling back to SQLite")
             await self._init_sqlite()
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.exception(f"Unexpected PostgreSQL init error: {e}, falling back to SQLite")
             await self._init_sqlite()
 
@@ -582,7 +582,7 @@ class KnowledgeMoundCore:
             except (RuntimeError, OSError, sqlite3.Error) as e:
                 logger.warning(f"Failed to archive node {node_id}: {e}")
                 # Don't block deletion on archive failure
-            except Exception as e:
+            except (ValueError, KeyError, AttributeError) as e:
                 logger.exception(f"Unexpected archive error for node {node_id}: {e}")
                 # Don't block deletion on archive failure
 
@@ -1000,11 +1000,8 @@ class KnowledgeMoundCore:
                 return []
             entries = search_fn(query, limit=limit)
             return [self._continuum_to_item(e) for e in entries]
-        except (KeyError, ValueError, AttributeError) as e:
+        except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Continuum query failed: {e}")
-            return []
-        except Exception as e:
-            logger.exception(f"Unexpected continuum query error: {e}")
             return []
 
     async def _query_consensus(
@@ -1019,11 +1016,8 @@ class KnowledgeMoundCore:
                 return []
             entries = await search_fn(query, limit=limit)
             return [self._consensus_to_item(e) for e in entries]
-        except (KeyError, ValueError, AttributeError) as e:
+        except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Consensus query failed: {e}")
-            return []
-        except Exception as e:
-            logger.exception(f"Unexpected consensus query error: {e}")
             return []
 
     async def _query_facts(
@@ -1042,11 +1036,8 @@ class KnowledgeMoundCore:
                 return []
             facts = query_fn(query, workspace_id=workspace_id, limit=limit)
             return [self._fact_to_item(f) for f in facts]
-        except (KeyError, ValueError, AttributeError) as e:
+        except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Facts query failed: {e}")
-            return []
-        except Exception as e:
-            logger.exception(f"Unexpected facts query error: {e}")
             return []
 
     async def _query_evidence(
@@ -1066,11 +1057,8 @@ class KnowledgeMoundCore:
                 return []
             evidence_list = search_fn(query, limit=limit)
             return [self._evidence_to_item(e) for e in evidence_list]
-        except (KeyError, ValueError, AttributeError) as e:
+        except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Evidence query failed: {e}")
-            return []
-        except Exception as e:
-            logger.exception(f"Unexpected evidence query error: {e}")
             return []
 
     async def _query_critique(
@@ -1089,11 +1077,8 @@ class KnowledgeMoundCore:
                 return []
             patterns = search_fn(query, limit=limit)
             return [self._critique_to_item(p) for p in patterns]
-        except (KeyError, ValueError, AttributeError) as e:
+        except (KeyError, ValueError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Critique query failed: {e}")
-            return []
-        except Exception as e:
-            logger.exception(f"Unexpected critique query error: {e}")
             return []
 
     # =========================================================================

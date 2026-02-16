@@ -210,7 +210,7 @@ def cmd_template_list(args: argparse.Namespace) -> int:
         print("\nUse 'aragora template show <id>' for details.\n")
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         logger.error(f"Failed to list templates: {e}")
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -302,7 +302,7 @@ def cmd_template_show(args: argparse.Namespace) -> int:
         print()
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         logger.error(f"Failed to show template: {e}")
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -379,7 +379,7 @@ def cmd_template_run(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         logger.error(f"Failed to run template: {e}")
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -463,7 +463,7 @@ def cmd_template_validate(args: argparse.Namespace) -> int:
     except json.JSONDecodeError as e:
         print(f"Invalid JSON: {e}", file=sys.stderr)
         return 1
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Validation failed: {e}")
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -514,7 +514,7 @@ def cmd_template_package(args: argparse.Namespace) -> int:
 
         return 0
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Packaging failed: {e}")
         print(f"Error: {e}", file=sys.stderr)
         return 1

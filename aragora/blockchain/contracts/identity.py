@@ -281,7 +281,7 @@ class IdentityRegistryContract:
                 wallet_address=wallet if wallet != "0x" + "0" * 40 else None,
                 chain_id=config.chain_id,
             )
-        except Exception as e:
+        except (RuntimeError, ConnectionError, ValueError, OSError) as e:
             self._provider.record_failure(self._chain_id)
             raise RuntimeError(f"Failed to get agent {token_id}: {e}") from e
 

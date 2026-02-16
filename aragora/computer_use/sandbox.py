@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
 import tempfile
 import uuid
 from abc import ABC, abstractmethod
@@ -212,7 +213,7 @@ class DockerSandboxProvider(SandboxProvider):
 
             logger.info(f"Started Docker sandbox {instance.id}: {instance.container_id[:12]}")
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             instance.status = SandboxStatus.ERROR
             instance.error = str(e)
             logger.error(f"Failed to start Docker sandbox: {e}")
@@ -238,7 +239,7 @@ class DockerSandboxProvider(SandboxProvider):
             await proc.wait()
             instance.status = SandboxStatus.STOPPED
             logger.info(f"Stopped Docker sandbox {instance.id}")
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             instance.error = str(e)
             logger.error(f"Failed to stop Docker sandbox: {e}")
 
@@ -257,7 +258,7 @@ class DockerSandboxProvider(SandboxProvider):
                     stderr=asyncio.subprocess.DEVNULL,
                 )
                 await proc.wait()
-            except Exception as e:
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
                 logger.warning(f"Failed to remove Docker container: {e}")
 
         if instance.temp_dir and Path(instance.temp_dir).exists():
@@ -303,7 +304,7 @@ class DockerSandboxProvider(SandboxProvider):
                 proc.kill()
                 return -1, "", "Command timed out"
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             return -1, "", str(e)
 
     async def health_check(self, instance: SandboxInstance) -> bool:
@@ -323,7 +324,7 @@ class DockerSandboxProvider(SandboxProvider):
             )
             stdout, _ = await proc.communicate()
             return stdout.decode().strip() == "true"
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.debug(f"Docker container health check failed: {type(e).__name__}: {e}")
             return False
 
@@ -369,7 +370,7 @@ class ProcessSandboxProvider(SandboxProvider):
             try:
                 proc.terminate()
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
-            except Exception as e:
+            except (RuntimeError, OSError, TimeoutError) as e:
                 logger.debug(f"Process terminate/wait failed, killing: {type(e).__name__}: {e}")
                 proc.kill()
 
@@ -428,7 +429,7 @@ class ProcessSandboxProvider(SandboxProvider):
             finally:
                 self._processes.pop(instance.id, None)
 
-        except Exception as e:
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             return -1, "", str(e)
 
     async def health_check(self, instance: SandboxInstance) -> bool:

@@ -626,7 +626,7 @@ class BranchCoordinator:
                             sc.affected_files,
                             sc.description[:100],
                         )
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError) as e:
                 logger.debug("Semantic conflict detection failed: %s", e)
 
         # Run nomic loops in parallel
@@ -709,7 +709,7 @@ class BranchCoordinator:
             assignment.status = "completed"
             assignment.result = result
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning("Assignment failed: %s", e)
             assignment.status = "failed"
             assignment.error = f"Failed: {type(e).__name__}"

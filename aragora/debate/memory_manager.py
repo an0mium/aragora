@@ -270,7 +270,7 @@ class MemoryPrefetchManager:
                         domain,
                         tier.value,
                     )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, OSError, RuntimeError) as e:
             logger.debug("Domain prefetch failed for %s: %s", domain, e)
 
     def prefetch_for_task(self, task: str, domain: str = "general") -> None:
@@ -295,7 +295,7 @@ class MemoryPrefetchManager:
             if cache_entries:
                 self.cache.put_batch(cache_entries)
                 logger.debug("Prefetched %s memories for task similarity", len(cache_entries))
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, OSError, RuntimeError) as e:
             logger.debug("Task prefetch failed: %s", e)
 
     async def prefetch_for_task_async(self, task: str, domain: str = "general") -> None:
@@ -349,7 +349,7 @@ class MemoryPrefetchManager:
                     )
         except (ValueError, IndexError) as e:
             logger.warning("prefetch tier cascade encountered an error: %s", e)
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.debug("Cascade prefetch failed: %s", e)
 
     def reset(self) -> None:
@@ -488,7 +488,7 @@ class MemoryManager:
         except (AttributeError, TypeError) as e:
             # Expected: emitter missing method or wrong signature
             logger.debug("Failed to emit memory event %s: %s", event_type, e)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             # Unexpected error in event emission
             logger.warning("Unexpected error emitting memory event %s: %s", event_type, e)
 
@@ -576,7 +576,7 @@ class MemoryManager:
         except (AttributeError, TypeError, ValueError) as e:
             # Expected: memory system configuration or data format issues
             logger.warning("  [continuum] Failed to store outcome: %s", e)
-        except Exception as e:
+        except (OSError, RuntimeError, KeyError) as e:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error storing outcome: %s", msg)
@@ -669,7 +669,7 @@ class MemoryManager:
         except (AttributeError, TypeError, ValueError) as e:
             # Expected: consensus memory configuration or data format issues
             logger.warning("  [consensus] Failed to store record: %s", e)
-        except Exception as e:
+        except (OSError, RuntimeError, KeyError) as e:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "consensus")
             logger.exception("  [consensus] Unexpected error storing record: %s", msg)
@@ -750,7 +750,7 @@ class MemoryManager:
         except (AttributeError, TypeError, ValueError, KeyError) as e:
             # Expected: missing data or format issues in dissent storage
             logger.debug("  [consensus] Failed to store dissent for %s: %s", agent_name, e)
-        except Exception as e:
+        except (OSError, RuntimeError, ImportError) as e:
             # Unexpected error - log with more detail
             logger.warning(
                 "  [consensus] Unexpected error storing dissent for %s: %s", agent_name, e
@@ -816,13 +816,13 @@ class MemoryManager:
                     if evidence_bridge and hasattr(snippet, "id"):
                         try:
                             evidence_bridge.register_evidence(snippet)
-                        except Exception as e:
+                        except (RuntimeError, AttributeError, TypeError, ValueError) as e:
                             logger.debug("Evidence bridge registration (non-fatal): %s", e)
 
                 except (AttributeError, TypeError, ValueError) as e:
                     # Expected: data format or memory configuration issues
                     logger.debug("Continuum storage error (non-fatal): %s", e)
-                except Exception as e:
+                except (OSError, RuntimeError, KeyError) as e:
                     # Unexpected error - still non-fatal but log with more detail
                     logger.warning("Continuum storage unexpected error (non-fatal): %s", e)
 
@@ -838,7 +838,7 @@ class MemoryManager:
         except (AttributeError, TypeError, ValueError) as e:
             # Expected: evidence format or memory configuration issues
             logger.warning("  [continuum] Failed to store evidence: %s", e)
-        except Exception as e:
+        except (OSError, RuntimeError, KeyError) as e:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error storing evidence: %s", msg)
@@ -881,7 +881,7 @@ class MemoryManager:
         except (AttributeError, TypeError) as e:
             # Expected: emitter method or signature issues
             logger.debug("Evidence event emission error: %s", e)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
             # Unexpected error
             logger.warning("Unexpected evidence event emission error: %s", e)
 
@@ -931,7 +931,7 @@ class MemoryManager:
                             logger.debug(
                                 "  [tier_analytics] Failed to record usage for %s: %s", mem_id, e
                             )
-                        except Exception as e:
+                        except (OSError, RuntimeError) as e:
                             # Unexpected error
                             logger.warning(
                                 "  [tier_analytics] Unexpected error recording usage for %s: %s",
@@ -942,7 +942,7 @@ class MemoryManager:
                 except (AttributeError, TypeError, ValueError, KeyError) as e:
                     # Expected: memory update configuration or data issues
                     logger.debug("  [continuum] Failed to update memory %s: %s", mem_id, e)
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     # Unexpected error
                     logger.warning(
                         "  [continuum] Unexpected error updating memory %s: %s", mem_id, e
@@ -962,7 +962,7 @@ class MemoryManager:
         except (AttributeError, TypeError, ValueError) as e:
             # Expected: memory configuration or data format issues
             logger.warning("  [continuum] Failed to update memory outcomes: %s", e)
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error updating memory outcomes: %s", msg)
@@ -1023,7 +1023,7 @@ class MemoryManager:
             # Expected: embedding search or formatting issues
             logger.debug("Historical context retrieval error: %s", e)
             return ""
-        except Exception as e:
+        except (OSError, RuntimeError, ConnectionError) as e:
             # Unexpected error
             logger.warning("Unexpected historical context error: %s", e)
             return ""
@@ -1085,7 +1085,7 @@ class MemoryManager:
             # Expected: critique store configuration or data issues
             logger.debug("Failed to retrieve patterns: %s", e)
             return ""
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             # Unexpected error
             logger.warning("Unexpected error retrieving patterns: %s", e)
             return ""
@@ -1131,7 +1131,7 @@ class MemoryManager:
             except (AttributeError, TypeError) as e:
                 # Expected: spectator method or signature issues
                 logger.debug("Spectator notification error: %s", e)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError) as e:
                 # Unexpected error
                 logger.warning("Unexpected spectator notification error: %s", e)
 
@@ -1214,7 +1214,7 @@ class MemoryManager:
                             results[mem_id] = entry
                             if self._memory_cache:
                                 self._memory_cache.put(mem_id, entry, entry.tier)
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, OSError, RuntimeError) as e:
                 logger.debug("Batch memory retrieval error: %s", e)
 
         return results
@@ -1327,7 +1327,7 @@ class MemoryManager:
                 if self._prefetch_manager:
                     self._prefetch_manager.prefetch_tier_cascade(tier)
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, OSError, RuntimeError) as e:
             logger.debug("Multi-tier retrieval error: %s", e)
 
         return results

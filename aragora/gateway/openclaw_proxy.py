@@ -474,7 +474,7 @@ class OpenClawSecureProxy:
 
             return {"success": True, "result": result}
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Backend execution failed: {e}")
             return {"success": False, "error": str(e)}
 
@@ -498,7 +498,7 @@ class OpenClawSecureProxy:
         if self._approval_callback:
             try:
                 self._approval_callback(approval)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided approval callback
                 logger.warning(f"Approval callback failed: {e}")
 
         self._emit_audit(
@@ -675,7 +675,7 @@ class OpenClawSecureProxy:
         if self._audit_callback:
             try:
                 self._audit_callback(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided audit callback
                 logger.warning(f"Audit callback failed: {e}")
 
     def set_policy(self, policy: OpenClawPolicy) -> None:

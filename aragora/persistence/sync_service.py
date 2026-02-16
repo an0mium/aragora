@@ -303,7 +303,7 @@ class SupabaseSyncService:
                     self._sync_batch(batch)
                     self._last_sync_at = datetime.now()
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - worker isolation
                 logger.exception(f"Error in sync loop: {e}")
                 self._last_error = str(e)
 
@@ -356,7 +356,7 @@ class SupabaseSyncService:
                         self._synced_count += 1
                     else:
                         failed_items.append(item)
-                except Exception as e:
+                except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
                     logger.warning(f"Failed to sync {item.item_type.value}: {e}")
                     item.last_error = str(e)
                     failed_items.append(item)
@@ -430,7 +430,7 @@ class SupabaseSyncService:
 
             return False
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.debug(f"Sync item error: {e}")
             raise
 
@@ -478,7 +478,7 @@ def shutdown_sync_service(timeout: float = 5.0) -> None:
                 # Try to flush remaining items
                 try:
                     _sync_service.flush(timeout=timeout / 2)
-                except Exception as e:
+                except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                     logger.warning(f"Error flushing sync service: {e}")
 
                 _sync_service.stop(timeout=timeout / 2)

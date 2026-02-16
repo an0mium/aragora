@@ -146,7 +146,7 @@ class SummarizationSkill(Skill):
                 style=style,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Summarization failed: {e}")
             return SkillResult.create_failure(f"Summarization failed: {e}")
 

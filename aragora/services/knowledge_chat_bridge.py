@@ -242,7 +242,7 @@ class KnowledgeChatBridge:
                 if len(results) >= 2:
                     suggestions = self._generate_suggestions(query, results)
 
-            except Exception as e:
+            except (ValueError, OSError, ConnectionError, RuntimeError) as e:
                 logger.warning(f"Knowledge search failed: {e}")
 
         elapsed_ms = (time.time() - start_time) * 1000
@@ -398,7 +398,7 @@ class KnowledgeChatBridge:
             logger.info(f"Stored chat knowledge: {node_id} ({len(messages)} messages)")
             return node_id
 
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.warning(f"Failed to store chat as knowledge: {e}")
             return None
 

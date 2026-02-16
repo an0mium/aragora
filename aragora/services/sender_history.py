@@ -565,7 +565,7 @@ class SenderHistoryService:
                 self._domain_cache[domain_key] = (datetime.now(), new_avg, count + 1)
             else:
                 self._domain_cache[domain_key] = (datetime.now(), reputation_score, 1)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.debug("Failed to update domain reputation cache: %s", e)
 
     async def get_domain_reputation(

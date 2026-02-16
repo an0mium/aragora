@@ -81,7 +81,7 @@ class RedisStreamsQueue(JobQueue):
                 mkstream=True,
             )
             logger.info(f"Created consumer group {self.group_name} on {self.stream_key}")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             # Group already exists (BUSYGROUP error)
             if "BUSYGROUP" not in str(e):
                 raise
@@ -210,7 +210,7 @@ class RedisStreamsQueue(JobQueue):
             logger.debug(f"Dequeued job {job.id} for worker {worker_id}")
             return job
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.error(f"Error dequeuing job: {e}")
             return None
 
@@ -335,7 +335,7 @@ class RedisStreamsQueue(JobQueue):
         try:
             pending_info = await self._redis.xpending(self.stream_key, self.group_name)
             pending_count = pending_info.get("pending", 0) if pending_info else 0
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"Could not get pending count for {self.stream_key}: {e}")
             pending_count = 0
 
@@ -395,12 +395,12 @@ class RedisStreamsQueue(JobQueue):
                         )
                         claimed += 1
                         logger.info(f"Claimed stale message {message_id}")
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError) as e:
                         logger.warning(f"Failed to claim message {message_id}: {e}")
 
             return claimed
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             logger.error(f"Error claiming stale jobs: {e}")
             return 0
 

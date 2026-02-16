@@ -449,7 +449,7 @@ class InboxSLAMonitor:
         for handler in self._escalation_handlers:
             try:
                 handler(violation, config)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError) as e:
                 logger.warning(f"[SLAMonitor] Escalation handler failed: {e}")
 
         # Log activity
@@ -475,7 +475,7 @@ class InboxSLAMonitor:
                 },
             )
             store.log_activity(activity)
-        except Exception as e:
+        except (ValueError, OSError, RuntimeError, ImportError) as e:
             logger.debug(f"[SLAMonitor] Failed to log activity: {e}")
 
         logger.info(
@@ -676,7 +676,7 @@ class InboxSLAMonitor:
                 messages = filtered
 
             return messages
-        except Exception as e:
+        except (ValueError, OSError, ConnectionError, RuntimeError) as e:
             logger.debug(f"[SLAMonitor] Failed to get messages: {e}")
             return []
 

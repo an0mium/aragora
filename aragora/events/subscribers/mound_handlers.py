@@ -236,7 +236,7 @@ class MoundHandlersMixin:
 
             self.stats["mound_to_belief"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Mound -> Belief handler error: %s", e)
             self.stats["mound_to_belief"]["errors"] += 1
 
@@ -273,7 +273,7 @@ class MoundHandlersMixin:
 
             self.stats["rlm_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("RLM -> Mound handler error: %s", e)
             self.stats["rlm_to_mound"]["errors"] += 1
 
@@ -306,7 +306,7 @@ class MoundHandlersMixin:
 
             self.stats["mound_to_rlm"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Mound -> RLM handler error: %s", e)
             self.stats["mound_to_rlm"]["errors"] += 1
 
@@ -346,7 +346,7 @@ class MoundHandlersMixin:
 
             self.stats["elo_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("ELO -> Mound handler error: %s", e)
             self.stats["elo_to_mound"]["errors"] += 1
 
@@ -381,7 +381,7 @@ class MoundHandlersMixin:
 
             self.stats["mound_to_team_selection"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Mound -> Team Selection handler error: %s", e)
             self.stats["mound_to_team_selection"]["errors"] += 1
 
@@ -419,7 +419,7 @@ class MoundHandlersMixin:
 
             self.stats["insight_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Insight -> Mound handler error: %s", e)
             self.stats["insight_to_mound"]["errors"] += 1
 
@@ -460,7 +460,7 @@ class MoundHandlersMixin:
 
             self.stats["flip_to_mound"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Flip -> Mound handler error: %s", e)
             self.stats["flip_to_mound"]["errors"] += 1
 
@@ -493,6 +493,6 @@ class MoundHandlersMixin:
 
             self.stats["mound_to_trickster"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.error("Mound -> Trickster handler error: %s", e)
             self.stats["mound_to_trickster"]["errors"] += 1

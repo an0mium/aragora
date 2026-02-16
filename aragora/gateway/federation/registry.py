@@ -414,7 +414,7 @@ class FederationRegistry:
             except ImportError:
                 logger.warning("redis package not installed, using in-memory fallback")
                 self._redis = None
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Redis not available, using in-memory fallback: {e}")
                 self._redis = None
 
@@ -455,7 +455,7 @@ class FederationRegistry:
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided event callback
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     async def register(
@@ -728,7 +728,7 @@ class FederationRegistry:
         try:
             healthy = await self._check_health_endpoint(health_endpoint)
             framework.record_health_check(healthy)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Health check failed for {framework_id}: {e}")
             framework.record_health_check(False)
 
@@ -759,7 +759,7 @@ class FederationRegistry:
             # aiohttp not available, assume healthy
             logger.debug("aiohttp not available, skipping HTTP health check")
             return True
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.debug(f"Health check request failed: {e}")
             return False
 
@@ -963,7 +963,7 @@ class FederationRegistry:
                     return capabilities
         except ImportError:
             logger.debug("aiohttp not available, using cached capabilities")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Failed to refresh capabilities for {framework_id}: {e}")
 
         return framework.capabilities
@@ -1043,7 +1043,7 @@ class FederationRegistry:
                 if asyncio.iscoroutine(result):
                     await result
                 framework.startup_hooks.append(hook_id)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                 logger.error(f"Startup hook {hook_id} failed: {e}")
 
     async def _run_shutdown_hooks(self, framework: ExternalFramework) -> None:
@@ -1054,7 +1054,7 @@ class FederationRegistry:
                 if asyncio.iscoroutine(result):
                     await result
                 framework.shutdown_hooks.append(hook_id)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:  # noqa: BLE001 - user-provided lifecycle hook callback
                 logger.error(f"Shutdown hook {hook_id} failed: {e}")
 
     def _negotiate_version(self, client_versions: list[str]) -> str | None:
@@ -1111,7 +1111,7 @@ class FederationRegistry:
                     await self.health_check(framework.framework_id)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Error in health check loop: {e}")
 
     async def _cleanup_loop(self) -> None:
@@ -1122,7 +1122,7 @@ class FederationRegistry:
                 await self._cleanup_dead_frameworks()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Error in cleanup loop: {e}")
 
     async def _cleanup_dead_frameworks(self) -> int:

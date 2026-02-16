@@ -314,7 +314,7 @@ class ClaudeComputerUseBridge:
                 tools=tools,
                 messages=messages,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - must catch all API errors before re-raising
             logger.error(f"Claude API call failed: {e}")
             raise
 

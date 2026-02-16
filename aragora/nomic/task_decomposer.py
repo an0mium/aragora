@@ -542,7 +542,7 @@ class TaskDecomposer:
                     )
                 if subtasks:
                     return subtasks
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError) as e:
                 logger.debug(f"AI subtask extraction failed: {e}")
 
         # Fall back to heuristic decomposition
@@ -1034,7 +1034,7 @@ class TaskDecomposer:
             # Generic agent error - try fallback
             should_fallback = True
             fallback_reason = f"agent error: {e}"
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             # Check if exception message indicates billing/API issues
             error_msg = str(e).lower()
             if any(
@@ -1104,7 +1104,7 @@ class TaskDecomposer:
             logger.warning("debate_fallback_no_subtasks returning original result")
             return result or fallback_result
 
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.exception(f"debate_fallback_failed error={e}")
             # Return original result if we have one
             return result
@@ -1135,7 +1135,7 @@ class TaskDecomposer:
                     model="openai/gpt-4o",
                 ),
             ]
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.warning(f"openrouter_agents_failed error={e}")
             return []
 
@@ -1269,7 +1269,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                         ),
                     ]
                 )
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 errors.append(f"Anthropic: {e}")
 
         # Try OpenAI agents (pass API key explicitly)
@@ -1281,7 +1281,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                 agents.append(
                     OpenAIAPIAgent(name="gpt-analyst", model="gpt-4o", api_key=openai_key)
                 )
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 errors.append(f"OpenAI: {e}")
 
         # Try OpenRouter as fallback (pass API key explicitly)
@@ -1303,7 +1303,7 @@ Prioritize by impact: which improvements would provide the most value?"""
                         ),
                     ]
                 )
-            except Exception as e:
+            except (ImportError, RuntimeError, OSError) as e:
                 errors.append(f"OpenRouter: {e}")
 
         if not agents:

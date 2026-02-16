@@ -204,7 +204,7 @@ def ensure_metrics_initialized() -> bool:
         except ImportError as e:
             logger.warning(f"prometheus-client not installed: {e}")
             enabled = False
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.error(f"Failed to initialize metrics: {e}")
             enabled = False
 

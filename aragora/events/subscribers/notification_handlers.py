@@ -112,5 +112,5 @@ class NotificationHandlersMixin:
 
         except ImportError:
             logger.debug("NotificationService not available")
-        except Exception as e:
+        except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug("Notification delivery failed (non-critical): %s", e)

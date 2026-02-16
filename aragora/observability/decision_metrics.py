@@ -435,7 +435,7 @@ def get_decision_metrics() -> dict[str, Any]:
 
     except ImportError:
         return {"error": "prometheus_client not installed"}
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:
         return {"error": str(e)}
 
 
@@ -503,7 +503,7 @@ def get_decision_summary() -> dict[str, Any]:
 
     except ImportError:
         return {"error": "prometheus_client not installed"}
-    except Exception as e:
+    except (RuntimeError, AttributeError, TypeError) as e:
         return {"error": str(e)}
 
 

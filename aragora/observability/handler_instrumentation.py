@@ -76,7 +76,7 @@ def _safe_record_request(
         record_request(method, endpoint, status, latency)
     except ImportError:
         pass
-    except Exception as e:
+    except (RuntimeError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to record request metrics: {e}")
 
 
@@ -92,7 +92,7 @@ def _safe_start_span(name: str, attributes: dict[str, Any] | None = None) -> Any
         return span
     except ImportError:
         return _NoOpContextManager()
-    except Exception as e:
+    except (RuntimeError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to start span: {e}")
         return _NoOpContextManager()
 
@@ -396,7 +396,7 @@ def record_control_plane_operation(
                 endpoint=operation,
                 status=status,
             ).inc()
-    except Exception as e:
+    except (ImportError, RuntimeError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to record control plane operation: {e}")
 
 

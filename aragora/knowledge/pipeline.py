@@ -249,7 +249,7 @@ class KnowledgePipeline:
             else:
                 try:
                     self._fact_store = FactStore()
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.warning(f"Failed to create FactStore, using in-memory: {e}")
                     self._fact_store = InMemoryFactStore()
 
@@ -264,7 +264,7 @@ class KnowledgePipeline:
                         )
                     )
                     self._embedding_service.connect()
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                     logger.warning(f"Failed to connect to Weaviate, using in-memory: {e}")
                     self._embedding_service = InMemoryEmbeddingService()
             else:
@@ -282,7 +282,7 @@ class KnowledgePipeline:
                     )
                     await self._knowledge_mound.initialize()
                     logger.info("Knowledge Mound initialized for pipeline")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, ConnectionError) as e:
                 logger.warning(f"Failed to initialize Knowledge Mound: {e}")
                 self._knowledge_mound = None
 
@@ -312,14 +312,14 @@ class KnowledgePipeline:
         if self._embedding_service:
             try:
                 self._embedding_service.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.debug(f"Error closing embedding service: {e}")
 
         # Cleanup Knowledge Mound
         if self._knowledge_mound:
             try:
                 await self._knowledge_mound.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.debug(f"Error closing knowledge mound: {e}")
 
         logger.info("Knowledge pipeline stopped")
@@ -415,7 +415,7 @@ class KnowledgePipeline:
                 facts=facts,
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning("Document processing failed: %s", e)
             duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
@@ -523,7 +523,7 @@ class KnowledgePipeline:
                 facts=facts,
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
             logger.warning("Text processing failed: %s", e)
             duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
@@ -777,7 +777,7 @@ Include dates, numbers, names, and specific claims where possible."""
                         )
                         facts.append(fact)
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             logger.warning(f"Fact extraction failed: {e}")
 
         return facts
@@ -888,7 +888,7 @@ Include dates, numbers, names, and specific claims where possible."""
 
             logger.debug(f"Synced {synced} items to Knowledge Mound for document {document.id}")
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"Failed to sync to Knowledge Mound: {e}")
 
         return synced
@@ -937,7 +937,7 @@ Include dates, numbers, names, and specific claims where possible."""
                         result.context = f"{result.context}\n\n{mound_context}"
                     else:
                         result.context = mound_context
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, ConnectionError) as e:
                 logger.debug(f"Knowledge Mound query augmentation skipped: {e}")
 
         self._stats["queries_answered"] += 1
@@ -1089,7 +1089,7 @@ Include dates, numbers, names, and specific claims where possible."""
                 threshold=threshold,
                 limit=limit,
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError) as e:
             logger.warning(f"Failed to get stale knowledge: {e}")
             return []
 
@@ -1105,7 +1105,7 @@ Include dates, numbers, names, and specific claims where possible."""
 
         try:
             return await self._knowledge_mound.get_culture_profile()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError) as e:
             logger.warning(f"Failed to get culture profile: {e}")
             return None
 
@@ -1121,7 +1121,7 @@ Include dates, numbers, names, and specific claims where possible."""
 
         try:
             await self._knowledge_mound.observe_debate(debate_result)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError) as e:
             logger.warning(f"Failed to observe debate: {e}")
 
     @property

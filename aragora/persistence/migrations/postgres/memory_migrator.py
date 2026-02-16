@@ -536,7 +536,7 @@ class MemoryMigrator:
                         except asyncpg.UniqueViolationError:
                             # Some rows already exist
                             stats.rows_skipped += len(batch)
-                        except Exception as e:
+                        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                             stats.errors.append(f"Batch insert error: {e}")
                             stats.rows_skipped += len(batch)
                     batch = []
@@ -549,7 +549,7 @@ class MemoryMigrator:
                         stats.rows_migrated += len(batch)
                     except asyncpg.UniqueViolationError:
                         stats.rows_skipped += len(batch)
-                    except Exception as e:
+                    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
                         stats.errors.append(f"Final batch error: {e}")
                         stats.rows_skipped += len(batch)
 
@@ -557,7 +557,7 @@ class MemoryMigrator:
                 f"Migrated {stats.rows_migrated} rows to {table} ({stats.rows_skipped} skipped)"
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
             stats.errors.append(f"Migration error: {e}")
             logger.exception(f"Error migrating table {table}")
 

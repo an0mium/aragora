@@ -452,7 +452,7 @@ class TransactionManager:
         try:
             await conn.execute(f"SAVEPOINT {name}")
             logger.debug(f"Savepoint '{name}' created")
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             self._stats.savepoints_created -= 1  # Undo count
             raise SavepointError(f"Failed to create savepoint '{name}': {e}")
 

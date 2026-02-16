@@ -254,7 +254,7 @@ class TestEncryptionHelpers:
     def test_decrypt_failure_returns_original(self):
         """Test decrypt returns original on failure (graceful degradation)."""
         mock_service = MagicMock()
-        mock_service.decrypt_string.side_effect = RuntimeError("bad ciphertext")
+        mock_service.decrypt_string.side_effect = ValueError("bad ciphertext")
         encrypted = "AAAA" + "x" * 60
         with patch(
             "aragora.storage.webhook_config_store.get_encryption_service", return_value=mock_service
