@@ -603,7 +603,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 logger.debug(
                     f"PostgreSQL email origin lookup connection error: {type(e).__name__}: {e}"
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - asyncpg/psycopg custom exception hierarchies
                 logger.debug(f"PostgreSQL email origin lookup failed: {type(e).__name__}: {e}")
         else:
             # Fall back to SQLite
@@ -923,7 +923,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(f"Email debate connection error: {type(e).__name__}: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError) as e:
         logger.error(f"Failed to start email debate: {type(e).__name__}: {e}")
         return False
 
@@ -1011,7 +1011,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         logger.warning("Event bus not available for email reply routing")
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(f"Email reply routing connection error: {type(e).__name__}: {e}")
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         logger.error(f"Failed to route email reply: {type(e).__name__}: {e}")
 
     # Alternative: Try queue-based submission
@@ -1044,7 +1044,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         logger.debug("Queue system not available for email routing")
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error(f"Email queue connection error: {type(e).__name__}: {e}")
-    except Exception as e:
+    except (RuntimeError, ValueError) as e:
         logger.error(f"Failed to queue email input: {type(e).__name__}: {e}")
 
     return False
