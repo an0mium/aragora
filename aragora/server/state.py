@@ -356,7 +356,7 @@ class StateManager:
         for callback in self._shutdown_callbacks:
             try:
                 callback()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Shutdown must continue despite individual callback failures
                 try:
                     logger.error(f"Shutdown callback error: {e}")
                 except (ValueError, OSError):
@@ -429,7 +429,7 @@ def _shutdown_state_manager() -> None:
         if registry.has(StateManager):
             state_manager = registry.resolve(StateManager)
             state_manager.shutdown()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - atexit handler: interpreter shutdown may cause any exception
         # During shutdown, logging is disabled and may not work reliably.
         # Write to stderr for debugging (stderr is more reliable than logging at exit).
         import sys
@@ -454,6 +454,6 @@ def reset_state_manager() -> None:
         try:
             manager = registry.resolve(StateManager)
             manager.shutdown()
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Error during StateManager shutdown: {e}")
         registry.unregister(StateManager)

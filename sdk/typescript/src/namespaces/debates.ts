@@ -2907,4 +2907,31 @@ export class DebatesAPI {
   async listDebates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/debate', { params }) as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * Estimate the cost of a debate before creation.
+   */
+  async estimateCost(options?: {
+    numAgents?: number;
+    numRounds?: number;
+    modelTypes?: string[];
+  }): Promise<{
+    total_estimated_cost: number;
+    per_model_breakdown: Record<string, unknown>[];
+    assumptions: Record<string, unknown>;
+    currency: string;
+  }> {
+    const params: Record<string, unknown> = {};
+    if (options?.numAgents !== undefined) params.num_agents = options.numAgents;
+    if (options?.numRounds !== undefined) params.num_rounds = options.numRounds;
+    if (options?.modelTypes) params.model_types = options.modelTypes.join(',');
+    return this.client.request('GET', '/api/v1/debates/estimate-cost', {
+      params,
+    }) as Promise<{
+      total_estimated_cost: number;
+      per_model_breakdown: Record<string, unknown>[];
+      assumptions: Record<string, unknown>;
+      currency: string;
+    }>;
+  }
 }
