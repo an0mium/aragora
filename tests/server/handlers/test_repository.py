@@ -413,8 +413,8 @@ class TestBatchIndex:
         ):
             with patch(
                 "aragora.knowledge.repository_orchestrator.RepoConfig",
-            ) as MockRepoConfig:
-                MockRepoConfig.side_effect = lambda **kwargs: MagicMock(**kwargs)
+                side_effect=lambda **kwargs: MagicMock(**kwargs),
+            ):
                 result = await handler._batch_index(
                     {"repositories": [{"path": "/tmp/repo1"}, {"path": "/tmp/repo2"}]}
                 )
