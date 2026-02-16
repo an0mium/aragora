@@ -130,7 +130,7 @@ def _encrypt_token(token: str, context: str = "") -> str:
         # AAD binds token to this specific credential
         encrypted = service.encrypt(token, associated_data=context if context else None)
         return encrypted.to_base64()
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         if is_encryption_required():
             raise EncryptionError(
                 "encrypt",
@@ -158,7 +158,7 @@ def _decrypt_token(encrypted_token: str, context: str = "") -> str:
     try:
         service = get_encryption_service()
         return service.decrypt_string(encrypted_token, associated_data=context if context else None)
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         # Could be a legacy plain token that happens to start with "A"
         logger.debug(f"Token decryption failed for context {context}, returning as-is: {e}")
         return encrypted_token
