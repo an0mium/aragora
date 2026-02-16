@@ -272,7 +272,7 @@ class RequestRouter:
                 return handler.handle_put(path, query_params, http_handler)
             elif method == "DELETE" and hasattr(handler, "handle_delete"):
                 return handler.handle_delete(path, query_params, http_handler)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Top-level router: must catch all handler errors to prevent server crash
             logger.error(f"Handler error for {method} {path}: {e}", exc_info=True)
             # Return None to let caller handle the error
             return None

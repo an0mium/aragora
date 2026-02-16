@@ -200,7 +200,7 @@ class ConnectionPoolManager:
         except ImportError:
             logger.error("redis package not installed")
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to create connection pool: {e}")
             return None
 
@@ -277,7 +277,7 @@ class ConnectionPoolManager:
 
             logger.debug(f"Health check passed ({(time.time() - start) * 1000:.1f}ms)")
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             self.metrics.health_check_failures += 1
             logger.warning(f"Health check failed: {e}")
 
@@ -294,7 +294,7 @@ class ConnectionPoolManager:
             if self._pool is not None:
                 try:
                     self._pool.disconnect()
-                except Exception as e:
+                except (ConnectionError, OSError, RuntimeError) as e:
                     logger.debug(f"Error disconnecting pool during reconnect: {type(e).__name__}")
                 self._pool = None
                 self._client = None
@@ -367,7 +367,7 @@ class ConnectionPoolManager:
                 try:
                     self._pool.disconnect()
                     logger.info("Connection pool closed")
-                except Exception as e:
+                except (ConnectionError, OSError, RuntimeError) as e:
                     logger.error(f"Error closing pool: {e}")
                 finally:
                     self._pool = None

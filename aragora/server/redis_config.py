@@ -117,7 +117,7 @@ def get_redis_pool() -> Any | None:
         logger.debug("redis package not installed, Redis caching disabled")
         _redis_available = False
         return None
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning(f"Redis connection failed: {e}")
         _redis_available = False
         return None
@@ -173,7 +173,7 @@ def close_redis_pool() -> None:
         try:
             _redis_pool.disconnect()
             logger.debug("Redis connection pool closed")
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.warning(f"Error closing Redis pool: {e}")
         finally:
             _redis_pool = None
@@ -224,7 +224,7 @@ async def get_async_redis_client() -> Any | None:
     except ImportError:
         logger.debug("redis.asyncio not available for async Redis client")
         return None
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning(f"Async Redis connection failed: {e}")
         return None
 

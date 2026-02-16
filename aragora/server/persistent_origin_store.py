@@ -218,7 +218,7 @@ class PersistentOriginStore:
 
             return True
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"PostgreSQL initialization failed: {e}")
             if self._pool:
                 await self._pool.close()

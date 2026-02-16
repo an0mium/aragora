@@ -186,7 +186,7 @@ class TokenManager:
             logger.debug("Redis not available, using in-memory storage")
             self._redis_available = False
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug(f"Redis connection failed: {e}, using in-memory storage")
             self._redis_available = False
             return None

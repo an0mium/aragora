@@ -53,7 +53,7 @@ def _get_request_timeout(path: str) -> float | None:
     try:
         config = _timeout_config_factory()
         return config.get_timeout(path)
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.debug(f"Could not get timeout config: {e}")
         return None
 
@@ -64,7 +64,7 @@ def _get_executor() -> ThreadPoolExecutor | None:
         return None
     try:
         return _timeout_executor_factory()
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.debug(f"Could not get timeout executor: {e}")
         return None
 
@@ -246,7 +246,7 @@ class RequestLifecycleManager:
                 else:
                     internal_handler(path)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Top-level safety net: must catch all unhandled handler errors
             # Top-level safety net for handlers (not triggered for timeout)
             if not timed_out:
                 self.handler._response_status = 500
@@ -279,7 +279,7 @@ class RequestLifecycleManager:
         """Send a JSON error response if possible."""
         try:
             self.handler._send_json({"error": "Internal server error"}, status=500)
-        except Exception as send_err:
+        except (OSError, ConnectionError, RuntimeError) as send_err:
             logger.debug(f"Could not send error response (already sent?): {send_err}")
 
     def _send_timeout_response(self, timeout_seconds: float, path: str) -> None:
@@ -310,7 +310,7 @@ class RequestLifecycleManager:
                     "X-Timeout-Seconds": str(timeout_seconds),
                 },
             )
-        except Exception as send_err:
+        except (OSError, ConnectionError, RuntimeError) as send_err:
             logger.debug(f"Could not send timeout response (already sent?): {send_err}")
 
 

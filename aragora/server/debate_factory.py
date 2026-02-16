@@ -488,7 +488,7 @@ class DebateFactory:
                 )
             agent_result.agents.append(specialist)
             logger.info("Injected vertical specialist: %s", vertical_id)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
             logger.warning(f"Failed to create vertical specialist {vertical_id}: {e}")
 
         return agent_result

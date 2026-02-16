@@ -363,7 +363,7 @@ class UnifiedHandler(  # type: ignore[misc]
                     diag["jwt_secret_strong"] = (
                         len(secret) >= MIN_SECRET_LENGTH if secret else False
                     )
-                except Exception as e:
+                except (ImportError, ValueError, RuntimeError, OSError) as e:
                     diag["jwt_secret_error"] = f"{type(e).__name__}: {e}"
                 try:
                     from aragora.server.handlers.oauth.config import (
@@ -379,7 +379,7 @@ class UnifiedHandler(  # type: ignore[misc]
                     diag["google_redirect_uri"] = _get_google_redirect_uri()
                     diag["allowed_redirect_hosts"] = sorted(_get_allowed_redirect_hosts())
                     diag["is_production"] = _is_production()
-                except Exception as e:
+                except (ImportError, ValueError, RuntimeError, AttributeError) as e:
                     diag["oauth_config_error"] = f"{type(e).__name__}: {e}"
                 auth_header = self.headers.get("Authorization", "")
                 diag["auth_header_present"] = bool(auth_header)
@@ -400,7 +400,7 @@ class UnifiedHandler(  # type: ignore[misc]
                             diag["jwt_exp"] = str(payload.exp) if payload.exp is not None else None
                         else:
                             diag["jwt_valid"] = False
-                    except Exception as e:
+                    except (ImportError, ValueError, RuntimeError, KeyError) as e:
                         diag["jwt_decode_error"] = f"{type(e).__name__}: {e}"
                 diag["aragora_env"] = _os.environ.get("ARAGORA_ENV", "(not set)")
                 diag["aragora_environment"] = _os.environ.get("ARAGORA_ENVIRONMENT", "(not set)")
@@ -411,13 +411,13 @@ class UnifiedHandler(  # type: ignore[misc]
                 self.send_header("Content-Length", str(len(content)))
                 self.end_headers()
                 self.wfile.write(content)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Debug endpoint safety net: must not crash server
                 # Fallback: send minimal response bypassing _send_json entirely
                 try:
                     err = _json.dumps(
                         {"error": f"Debug endpoint error: {type(e).__name__}: {e}"}
                     ).encode()
-                except Exception as json_err:
+                except (ValueError, TypeError) as json_err:
                     logger.debug("Failed to serialize error response: %s", json_err)
                     err = b'{"error": "Debug endpoint critically failed"}'
                 try:
@@ -426,7 +426,7 @@ class UnifiedHandler(  # type: ignore[misc]
                     self.send_header("Content-Length", str(len(err)))
                     self.end_headers()
                     self.wfile.write(err)
-                except Exception as send_err:
+                except (OSError, ConnectionError, RuntimeError) as send_err:
                     logger.debug("Failed to send error response: %s", send_err)
             return
 

@@ -603,7 +603,7 @@ class ConfigValidator:
             logger.info("Alembic migrations are up to date")
             return True, None
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
             # Log but don't fail startup for migration check errors
             logger.warning(f"Could not verify Alembic migrations: {e}")
             return True, None

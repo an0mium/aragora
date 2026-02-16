@@ -70,7 +70,7 @@ def auto_select_agents(
                 f"[auto_select] Classifier returned insufficient personas for "
                 f"'{classification.category}', falling back to AgentSelector"
             )
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"[auto_select] Question classification failed: {e}, using AgentSelector")
 
     # Fall back to AgentSelector

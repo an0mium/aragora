@@ -286,7 +286,7 @@ def register_debate_origin(
                     f"Redis connection failed: {e}",
                 )
             logger.debug(f"Redis origin storage not available: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError doesn't inherit builtins.ConnectionError
             if is_distributed_state_required():
                 raise DistributedStateError(
                     "debate_origin",
@@ -332,7 +332,7 @@ def get_debate_origin(debate_id: str) -> DebateOrigin | None:
             json.JSONDecodeError,
         ) as e:
             logger.debug(f"Redis origin lookup not available: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError doesn't inherit builtins.ConnectionError
             logger.debug(f"Redis origin lookup not available: {e}")
 
     # Try PostgreSQL if configured
@@ -471,8 +471,7 @@ def mark_result_sent(debate_id: str) -> None:
             except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
                 # Catch Redis errors (connection, timeout, etc.)
                 logger.debug(f"Redis update skipped: {e}")
-            except Exception as e:
-                # Catch redis.exceptions.ConnectionError and other client errors
+            except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError doesn't inherit builtins.ConnectionError
                 logger.debug(f"Redis update skipped: {e}")
 
 
