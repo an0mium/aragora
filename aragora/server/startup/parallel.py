@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from typing import Any, TypeVar
 from collections.abc import Callable, Coroutine
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -140,7 +142,11 @@ async def _run_task(task: InitTask) -> InitTask:
     except asyncio.TimeoutError:
         task.error = TimeoutError(f"Task '{task.name}' timed out after {task.timeout}s")
         logger.error(f"[parallel_init] {task.name} timed out after {task.timeout}s")
-    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+    except Exception as e:
+        # Catch all exceptions — this wrapper MUST capture errors into task.error
+        # so they don't propagate through asyncio.gather() and crash startup.
+        # Notable: redis.exceptions.ConnectionError does NOT inherit from
+        # builtins.ConnectionError, so a fixed exception list misses it.
         task.error = e
         logger.error(f"[parallel_init] {task.name} failed: {type(e).__name__}: {e}")
     finally:
@@ -559,6 +565,9 @@ class ParallelInitializer:
             self._results["agent_registry"] = result
         except ImportError:
             logger.debug("[parallel_init] AgentRegistry not available")
+        except REDIS_CONNECTION_ERRORS as e:
+            logger.warning(f"[parallel_init] AgentRegistry Redis connection failed: {e}")
+            result["error"] = str(e)
         except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[parallel_init] AgentRegistry init failed: {e}")
             result["error"] = str(e)
@@ -694,7 +703,12 @@ class ParallelInitializer:
             if scheduler:
                 result["enabled"] = True
                 self._results["dr_drill_scheduler"] = result
-        except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
+        except ImportError:
+            logger.debug("[parallel_init] DR drilling not available")
+        except REDIS_CONNECTION_ERRORS as e:
+            logger.warning(f"[parallel_init] DR drilling Redis connection failed: {e}")
+            result["error"] = str(e)
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[parallel_init] DR drilling init failed: {e}")
             result["error"] = str(e)
 
@@ -716,6 +730,9 @@ class ParallelInitializer:
             result["enabled"] = True
         except ImportError:
             logger.debug("[parallel_init] Cache pre-warming not available")
+        except REDIS_CONNECTION_ERRORS as e:
+            logger.warning(f"[parallel_init] Cache pre-warming Redis connection failed: {e}")
+            result["error"] = str(e)
         except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[parallel_init] Cache pre-warming failed: {e}")
             result["error"] = str(e)
@@ -745,7 +762,9 @@ class ParallelInitializer:
             try:
                 self._redis_client.ping()
                 result["redis"] = True
-            except (OSError, RuntimeError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
+                logger.warning(f"[parallel_init] Redis health check failed: {e}")
+            except (RuntimeError, TimeoutError) as e:
                 logger.warning(f"[parallel_init] Redis health check failed: {e}")
 
         result["overall"] = result["database"] or result["redis"] or True
