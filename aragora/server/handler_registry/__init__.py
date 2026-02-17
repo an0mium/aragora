@@ -103,7 +103,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     *SOCIAL_HANDLER_REGISTRY,
 ]
 
-# Compute availability based on critical handlers
+# Compute availability: critical handlers must import + most registry entries must resolve
 HANDLERS_AVAILABLE = all(
     [
         SystemHandler is not None,
@@ -111,6 +111,20 @@ HANDLERS_AVAILABLE = all(
         DebatesHandler is not None,
     ]
 )
+
+# Check that core-tier handlers in the registry all resolved (not None)
+_core_handlers = [
+    (name, cls)
+    for name, cls in HANDLER_REGISTRY
+    if HANDLER_TIERS.get(name) == "core"
+]
+_failed_core = [name for name, cls in _core_handlers if cls is None]
+if _failed_core:
+    logger.warning(
+        "Core handler(s) failed to import: %s — server may be degraded",
+        ", ".join(_failed_core),
+    )
+    HANDLERS_AVAILABLE = False
 
 
 class HandlerRegistryMixin:
@@ -508,6 +522,29 @@ class HandlerRegistryMixin:
                 ).encode()
             )
             return True
+        except Exception as e:  # noqa: BLE001 - catch-all for diagnostic: catches exception types not in the specific list above
+            logger.error(
+                "[handlers] UNEXPECTED exception type %s in %s for %s %s: %s",
+                type(e).__name__, handler.__class__.__name__, method, path, e,
+                exc_info=True,
+            )
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self._add_cors_headers()
+            self._add_security_headers()
+            self._add_trace_headers()
+            self.end_headers()
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "error": "Internal server error",
+                        "code": "unexpected_exception",
+                        "exception_type": type(e).__name__,
+                        "handler": handler.__class__.__name__,
+                    }
+                ).encode()
+            )
+            return True
 
         # Handler was found but returned a falsy result — log this for debugging.
         # Common cause: async handler returned None (no path/method match inside handle()).
@@ -516,6 +553,27 @@ class HandlerRegistryMixin:
                 "[handlers] Handler %s matched %s %s but returned falsy result: %r",
                 handler.__class__.__name__, method, path, result,
             )
+            # Return a diagnostic 500 so we can see the issue from the client
+            # instead of falling through to a misleading 404.
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self._add_cors_headers()
+            self._add_security_headers()
+            self._add_trace_headers()
+            self.end_headers()
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "error": "Handler matched but returned no result",
+                        "code": "handler_no_result",
+                        "handler": handler.__class__.__name__,
+                        "result_type": type(result).__name__,
+                        "method": method,
+                        "path": path,
+                    }
+                ).encode()
+            )
+            return True
         return False
 
     def _get_handler_stats(self) -> dict[str, Any]:
