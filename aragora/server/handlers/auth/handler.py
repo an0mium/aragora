@@ -199,14 +199,10 @@ class AuthHandler(SecureHandler):
         method = method or (getattr(handler, "command", "GET") if handler else "GET")
 
         if path == "/api/auth/register" and method == "POST":
-            result = self._handle_register(handler)
-            logger.debug("[AUTH] _handle_register returned: type=%s truthy=%s", type(result).__name__, bool(result) if result is not None else "None")
-            return result
+            return self._handle_register(handler)
 
         if path == "/api/auth/login" and method == "POST":
-            result = self._handle_login(handler)
-            logger.debug("[AUTH] _handle_login returned: type=%s truthy=%s", type(result).__name__, bool(result) if result is not None else "None")
-            return result
+            return self._handle_login(handler)
 
         if path == "/api/auth/logout" and method == "POST":
             return self._handle_logout(handler)

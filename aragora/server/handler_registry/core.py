@@ -671,15 +671,21 @@ class RouteIndex:
         return None
 
 
-# Global route index instance
+# Global route index instance (thread-safe singleton)
 _route_index: RouteIndex | None = None
+_route_index_lock = __import__("threading").Lock()
 
 
 def get_route_index() -> RouteIndex:
-    """Get or create the global route index."""
+    """Get or create the global route index.
+
+    Thread-safe: uses double-checked locking to prevent multiple instances.
+    """
     global _route_index
     if _route_index is None:
-        _route_index = RouteIndex()
+        with _route_index_lock:
+            if _route_index is None:
+                _route_index = RouteIndex()
     return _route_index
 
 

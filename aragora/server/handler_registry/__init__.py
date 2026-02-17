@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from typing import TYPE_CHECKING, Any, BinaryIO
 from collections.abc import Callable
 
@@ -170,8 +171,9 @@ class HandlerRegistryMixin:
     send_header: Callable[[str, str], None]
     end_headers: Callable[[], None]
 
-    # Handler instances (initialized lazily)
+    # Handler instances (initialized lazily, with thread-safe init)
     _handlers_initialized: bool = False
+    _init_lock = __import__("threading").Lock()
 
     @classmethod
     def _init_handlers(cls) -> None:
@@ -179,75 +181,90 @@ class HandlerRegistryMixin:
 
         Called lazily on first request. Creates handler instances with
         references to storage, ELO system, and other shared resources.
+
+        Thread-safe: uses double-checked locking to prevent race conditions
+        in ThreadingHTTPServer where concurrent requests could see partially
+        initialized state (handlers created but route index not yet built).
         """
+        # Fast path: already initialized (no lock needed)
         if cls._handlers_initialized or not HANDLERS_AVAILABLE:
             return
 
-        # Build server context for handlers
-        nomic_dir = None
-        if hasattr(cls, "nomic_state_file") and cls.nomic_state_file:
-            nomic_dir = cls.nomic_state_file.parent
+        # Acquire lock for thread-safe initialization
+        with cls._init_lock:
+            # Double-check after acquiring lock
+            if cls._handlers_initialized:
+                return
 
-        ctx = {
-            "storage": getattr(cls, "storage", None),
-            "stream_emitter": getattr(cls, "stream_emitter", None),
-            "control_plane_stream": getattr(cls, "control_plane_stream", None),
-            "nomic_loop_stream": getattr(cls, "nomic_loop_stream", None),
-            "elo_system": getattr(cls, "elo_system", None),
-            "nomic_dir": nomic_dir,
-            "debate_embeddings": getattr(cls, "debate_embeddings", None),
-            "critique_store": getattr(cls, "critique_store", None),
-            "document_store": getattr(cls, "document_store", None),
-            "persona_manager": getattr(cls, "persona_manager", None),
-            "position_ledger": getattr(cls, "position_ledger", None),
-            "user_store": getattr(cls, "user_store", None),
-            "continuum_memory": getattr(cls, "continuum_memory", None),
-            "cross_debate_memory": getattr(cls, "cross_debate_memory", None),
-            "knowledge_mound": getattr(cls, "knowledge_mound", None),
-        }
+            # Build server context for handlers
+            nomic_dir = None
+            if hasattr(cls, "nomic_state_file") and cls.nomic_state_file:
+                nomic_dir = cls.nomic_state_file.parent
 
-        # Filter registry by active tiers
-        active_tiers = get_active_tiers()
-        active_registry = filter_registry_by_tier(HANDLER_REGISTRY, active_tiers)
+            ctx = {
+                "storage": getattr(cls, "storage", None),
+                "stream_emitter": getattr(cls, "stream_emitter", None),
+                "control_plane_stream": getattr(cls, "control_plane_stream", None),
+                "nomic_loop_stream": getattr(cls, "nomic_loop_stream", None),
+                "elo_system": getattr(cls, "elo_system", None),
+                "nomic_dir": nomic_dir,
+                "debate_embeddings": getattr(cls, "debate_embeddings", None),
+                "critique_store": getattr(cls, "critique_store", None),
+                "document_store": getattr(cls, "document_store", None),
+                "persona_manager": getattr(cls, "persona_manager", None),
+                "position_ledger": getattr(cls, "position_ledger", None),
+                "user_store": getattr(cls, "user_store", None),
+                "continuum_memory": getattr(cls, "continuum_memory", None),
+                "cross_debate_memory": getattr(cls, "cross_debate_memory", None),
+                "knowledge_mound": getattr(cls, "knowledge_mound", None),
+            }
 
-        # Initialize handlers from filtered registry with auto-instrumentation
-        for attr_name, handler_class in active_registry:
-            if handler_class is not None:
-                try:
-                    instance = handler_class(ctx)
-                except TypeError:
-                    # Facade handlers (route discovery only) don't accept ctx
-                    instance = handler_class()
-                auto_instrument_handler(instance)
-                setattr(cls, attr_name, instance)
+            # Filter registry by active tiers
+            active_tiers = get_active_tiers()
+            active_registry = filter_registry_by_tier(HANDLER_REGISTRY, active_tiers)
 
-        cls._handlers_initialized = True
-        skipped = len(HANDLER_REGISTRY) - len(active_registry)
-        tier_info = ",".join(sorted(active_tiers))
-        logger.info(
-            f"[handlers] Initialized {len(active_registry)}/{len(HANDLER_REGISTRY)} "
-            f"handlers (tiers={tier_info}, skipped={skipped})"
-        )
+            # Initialize handlers from filtered registry with auto-instrumentation
+            for attr_name, handler_class in active_registry:
+                if handler_class is not None:
+                    try:
+                        instance = handler_class(ctx)
+                    except TypeError:
+                        # Facade handlers (route discovery only) don't accept ctx
+                        instance = handler_class()
+                    auto_instrument_handler(instance)
+                    setattr(cls, attr_name, instance)
 
-        # Check for unregistered handler classes in the codebase
-        try:
-            check_handler_coverage(active_registry)
-        except (ImportError, OSError, RuntimeError, ValueError) as e:
-            logger.debug(f"[handlers] Handler coverage check failed: {e}")
+            # Build route index for O(1) dispatch BEFORE setting initialized flag.
+            # This prevents other threads from seeing _handlers_initialized=True
+            # while the route index is still empty, which caused intermittent 404s.
+            route_index = get_route_index()
+            route_index.build(cls, active_registry)
 
-        # Validate instantiated handlers
-        validation_results = validate_handlers_on_init(cls, active_registry)
-        if validation_results["invalid"]:
-            logger.warning(
-                f"[handlers] {len(validation_results['invalid'])} handlers have validation issues"
+            # Mark as initialized only AFTER routes are fully built
+            cls._handlers_initialized = True
+
+            skipped = len(HANDLER_REGISTRY) - len(active_registry)
+            tier_info = ",".join(sorted(active_tiers))
+            logger.info(
+                f"[handlers] Initialized {len(active_registry)}/{len(HANDLER_REGISTRY)} "
+                f"handlers (tiers={tier_info}, skipped={skipped})"
             )
 
-        # Build route index for O(1) dispatch
-        route_index = get_route_index()
-        route_index.build(cls, active_registry)
+            # Check for unregistered handler classes in the codebase
+            try:
+                check_handler_coverage(active_registry)
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
+                logger.debug(f"[handlers] Handler coverage check failed: {e}")
 
-        # Log resource availability for observability
-        cls._log_resource_availability(nomic_dir)
+            # Validate instantiated handlers
+            validation_results = validate_handlers_on_init(cls, active_registry)
+            if validation_results["invalid"]:
+                logger.warning(
+                    f"[handlers] {len(validation_results['invalid'])} handlers have validation issues"
+                )
+
+            # Log resource availability for observability
+            cls._log_resource_availability(nomic_dir)
 
     @classmethod
     def _log_resource_availability(cls, nomic_dir) -> None:
