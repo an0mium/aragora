@@ -67,7 +67,11 @@ class TestFindReplayFiles:
     def test_finds_files_in_default_locations(self, tmp_path, sample_replay, monkeypatch):
         """Find files in default locations."""
         monkeypatch.chdir(tmp_path)
-        replay_dir = tmp_path / ".aragora" / "replays"
+        # Set ARAGORA_DATA_DIR so get_nomic_dir() resolves to our tmp_path base
+        data_dir = tmp_path / ".aragora"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(data_dir))
+        replay_dir = data_dir / "replays"
         replay_dir.mkdir(parents=True)
         filepath = replay_dir / "test.json"
         filepath.write_text(json.dumps(sample_replay))
@@ -354,7 +358,10 @@ class TestIntegration:
         monkeypatch.chdir(tmp_path)
 
         # Create replay directory and file
-        replay_dir = tmp_path / ".aragora" / "replays"
+        data_dir = tmp_path / ".aragora"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(data_dir))
+        replay_dir = data_dir / "replays"
         replay_dir.mkdir(parents=True)
         replay_file = replay_dir / "test_debate.json"
         replay_file.write_text(json.dumps(sample_replay))

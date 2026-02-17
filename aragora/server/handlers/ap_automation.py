@@ -679,7 +679,7 @@ class APAutomationHandler(BaseHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
-    ROUTES: dict[str, Any] = {
+    _ROUTE_MAP: dict[str, Any] = {
         "POST /api/v1/accounting/ap/invoices": handle_add_invoice,
         "GET /api/v1/accounting/ap/invoices": handle_list_invoices,
         "POST /api/v1/accounting/ap/optimize": handle_optimize_payments,
@@ -687,6 +687,48 @@ class APAutomationHandler(BaseHandler):
         "GET /api/v1/accounting/ap/forecast": handle_get_forecast,
         "GET /api/v1/accounting/ap/discounts": handle_get_discounts,
     }
+
+    ROUTES = [
+        "/api/v1/accounting/ap/invoices",
+        "/api/v1/accounting/ap/optimize",
+        "/api/v1/accounting/ap/batch",
+        "/api/v1/accounting/ap/forecast",
+        "/api/v1/accounting/ap/discounts",
+        "/api/v1/accounting/connect",
+        "/api/v1/accounting/customers",
+        "/api/v1/accounting/disconnect",
+        "/api/v1/accounting/expenses",
+        "/api/v1/accounting/expenses/categorize",
+        "/api/v1/accounting/expenses/export",
+        "/api/v1/accounting/expenses/pending",
+        "/api/v1/accounting/expenses/stats",
+        "/api/v1/accounting/expenses/sync",
+        "/api/v1/accounting/expenses/upload",
+        "/api/v1/accounting/invoices",
+        "/api/v1/accounting/invoices/overdue",
+        "/api/v1/accounting/invoices/pending",
+        "/api/v1/accounting/invoices/stats",
+        "/api/v1/accounting/invoices/status",
+        "/api/v1/accounting/invoices/upload",
+        "/api/v1/accounting/payments/scheduled",
+        "/api/v1/accounting/purchase-orders",
+        "/api/v1/accounting/reports",
+        "/api/v1/accounting/status",
+        "/api/v1/accounting/transactions",
+        "/api/v1/accounting/gusto/employees",
+        "/api/v1/accounting/gusto/payrolls",
+        "/api/v1/accounting/gusto/status",
+        "/api/v1/gusto/connect",
+        "/api/v1/gusto/disconnect",
+        "/api/v1/gusto/employees",
+        "/api/v1/gusto/payrolls",
+        "/api/v1/gusto/status",
+        "/api/v1/ap/batch-payments",
+        "/api/v1/ap/cash-flow",
+        "/api/v1/ap/discount-opportunities",
+        "/api/v1/ap/invoices",
+        "/api/v1/ap/optimize",
+    ]
 
     DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/accounting/ap/invoices/{invoice_id}": handle_get_invoice,

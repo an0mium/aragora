@@ -62,6 +62,8 @@ def _make_mixin(enable_privacy: bool = False, method: str = "redact") -> PromptA
         "_get_introspection_context",
         "get_mode_prompt",
         "get_knowledge_mound_context",
+        "get_codebase_context",
+        "_get_active_introspection_context",
     ]:
         setattr(mixin, method_name, MagicMock(return_value=""))
 

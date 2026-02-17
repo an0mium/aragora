@@ -163,6 +163,8 @@ class TestFeedbackToSelection:
                 domain="general",
             )
 
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             enable_feedback_weights=False,
             enable_domain_filtering=False,
@@ -170,8 +172,9 @@ class TestFeedbackToSelection:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_budget_filtering=False,
+            enable_pulse_selection=False,
         )
-        selector = TeamSelector(feedback_loop=loop, config=config)
+        selector = TeamSelector(feedback_loop=loop, calibration_tracker=no_cal, config=config)
 
         claude = _make_agent("claude")
         gpt = _make_agent("gpt")
@@ -183,6 +186,8 @@ class TestFeedbackToSelection:
 
     def test_no_feedback_loop_no_effect(self):
         """When no feedback loop, scores should be base only."""
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             enable_feedback_weights=True,
             enable_domain_filtering=False,
@@ -190,8 +195,9 @@ class TestFeedbackToSelection:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_budget_filtering=False,
+            enable_pulse_selection=False,
         )
-        selector = TeamSelector(feedback_loop=None, config=config)
+        selector = TeamSelector(feedback_loop=None, calibration_tracker=no_cal, config=config)
 
         claude = _make_agent("claude")
         score = selector.score_agent(claude, domain="general")
@@ -212,6 +218,8 @@ class TestFeedbackToSelection:
         for _ in range(5):
             loop.record_timeout("gpt")
 
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             enable_feedback_weights=True,
             feedback_weight=0.5,
@@ -220,8 +228,9 @@ class TestFeedbackToSelection:
             enable_pattern_selection=False,
             enable_cv_selection=False,
             enable_budget_filtering=False,
+            enable_pulse_selection=False,
         )
-        selector = TeamSelector(feedback_loop=loop, config=config)
+        selector = TeamSelector(feedback_loop=loop, calibration_tracker=no_cal, config=config)
 
         claude = _make_agent("claude")
         gpt = _make_agent("gpt")

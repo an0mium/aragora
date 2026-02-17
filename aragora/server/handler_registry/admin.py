@@ -276,6 +276,12 @@ DependencyAnalysisHandler = _safe_import(
 RepositoryHandler = _safe_import("aragora.server.handlers.repository", "RepositoryHandler")
 SchedulerHandler = _safe_import("aragora.server.handlers.features.scheduler", "SchedulerHandler")
 ThreatIntelHandler = _safe_import("aragora.server.handlers.threat_intel", "ThreatIntelHandler")
+FeedbackRoutesHandler = _safe_import(
+    "aragora.server.handlers.feedback", "FeedbackRoutesHandler"
+)
+PaymentRoutesHandler = _safe_import(
+    "aragora.server.handlers.payments.handler", "PaymentRoutesHandler"
+)
 FindingWorkflowHandler = _safe_import(
     "aragora.server.handlers.features.finding_workflow", "FindingWorkflowHandler"
 )
@@ -473,6 +479,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_repository_handler", RepositoryHandler),
     ("_scheduler_handler", SchedulerHandler),
     ("_threat_intel_handler", ThreatIntelHandler),
+    ("_feedback_routes_handler", FeedbackRoutesHandler),
+    ("_payment_routes_handler", PaymentRoutesHandler),
     ("_finding_workflow_handler", FindingWorkflowHandler),
     ("_receipt_delivery_handler", ReceiptDeliveryHandler),
     ("_code_review_handler", CodeReviewHandler),
@@ -622,6 +630,8 @@ __all__ = [
     "RepositoryHandler",
     "SchedulerHandler",
     "ThreatIntelHandler",
+    "FeedbackRoutesHandler",
+    "PaymentRoutesHandler",
     "FindingWorkflowHandler",
     "ReceiptDeliveryHandler",
     "CodeReviewHandler",

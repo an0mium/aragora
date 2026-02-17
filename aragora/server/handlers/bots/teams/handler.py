@@ -782,6 +782,8 @@ class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):  # type
     ROUTES = [
         "/api/v1/bots/teams/messages",
         "/api/v1/bots/teams/status",
+        "/api/v1/teams",
+        "/api/v1/teams/debates/send",
     ]
 
     def __init__(self, ctx: dict | None = None):

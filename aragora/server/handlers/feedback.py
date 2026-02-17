@@ -401,3 +401,19 @@ FEEDBACK_ROUTES = [
     ("GET", "/api/v1/feedback/nps/summary", handle_get_nps_summary),
     ("GET", "/api/v1/feedback/prompts", handle_get_feedback_prompts),
 ]
+
+
+class FeedbackRoutesHandler:
+    """Facade handler for feedback route discovery.
+
+    Declares ROUTES so the OpenAPI validation script can discover
+    these endpoints. Actual handling is done by FEEDBACK_ROUTES
+    function-based handlers above.
+    """
+
+    ROUTES = [
+        "/api/v1/feedback/general",
+        "/api/v1/feedback/nps",
+        "/api/v1/feedback/nps/summary",
+        "/api/v1/feedback/prompts",
+    ]

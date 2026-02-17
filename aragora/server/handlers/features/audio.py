@@ -87,7 +87,10 @@ class AudioHandler(BaseHandler):
     RESOURCE_TYPE = "audio"  # For audit logging
 
     ROUTES = [
+        "/audio",
         "/audio/*",
+        "/api/v1/media/audio",
+        "/api/v1/podcast/feed",
         "/api/v1/podcast/feed.xml",
         "/api/v1/podcast/episodes",
     ]

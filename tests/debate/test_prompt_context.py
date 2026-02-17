@@ -914,7 +914,7 @@ class TestEdgeCases:
 
     def test_spectator_unexpected_error(self, mock_spectator):
         """Test handling of unexpected spectator error."""
-        mock_spectator.emit.side_effect = Exception("Unexpected error")
+        mock_spectator.emit.side_effect = RuntimeError("Unexpected error")
         builder = PromptContextBuilder(spectator=mock_spectator)
 
         # Should not raise, but log warning

@@ -455,7 +455,7 @@ class TestHumanNotifier:
         config = BreakpointConfig(notification_channels=["failing", "working"])
         notifier = HumanNotifier(config)
 
-        failing_handler = AsyncMock(side_effect=Exception("Handler error"))
+        failing_handler = AsyncMock(side_effect=RuntimeError("Handler error"))
         working_handler = AsyncMock(return_value=None)
         notifier.register_handler("failing", failing_handler)
         notifier.register_handler("working", working_handler)

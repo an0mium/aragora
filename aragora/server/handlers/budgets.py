@@ -232,6 +232,7 @@ class BudgetHandler(BaseHandler):
         "/api/v1/budgets",
         "/api/v1/budgets/summary",
         "/api/v1/budgets/check",
+        "/api/v1/budgets/trends",
         "/api/v1/budgets/*",
         "/api/v1/costs/agents",
         "/api/v1/costs/anomalies",

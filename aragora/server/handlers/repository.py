@@ -136,6 +136,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/v1/repository",
         "/api/v1/repository/index",
         "/api/v1/repository/incremental",
         "/api/v1/repository/batch",

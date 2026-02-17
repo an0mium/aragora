@@ -122,6 +122,7 @@ class ComputerUseHandler(BaseHandler):
         "/api/v1/computer-use/tasks/*",
         "/api/v1/computer-use/actions",
         "/api/v1/computer-use/actions/*",
+        "/api/v1/computer-use/actions/stats",
         "/api/v1/computer-use/policies",
         "/api/v1/computer-use/policies/*",
         "/api/v1/computer-use/approvals",

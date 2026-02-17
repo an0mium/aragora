@@ -1030,6 +1030,8 @@ class TestQueryMethods:
     @pytest.mark.asyncio
     async def test_query_compressed_context_no_matches(self, limiter, sample_messages):
         """Test querying with no matching content."""
+        # Force fallback search path by disabling RLM
+        limiter._aragora_rlm = None
         ctx = CompressedContext(
             messages=sample_messages,
             compression_applied=True,

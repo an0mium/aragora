@@ -153,9 +153,6 @@ class TestOpenclawContractParity:
     def test_python_sdk_covers_all_endpoints(self):
         """Python SDK namespace covers every server OpenClaw endpoint."""
         sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/openclaw.py"
-        if not sdk_file.exists():
-            pytest.skip("Python SDK file not found")
-
         sdk_paths = self._unique_endpoints(_extract_python_sdk_paths(sdk_file))
         canonical = set(OPENCLAW_ENDPOINTS)
 
@@ -167,9 +164,6 @@ class TestOpenclawContractParity:
     def test_typescript_sdk_covers_all_endpoints(self):
         """TypeScript SDK namespace covers every server OpenClaw endpoint."""
         ts_file = ROOT / "sdk/typescript/src/namespaces/openclaw.ts"
-        if not ts_file.exists():
-            pytest.skip("TypeScript SDK file not found")
-
         ts_paths = self._unique_endpoints(_extract_ts_paths(ts_file))
         canonical = set(OPENCLAW_ENDPOINTS)
 
@@ -182,9 +176,6 @@ class TestOpenclawContractParity:
     def test_python_client_covers_all_endpoints(self):
         """Python client resource covers every server OpenClaw endpoint."""
         client_file = ROOT / "aragora/client/resources/openclaw.py"
-        if not client_file.exists():
-            pytest.skip("Python client file not found")
-
         # The client uses _get, _post, _delete instead of request
         # Parse with AST to handle f-strings properly
         source = client_file.read_text()
@@ -239,9 +230,6 @@ class TestOpenclawContractParity:
     def test_no_wrong_paths_in_typescript(self):
         """TypeScript SDK doesn't use incorrect path patterns."""
         ts_file = ROOT / "sdk/typescript/src/namespaces/openclaw.ts"
-        if not ts_file.exists():
-            pytest.skip("TypeScript SDK file not found")
-
         source = ts_file.read_text()
         # These were the old incorrect paths
         bad_patterns = [
@@ -280,9 +268,6 @@ class TestBlockchainContractParity:
     def test_python_sdk_covers_all_endpoints(self):
         """Python SDK blockchain covers every implemented server endpoint."""
         sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/blockchain.py"
-        if not sdk_file.exists():
-            pytest.skip("Python SDK blockchain file not found")
-
         sdk_paths = self._unique_endpoints(_extract_python_sdk_paths(sdk_file))
         canonical = set(BLOCKCHAIN_ENDPOINTS)
 
@@ -295,9 +280,6 @@ class TestBlockchainContractParity:
     def test_typescript_sdk_covers_all_endpoints(self):
         """TypeScript SDK blockchain covers every implemented server endpoint."""
         ts_file = ROOT / "sdk/typescript/src/namespaces/blockchain.ts"
-        if not ts_file.exists():
-            pytest.skip("TypeScript SDK blockchain file not found")
-
         ts_paths = self._unique_endpoints(_extract_ts_paths(ts_file))
         canonical = set(BLOCKCHAIN_ENDPOINTS)
 
@@ -333,9 +315,6 @@ class TestCrossSurfaceConsistency:
         """Python and TypeScript SDKs hit the same OpenClaw paths."""
         py_file = ROOT / "sdk/python/aragora_sdk/namespaces/openclaw.py"
         ts_file = ROOT / "sdk/typescript/src/namespaces/openclaw.ts"
-        if not py_file.exists() or not ts_file.exists():
-            pytest.skip("SDK files not found")
-
         py_paths = set(_extract_python_sdk_paths(py_file))
         ts_paths = set(_extract_ts_paths(ts_file))
 
@@ -353,9 +332,6 @@ class TestCrossSurfaceConsistency:
         """Python and TypeScript SDKs hit the same Blockchain paths."""
         py_file = ROOT / "sdk/python/aragora_sdk/namespaces/blockchain.py"
         ts_file = ROOT / "sdk/typescript/src/namespaces/blockchain.ts"
-        if not py_file.exists() or not ts_file.exists():
-            pytest.skip("SDK files not found")
-
         py_paths = set(_extract_python_sdk_paths(py_file))
         ts_paths = set(_extract_ts_paths(ts_file))
 

@@ -334,7 +334,7 @@ class TestErrorRecovery:
         """Recover gracefully from red team phase error."""
         runner = GauntletRunner(config=quick_config)
 
-        with patch.object(runner, "_run_red_team", side_effect=Exception("Red team failed")):
+        with patch.object(runner, "_run_red_team", side_effect=RuntimeError("Red team failed")):
             result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)
@@ -346,7 +346,7 @@ class TestErrorRecovery:
         """Recover gracefully from probe phase error."""
         runner = GauntletRunner(config=quick_config)
 
-        with patch.object(runner, "_run_probes", side_effect=Exception("Probe failed")):
+        with patch.object(runner, "_run_probes", side_effect=RuntimeError("Probe failed")):
             result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)

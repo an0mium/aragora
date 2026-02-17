@@ -227,6 +227,14 @@ class RLMHandler(BaseHandler):
         "/api/v1/debates/{debate_id}/refinement-status",
         "/api/v1/knowledge/query-rlm",
         "/api/v1/rlm/status",
+        "/api/v1/rlm/codebase/health",
+        "/api/v1/rlm/compress",
+        "/api/v1/rlm/contexts",
+        "/api/v1/rlm/query",
+        "/api/v1/rlm/stats",
+        "/api/v1/rlm/strategies",
+        "/api/v1/rlm/stream",
+        "/api/v1/rlm/stream/modes",
         "/api/v1/metrics/rlm",
     ]
 

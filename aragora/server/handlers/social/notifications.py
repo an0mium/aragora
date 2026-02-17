@@ -342,6 +342,7 @@ class NotificationsHandler(SecureHandler):
 
     ROUTES = [
         "/api/v1/notifications/status",
+        "/api/v1/notifications/history",
         "/api/v1/notifications/email/recipients",
         "/api/v1/notifications/email/config",
         "/api/v1/notifications/telegram/config",

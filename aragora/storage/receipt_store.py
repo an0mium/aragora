@@ -321,19 +321,30 @@ class ReceiptStore:
 
     def _init_schema(self) -> None:
         """Initialize database schema based on backend type."""
+        import sqlite3
+
         if self._backend is None:
             return
 
-        # Select appropriate schema for backend
+        # Select appropriate schema and migration statements for backend
         if self.backend_type == "postgresql":
             schema_statements = self.SCHEMA_STATEMENTS_POSTGRESQL
+            migration_statements = self.MIGRATION_STATEMENTS_POSTGRESQL
         else:
             schema_statements = self.SCHEMA_STATEMENTS_SQLITE
+            migration_statements = self.MIGRATION_STATEMENTS_SQLITE
+
+        # Run migrations first to add any missing columns before creating indexes
+        for statement in migration_statements:
+            try:
+                self._backend.execute_write(statement)
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
+                logger.debug(f"Migration statement skipped: {e}")
 
         for statement in schema_statements:
             try:
                 self._backend.execute_write(statement)
-            except (OSError, RuntimeError, ValueError) as e:
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as e:
                 logger.debug(f"Schema statement skipped: {e}")
 
     # =========================================================================

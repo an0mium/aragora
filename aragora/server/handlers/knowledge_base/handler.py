@@ -90,6 +90,16 @@ class KnowledgeHandler(
         "/api/v1/knowledge/validate",
         # Aliases: SDK expects /api/v1/facts/* without the /knowledge/ prefix
         "/api/v1/facts",
+        "/api/v1/facts/batch",
+        "/api/v1/facts/batch/delete",
+        "/api/v1/facts/merge",
+        "/api/v1/facts/relationships",
+        "/api/v1/facts/stats",
+        "/api/v1/facts/validate",
+        # Index/embedding routes
+        "/api/v1/index",
+        "/api/v1/index/embed-batch",
+        "/api/v1/index/search",
     ]
 
     def __init__(self, server_context: dict[str, Any]):

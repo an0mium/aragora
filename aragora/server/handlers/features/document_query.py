@@ -39,6 +39,7 @@ class DocumentQueryHandler(BaseHandler):
 
     ROUTES = [
         "/api/v1/documents/query",
+        "/api/v1/documents/search",
         "/api/v1/documents/summarize",
         "/api/v1/documents/compare",
         "/api/v1/documents/extract",

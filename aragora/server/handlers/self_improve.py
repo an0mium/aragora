@@ -63,6 +63,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/runs",
         "/api/self-improve/history",
         "/api/self-improve/worktrees",
+        "/api/v1/self-improve/worktrees/cleanup",
     ]
 
     def __init__(self, server_context: dict[str, Any]) -> None:

@@ -463,6 +463,11 @@ class TestMemoryScoreIntegration:
                 importance=0.8,
             ),
         ])
+        # Use a no-op calibration tracker to prevent auto-detection from
+        # contributing score.  get_brier_score raises KeyError which the
+        # scorer handles gracefully.
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             enable_memory_selection=False,
             # Disable other scoring factors
@@ -475,9 +480,11 @@ class TestMemoryScoreIntegration:
             enable_specialist_bonus=False,
             enable_exploration_bonus=False,
             enable_elo_win_rate=False,
+            enable_pulse_selection=False,
         )
         selector = TeamSelector(
             continuum_memory=mock_memory,
+            calibration_tracker=no_cal,
             config=config,
         )
         agent = MockAgent("claude")
@@ -496,6 +503,8 @@ class TestMemoryScoreIntegration:
                 update_count=20,
             ),
         ])
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             enable_memory_selection=True,
             # Disable other scoring factors
@@ -508,9 +517,11 @@ class TestMemoryScoreIntegration:
             enable_specialist_bonus=False,
             enable_exploration_bonus=False,
             enable_elo_win_rate=False,
+            enable_pulse_selection=False,
         )
         selector = TeamSelector(
             continuum_memory=mock_memory,
+            calibration_tracker=no_cal,
             config=config,
         )
         agent = MockAgent("claude")
@@ -521,6 +532,8 @@ class TestMemoryScoreIntegration:
 
     def test_backward_compatibility_no_memory(self):
         """TeamSelector without continuum_memory behaves exactly as before."""
+        no_cal = MagicMock()
+        no_cal.get_brier_score.side_effect = KeyError("not found")
         config = TeamSelectionConfig(
             # Disable all scoring factors for clean baseline
             enable_domain_filtering=False,
@@ -532,8 +545,9 @@ class TestMemoryScoreIntegration:
             enable_specialist_bonus=False,
             enable_exploration_bonus=False,
             enable_elo_win_rate=False,
+            enable_pulse_selection=False,
         )
-        selector = TeamSelector(config=config)
+        selector = TeamSelector(calibration_tracker=no_cal, config=config)
         agent = MockAgent("claude")
         score = selector._compute_score(agent, domain="code", task="Fix a bug")
 

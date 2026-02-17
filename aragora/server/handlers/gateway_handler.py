@@ -124,8 +124,11 @@ class GatewayHandler(BaseHandler):
         "/api/v1/gateway/channels",
         "/api/v1/gateway/routing",
         "/api/v1/gateway/routing/*",
+        "/api/v1/gateway/routing/rules",
+        "/api/v1/gateway/routing/stats",
         "/api/v1/gateway/messages",
         "/api/v1/gateway/messages/*",
+        "/api/v1/gateway/messages/route",
     ]
 
     def __init__(self, server_context):

@@ -697,13 +697,20 @@ class ARAutomationHandler(BaseHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
-    ROUTES: dict[str, Any] = {
+    _ROUTE_MAP: dict[str, Any] = {
         "POST /api/v1/accounting/ar/invoices": handle_create_invoice,
         "GET /api/v1/accounting/ar/invoices": handle_list_invoices,
         "GET /api/v1/accounting/ar/aging": handle_get_aging_report,
         "GET /api/v1/accounting/ar/collections": handle_get_collections,
         "POST /api/v1/accounting/ar/customers": handle_add_customer,
     }
+
+    ROUTES = [
+        "/api/v1/accounting/ar/aging",
+        "/api/v1/accounting/ar/collections",
+        "/api/v1/accounting/ar/customers",
+        "/api/v1/accounting/ar/invoices",
+    ]
 
     DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/accounting/ar/invoices/{invoice_id}": handle_get_invoice,

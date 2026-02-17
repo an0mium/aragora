@@ -352,6 +352,7 @@ class MonitoringHandler:
         "/api/v1/autonomous/monitoring/trends",
         "/api/v1/autonomous/monitoring/trends/*",
         "/api/v1/autonomous/monitoring/anomalies",
+        "/api/v1/autonomous/monitoring/baseline",
         "/api/v1/autonomous/monitoring/baseline/*",
         "/api/v1/autonomous/monitoring/circuit-breaker",
     ]

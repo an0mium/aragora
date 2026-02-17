@@ -587,7 +587,7 @@ def feature_unavailable_response(
 class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
 
-    ROUTES = {
+    _ROUTE_MAP = {
         "/api/features": "_get_features_summary",
         "/api/features/available": "_get_available",
         "/api/features/all": "_get_all_features",
@@ -599,7 +599,7 @@ class FeaturesHandler(BaseHandler):
     }
 
     # List-form routes for SDK audit visibility (versioned + unversioned)
-    ROUTE_LIST = [
+    ROUTES = [
         "/api/v1/features",
         "/api/v1/features/all",
         "/api/v1/features/available",
@@ -653,10 +653,10 @@ class FeaturesHandler(BaseHandler):
         """Check if this handler can process the given path."""
         path = strip_version_prefix(path)
         # Direct route match
-        if path in self.ROUTES:
+        if path in self._ROUTE_MAP:
             return True
         # Handle parameterized routes: /api/features/{feature_id}
-        if path.startswith("/api/features/") and path not in self.ROUTES:
+        if path.startswith("/api/features/") and path not in self._ROUTE_MAP:
             # Check it's not a nested path we don't handle
             parts = path.split("/")
             if len(parts) == 4:  # /api/features/{feature_id}
@@ -675,8 +675,8 @@ class FeaturesHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Direct route match
-        if path in self.ROUTES:
-            method_name = self.ROUTES[path]
+        if path in self._ROUTE_MAP:
+            method_name = self._ROUTE_MAP[path]
             method = getattr(self, method_name, None)
             if method:
                 # Config endpoint needs handler for auth and POST body

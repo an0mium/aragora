@@ -173,6 +173,8 @@ class PluginsHandler(BaseHandler):
         "/api/v1/plugins/*",
         "/api/v1/plugins/*/install",
         "/api/v1/plugins/*/run",
+        "/api/v1/plugins/query",
+        "/api/v1/plugins/validate",
         # Legacy paths (deprecated, will sunset 2026-12-31)
         "/api/plugins",
         "/api/plugins/installed",

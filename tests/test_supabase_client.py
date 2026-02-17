@@ -229,7 +229,7 @@ class TestNomicCycleOperations:
     @pytest.mark.asyncio
     async def test_save_cycle_exception(self, client_with_mock, sample_cycle, mock_supabase_client):
         """save_cycle should return None on exception."""
-        mock_supabase_client.execute.side_effect = Exception("Database error")
+        mock_supabase_client.execute.side_effect = RuntimeError("Database error")
 
         result = await client_with_mock.save_cycle(sample_cycle)
 
@@ -607,7 +607,7 @@ class TestAnalyticsQueries:
         """get_loop_summary should handle exceptions from sub-queries gracefully."""
         # list_cycles and list_debates catch exceptions and return empty lists,
         # so get_loop_summary returns stats computed from empty data
-        mock_supabase_client.execute.side_effect = Exception("Database error")
+        mock_supabase_client.execute.side_effect = RuntimeError("Database error")
 
         result = await client_with_mock.get_loop_summary("loop-456")
 
@@ -770,7 +770,7 @@ class TestEdgeCases:
                 timestamp=datetime.now(),
             )
         ]
-        mock_supabase_client.execute.side_effect = Exception("Batch insert failed")
+        mock_supabase_client.execute.side_effect = RuntimeError("Batch insert failed")
 
         result = await client_with_mock.save_events_batch(events)
 
@@ -779,7 +779,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_get_events_exception(self, client_with_mock, mock_supabase_client):
         """get_events should return empty list on exception."""
-        mock_supabase_client.execute.side_effect = Exception("Query failed")
+        mock_supabase_client.execute.side_effect = RuntimeError("Query failed")
 
         result = await client_with_mock.get_events("loop-456")
 
@@ -788,7 +788,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_get_agent_stats_exception(self, client_with_mock, mock_supabase_client):
         """get_agent_stats should return empty list on exception."""
-        mock_supabase_client.execute.side_effect = Exception("Query failed")
+        mock_supabase_client.execute.side_effect = RuntimeError("Query failed")
 
         result = await client_with_mock.get_agent_stats("agent1")
 
@@ -796,7 +796,7 @@ class TestEdgeCases:
 
     def test_subscribe_to_events_exception(self, client_with_mock, mock_supabase_client):
         """subscribe_to_events should return None on exception."""
-        mock_supabase_client.channel.side_effect = Exception("Channel creation failed")
+        mock_supabase_client.channel.side_effect = RuntimeError("Channel creation failed")
 
         result = client_with_mock.subscribe_to_events("loop-456", lambda x: None)
 

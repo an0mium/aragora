@@ -952,7 +952,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_batch_function_error(self, mock_elo_system):
         """Test handling batch function errors."""
-        mock_elo_system.get_ratings_batch.side_effect = Exception("Database error")
+        mock_elo_system.get_ratings_batch.side_effect = RuntimeError("Database error")
 
         loaders = DebateLoaders(elo_system=mock_elo_system)
 
@@ -967,7 +967,7 @@ class TestEdgeCases:
 
         async def failing_get_rating(name):
             if name == "failing_agent":
-                raise Exception("Agent not found")
+                raise RuntimeError("Agent not found")
             return 1000.0
 
         mock_elo_system_individual.get_rating = AsyncMock(side_effect=failing_get_rating)

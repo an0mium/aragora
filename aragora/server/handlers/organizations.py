@@ -90,6 +90,7 @@ class OrganizationsHandler(SecureHandler):
 
     # Static ROUTES for SDK audit visibility (actual matching uses regex patterns below)
     ROUTES = [
+        "/api/v1/org",
         "/api/v1/org/*",
         "/api/v1/org/*/members",
         "/api/v1/org/*/members/*",
@@ -102,6 +103,7 @@ class OrganizationsHandler(SecureHandler):
         "/api/v1/user/organizations/default",
         "/api/v1/invitations/pending",
         "/api/v1/invitations/*/accept",
+        "/api/v1/tenants",
     ]
 
     # Route patterns (support /api/* and /api/v1/*)

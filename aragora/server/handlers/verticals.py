@@ -234,6 +234,8 @@ class VerticalsHandler(SecureHandler):
         "/api/verticals/*/compliance",
         "/api/verticals/*/debate",
         "/api/verticals/*/agent",
+        "/api/v1/verticals",
+        "/api/v1/verticals/suggest",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

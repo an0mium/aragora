@@ -144,7 +144,7 @@ class TestCoordinatorIntegrityStep:
     """Test that coordinator.run() generates integrity package when configured."""
 
     def test_integrity_step_disabled_by_default(self):
-        config = PostDebateConfig(auto_explain=False, auto_create_plan=False, auto_notify=False)
+        config = PostDebateConfig(auto_explain=False, auto_create_plan=False, auto_notify=False, auto_execution_bridge=False)
         coordinator = PostDebateCoordinator(config=config)
 
         result = coordinator.run(
@@ -159,6 +159,7 @@ class TestCoordinatorIntegrityStep:
             auto_explain=False,
             auto_create_plan=False,
             auto_notify=False,
+            auto_execution_bridge=False,
             auto_build_integrity_package=True,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -191,6 +192,7 @@ class TestCoordinatorIntegrityStep:
             auto_explain=False,
             auto_create_plan=False,
             auto_notify=False,
+            auto_execution_bridge=False,
             auto_build_integrity_package=True,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -227,6 +229,7 @@ class TestCoordinatorIntegrityStep:
             auto_explain=False,
             auto_create_plan=False,
             auto_notify=False,
+            auto_execution_bridge=False,
             auto_build_integrity_package=True,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -245,6 +248,7 @@ class TestCoordinatorIntegrityStep:
             auto_explain=False,
             auto_create_plan=False,
             auto_notify=False,
+            auto_execution_bridge=False,
             auto_build_integrity_package=True,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -266,6 +270,7 @@ class TestCoordinatorIntegrityStep:
             auto_explain=True,
             auto_create_plan=False,
             auto_notify=False,
+            auto_execution_bridge=False,
             auto_build_integrity_package=True,
         )
         coordinator = PostDebateCoordinator(config=config)

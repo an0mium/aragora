@@ -65,6 +65,10 @@ class GauntletHandler(
         "/api/v1/gauntlet/*/export",
         "/api/v1/gauntlet/*/compare/*",
         "/api/v1/gauntlet/*",
+        "/api/v1/gauntlet",
+        "/api/v1/gauntlet/heatmaps",
+        "/api/v1/gauntlet/receipts",
+        "/api/v1/gauntlet/receipts/export/bundle",
     ]
 
     # All gauntlet endpoints require authentication

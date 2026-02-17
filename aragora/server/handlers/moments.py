@@ -74,6 +74,7 @@ class MomentsHandler(SecureHandler):
         "/api/moments/timeline",
         "/api/moments/trending",
         "/api/moments/by-type/*",
+        "/api/v1/moments/by-type",
     ]
 
     def can_handle(self, path: str) -> bool:

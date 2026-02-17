@@ -40,6 +40,7 @@ class UncertaintyHandler(BaseHandler):
     ROUTES = [
         "/api/v1/uncertainty/estimate",
         "/api/v1/uncertainty/followups",
+        "/api/v1/uncertainty/debate",
         "/api/v1/uncertainty/debate/*",
         "/api/v1/uncertainty/agent/*",
     ]

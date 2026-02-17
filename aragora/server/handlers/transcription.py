@@ -471,6 +471,9 @@ class TranscriptionHandler(BaseHandler):
         "/api/v1/transcription/video",
         "/api/v1/transcription/youtube",
         "/api/v1/transcription/youtube/info",
+        "/api/v1/transcription/upload",
+        "/api/v1/transcription/formats",
+        "/api/v1/transcription/status",
         "/api/v1/transcription/status/*",
         "/api/v1/transcription/config",
         # Alias routes for frontend compatibility

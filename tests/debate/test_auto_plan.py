@@ -39,6 +39,8 @@ class TestPostDebateCoordinator:
             auto_create_plan=True,
             auto_explain=False,
             auto_notify=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
             plan_min_confidence=0.7,
         )
         coordinator = PostDebateCoordinator(config=config)
@@ -72,6 +74,8 @@ class TestPostDebateCoordinator:
             auto_create_plan=True,
             auto_explain=False,
             auto_notify=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
             plan_min_confidence=0.7,
         )
         coordinator = PostDebateCoordinator(config=config)

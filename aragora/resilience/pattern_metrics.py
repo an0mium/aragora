@@ -300,6 +300,17 @@ def create_metrics_callbacks() -> dict[str, Callable]:
 def reset_metrics() -> None:
     """Reset all metrics (useful for testing)."""
     global _metrics
+    if _prometheus_available:
+        try:
+            from prometheus_client import REGISTRY
+
+            for metric in _metrics.values():
+                try:
+                    REGISTRY.unregister(metric)
+                except Exception:
+                    pass
+        except ImportError:
+            pass
     _metrics.clear()
 
 

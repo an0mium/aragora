@@ -148,6 +148,14 @@ class ExternalIntegrationsHandler(SecureHandler):
         "/api/v1/integrations/n8n/credentials",
         "/api/v1/integrations/n8n/webhooks",
         "/api/v1/integrations/n8n/nodes",
+        # Integration wizard endpoints
+        "/api/v1/integrations/wizard/preflight",
+        "/api/v1/integrations/wizard/recommendations",
+        # V2 integration endpoints
+        "/api/v2/integrations/stats",
+        "/api/v2/integrations/wizard/providers",
+        "/api/v2/integrations/wizard/status",
+        "/api/v2/integrations/wizard/validate",
     ]
 
     @staticmethod

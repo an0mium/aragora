@@ -153,6 +153,10 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
         # Could be a legacy plain token that happens to start with "A"
         logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
         return encrypted_token
+    except Exception as e:  # noqa: BLE001 - cryptography.exceptions.InvalidTag inherits directly from Exception
+        # AAD mismatch or tampered ciphertext - return encrypted form
+        logger.debug(f"Token decryption crypto error for user {user_id}, returning as-is: {e}")
+        return encrypted_token
 
 
 @dataclass

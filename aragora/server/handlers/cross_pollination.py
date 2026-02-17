@@ -41,7 +41,15 @@ class CrossPollinationStatsHandler(BaseHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
-    ROUTES = ["/api/v1/cross-pollination/stats"]
+    ROUTES = [
+        "/api/v1/cross-pollination/stats",
+        "/api/v1/cross-pollination/conflicts",
+        "/api/v1/cross-pollination/federation",
+        "/api/v1/cross-pollination/federation/sync",
+        "/api/v1/cross-pollination/subscribe",
+        "/api/v1/cross-pollination/sync/status",
+        "/api/v1/cross-pollination/sync/trigger",
+    ]
 
     @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:

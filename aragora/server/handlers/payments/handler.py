@@ -64,6 +64,25 @@ ROUTES = [
 ]
 
 
+class PaymentRoutesHandler:
+    """Facade handler for payment route discovery.
+
+    Declares ROUTES so the OpenAPI validation script can discover
+    payment endpoints. Actual handling is done by aiohttp route
+    registration in plans.py.
+    """
+
+    ROUTES = [
+        "/api/v1/payments/authorize",
+        "/api/v1/payments/capture",
+        "/api/v1/payments/charge",
+        "/api/v1/payments/customer",
+        "/api/v1/payments/refund",
+        "/api/v1/payments/subscription",
+        "/api/v1/payments/void",
+    ]
+
+
 # =============================================================================
 # RBAC Permission Constants for Payments
 # =============================================================================

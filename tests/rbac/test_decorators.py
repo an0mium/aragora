@@ -74,13 +74,16 @@ class TestRequirePermission:
 
     def test_raises_when_no_context(self):
         """Decorator raises when no AuthorizationContext found."""
+        from unittest.mock import patch
 
         @require_permission("debates:read")
         def read_debate() -> str:
             return "success"
 
-        with pytest.raises(PermissionDeniedError) as exc_info:
-            read_debate()
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                read_debate()
 
         assert "No AuthorizationContext found" in str(exc_info.value)
 

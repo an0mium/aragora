@@ -120,7 +120,7 @@ class TestJudgeScoringMixin:
     def test_calibration_weight_on_error(self):
         """Returns 1.0 when ELO lookup raises an exception."""
         elo = MagicMock()
-        elo.get_rating.side_effect = RuntimeError("not found")
+        elo.get_rating.side_effect = ValueError("not found")
         mixin = JudgeScoringMixin(elo_system=elo)
         assert mixin.get_calibration_weight("agent") == 1.0
 

@@ -45,6 +45,9 @@ EXEMPT_HANDLERS = frozenset(
         "OAuthCallbackHandler",
         "OAuthHandler",
         "SAMLHandler",
+        # Facade/discovery-only handlers (no request handling, just ROUTES for OpenAPI)
+        "FeedbackRoutesHandler",
+        "PaymentRoutesHandler",
         # Base classes (not actual handlers - used for inheritance)
         "BaseHandler",
         "TypedHandler",

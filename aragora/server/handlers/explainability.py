@@ -266,6 +266,7 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/debates/*/votes/pivots",
         "/api/v1/debates/*/counterfactuals",
         "/api/v1/debates/*/summary",
+        "/api/v1/explain",
         "/api/v1/explain/*",
         # Batch endpoints
         "/api/v1/explainability/batch",

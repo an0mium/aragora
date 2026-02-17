@@ -102,6 +102,7 @@ class MarketplaceHandler:
 
     ROUTES = [
         "/api/v1/marketplace/templates",
+        "/api/v1/marketplace/templates/search",
         "/api/v1/marketplace/templates/{template_id}",
         "/api/v1/marketplace/templates/{template_id}/deploy",
         "/api/v1/marketplace/templates/{template_id}/rate",
@@ -109,6 +110,7 @@ class MarketplaceHandler:
         "/api/v1/marketplace/search",
         "/api/v1/marketplace/deployments",
         "/api/v1/marketplace/deployments/{deployment_id}",
+        "/api/v1/marketplace/my-deployments",
         "/api/v1/marketplace/popular",
         "/api/v1/marketplace/demo",
         "/api/v1/marketplace/status",

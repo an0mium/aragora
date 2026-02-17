@@ -87,6 +87,24 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/bulk-action",
         "/api/v1/inbox/stats",
         "/api/v1/inbox/trends",
+        "/api/v1/inbox/actions",
+        "/api/v1/inbox/bulk-actions",
+        "/api/v1/inbox/command",
+        "/api/v1/inbox/daily-digest",
+        "/api/v1/inbox/mentions",
+        "/api/v1/inbox/reprioritize",
+        "/api/v1/inbox/sender-profile",
+        # Non-versioned inbox routes
+        "/inbox/accounts",
+        "/inbox/bulk-action",
+        "/inbox/connect",
+        "/inbox/messages",
+        "/inbox/messages/send",
+        "/inbox/oauth/gmail",
+        "/inbox/oauth/outlook",
+        "/inbox/stats",
+        "/inbox/trends",
+        "/inbox/triage",
     ]
 
     def __init__(self, server_context: dict[str, Any] | None = None):

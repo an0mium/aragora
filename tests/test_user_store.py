@@ -223,9 +223,18 @@ class TestUserGet:
 
     def test_get_user_by_api_key(self, store, test_user):
         """Should retrieve user by API key."""
-        # First set an API key
+        import hashlib
+
+        # Set API key using hash-based storage (plaintext api_key field was removed)
         api_key = "test-api-key-12345"
-        store.update_user(test_user.id, api_key=api_key)
+        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        api_key_prefix = api_key[:12]
+        store.update_user(
+            test_user.id,
+            api_key_hash=api_key_hash,
+            api_key_prefix=api_key_prefix,
+            api_key_created_at=datetime.now(timezone.utc),
+        )
 
         user = store.get_user_by_api_key(api_key)
 
@@ -258,17 +267,22 @@ class TestUserUpdate:
         assert user.email == "new@example.com"
 
     def test_update_user_api_key(self, store, test_user):
-        """Should update user API key."""
+        """Should update user API key hash and prefix."""
+        import hashlib
+
         api_key = "new-api-key"
+        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        api_key_prefix = api_key[:12]
         result = store.update_user(
             test_user.id,
-            api_key=api_key,
+            api_key_hash=api_key_hash,
+            api_key_prefix=api_key_prefix,
             api_key_created_at=datetime.now(timezone.utc),
         )
 
         assert result is True
         user = store.get_user_by_id(test_user.id)
-        assert user.api_key == api_key
+        assert user.api_key_hash == api_key_hash
         assert user.api_key_created_at is not None
 
     def test_update_user_is_active(self, store, test_user):

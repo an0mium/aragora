@@ -59,6 +59,9 @@ class ReplaysHandler(BaseHandler):
         "/api/learning/evolution",
         "/api/meta-learning/stats",
         "/api/v1/replays",
+        "/api/v1/replays/compare",
+        "/api/v1/replays/search",
+        "/api/v1/replays/stats",
         "/api/v1/learning/evolution",
         "/api/v1/meta-learning/stats",
     ]

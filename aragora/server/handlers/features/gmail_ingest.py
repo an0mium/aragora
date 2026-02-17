@@ -110,12 +110,18 @@ class GmailIngestHandler(SecureHandler):
         "/api/v1/gmail/connect",
         "/api/v1/gmail/auth/url",
         "/api/v1/gmail/auth/callback",
+        "/api/v1/gmail/callback",
+        "/api/v1/gmail/connection",
         "/api/v1/gmail/sync",
         "/api/v1/gmail/sync/status",
         "/api/v1/gmail/messages",
         "/api/v1/gmail/search",
         "/api/v1/gmail/disconnect",
         "/api/v1/gmail/status",
+        "/api/v1/gmail/stats",
+        "/api/v1/gmail/processed",
+        "/api/v1/gmail/triage-rules",
+        "/api/v1/gmail/debate-configs",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

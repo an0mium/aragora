@@ -147,6 +147,10 @@ def default_params() -> dict[str, Any]:
         "supermemory_enable_privacy_filter": True,
         "supermemory_enable_resilience": True,
         "supermemory_enable_km_adapter": True,
+        # Codebase grounding parameters
+        "codebase_path": None,
+        "enable_codebase_grounding": False,
+        "codebase_persist_to_km": False,
     }
 
 

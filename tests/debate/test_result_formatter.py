@@ -771,7 +771,7 @@ class TestComplianceValidationIntegration:
         """Test validate_compliance returns compliant result on general exception."""
         # Patch to force an exception during validation
         with patch("aragora.compliance.framework.ComplianceFrameworkManager") as mock_manager_class:
-            mock_manager_class.side_effect = Exception("Unexpected error")
+            mock_manager_class.side_effect = RuntimeError("Unexpected error")
 
             result = formatter.validate_compliance("Test content")
 

@@ -781,7 +781,7 @@ class TestDrillDownContext:
 
         # Create mock RLM that raises
         mock_rlm = MagicMock()
-        mock_rlm.compress_and_query = AsyncMock(side_effect=Exception("RLM error"))
+        mock_rlm.compress_and_query = AsyncMock(side_effect=RuntimeError("RLM error"))
         manager._rlm = mock_rlm
 
         result = await manager.get_drill_down_context("query")

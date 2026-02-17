@@ -258,6 +258,14 @@ class AdminHandler(
         "/api/v1/admin/nomic/pause",
         "/api/v1/admin/nomic/resume",
         "/api/v1/admin/nomic/circuit-breakers/reset",
+        # Circuit breaker management
+        "/api/v1/admin/circuit-breakers",
+        "/api/v1/admin/circuit-breakers/reset",
+        # Security admin endpoints
+        "/api/v1/admin/security/audit",
+        "/api/v1/admin/security/compliance",
+        "/api/v1/admin/security/scan",
+        "/api/v1/admin/security/threats",
     ]
 
     @staticmethod

@@ -59,6 +59,15 @@ def get_threat_service() -> ThreatIntelligenceService:
 class ThreatIntelHandler(BaseHandler):
     """Handler for threat intelligence endpoints."""
 
+    ROUTES = [
+        "/api/v1/threat/email",
+        "/api/v1/threat/hashes",
+        "/api/v1/threat/ips",
+        "/api/v1/threat/status",
+        "/api/v1/threat/url",
+        "/api/v1/threat/urls",
+    ]
+
     def __init__(self, server_context=None):
         """Initialize handler."""
         super().__init__(server_context or {})

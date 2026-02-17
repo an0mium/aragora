@@ -83,8 +83,11 @@ class GenesisHandler(BaseHandler):
         "/api/v1/genesis/genomes/top",
         "/api/v1/genesis/genomes/*",
         "/api/v1/genesis/population",
+        "/api/v1/genesis/lineage",
         "/api/v1/genesis/lineage/*",
+        "/api/v1/genesis/tree",
         "/api/v1/genesis/tree/*",
+        "/api/v1/genesis/descendants",
         "/api/v1/genesis/descendants/*",
     ]
 

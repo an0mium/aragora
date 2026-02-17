@@ -54,6 +54,8 @@ class PrivacyHandler(SecureHandler):
         "/api/v1/privacy/data-inventory",
         "/api/v1/privacy/account",
         "/api/v1/privacy/preferences",
+        "/api/v1/users",
+        "/api/v1/users/invite",
         "/api/v2/users/me/export",
         "/api/v2/users/me/data-inventory",
         "/api/v2/users/me",

@@ -51,7 +51,9 @@ class LaboratoryHandler(BaseHandler):
 
     ROUTES = [
         "/api/v1/laboratory/emergent-traits",
+        "/api/v1/laboratory/cross-pollinations",
         "/api/v1/laboratory/cross-pollinations/suggest",
+        "/api/v1/laboratory/experiments",
     ]
 
     def can_handle(self, path: str) -> bool:

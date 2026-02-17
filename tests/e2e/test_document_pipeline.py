@@ -51,8 +51,7 @@ class TestDocumentPipelineE2E:
         from aragora.documents.chunking.strategies import SemanticChunking, ChunkingConfig
 
         py_files = [f for f in test_files if f.suffix == ".py"]
-        if not py_files:
-            pytest.skip("No Python files found")
+        assert py_files, "No Python files found in test_files fixture"
 
         chunker = SemanticChunking(ChunkingConfig(chunk_size=500))
         file_path = py_files[0]
@@ -74,8 +73,7 @@ class TestDocumentPipelineE2E:
         from aragora.documents.chunking.strategies import SemanticChunking, ChunkingConfig
 
         md_files = [f for f in test_files if f.suffix == ".md"]
-        if not md_files:
-            pytest.skip("No Markdown files found")
+        assert md_files, "No Markdown files found in test_files fixture"
 
         chunker = SemanticChunking(ChunkingConfig(chunk_size=500))
         file_path = md_files[0]
@@ -138,8 +136,7 @@ class TestDocumentPipelineE2E:
         from aragora.audit.document_auditor import DocumentAuditor, AuditSession, AuditType
 
         py_files = [f for f in test_files if f.suffix == ".py"]
-        if not py_files:
-            pytest.skip("No Python files found")
+        assert py_files, "No Python files found in test_files fixture"
 
         # Create audit session
         session = AuditSession(
@@ -200,8 +197,7 @@ class TestDocumentAuditE2E:
         """Test consistency checking across project documentation."""
         from aragora.audit.audit_types.consistency import ConsistencyAuditor
 
-        if len(project_docs) < 2:
-            pytest.skip("Need at least 2 docs for consistency check")
+        assert len(project_docs) >= 2, "Need at least 2 docs for consistency check"
 
         auditor = ConsistencyAuditor()
 

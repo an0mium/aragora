@@ -78,6 +78,8 @@ class BackupHandler(BaseHandler):
     ROUTES = [
         "/api/v2/backups",
         "/api/v2/backups/*",
+        "/api/v1/backups/cleanup",
+        "/api/v1/backups/stats",
     ]
 
     def __init__(self, server_context: dict[str, Any]):

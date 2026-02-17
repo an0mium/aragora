@@ -51,6 +51,8 @@ class DocumentBatchHandler(BaseHandler):
         self.ctx = server_context or ctx or {}
 
     ROUTES = [
+        "/api/v1/batch",
+        "/api/v1/batch/queue/status",
         "/api/v1/documents/batch",
         "/api/v1/documents/processing/stats",
         "/api/v1/knowledge/jobs",

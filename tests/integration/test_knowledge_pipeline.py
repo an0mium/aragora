@@ -137,14 +137,21 @@ class TestKnowledgePipelineIntegration:
         self, sample_document_content: bytes, temp_workspace: str
     ):
         """Test document processing (using async version since we're in async context)."""
-        from aragora.knowledge.integration import process_document_async
+        from aragora.knowledge.integration import process_document_async, _pipelines
 
-        # Use async version directly since we're in an async test context
-        result = await process_document_async(
-            content=sample_document_content,
-            filename="employment_contract.txt",
-            workspace_id=temp_workspace,
-        )
+        # Disable Knowledge Mound to avoid external embedding API calls (Gemini)
+        with patch(
+            "aragora.knowledge.integration._should_use_knowledge_mound", return_value=False
+        ):
+            # Use async version directly since we're in an async test context
+            result = await process_document_async(
+                content=sample_document_content,
+                filename="employment_contract.txt",
+                workspace_id=temp_workspace,
+            )
+
+        # Clean up cached pipeline to avoid cross-test leakage
+        _pipelines.pop(temp_workspace, None)
 
         assert result.success is True
         assert result.document_id is not None
@@ -562,7 +569,7 @@ class TestFullPipelineIntegration:
     @pytest.mark.asyncio
     async def test_upload_to_query_flow(self, sample_document_content: bytes, temp_workspace: str):
         """Test the complete flow: upload → process → query."""
-        from aragora.knowledge.integration import process_document_async
+        from aragora.knowledge.integration import process_document_async, _pipelines
         from aragora.knowledge import (
             DatasetQueryEngine,
             InMemoryEmbeddingService,
@@ -570,12 +577,18 @@ class TestFullPipelineIntegration:
             QueryOptions,
         )
 
-        # Step 1: Process document (use async version since we're in async test)
-        result = await process_document_async(
-            content=sample_document_content,
-            filename="contract.txt",
-            workspace_id=temp_workspace,
-        )
+        # Step 1: Process document (disable Knowledge Mound to avoid external API calls)
+        with patch(
+            "aragora.knowledge.integration._should_use_knowledge_mound", return_value=False
+        ):
+            result = await process_document_async(
+                content=sample_document_content,
+                filename="contract.txt",
+                workspace_id=temp_workspace,
+            )
+
+        # Clean up cached pipeline to avoid cross-test leakage
+        _pipelines.pop(temp_workspace, None)
 
         assert result.success is True
 

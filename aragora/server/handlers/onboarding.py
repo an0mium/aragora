@@ -1320,6 +1320,8 @@ class OnboardingHandler:
         "/api/onboarding/quick-start",
         "/api/onboarding/quick-debate",
         "/api/onboarding/analytics",
+        "/api/v1/onboarding/flow/step",
+        "/api/v1/templates/recommended",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None):

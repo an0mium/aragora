@@ -171,9 +171,14 @@ class WebhookHandler(SecureHandler):
     ROUTES = [
         "/api/v1/webhooks",
         "/api/v1/webhooks/events",
+        "/api/v1/webhooks/events/categories",
         "/api/v1/webhooks/slo/status",
+        "/api/v1/webhooks/slo/test",
         "/api/v1/webhooks/dead-letter",
         "/api/v1/webhooks/queue/stats",
+        "/api/v1/webhooks/bulk",
+        "/api/v1/webhooks/pause-all",
+        "/api/v1/webhooks/resume-all",
     ]
 
     @staticmethod

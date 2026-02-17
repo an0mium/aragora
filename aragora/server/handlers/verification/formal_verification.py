@@ -253,6 +253,8 @@ class FormalVerificationHandler(BaseHandler):
         "/api/v1/verify/status",
         "/api/v1/verify/translate",
         "/api/v1/verify/history",
+        "/api/verification/formal-verify",
+        "/api/verification/status",
     ]
 
     def __init__(self, server_context: dict[str, Any] | None = None):

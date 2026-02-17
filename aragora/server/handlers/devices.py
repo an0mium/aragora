@@ -234,6 +234,7 @@ class DeviceHandler(SecureHandler):
         "/api/devices/health",
         "/api/devices/alexa/webhook",
         "/api/devices/google/webhook",
+        "/api/v1/devices",
     ]
 
     def can_handle(self, path: str) -> bool:

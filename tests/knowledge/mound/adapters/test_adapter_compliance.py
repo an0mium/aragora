@@ -106,25 +106,22 @@ ADAPTER_SPECS: list[dict[str, str]] = [
 ]
 
 
-def _load_adapter_class(module_path: str, class_name: str) -> type | None:
-    """Dynamically load an adapter class."""
-    try:
-        module = importlib.import_module(module_path)
-        return getattr(module, class_name, None)
-    except (ImportError, AttributeError) as e:
-        pytest.skip(f"Could not import {module_path}.{class_name}: {e}")
-        return None
+def _load_adapter_class(module_path: str, class_name: str) -> type:
+    """Dynamically load an adapter class.
+
+    All adapters are expected to be importable.  If an import fails the test
+    should *fail* (not skip) so regressions are caught immediately.
+    """
+    module = importlib.import_module(module_path)
+    cls = getattr(module, class_name)
+    return cls
 
 
-def _load_base_class() -> type | None:
+def _load_base_class() -> type:
     """Load the KnowledgeMoundAdapter base class."""
-    try:
-        from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
+    from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
 
-        return KnowledgeMoundAdapter
-    except ImportError as e:
-        pytest.skip(f"Could not import KnowledgeMoundAdapter: {e}")
-        return None
+    return KnowledgeMoundAdapter
 
 
 def _get_adapter_id(spec: dict[str, str]) -> str:
@@ -144,9 +141,6 @@ class TestAdapterCompliance:
         base_class = _load_base_class()
         adapter_class = _load_adapter_class(spec["module"], spec["class_name"])
 
-        if base_class is None or adapter_class is None:
-            pytest.skip("Could not load required classes")
-
         assert issubclass(adapter_class, base_class), (
             f"{spec['class_name']} should inherit from KnowledgeMoundAdapter"
         )
@@ -155,9 +149,6 @@ class TestAdapterCompliance:
     def test_has_unique_adapter_name(self, spec: dict[str, str]) -> None:
         """Adapter should have a unique adapter_name that is not 'base'."""
         adapter_class = _load_adapter_class(spec["module"], spec["class_name"])
-
-        if adapter_class is None:
-            pytest.skip("Could not load adapter class")
 
         assert hasattr(adapter_class, "adapter_name"), (
             f"{spec['class_name']} should have adapter_name attribute"
@@ -176,9 +167,6 @@ class TestAdapterCompliance:
         """Adapter should have _emit_event method (inherited or defined)."""
         adapter_class = _load_adapter_class(spec["module"], spec["class_name"])
 
-        if adapter_class is None:
-            pytest.skip("Could not load adapter class")
-
         assert hasattr(adapter_class, "_emit_event"), (
             f"{spec['class_name']} should have _emit_event method"
         )
@@ -191,9 +179,6 @@ class TestAdapterCompliance:
         """Adapter should have _record_metric method (inherited or defined)."""
         adapter_class = _load_adapter_class(spec["module"], spec["class_name"])
 
-        if adapter_class is None:
-            pytest.skip("Could not load adapter class")
-
         assert hasattr(adapter_class, "_record_metric"), (
             f"{spec['class_name']} should have _record_metric method"
         )
@@ -205,9 +190,6 @@ class TestAdapterCompliance:
     def test_has_health_check_method(self, spec: dict[str, str]) -> None:
         """Adapter should have health_check method (inherited or defined)."""
         adapter_class = _load_adapter_class(spec["module"], spec["class_name"])
-
-        if adapter_class is None:
-            pytest.skip("Could not load adapter class")
 
         assert hasattr(adapter_class, "health_check"), (
             f"{spec['class_name']} should have health_check method"
@@ -250,8 +232,6 @@ class TestComplianceSummary:
     def test_count_compliant_adapters(self) -> None:
         """Count how many adapters are fully compliant."""
         base_class = _load_base_class()
-        if base_class is None:
-            pytest.skip("Could not load KnowledgeMoundAdapter")
 
         compliant_count = 0
         total_count = len(ADAPTER_SPECS)

@@ -201,6 +201,8 @@ class ReceiptsHandler(BaseHandler):
     ROUTES = [
         "/api/v2/receipts",
         "/api/v2/receipts/*",
+        "/api/v2/receipts/search",
+        "/api/v2/receipts/stats",
     ]
 
     def __init__(self, server_context: dict[str, Any]):

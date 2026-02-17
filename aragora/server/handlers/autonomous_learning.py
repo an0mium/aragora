@@ -416,6 +416,7 @@ class AutonomousLearningHandler(BaseHandler):
         "/api/v2/learning/recommendations",
         "/api/v2/learning/performance",
         "/api/v2/learning/calibrate",
+        "/api/v1/learning/knowledge/extract",
     ]
 
     def __init__(self, server_context: dict[str, Any]):

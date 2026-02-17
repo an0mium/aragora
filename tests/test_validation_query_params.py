@@ -364,9 +364,12 @@ class TestValidateRequestDecorator:
 
     def test_schema_validation_missing_required(self):
         """Missing required field in body returns error."""
+        required_schema = {
+            "task": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+        }
 
         class Handler(MockHandler):
-            @validate_request(schema=DEBATE_START_SCHEMA)
+            @validate_request(schema=required_schema)
             def handle(self, path, query, body, handler):
                 return {"success": True}
 
@@ -406,9 +409,12 @@ class TestValidatePostBodyDecorator:
 
     def test_missing_required_field_returns_error(self):
         """Missing required field returns error."""
+        required_schema = {
+            "task": {"type": "string", "min_length": 1, "max_length": 2000, "required": True},
+        }
 
         class Handler(MockHandler):
-            @validate_post_body(DEBATE_START_SCHEMA)
+            @validate_post_body(required_schema)
             def handle(self, body, handler):
                 return {"success": True}
 

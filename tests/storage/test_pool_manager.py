@@ -504,7 +504,7 @@ class TestCloseSharedPool:
 
         mock_ps_mod = MagicMock()
         mock_ps_mod._pool = None
-        mock_pool.close = AsyncMock(side_effect=Exception("Close failed"))
+        mock_pool.close = AsyncMock(side_effect=RuntimeError("Close failed"))
 
         with (
             patch.dict("os.environ", {"ARAGORA_USE_SHARED_POOL": "true"}),

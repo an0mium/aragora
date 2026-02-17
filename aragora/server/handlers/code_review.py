@@ -427,13 +427,21 @@ class CodeReviewHandler(BaseHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
-    ROUTES: dict[str, Any] = {
+    _ROUTE_MAP: dict[str, Any] = {
         "POST /api/v1/code-review/review": handle_review_code,
         "POST /api/v1/code-review/diff": handle_review_diff,
         "POST /api/v1/code-review/pr": handle_review_pr,
         "GET /api/v1/code-review/history": handle_get_review_history,
         "POST /api/v1/code-review/security-scan": handle_quick_security_scan,
     }
+
+    ROUTES = [
+        "/api/v1/code-review/review",
+        "/api/v1/code-review/diff",
+        "/api/v1/code-review/pr",
+        "/api/v1/code-review/history",
+        "/api/v1/code-review/security-scan",
+    ]
 
     DYNAMIC_ROUTES: dict[str, Any] = {
         "GET /api/v1/code-review/results/{result_id}": handle_get_review_result,

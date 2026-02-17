@@ -909,7 +909,7 @@ class TestCreateGroundedVerdict:
         self, mock_evidence_grounder: Mock, mock_debate_result: Mock
     ) -> None:
         """create_grounded_verdict handles exceptions gracefully."""
-        mock_evidence_grounder.create_grounded_verdict.side_effect = Exception("test")
+        mock_evidence_grounder.create_grounded_verdict.side_effect = RuntimeError("test")
         hooks = DebateHooks(evidence_grounder=mock_evidence_grounder)
 
         result = hooks.create_grounded_verdict(mock_debate_result)

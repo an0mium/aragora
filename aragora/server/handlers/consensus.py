@@ -80,6 +80,7 @@ class ConsensusHandler(BaseHandler):
         "/api/consensus/risk-warnings",
         "/api/consensus/seed-demo",
         "/api/consensus/domain/*",
+        "/api/v1/consensus/domain",
     ]
 
     def can_handle(self, path: str) -> bool:

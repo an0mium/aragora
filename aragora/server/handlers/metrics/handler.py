@@ -60,6 +60,13 @@ class MetricsHandler(BaseHandler):
         "/api/metrics/system",
         "/api/metrics/background",
         "/api/metrics/debate",
+        "/api/v1/monitoring/alerts",
+        "/api/v1/monitoring/dashboards",
+        "/api/v1/monitoring/health",
+        "/api/v1/monitoring/logs",
+        "/api/v1/monitoring/metrics",
+        "/api/v1/monitoring/slos",
+        "/api/v1/monitoring/traces",
         "/metrics",  # Prometheus-format endpoint
     ]
 

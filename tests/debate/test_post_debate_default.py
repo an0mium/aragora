@@ -79,7 +79,8 @@ class TestCoordinatorWithDefaultConfig:
         with patch.object(coordinator, "_step_explain", return_value={"explanation": "test"}) as mock_explain, \
              patch.object(coordinator, "_step_persist_receipt", return_value=True) as mock_receipt, \
              patch.object(coordinator, "_step_create_plan") as mock_plan, \
-             patch.object(coordinator, "_step_notify") as mock_notify:
+             patch.object(coordinator, "_step_notify") as mock_notify, \
+             patch.object(coordinator, "_step_execution_bridge", return_value=[]):
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
         mock_explain.assert_called_once()

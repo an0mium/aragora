@@ -120,7 +120,7 @@ class TestArenaCreation:
         protocol = DebateProtocol()
         memory = CritiqueStore(str(tmp_path / "test.db"))
 
-        arena = Arena(env, agents, protocol, memory)
+        arena = Arena(env, agents, protocol, memory=memory)
 
         assert arena.memory is not None
 
@@ -750,7 +750,7 @@ class TestArenaFromConfig:
 
     def test_from_config_creates_arena(self):
         """Test from_config creates Arena correctly."""
-        from aragora.debate.orchestrator import ArenaConfig
+        from aragora.debate.arena_config import ArenaConfig
 
         agents = [MockAgent("agent1"), MockAgent("agent2")]
         env = Environment(task="Test from_config", max_rounds=2)
@@ -775,7 +775,7 @@ class TestArenaFromConfig:
 
     def test_from_config_with_billing_fields(self):
         """Test from_config properly passes billing fields."""
-        from aragora.debate.orchestrator import ArenaConfig
+        from aragora.debate.arena_config import ArenaConfig
         from unittest.mock import Mock
 
         agents = [MockAgent("agent1")]

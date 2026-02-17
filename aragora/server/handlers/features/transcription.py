@@ -152,6 +152,7 @@ class TranscriptionHandler(BaseHandler):
     ROUTES = [
         "/api/v1/transcription/upload",
         "/api/v1/transcription/formats",
+        "/api/v1/transcription/status",
     ]
 
     # Rate limiting (stricter than documents due to API cost)

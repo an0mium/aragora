@@ -163,6 +163,9 @@ class AgentsHandler(  # type: ignore[misc]
         "/api/agent/*/introspect",
         "/api/flips/recent",
         "/api/flips/summary",
+        "/api/v1/leaderboard/compare",
+        "/api/v1/leaderboard/domains",
+        "/api/v1/leaderboard/movers",
     ]
 
     def can_handle(self, path: str) -> bool:

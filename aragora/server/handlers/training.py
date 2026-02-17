@@ -223,7 +223,7 @@ def _clear_training_components() -> None:
 class TrainingHandler(BaseHandler):
     """Handler for training data export endpoints."""
 
-    ROUTES = {
+    _ROUTE_MAP = {
         "/api/v1/training/export/sft": "handle_export_sft",
         "/api/v1/training/export/dpo": "handle_export_dpo",
         "/api/v1/training/export/gauntlet": "handle_export_gauntlet",
@@ -231,6 +231,15 @@ class TrainingHandler(BaseHandler):
         "/api/v1/training/formats": "handle_formats",
         "/api/v1/training/jobs": "handle_list_jobs",
     }
+
+    ROUTES = [
+        "/api/v1/training/export/sft",
+        "/api/v1/training/export/dpo",
+        "/api/v1/training/export/gauntlet",
+        "/api/v1/training/stats",
+        "/api/v1/training/formats",
+        "/api/v1/training/jobs",
+    ]
 
     # Dynamic routes that need special handling
     JOB_ROUTES = [
@@ -255,7 +264,7 @@ class TrainingHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        if path in self._ROUTE_MAP:
             return True
         # Check job routes (dynamic patterns)
         if path.startswith("/api/v1/training/jobs/"):
@@ -271,7 +280,7 @@ class TrainingHandler(BaseHandler):
     ) -> HandlerResult | None:
         """Route training requests to appropriate methods."""
         # Check static routes first
-        method_name = self.ROUTES.get(path)
+        method_name = self._ROUTE_MAP.get(path)
         if method_name and hasattr(self, method_name):
             result = getattr(self, method_name)(path, query_params, handler)
             return cast(HandlerResult | None, result)

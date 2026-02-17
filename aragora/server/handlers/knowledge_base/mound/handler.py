@@ -297,6 +297,11 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         "/api/v1/knowledge/mound/confidence/event",
         "/api/v1/knowledge/mound/confidence/history",
         "/api/v1/knowledge/mound/confidence/stats",
+        # Culture endpoints
+        "/api/v1/knowledge/mound/culture/documents",
+        "/api/v1/knowledge/mound/culture/promote",
+        # KM checkpoints
+        "/api/v1/km/checkpoints",
     ]
 
     def __init__(self, server_context: dict[str, Any]):

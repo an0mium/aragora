@@ -59,6 +59,16 @@ ROUTES = [
     "/api/v1/debates/*/cancel",  # POST - cancel running debate
     "/api/v1/debates/*/decision-integrity",  # POST - receipt + plan bundle
     "/api/v1/search",  # Cross-debate search
+    # Analytics and management endpoints
+    "/api/v1/debates/analytics/consensus",  # GET - consensus analytics
+    "/api/v1/debates/analytics/trends",  # GET - debate trend analytics
+    "/api/v1/debates/archive/batch",  # POST - batch archive debates
+    "/api/v1/debates/archived",  # GET - list archived debates
+    "/api/v1/debates/compare",  # POST - compare debates
+    "/api/v1/debates/health",  # GET - debate system health
+    "/api/v1/debates/import",  # POST - import debates
+    "/api/v1/debates/statistics",  # GET - debate statistics
+    "/api/v1/debates/stream",  # GET - debate event stream
 ]
 
 # Endpoints that require authentication

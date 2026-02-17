@@ -77,13 +77,13 @@ def disagreeing_messages():
         Message(
             role="proposer",
             agent="claude",
-            content="I propose we use microservices for scalability.",
+            content="I propose we should use microservice architecture with async patterns.",
             round=2,
         ),
         Message(
             role="critic",
             agent="gemini",
-            content="I disagree. A monolith is better. Wrong approach for this scale.",
+            content="I disagree. A monolith with sync is better. Wrong approach. We should not use that.",
             round=2,
         ),
     ]
@@ -822,7 +822,7 @@ class TestDebateForkerRunBranches:
 
         results = await forker.run_branches(
             branches=sample_branches,
-            env=Environment(task=""),
+            env=Environment(task="Test debate task"),
             agents=[],
             run_debate_fn=mock_run_debate,
         )
