@@ -4,6 +4,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 const requestedOutput = process.env.NEXT_OUTPUT || process.env.ARAGORA_NEXT_OUTPUT;
+const isExport = requestedOutput === 'export';
 
 const nextConfig = {
   // Use 'standalone' for Docker, 'export' for static hosting
@@ -12,29 +13,36 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  async redirects() {
-    return [
-      {
-        source: '/docs',
-        destination: 'https://docs.aragora.ai',
-        permanent: false,
-      },
-      {
-        source: '/docs/:path*',
-        destination: 'https://docs.aragora.ai/docs/:path*',
-        permanent: false,
-      },
-    ];
-  },
-  async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ];
-  },
+  // redirects and rewrites are not supported with output: 'export'.
+  // When exporting statically, these are handled by the hosting platform
+  // (e.g. Cloudflare Pages _redirects file, Vercel vercel.json, etc.)
+  ...(isExport
+    ? {}
+    : {
+        async redirects() {
+          return [
+            {
+              source: '/docs',
+              destination: 'https://docs.aragora.ai',
+              permanent: false,
+            },
+            {
+              source: '/docs/:path*',
+              destination: 'https://docs.aragora.ai/docs/:path*',
+              permanent: false,
+            },
+          ];
+        },
+        async rewrites() {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+          return [
+            {
+              source: '/api/:path*',
+              destination: `${apiUrl}/api/:path*`,
+            },
+          ];
+        },
+      }),
 }
 
 module.exports = withBundleAnalyzer(nextConfig)
