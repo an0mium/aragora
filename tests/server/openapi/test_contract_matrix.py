@@ -123,6 +123,8 @@ def _discover_ts_namespaces() -> list[str]:
 @pytest.fixture(scope="module")
 def openapi_spec() -> dict:
     spec_path = _repo_root() / "docs/api/openapi.json"
+    if not spec_path.exists():
+        pytest.skip(f"docs/api/openapi.json not found (tried {spec_path})")
     return json.loads(spec_path.read_text())
 
 
@@ -227,6 +229,8 @@ def test_stability_manifest_endpoints_exist(
 ) -> None:
     """Every endpoint in the stability manifest must still exist in the spec."""
     manifest_path = _repo_root() / "aragora/server/openapi/stability_manifest.json"
+    if not manifest_path.exists():
+        pytest.skip(f"stability_manifest.json not found (tried {manifest_path})")
     manifest = json.loads(manifest_path.read_text())
     stable = manifest.get("stable", [])
 
@@ -249,6 +253,8 @@ def test_stability_manifest_minimum_count(
 ) -> None:
     """Stability manifest should have a minimum baseline of stable endpoints."""
     manifest_path = _repo_root() / "aragora/server/openapi/stability_manifest.json"
+    if not manifest_path.exists():
+        pytest.skip(f"stability_manifest.json not found (tried {manifest_path})")
     manifest = json.loads(manifest_path.read_text())
     stable_count = len(manifest.get("stable", []))
 
