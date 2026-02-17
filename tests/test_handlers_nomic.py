@@ -479,7 +479,7 @@ class TestNomicMetrics:
                         }
                     ),
                 )
-                result = run_async(nomic_handler.handle("/api/nomic/metrics", {}, None)
+                result = run_async(nomic_handler.handle("/api/nomic/metrics", {}, None))
 
                 assert result is not None
                 assert result.status_code == 200
@@ -516,7 +516,7 @@ class TestNomicErrorHandling:
 
     def test_handle_returns_none_for_unhandled(self, nomic_handler):
         """Returns None for unhandled routes."""
-        result = run_async(nomic_handler.handle("/api/other/endpoint", {}, None)
+        result = run_async(nomic_handler.handle("/api/other/endpoint", {}, None))
         assert result is None
 
     def test_handles_permission_error(self, nomic_handler, mock_nomic_dir):
