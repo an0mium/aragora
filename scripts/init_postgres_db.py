@@ -209,8 +209,22 @@ async def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    # Get DSN
+    # Get DSN from environment, CLI args, or AWS Secrets Manager
     dsn = args.dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
+    if not dsn:
+        # Try loading from AWS Secrets Manager if enabled
+        use_sm = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in ("true", "1", "yes")
+        if use_sm:
+            logger.info("No DSN in environment, trying AWS Secrets Manager...")
+            try:
+                from aragora.config.secrets import SecretManager
+
+                sm = SecretManager()
+                dsn = sm.get("ARAGORA_POSTGRES_DSN") or sm.get("DATABASE_URL") or sm.get("SUPABASE_POSTGRES_DSN")
+                if dsn:
+                    logger.info("Loaded PostgreSQL DSN from Secrets Manager")
+            except Exception as e:
+                logger.warning(f"Could not load DSN from Secrets Manager: {e}")
     if not dsn:
         logger.error(
             "No PostgreSQL DSN configured.\n"
