@@ -1,15 +1,17 @@
 """
 Control Plane Namespace API
 
-Provides methods for enterprise control plane operations.
-
-Note: Control plane endpoints are currently undergoing handler migration.
-Methods will be re-added as handler routes are stabilized.
+Provides methods for enterprise control plane operations:
+- Agent registry and management
+- Task scheduling and management
+- Health monitoring
+- Policy violations
+- Deliberation management
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -21,9 +23,301 @@ class ControlPlaneAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
+    # =========================================================================
+    # Agents
+    # =========================================================================
+
+    def list_agents(self) -> dict[str, Any]:
+        """List registered agents."""
+        return self._client.request("GET", "/api/control-plane/agents")
+
+    def register_agent(self, **kwargs: Any) -> dict[str, Any]:
+        """Register an agent."""
+        return self._client.request("POST", "/api/control-plane/agents", json=kwargs)
+
+    def get_agent(self, agent_id: str) -> dict[str, Any]:
+        """Get an agent by ID."""
+        return self._client.request("GET", f"/api/control-plane/agents/{agent_id}")
+
+    def deregister_agent(self, agent_id: str) -> dict[str, Any]:
+        """Deregister an agent."""
+        return self._client.request("DELETE", f"/api/control-plane/agents/{agent_id}")
+
+    def heartbeat(self, agent_id: str) -> dict[str, Any]:
+        """Send agent heartbeat."""
+        return self._client.request("POST", f"/api/control-plane/agents/{agent_id}/heartbeat")
+
+    # =========================================================================
+    # Health
+    # =========================================================================
+
+    def get_health(self) -> dict[str, Any]:
+        """Get control plane health."""
+        return self._client.request("GET", "/api/control-plane/health")
+
+    def get_health_detailed(self) -> dict[str, Any]:
+        """Get detailed health information."""
+        return self._client.request("GET", "/api/control-plane/health/detailed")
+
+    def get_agent_health(self, agent_id: str) -> dict[str, Any]:
+        """Get health of a specific agent."""
+        return self._client.request("GET", f"/api/control-plane/health/{agent_id}")
+
+    # =========================================================================
+    # Tasks
+    # =========================================================================
+
+    def create_task(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a task."""
+        return self._client.request("POST", "/api/control-plane/tasks", json=kwargs)
+
+    def claim_task(self, **kwargs: Any) -> dict[str, Any]:
+        """Claim a task."""
+        return self._client.request("POST", "/api/control-plane/tasks/claim", json=kwargs)
+
+    def get_task_history(self) -> dict[str, Any]:
+        """Get task history."""
+        return self._client.request("GET", "/api/control-plane/tasks/history")
+
+    def get_task(self, task_id: str) -> dict[str, Any]:
+        """Get a task by ID."""
+        return self._client.request("GET", f"/api/control-plane/tasks/{task_id}")
+
+    def cancel_task(self, task_id: str) -> dict[str, Any]:
+        """Cancel a task."""
+        return self._client.request("POST", f"/api/control-plane/tasks/{task_id}/cancel")
+
+    def complete_task(self, task_id: str) -> dict[str, Any]:
+        """Complete a task."""
+        return self._client.request("POST", f"/api/control-plane/tasks/{task_id}/complete")
+
+    def fail_task(self, task_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Mark a task as failed."""
+        return self._client.request("POST", f"/api/control-plane/tasks/{task_id}/fail", json=kwargs)
+
+    # =========================================================================
+    # Metrics & Stats
+    # =========================================================================
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get control plane metrics."""
+        return self._client.request("GET", "/api/control-plane/metrics")
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get control plane statistics."""
+        return self._client.request("GET", "/api/control-plane/stats")
+
+    def get_breakers(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        return self._client.request("GET", "/api/control-plane/breakers")
+
+    # =========================================================================
+    # Queue
+    # =========================================================================
+
+    def get_queue(self) -> dict[str, Any]:
+        """Get task queue."""
+        return self._client.request("GET", "/api/control-plane/queue")
+
+    def get_queue_metrics(self) -> dict[str, Any]:
+        """Get queue metrics."""
+        return self._client.request("GET", "/api/control-plane/queue/metrics")
+
+    # =========================================================================
+    # Audit
+    # =========================================================================
+
+    def get_audit(self) -> dict[str, Any]:
+        """Get control plane audit log."""
+        return self._client.request("GET", "/api/control-plane/audit")
+
+    def get_audit_stats(self) -> dict[str, Any]:
+        """Get audit statistics."""
+        return self._client.request("GET", "/api/control-plane/audit/stats")
+
+    def verify_audit(self) -> dict[str, Any]:
+        """Verify audit integrity."""
+        return self._client.request("GET", "/api/control-plane/audit/verify")
+
+    # =========================================================================
+    # Policy Violations
+    # =========================================================================
+
+    def list_violations(self) -> dict[str, Any]:
+        """List policy violations."""
+        return self._client.request("GET", "/api/control-plane/policies/violations")
+
+    def get_violations_stats(self) -> dict[str, Any]:
+        """Get policy violations statistics."""
+        return self._client.request("GET", "/api/control-plane/policies/violations/stats")
+
+    def get_violation(self, violation_id: str) -> dict[str, Any]:
+        """Get a policy violation by ID."""
+        return self._client.request("GET", f"/api/control-plane/policies/violations/{violation_id}")
+
+    def update_violation(self, violation_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a policy violation."""
+        return self._client.request("PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs)
+
+    # =========================================================================
+    # Deliberations
+    # =========================================================================
+
+    def create_deliberation(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a deliberation."""
+        return self._client.request("POST", "/api/control-plane/deliberations", json=kwargs)
+
+    def get_deliberation(self, request_id: str) -> dict[str, Any]:
+        """Get a deliberation."""
+        return self._client.request("GET", f"/api/control-plane/deliberations/{request_id}")
+
+    def get_deliberation_status(self, request_id: str) -> dict[str, Any]:
+        """Get deliberation status."""
+        return self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/status")
+
+    # =========================================================================
+    # Notifications
+    # =========================================================================
+
+    def list_notifications(self) -> dict[str, Any]:
+        """List control plane notifications."""
+        return self._client.request("GET", "/api/control-plane/notifications")
+
+    def get_notification_stats(self) -> dict[str, Any]:
+        """Get notification statistics."""
+        return self._client.request("GET", "/api/control-plane/notifications/stats")
+
 
 class AsyncControlPlaneAPI:
     """Asynchronous Control Plane API."""
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    async def list_agents(self) -> dict[str, Any]:
+        """List registered agents."""
+        return await self._client.request("GET", "/api/control-plane/agents")
+
+    async def register_agent(self, **kwargs: Any) -> dict[str, Any]:
+        """Register an agent."""
+        return await self._client.request("POST", "/api/control-plane/agents", json=kwargs)
+
+    async def get_agent(self, agent_id: str) -> dict[str, Any]:
+        """Get an agent by ID."""
+        return await self._client.request("GET", f"/api/control-plane/agents/{agent_id}")
+
+    async def deregister_agent(self, agent_id: str) -> dict[str, Any]:
+        """Deregister an agent."""
+        return await self._client.request("DELETE", f"/api/control-plane/agents/{agent_id}")
+
+    async def heartbeat(self, agent_id: str) -> dict[str, Any]:
+        """Send agent heartbeat."""
+        return await self._client.request("POST", f"/api/control-plane/agents/{agent_id}/heartbeat")
+
+    async def get_health(self) -> dict[str, Any]:
+        """Get control plane health."""
+        return await self._client.request("GET", "/api/control-plane/health")
+
+    async def get_health_detailed(self) -> dict[str, Any]:
+        """Get detailed health information."""
+        return await self._client.request("GET", "/api/control-plane/health/detailed")
+
+    async def get_agent_health(self, agent_id: str) -> dict[str, Any]:
+        """Get health of a specific agent."""
+        return await self._client.request("GET", f"/api/control-plane/health/{agent_id}")
+
+    async def create_task(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a task."""
+        return await self._client.request("POST", "/api/control-plane/tasks", json=kwargs)
+
+    async def claim_task(self, **kwargs: Any) -> dict[str, Any]:
+        """Claim a task."""
+        return await self._client.request("POST", "/api/control-plane/tasks/claim", json=kwargs)
+
+    async def get_task_history(self) -> dict[str, Any]:
+        """Get task history."""
+        return await self._client.request("GET", "/api/control-plane/tasks/history")
+
+    async def get_task(self, task_id: str) -> dict[str, Any]:
+        """Get a task by ID."""
+        return await self._client.request("GET", f"/api/control-plane/tasks/{task_id}")
+
+    async def cancel_task(self, task_id: str) -> dict[str, Any]:
+        """Cancel a task."""
+        return await self._client.request("POST", f"/api/control-plane/tasks/{task_id}/cancel")
+
+    async def complete_task(self, task_id: str) -> dict[str, Any]:
+        """Complete a task."""
+        return await self._client.request("POST", f"/api/control-plane/tasks/{task_id}/complete")
+
+    async def fail_task(self, task_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Mark a task as failed."""
+        return await self._client.request("POST", f"/api/control-plane/tasks/{task_id}/fail", json=kwargs)
+
+    async def get_metrics(self) -> dict[str, Any]:
+        """Get control plane metrics."""
+        return await self._client.request("GET", "/api/control-plane/metrics")
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get control plane statistics."""
+        return await self._client.request("GET", "/api/control-plane/stats")
+
+    async def get_breakers(self) -> dict[str, Any]:
+        """Get circuit breaker status."""
+        return await self._client.request("GET", "/api/control-plane/breakers")
+
+    async def get_queue(self) -> dict[str, Any]:
+        """Get task queue."""
+        return await self._client.request("GET", "/api/control-plane/queue")
+
+    async def get_queue_metrics(self) -> dict[str, Any]:
+        """Get queue metrics."""
+        return await self._client.request("GET", "/api/control-plane/queue/metrics")
+
+    async def get_audit(self) -> dict[str, Any]:
+        """Get control plane audit log."""
+        return await self._client.request("GET", "/api/control-plane/audit")
+
+    async def get_audit_stats(self) -> dict[str, Any]:
+        """Get audit statistics."""
+        return await self._client.request("GET", "/api/control-plane/audit/stats")
+
+    async def verify_audit(self) -> dict[str, Any]:
+        """Verify audit integrity."""
+        return await self._client.request("GET", "/api/control-plane/audit/verify")
+
+    async def list_violations(self) -> dict[str, Any]:
+        """List policy violations."""
+        return await self._client.request("GET", "/api/control-plane/policies/violations")
+
+    async def get_violations_stats(self) -> dict[str, Any]:
+        """Get policy violations statistics."""
+        return await self._client.request("GET", "/api/control-plane/policies/violations/stats")
+
+    async def get_violation(self, violation_id: str) -> dict[str, Any]:
+        """Get a policy violation by ID."""
+        return await self._client.request("GET", f"/api/control-plane/policies/violations/{violation_id}")
+
+    async def update_violation(self, violation_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a policy violation."""
+        return await self._client.request("PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs)
+
+    async def create_deliberation(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a deliberation."""
+        return await self._client.request("POST", "/api/control-plane/deliberations", json=kwargs)
+
+    async def get_deliberation(self, request_id: str) -> dict[str, Any]:
+        """Get a deliberation."""
+        return await self._client.request("GET", f"/api/control-plane/deliberations/{request_id}")
+
+    async def get_deliberation_status(self, request_id: str) -> dict[str, Any]:
+        """Get deliberation status."""
+        return await self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/status")
+
+    async def list_notifications(self) -> dict[str, Any]:
+        """List control plane notifications."""
+        return await self._client.request("GET", "/api/control-plane/notifications")
+
+    async def get_notification_stats(self) -> dict[str, Any]:
+        """Get notification statistics."""
+        return await self._client.request("GET", "/api/control-plane/notifications/stats")
