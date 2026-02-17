@@ -105,4 +105,13 @@ def register_skills() -> list[Skill]:
     except ImportError:
         pass
 
+    # Vertical profile skills
+    try:
+        from .vertical_profiles import VERTICAL_SKILLS
+
+        for _name, skill_cls in VERTICAL_SKILLS.items():
+            skills.append(skill_cls())
+    except ImportError:
+        pass
+
     return skills

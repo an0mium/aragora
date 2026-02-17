@@ -177,7 +177,7 @@ class TestNomicHealth:
 
     def test_health_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/health", {}, None))
 
         assert result is not None
         assert result.status_code == 503
@@ -261,7 +261,7 @@ class TestNomicLog:
 
     def test_log_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/log", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/log", {}, None))
 
         assert result is not None
         assert result.status_code == 503
@@ -334,7 +334,7 @@ class TestRiskRegister:
 
     def test_risk_register_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/risk-register", {}, None))
 
         assert result is not None
         assert result.status_code == 503

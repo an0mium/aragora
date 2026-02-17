@@ -335,7 +335,7 @@ class TestListUsers:
         mock_user_store.list_all_users.return_value = ([], 0)
 
         result = admin_handler.handle(
-            "/api/admin/users", {"limit": "25", "offset": "10", "role": "admin"}, mock_handler
+            "/api/v1/admin/users", {"limit": "25", "offset": "10", "role": "admin"}, mock_handler
         )
 
         assert result is not None
@@ -382,7 +382,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/target-user-456/deactivate", {}, mock_handler, method="POST"
+            "/api/v1/admin/users/target-user-456/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -412,7 +412,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/admin-user-123/deactivate", {}, mock_handler, method="POST"
+            "/api/v1/admin/users/admin-user-123/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -439,7 +439,7 @@ class TestDeactivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/nonexistent-user/deactivate", {}, mock_handler, method="POST"
+            "/api/v1/admin/users/nonexistent-user/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -501,7 +501,7 @@ class TestInputValidation:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/impersonate/invalid<script>id", {}, mock_handler, method="POST"
+            "/api/v1/admin/impersonate/invalid<script>id", {}, mock_handler, method="POST"
         )
 
         assert result is not None
