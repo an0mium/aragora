@@ -1,5 +1,7 @@
 # Quickstart: Docker (Zero Install)
 
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** for a decision tree that picks the right package for you.
+
 Run Aragora without installing Python, dependencies, or anything except Docker.
 
 ## Option A: With Your API Keys (Recommended)

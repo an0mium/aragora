@@ -43,7 +43,7 @@
     "url": "https://github.com/an0mium/aragora.git",
     "directory": "sdk/typescript"
   },
-  "homepage": "https://aragora.ai/docs/sdk",
+  "homepage": "https://github.com/an0mium/aragora/blob/main/docs/START_HERE.md",
   "bugs": {
     "url": "https://github.com/an0mium/aragora/issues"
   },

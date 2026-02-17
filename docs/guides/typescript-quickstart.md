@@ -1,5 +1,7 @@
 # TypeScript SDK Quickstart
 
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** for a decision tree that picks the right package for you.
+
 Get started with the Aragora TypeScript/JavaScript SDK in 5 minutes.
 
 ## Installation

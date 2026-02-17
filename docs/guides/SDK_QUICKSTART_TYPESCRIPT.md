@@ -1,5 +1,7 @@
 # TypeScript SDK Quickstart
 
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** for a decision tree that picks the right package for you.
+
 > **Note:** For the comprehensive TypeScript SDK guide with React hooks, Next.js integration, streaming, and advanced features, see **[TypeScript Quickstart Guide](./typescript-quickstart.md)**.
 >
 > This page provides a minimal 5-minute quickstart.
@@ -142,7 +144,7 @@ const client = createClient({
 
 ## Next Steps
 
-- [Full API Reference](https://docs.aragora.ai/sdk/typescript)
-- [WebSocket Streaming Guide](https://docs.aragora.ai/features/streaming)
-- [Graph Debates](https://docs.aragora.ai/features/graph-debates)
-- [Workflows](https://docs.aragora.ai/features/workflows)
+- [TypeScript SDK Quickstart](./typescript-quickstart.md) -- Comprehensive guide with React, Next.js, streaming
+- [API Reference](../api/API_REFERENCE.md) -- REST API documentation
+- [Examples](../../examples/README.md) -- Runnable examples
+- [Start Here](../START_HERE.md) -- Unified entry point for all packages

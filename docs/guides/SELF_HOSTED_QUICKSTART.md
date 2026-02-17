@@ -1,5 +1,7 @@
 # Self-Hosted Quickstart Guide
 
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** for a decision tree that picks the right package for you.
+
 **Target:** Running Aragora in <5 minutes, complete setup in <30 minutes.
 
 ---

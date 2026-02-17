@@ -1,5 +1,7 @@
 # SME Quick Start Guide
 
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** for a decision tree that picks the right package for you.
+
 This guide helps Subject Matter Experts (SMEs) get started with Aragora for AI-powered decision making.
 
 ## Overview
@@ -275,9 +277,9 @@ GET /api/v1/debates/{debate_id}/receipt/export?format=json|html|markdown|sarif
 
 ### Getting Help
 
-- Documentation: https://docs.aragora.ai
-- API Reference: https://api.aragora.ai/docs
-- Support: support@aragora.ai
+- Documentation: [docs/START_HERE.md](../START_HERE.md)
+- API Reference: [docs/api/API_REFERENCE.md](../api/API_REFERENCE.md)
+- Issues: [github.com/an0mium/aragora/issues](https://github.com/an0mium/aragora/issues)
 
 ## Next Steps
 
