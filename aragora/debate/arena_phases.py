@@ -267,6 +267,10 @@ def init_phases(arena: Arena) -> None:
         # Skills system for extensible evidence collection
         skill_registry=getattr(arena, "skill_registry", None),
         enable_skills=getattr(arena, "enable_skills", False),
+        # Codebase grounding for code-aware debates
+        codebase_path=getattr(arena, "codebase_path", None),
+        enable_codebase_grounding=getattr(arena, "enable_codebase_grounding", False),
+        codebase_persist_to_km=getattr(arena, "codebase_persist_to_km", False),
         fetch_historical_context=arena._fetch_historical_context,
         format_patterns_for_prompt=arena._format_patterns_for_prompt,
         get_successful_patterns_from_memory=arena._get_successful_patterns_from_memory,
