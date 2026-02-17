@@ -1266,3 +1266,199 @@ class TestAntiFragileReassignment:
         # Should have succeeded on retry with different agent
         assert result.completed_subtasks == 1
         assert call_count == 2
+
+
+class TestMetricsIntegration:
+    """Tests for MetricsCollector integration in the orchestrator."""
+
+    @pytest.fixture
+    def mock_workflow_engine(self):
+        engine = MagicMock()
+        engine.execute = AsyncMock(
+            return_value=MagicMock(
+                success=True,
+                final_output={"status": "completed"},
+                error=None,
+            )
+        )
+        return engine
+
+    @pytest.fixture
+    def mock_task_decomposer(self):
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test goal",
+                complexity_score=5,
+                complexity_level="medium",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(
+                        id="1",
+                        title="Fix tests",
+                        description="Fix failing tests",
+                        file_scope=["tests/"],
+                        estimated_complexity="medium",
+                        success_criteria={"test_pass_rate": ">0.95"},
+                    ),
+                ],
+            )
+        )
+        return decomposer
+
+    @pytest.mark.asyncio
+    async def test_metrics_disabled_by_default(self, mock_workflow_engine, mock_task_decomposer):
+        """Orchestrator should not collect metrics when enable_metrics is False."""
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+        assert orchestrator.enable_metrics is False
+        assert orchestrator._metrics_collector is None
+
+    @pytest.mark.asyncio
+    async def test_metrics_enabled_creates_collector(self):
+        """Enabling metrics should create a MetricsCollector."""
+        orchestrator = AutonomousOrchestrator(enable_metrics=True)
+        assert orchestrator.enable_metrics is True
+        assert orchestrator._metrics_collector is not None
+
+    @pytest.mark.asyncio
+    async def test_metrics_populates_result_fields(self, mock_workflow_engine, mock_task_decomposer):
+        """When metrics enabled, result should have baseline/after/delta."""
+        from aragora.nomic.metrics_collector import MetricSnapshot
+
+        mock_collector = MagicMock()
+        baseline = MetricSnapshot(tests_passed=100, tests_failed=5)
+        after = MetricSnapshot(tests_passed=103, tests_failed=2)
+        mock_collector.collect_baseline = AsyncMock(return_value=baseline)
+        mock_collector.collect_after = AsyncMock(return_value=after)
+        mock_collector.compare = MagicMock(
+            return_value=MagicMock(
+                to_dict=MagicMock(return_value={"improved": True, "improvement_score": 0.7}),
+                improvement_score=0.7,
+                improved=True,
+                summary="+3 tests passing",
+            )
+        )
+        mock_collector.check_success_criteria = MagicMock(return_value=(True, []))
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            enable_metrics=True,
+            metrics_collector=mock_collector,
+        )
+
+        result = await orchestrator.execute_goal(goal="Fix tests", max_cycles=2)
+
+        assert result.baseline_metrics is not None
+        assert result.after_metrics is not None
+        assert result.metrics_delta is not None
+        assert result.improvement_score == 0.7
+        assert result.success_criteria_met is True
+        mock_collector.collect_baseline.assert_called_once()
+        mock_collector.collect_after.assert_called_once()
+        mock_collector.compare.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_metrics_failure_does_not_break_orchestration(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """Metrics collection failure should not prevent orchestration."""
+        mock_collector = MagicMock()
+        mock_collector.collect_baseline = AsyncMock(side_effect=RuntimeError("metrics down"))
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            enable_metrics=True,
+            metrics_collector=mock_collector,
+        )
+
+        result = await orchestrator.execute_goal(goal="Fix tests", max_cycles=2)
+
+        # Should succeed despite metrics failure
+        assert result.completed_subtasks == 1
+        assert result.baseline_metrics is None
+        assert result.metrics_delta is None
+
+
+class TestPreflightIntegration:
+    """Tests for preflight health check integration."""
+
+    def test_preflight_disabled_by_default(self):
+        """Orchestrator should not run preflight by default."""
+        orchestrator = AutonomousOrchestrator()
+        assert orchestrator.enable_preflight is False
+
+    def test_preflight_enabled_stores_flag(self):
+        """Enabling preflight should set the flag."""
+        orchestrator = AutonomousOrchestrator(enable_preflight=True)
+        assert orchestrator.enable_preflight is True
+
+    @pytest.mark.asyncio
+    async def test_preflight_failure_returns_error_result(self):
+        """Failed preflight should return error OrchestrationResult."""
+        from aragora.nomic.preflight import PreflightResult
+
+        mock_result = PreflightResult(
+            passed=False,
+            blocking_issues=["No API keys configured"],
+        )
+
+        orchestrator = AutonomousOrchestrator(enable_preflight=True)
+
+        with patch(
+            "aragora.nomic.preflight.PreflightHealthCheck.run",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await orchestrator.execute_goal(goal="Test", max_cycles=1)
+
+        assert result.success is False
+        assert "Preflight check failed" in result.error
+        assert result.total_subtasks == 0
+
+    @pytest.mark.asyncio
+    async def test_preflight_passes_allows_execution(self, ):
+        """Passed preflight should allow normal execution."""
+        from aragora.nomic.preflight import PreflightResult
+
+        mock_preflight = PreflightResult(
+            passed=True,
+            recommended_agents=["claude-visionary"],
+        )
+
+        engine = MagicMock()
+        engine.execute = AsyncMock(
+            return_value=MagicMock(success=True, final_output={}, error=None)
+        )
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test",
+                complexity_score=5,
+                complexity_level="medium",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(id="1", title="Task", description="Do thing", file_scope=["test.py"]),
+                ],
+            )
+        )
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=engine,
+            task_decomposer=decomposer,
+            enable_preflight=True,
+        )
+
+        with patch(
+            "aragora.nomic.preflight.PreflightHealthCheck.run",
+            new_callable=AsyncMock,
+            return_value=mock_preflight,
+        ):
+            result = await orchestrator.execute_goal(goal="Test", max_cycles=1)
+
+        assert result.success is True
+        assert result.completed_subtasks == 1

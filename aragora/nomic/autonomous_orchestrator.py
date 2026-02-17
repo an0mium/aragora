@@ -734,7 +734,7 @@ class AutonomousOrchestrator:
                 if not preflight_result.passed:
                     duration = (datetime.now(timezone.utc) - start_time).total_seconds()
                     issues = "; ".join(preflight_result.blocking_issues)
-                    logger.warning("preflight_failed issues=%s", issues)
+                    logger.warning(f"preflight_failed issues={issues}")
                     return OrchestrationResult(
                         goal=goal,
                         total_subtasks=0,
@@ -748,11 +748,11 @@ class AutonomousOrchestrator:
                     )
                 if preflight_result.warnings:
                     for w in preflight_result.warnings:
-                        logger.info("preflight_warning: %s", w)
+                        logger.info(f"preflight_warning: {w}")
             except ImportError:
                 pass
             except (RuntimeError, OSError, ValueError, asyncio.TimeoutError) as e:
-                logger.debug("preflight_check_skipped: %s", e)
+                logger.debug(f"preflight_check_skipped: {e}")
 
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:
@@ -809,7 +809,7 @@ class AutonomousOrchestrator:
                         goal, file_scope=file_scope or None,
                     )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
-                    logger.debug("metrics_baseline_collection_failed: %s", e)
+                    logger.debug(f"metrics_baseline_collection_failed: {e}")
 
             # Step 3: Execute assignments
             await self._execute_assignments(assignments, max_cycles)
@@ -894,22 +894,20 @@ class AutonomousOrchestrator:
                         )
                         result.success_criteria_met = met
                         if not met:
-                            logger.info("success_criteria_unmet: %s", "; ".join(unmet))
+                            logger.info(f"success_criteria_unmet: {'; '.join(unmet)}")
 
                     if _metrics_delta.improved:
                         logger.info(
-                            "metrics_improvement_detected score=%.2f summary=%s",
-                            _metrics_delta.improvement_score,
-                            _metrics_delta.summary,
+                            f"metrics_improvement_detected score={_metrics_delta.improvement_score:.2f} "
+                            f"summary={_metrics_delta.summary}"
                         )
                     elif not _metrics_delta.improved and _metrics_delta.improvement_score < 0.3:
                         logger.warning(
-                            "metrics_no_improvement score=%.2f summary=%s",
-                            _metrics_delta.improvement_score,
-                            _metrics_delta.summary,
+                            f"metrics_no_improvement score={_metrics_delta.improvement_score:.2f} "
+                            f"summary={_metrics_delta.summary}"
                         )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
-                    logger.debug("metrics_comparison_failed: %s", e)
+                    logger.debug(f"metrics_comparison_failed: {e}")
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {
