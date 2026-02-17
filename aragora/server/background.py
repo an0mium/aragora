@@ -379,23 +379,73 @@ def followup_checker_task() -> None:
         logger.warning("Follow-up check failed: %s", e)
 
 
-def retention_gate_sweep_task() -> None:
-    """Run retention gate sweep to evaluate and decay low-value memories."""
-    try:
-        from aragora.memory.retention_gate import RetentionGate, RetentionGateConfig
+def create_retention_gate_callback(
+    nomic_dir: str | None,
+    memory_instance: Any | None,
+) -> Callable[[], None]:
+    """Create a retention gate sweep callback.
 
-        gate = RetentionGate(config=RetentionGateConfig())
-        report = gate.sweep()
-        if report.demoted or report.archived:
-            logger.info(
-                "Retention gate sweep: %d demoted, %d archived",
-                len(report.demoted),
-                len(report.archived),
-            )
-    except ImportError:
-        logger.debug("RetentionGate not available, skipping sweep")
-    except (RuntimeError, ValueError, OSError) as e:
-        logger.warning("Retention gate sweep failed: %s", e)
+    Gathers item metadata from Continuum memory and runs the MIRAS
+    retention gate to identify items for demotion or archival.
+    """
+    _shared_memory = memory_instance
+
+    def retention_gate_sweep_task() -> None:
+        nonlocal _shared_memory
+        try:
+            from aragora.memory.retention import ItemMetadata, RetentionGate
+
+            # Get or create continuum memory instance
+            memory = _shared_memory
+            if memory is None:
+                try:
+                    from aragora.memory.continuum import ContinuumMemory
+
+                    data_dir = nomic_dir or "."
+                    memory = ContinuumMemory(data_dir=data_dir)
+                except (ImportError, OSError):
+                    logger.debug("ContinuumMemory not available for retention sweep")
+                    return
+
+            # Gather items from memory tiers for evaluation
+            items: list[ItemMetadata] = []
+            import time as _time
+
+            now = _time.time()
+            for tier_name in ("fast", "medium", "slow", "glacial"):
+                tier = getattr(memory, f"_{tier_name}", None)
+                if tier is None:
+                    continue
+                for entry in getattr(tier, "entries", []):
+                    items.append(
+                        ItemMetadata(
+                            item_id=getattr(entry, "id", str(id(entry))),
+                            system="continuum",
+                            created_at=getattr(entry, "timestamp", now),
+                            last_accessed=getattr(entry, "last_accessed", now),
+                            access_count=getattr(entry, "access_count", 1),
+                            surprise_score=getattr(entry, "surprise_score", 0.5),
+                        )
+                    )
+
+            if not items:
+                return
+
+            gate = RetentionGate()
+            report = gate.sweep(items)
+            if report.demote or report.archive:
+                logger.info(
+                    "Retention gate sweep: %d demote, %d archive (of %d evaluated)",
+                    report.demote,
+                    report.archive,
+                    report.evaluated,
+                )
+        except ImportError:
+            logger.debug("RetentionGate not available, skipping sweep")
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("Retention gate sweep failed: %s", e)
+
+    return retention_gate_sweep_task
 
 
 @dataclass
@@ -758,10 +808,15 @@ def setup_default_tasks(
         run_on_startup=False,
     )
 
+    retention_gate_callback = create_retention_gate_callback(
+        nomic_dir=nomic_dir,
+        memory_instance=memory_instance,
+    )
+
     manager.register_task(
         name="retention_gate_sweep",
         interval_seconds=12 * 3600,  # 12 hours
-        callback=retention_gate_sweep_task,
+        callback=retention_gate_callback,
         enabled=True,
         run_on_startup=False,
     )

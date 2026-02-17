@@ -812,7 +812,11 @@ class ArenaExtensions:
                 return
 
             async def _build_and_attach() -> None:
-                decision = await builder.build(result, ctx)
+                try:
+                    decision = await builder.build(result, ctx)
+                except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("explanation_build_failed: %s", exc)
+                    return
                 self._last_explanation = decision
                 # Attach to result so callers can access it
                 if hasattr(result, "__dict__"):
@@ -825,13 +829,6 @@ class ArenaExtensions:
             task = loop.create_task(_build_and_attach())
             # Store reference so the task is not garbage-collected
             self._pending_explanation_task = task  # type: ignore[attr-defined]
-
-            def _on_done(t: asyncio.Task[None]) -> None:
-                exc = t.exception() if not t.cancelled() else None
-                if exc is not None:
-                    logger.debug("explanation_failed: %s", exc)
-
-            task.add_done_callback(_on_done)
 
         except ImportError:
             logger.debug("explanation_skipped: explainability module not available")

@@ -295,8 +295,8 @@ class TestBuildFailureHandled:
     """Verify that if builder.build() raises, it's caught by the callback."""
 
     @pytest.mark.asyncio
-    async def test_build_exception_does_not_propagate(self):
-        """If build() raises, the done callback logs it and doesn't crash."""
+    async def test_build_value_error_does_not_propagate(self):
+        """If build() raises ValueError, exception is caught inside the task."""
         mock_builder = MagicMock()
         mock_builder.build = AsyncMock(side_effect=ValueError("build failed"))
 
@@ -310,7 +310,7 @@ class TestBuildFailureHandled:
         ext._auto_generate_explanation(ctx, result)
 
         task = ext._pending_explanation_task
-        # Await should not raise -- exception is consumed by done callback
+        # Await should not raise -- exception is caught in _build_and_attach
         await task
 
         # No explanation should be attached
@@ -322,6 +322,24 @@ class TestBuildFailureHandled:
         """RuntimeError from build() is handled gracefully."""
         mock_builder = MagicMock()
         mock_builder.build = AsyncMock(side_effect=RuntimeError("no model"))
+
+        ext = ArenaExtensions(
+            auto_explain=True,
+            explanation_builder=mock_builder,
+        )
+        ctx = _FakeCtx()
+        result = _FakeResult()
+
+        ext._auto_generate_explanation(ctx, result)
+        await ext._pending_explanation_task
+
+        assert not hasattr(result, "explanation")
+
+    @pytest.mark.asyncio
+    async def test_build_type_error_handled(self):
+        """TypeError from build() is handled gracefully."""
+        mock_builder = MagicMock()
+        mock_builder.build = AsyncMock(side_effect=TypeError("bad arg"))
 
         ext = ArenaExtensions(
             auto_explain=True,
