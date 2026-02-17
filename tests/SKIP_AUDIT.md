@@ -1,6 +1,6 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-02-16
+**Generated**: 2026-02-17
 **Total Skip Markers**: 94
 
 ---
@@ -10,11 +10,11 @@
 | Category | Count | Percentage |
 |----------|-------|------------|
 | integration_dependency | 29 | 30.9% |
-| missing_feature | 25 | 26.6% |
+| missing_feature | 27 | 28.7% |
 | optional_dependency | 18 | 19.1% |
 | platform_specific | 14 | 14.9% |
-| known_bug | 4 | 4.3% |
 | performance | 3 | 3.2% |
+| known_bug | 2 | 2.1% |
 | uncategorized | 1 | 1.1% |
 
 ## Summary by Marker Type

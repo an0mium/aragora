@@ -370,6 +370,10 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 - Gauntlet Defense - proposer_agent param enables attack/defend cycles
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
 - Supermemory - cross-session external memory via `enable_supermemory` (80+ tests)
+- Live Explainability - real-time debate factor tracking via `enable_live_explainability` (EventBus → snapshot → metadata)
+- Active Introspection - per-round agent performance tracking via `enable_introspection` (proposals, critiques, influence)
+- Argument Verification - structural soundness checking via `auto_verify_arguments` in PostDebateConfig
+- Outcome Feedback - systematic error detection → Nomic Loop goals via `auto_outcome_feedback` in PostDebateConfig
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 provisioning
