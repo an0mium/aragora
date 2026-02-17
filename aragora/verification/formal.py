@@ -1249,11 +1249,14 @@ class FormalVerificationManager:
     appropriate one for each claim type.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, event_callback: Any | None = None) -> None:
         self.backends: list[FormalVerificationBackend] = [
             Z3Backend(),  # Try Z3 first (simpler, faster)
             LeanBackend(),  # Fall back to Lean for complex proofs
         ]
+        # Optional callback invoked with StreamEvent after each verification.
+        # Allows callers (e.g., consensus phase) to bridge events to their emitter.
+        self._event_callback = event_callback
 
     def get_available_backends(self) -> list[FormalVerificationBackend]:
         """Get all available backends."""
@@ -1351,6 +1354,37 @@ class FormalVerificationManager:
             z3_backend=z3_backend,
         )
         return await verifier.verify(argument_graph, timeout_seconds=timeout_seconds)
+
+    def _emit_verification_event(self, claim: str, result: FormalProofResult) -> None:
+        """Emit a FORMAL_VERIFICATION_RESULT event after verification completes.
+
+        Uses lazy imports to avoid circular dependencies. Gracefully degrades
+        if the events module or dispatcher is unavailable.
+
+        Args:
+            claim: The original natural language claim (truncated to 200 chars).
+            result: The verification result to emit.
+        """
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event = StreamEvent(
+                type=StreamEventType.FORMAL_VERIFICATION_RESULT,
+                data={
+                    "claim": claim[:200],
+                    "status": result.status.value,
+                    "is_verified": result.is_verified,
+                    "is_high_confidence": result.is_high_confidence,
+                    "backend": result.language.value if result.language else "",
+                    "formal_language": result.language.value if result.language else "",
+                },
+            )
+
+            # Notify registered callback if present
+            if self._event_callback is not None:
+                self._event_callback(event)
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Formal verification event emission unavailable: %s", e)
 
     def status_report(self) -> dict[str, Any]:
         """Get status of all backends."""

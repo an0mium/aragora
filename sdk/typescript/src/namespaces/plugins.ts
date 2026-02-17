@@ -103,6 +103,7 @@ interface PluginsClientInterface {
   post<T>(path: string, body?: unknown): Promise<T>;
   put<T>(path: string, body?: unknown): Promise<T>;
   delete<T>(path: string): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; json?: unknown }): Promise<T>;
 }
 
 /**
@@ -163,7 +164,7 @@ export class PluginsAPI {
    * Query plugins with search and filters.
    */
   async query(body: PluginQueryRequest): Promise<{ plugins: PluginListing[]; total: number }> {
-    return this.client.post('/api/v1/plugins/query', body);
+    return this.client.request('POST', '/api/v1/plugins/query', { json: body });
   }
 
   // ===========================================================================
@@ -220,6 +221,6 @@ export class PluginsAPI {
    * Validate a plugin manifest before submission.
    */
   async validate(body: PluginValidateRequest): Promise<{ valid: boolean; errors?: string[] }> {
-    return this.client.post('/api/v1/plugins/validate', body);
+    return this.client.request('POST', '/api/v1/plugins/validate', { json: body });
   }
 }
