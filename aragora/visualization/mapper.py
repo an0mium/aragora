@@ -147,6 +147,8 @@ class ArgumentCartographer:
         # Build graph edges based on node type and context
         self._link_node(node, agent, round_num)
 
+        self._emit_graph_update("message", node_id)
+
         return node_id
 
     def update_from_critique(
@@ -212,6 +214,8 @@ class ArgumentCartographer:
                 )
             )
 
+        self._emit_graph_update("vote", node_id)
+
         return node_id
 
     def update_from_consensus(
@@ -241,6 +245,8 @@ class ArgumentCartographer:
                         relation=EdgeRelation.SUPPORTS,
                     )
                 )
+
+        self._emit_graph_update("consensus", node_id)
 
         return node_id
 
@@ -443,6 +449,24 @@ class ArgumentCartographer:
         return max_depth
 
     # --- Private helper methods ---
+
+    def _emit_graph_update(self, action: str, node_id: str) -> None:
+        """Emit a graph update event for real-time streaming."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "argument_map_updated",
+                {
+                    "debate_id": self.debate_id or "",
+                    "action": action,
+                    "node_id": node_id,
+                    "total_nodes": len(self.nodes),
+                    "total_edges": len(self.edges),
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Graph update event emission unavailable: %s", e)
 
     def _make_id(self, agent: str, round_num: int, content: str) -> str:
         """Generate a unique, Mermaid-safe node ID."""

@@ -746,3 +746,60 @@ class TestMultipleMetricOperations:
             new_metric = pm_module._metrics["resilience_retry_exhausted_total"]
             # After reset, a fresh metric instance should be created
             assert new_metric is not old_metric
+
+
+# =============================================================================
+# Package Export Tests
+# =============================================================================
+
+
+class TestPatternMetricsPackageExports:
+    """Tests that pattern_metrics functions are exported from aragora.resilience."""
+
+    def test_circuit_breaker_state_changed_exported(self):
+        """circuit_breaker_state_changed should be importable from resilience."""
+        from aragora.resilience import circuit_breaker_state_changed as fn
+
+        assert callable(fn)
+
+    def test_retry_attempt_exported(self):
+        """retry_attempt should be importable from resilience."""
+        from aragora.resilience import retry_attempt as fn
+
+        assert callable(fn)
+
+    def test_timeout_occurred_exported(self):
+        """timeout_occurred should be importable from resilience."""
+        from aragora.resilience import timeout_occurred as fn
+
+        assert callable(fn)
+
+    def test_health_status_changed_exported(self):
+        """health_status_changed should be importable from resilience."""
+        from aragora.resilience import health_status_changed as fn
+
+        assert callable(fn)
+
+    def test_create_metrics_callbacks_exported(self):
+        """create_metrics_callbacks should be importable from resilience."""
+        from aragora.resilience import create_metrics_callbacks as fn
+
+        assert callable(fn)
+
+    def test_operation_duration_exported(self):
+        """operation_duration should be importable from resilience."""
+        from aragora.resilience import operation_duration as fn
+
+        assert callable(fn)
+
+    def test_reset_pattern_metrics_exported(self):
+        """reset_pattern_metrics should be importable from resilience."""
+        from aragora.resilience import reset_pattern_metrics as fn
+
+        assert callable(fn)
+
+    def test_retry_exhausted_exported(self):
+        """retry_exhausted should be importable from resilience."""
+        from aragora.resilience import retry_exhausted as fn
+
+        assert callable(fn)

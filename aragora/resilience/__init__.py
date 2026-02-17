@@ -126,6 +126,18 @@ from .health import (
     get_global_health_registry,
 )
 
+# Pattern-level Prometheus metrics (lazy init, no-op without prometheus_client)
+from .pattern_metrics import (
+    circuit_breaker_state_changed,
+    create_metrics_callbacks,
+    health_status_changed,
+    operation_duration,
+    reset_metrics as reset_pattern_metrics,
+    retry_attempt,
+    retry_exhausted,
+    timeout_occurred,
+)
+
 # HTTP client resilience utilities
 from .http_client import (
     TRANSIENT_HTTP_STATUSES,
@@ -200,6 +212,15 @@ __all__ = [
     "HealthReport",
     "HealthStatus",
     "get_global_health_registry",
+    # Pattern-level Prometheus metrics
+    "circuit_breaker_state_changed",
+    "create_metrics_callbacks",
+    "health_status_changed",
+    "operation_duration",
+    "reset_pattern_metrics",
+    "retry_attempt",
+    "retry_exhausted",
+    "timeout_occurred",
     # HTTP client resilience
     "TRANSIENT_HTTP_STATUSES",
     "CircuitBreakerMixin",

@@ -46,6 +46,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -202,6 +203,7 @@ class AragoraRLM(RLMStreamingMixin):
         knowledge_mound: Any | None = None,  # For auto-creating cache
         enable_caching: bool = True,  # Enable compression caching
         belief_network: Any | None = None,  # For belief-augmented reasoning
+        supermemory_backend: Any | None = None,  # Supermemory fallback store
     ):
         """
         Initialize Aragora RLM.
@@ -219,6 +221,7 @@ class AragoraRLM(RLMStreamingMixin):
         self.aragora_config = aragora_config or RLMConfig()
         self.agent_registry = agent_registry
         self.enable_caching = enable_caching
+        self._supermemory_backend = supermemory_backend
 
         # Belief network integration (Phase 2: RLM-Belief Bridge)
         self._belief_network = belief_network
@@ -881,6 +884,45 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         context.metadata = metadata
         return str(file_path)
 
+    async def _store_pre_compression(self, content: str, source_type: str) -> None:
+        """Store pre-compression content in supermemory as fallback."""
+        if not self._supermemory_backend:
+            return
+        try:
+            if hasattr(self._supermemory_backend, "store"):
+                store_fn = getattr(self._supermemory_backend, "store")
+                if asyncio.iscoroutinefunction(store_fn):
+                    await store_fn(
+                        content=content,
+                        metadata={"source_type": source_type, "role": "pre_compression_fallback"},
+                    )
+                else:
+                    store_fn(
+                        content=content,
+                        metadata={"source_type": source_type, "role": "pre_compression_fallback"},
+                    )
+        except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+            logger.warning("Supermemory pre-compression store failed: %s", exc)
+
+    async def _check_supermemory_cache(self, query: str) -> str | None:
+        """Check supermemory for pre-compression cached content."""
+        if not self._supermemory_backend:
+            return None
+        try:
+            if hasattr(self._supermemory_backend, "search"):
+                search_fn = getattr(self._supermemory_backend, "search")
+                if asyncio.iscoroutinefunction(search_fn):
+                    results = await search_fn(query, limit=3)
+                else:
+                    results = search_fn(query, limit=3)
+                for r in results or []:
+                    meta = r.get("metadata", {}) if isinstance(r, dict) else getattr(r, "metadata", {})
+                    if meta.get("role") == "pre_compression_fallback":
+                        return r.get("content", "") if isinstance(r, dict) else getattr(r, "content", "")
+        except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+            logger.warning("Supermemory cache check failed: %s", exc)
+        return None
+
     async def _compression_fallback(
         self,
         query: str,
@@ -903,6 +945,26 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             "[AragoraRLM] Executing COMPRESSION FALLBACK - "
             "context is pre-summarized, model doesn't write code to examine it"
         )
+
+        # Check supermemory for pre-compression cached content
+        cached = await self._check_supermemory_cache(query)
+        if cached:
+            logger.debug("[AragoraRLM] Found pre-compression content in supermemory cache")
+            return RLMResult(
+                answer=cached,
+                nodes_examined=[],
+                levels_traversed=[],
+                citations=[],
+                tokens_processed=len(cached) // 4,
+                sub_calls_made=0,
+                time_seconds=0.0,
+                confidence=0.7,
+                uncertainty_sources=[],
+            )
+
+        # Store pre-compression content in supermemory before compression
+        if context.original_content:
+            await self._store_pre_compression(context.original_content, context.source_type)
 
         from .types import DecompositionStrategy, RLMQuery
         from .strategies import get_strategy

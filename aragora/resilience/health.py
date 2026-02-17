@@ -186,6 +186,12 @@ class HealthChecker:
                 logger.info(
                     f"[{self.name}] Health recovered after {self._consecutive_successes} successes"
                 )
+                self._emit_health_event(
+                    component=self.name,
+                    new_status="recovered",
+                    consecutive_failures=0,
+                    last_error=None,
+                )
 
     def record_failure(self, error: str | None = None) -> None:
         """Record a failed health check.
@@ -205,6 +211,35 @@ class HealthChecker:
                 logger.warning(
                     f"[{self.name}] Health degraded after {self._consecutive_failures} failures: {error}"
                 )
+                self._emit_health_event(
+                    component=self.name,
+                    new_status="degraded",
+                    consecutive_failures=self._consecutive_failures,
+                    last_error=error,
+                )
+
+    @staticmethod
+    def _emit_health_event(
+        component: str,
+        new_status: str,
+        consecutive_failures: int,
+        last_error: str | None,
+    ) -> None:
+        """Emit a health state transition event."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "health_state_change",
+                {
+                    "component": component,
+                    "new_status": new_status,
+                    "consecutive_failures": consecutive_failures,
+                    "last_error": last_error or "",
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as exc:
+            logger.debug("Health event emission unavailable: %s", exc)
 
     def get_status(self) -> ComponentHealthStatus:
         """Get current health status."""

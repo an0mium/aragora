@@ -426,8 +426,31 @@ class MetaLearner(SQLiteStore):
         if adjustments:
             reason = "; ".join(f"{k}: {v}" for k, v in adjustments.items())
             self._save_state(reason=reason, metrics=metrics)
+            self._emit_adjustment_event(adjustments, metrics)
 
         return adjustments
+
+    def _emit_adjustment_event(self, adjustments: dict[str, Any], metrics: LearningMetrics) -> None:
+        """Emit an event when hyperparameters are adjusted."""
+        if not adjustments:
+            return
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "meta_learning_adjusted",
+                {
+                    "adjustments": adjustments,
+                    "pattern_retention_rate": round(metrics.pattern_retention_rate, 4),
+                    "forgetting_rate": round(metrics.forgetting_rate, 4),
+                    "learning_velocity": metrics.learning_velocity,
+                    "consensus_rate": round(metrics.consensus_rate, 4),
+                    "prediction_accuracy": round(metrics.prediction_accuracy, 4),
+                    "cycles_evaluated": metrics.cycles_evaluated,
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Meta-learning event emission unavailable: %s", e)
 
     def _clamp_hyperparameters(self):
         """Ensure hyperparameters stay in valid ranges."""

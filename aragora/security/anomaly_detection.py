@@ -620,6 +620,28 @@ class AnomalyDetector:
         self._request_counts: dict[str, list[datetime]] = defaultdict(list)
         self._last_cleanup = datetime.now(timezone.utc)
 
+    def _emit_anomaly_event(self, result: AnomalyResult, user_id: str | None = None, ip_address: str | None = None) -> None:
+        """Emit a risk warning event for a detected anomaly."""
+        if not result.is_anomalous:
+            return
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "risk_warning",
+                {
+                    "risk_type": "security_anomaly",
+                    "severity": result.severity.value,
+                    "anomaly_type": result.anomaly_type.value if result.anomaly_type else "unknown",
+                    "confidence": round(result.confidence, 4),
+                    "description": result.description[:500],
+                    "user_id": user_id or "",
+                    "ip_address": ip_address or "",
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Anomaly event emission unavailable: %s", e)
+
     # =========================================================================
     # Authentication Anomaly Detection
     # =========================================================================
@@ -685,6 +707,7 @@ class AnomalyDetector:
                     ],
                 )
                 self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                 return result
 
             # Check for credential stuffing (multiple users from same IP)
@@ -713,6 +736,7 @@ class AnomalyDetector:
                         ],
                     )
                     self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                    self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                     return result
 
             # Check for failed login spike
@@ -733,6 +757,7 @@ class AnomalyDetector:
                     ],
                 )
                 self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                 return result
 
         # On successful login, check behavioral anomalies
@@ -772,6 +797,7 @@ class AnomalyDetector:
                             self._storage.record_anomaly(
                                 result, user_id=user_id, ip_address=ip_address
                             )
+                            self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                             return result
 
             # Check for new device/IP
@@ -792,6 +818,7 @@ class AnomalyDetector:
                     ],
                 )
                 self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                 return result
 
             # Update baseline with successful login
@@ -874,6 +901,7 @@ class AnomalyDetector:
                 ],
             )
             self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+            self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
             return result
 
         # Check for API spike vs baseline (for authenticated users)
@@ -900,6 +928,7 @@ class AnomalyDetector:
                         ],
                     )
                     self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                    self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                     return result
 
             # Check for data exfiltration
@@ -927,6 +956,7 @@ class AnomalyDetector:
                     ],
                 )
                 self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                 return result
 
         return AnomalyResult(is_anomalous=False)
@@ -977,6 +1007,7 @@ class AnomalyDetector:
                     ],
                 )
                 self._storage.record_anomaly(result, user_id=user_id)
+                self._emit_anomaly_event(result, user_id=user_id)
                 return result
 
         # Update baseline
@@ -1025,6 +1056,7 @@ class AnomalyDetector:
                 ],
             )
             self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+            self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
             return result
 
         # Check known bad IP
@@ -1042,6 +1074,7 @@ class AnomalyDetector:
                 ],
             )
             self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+            self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
             return result
 
         # Check unusual country for authenticated user
@@ -1067,6 +1100,7 @@ class AnomalyDetector:
                         ],
                     )
                     self._storage.record_anomaly(result, user_id=user_id, ip_address=ip_address)
+                    self._emit_anomaly_event(result, user_id=user_id, ip_address=ip_address)
                     return result
 
         return AnomalyResult(is_anomalous=False)
