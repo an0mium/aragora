@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import subprocess
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -552,6 +553,8 @@ class AutonomousOrchestrator:
         event_emitter: Any | None = None,
         enable_outcome_tracking: bool = False,
         outcome_tracker: Any | None = None,
+        enable_metrics: bool = False,
+        metrics_collector: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -587,6 +590,11 @@ class AutonomousOrchestrator:
             outcome_tracker: Optional NomicOutcomeTracker instance. Created
                 automatically when enable_outcome_tracking is True and no
                 tracker is provided.
+            enable_metrics: Collect test/lint/size metrics before and after
+                execution to objectively measure improvement
+            metrics_collector: Optional MetricsCollector instance. Created
+                automatically when enable_metrics is True and no collector
+                is provided.
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -657,6 +665,17 @@ class AutonomousOrchestrator:
                 self._outcome_tracker = NomicOutcomeTracker()
             except ImportError:
                 logger.debug("Outcome tracker unavailable")
+
+        # Metrics collection for objective improvement measurement
+        self.enable_metrics = enable_metrics
+        self._metrics_collector = metrics_collector
+        if enable_metrics and metrics_collector is None:
+            try:
+                from aragora.nomic.metrics_collector import MetricsCollector
+
+                self._metrics_collector = MetricsCollector()
+            except ImportError:
+                logger.debug("MetricsCollector unavailable")
 
         # Convoy/bead IDs for tracking (populated when convoy tracking enabled)
         self._convoy_id: str | None = None
@@ -741,6 +760,20 @@ class AutonomousOrchestrator:
                 except (RuntimeError, OSError, ValueError) as e:
                     logger.debug("outcome_baseline_capture_failed: %s", e)
 
+            # Step 2d: Collect metrics baseline for objective improvement measurement
+            _metrics_baseline = None
+            if self.enable_metrics and self._metrics_collector is not None:
+                try:
+                    # Scope metrics to the files touched by all subtasks
+                    file_scope = []
+                    for a in assignments:
+                        file_scope.extend(a.subtask.file_scope or [])
+                    _metrics_baseline = await self._metrics_collector.collect_baseline(
+                        goal, file_scope=file_scope or None,
+                    )
+                except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
+                    logger.debug("metrics_baseline_collection_failed: %s", e)
+
             # Step 3: Execute assignments
             await self._execute_assignments(assignments, max_cycles)
 
@@ -791,6 +824,42 @@ class AutonomousOrchestrator:
                         )
                 except (RuntimeError, OSError, ValueError) as e:
                     logger.debug("outcome_tracking_failed: %s", e)
+
+            # Step 5c: Metrics comparison - objective improvement measurement
+            if (
+                self.enable_metrics
+                and self._metrics_collector is not None
+                and _metrics_baseline is not None
+            ):
+                try:
+                    file_scope = []
+                    for a in assignments:
+                        file_scope.extend(a.subtask.file_scope or [])
+                    _metrics_after = await self._metrics_collector.collect_after(
+                        goal, file_scope=file_scope or None,
+                    )
+                    _metrics_delta = self._metrics_collector.compare(
+                        _metrics_baseline, _metrics_after,
+                    )
+                    result.baseline_metrics = _metrics_baseline.to_dict()
+                    result.after_metrics = _metrics_after.to_dict()
+                    result.metrics_delta = _metrics_delta.to_dict()
+                    result.improvement_score = _metrics_delta.improvement_score
+
+                    if _metrics_delta.improved:
+                        logger.info(
+                            "metrics_improvement_detected score=%.2f summary=%s",
+                            _metrics_delta.improvement_score,
+                            _metrics_delta.summary,
+                        )
+                    elif not _metrics_delta.improved and _metrics_delta.improvement_score < 0.3:
+                        logger.warning(
+                            "metrics_no_improvement score=%.2f summary=%s",
+                            _metrics_delta.improvement_score,
+                            _metrics_delta.summary,
+                        )
+                except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
+                    logger.debug("metrics_comparison_failed: %s", e)
 
             self._checkpoint("completed", {"result": result.summary})
             self._emit_improvement_event("IMPROVEMENT_CYCLE_COMPLETE", {

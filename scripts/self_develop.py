@@ -225,6 +225,19 @@ def print_result(result: OrchestrationResult) -> None:
     if result.error:
         print(f"\nError: {result.error}")
 
+    if result.metrics_delta:
+        print_header("METRICS COMPARISON")
+        delta = result.metrics_delta
+        print(f"  Improvement score: {delta.get('improvement_score', 0):.2f}")
+        print(f"  Improved: {delta.get('improved', False)}")
+        print(f"  Summary: {delta.get('summary', 'N/A')}")
+        if delta.get("tests_passed_delta", 0) != 0:
+            print(f"  Tests passed delta: {delta['tests_passed_delta']:+d}")
+        if delta.get("tests_failed_delta", 0) != 0:
+            print(f"  Tests failed delta: {delta['tests_failed_delta']:+d}")
+        if delta.get("lint_errors_delta", 0) != 0:
+            print(f"  Lint errors delta: {delta['lint_errors_delta']:+d}")
+
 
 def create_checkpoint_handler(require_approval: bool):
     """Create a checkpoint callback handler."""
@@ -275,6 +288,7 @@ async def run_orchestration(
     enable_meta_plan: bool = False,
     budget_limit: float | None = None,
     repo_path: Path | None = None,
+    enable_metrics: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -287,6 +301,7 @@ async def run_orchestration(
         "max_parallel_tasks": max_parallel,
         "on_checkpoint": create_checkpoint_handler(require_approval),
         "use_debate_decomposition": use_debate,
+        "enable_metrics": enable_metrics,
     }
     if repo_path is not None:
         common_kwargs["aragora_path"] = repo_path
@@ -467,6 +482,11 @@ Examples:
         help="Execution mode when --use-pipeline is enabled (default: hybrid)",
     )
     parser.add_argument(
+        "--metrics",
+        action="store_true",
+        help="Collect test/lint/size metrics before and after to objectively measure improvement",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -561,6 +581,7 @@ Examples:
                 enable_meta_plan=args.meta_plan,
                 budget_limit=args.budget_limit,
                 repo_path=resolved_repo,
+                enable_metrics=args.metrics,
             )
         )
         print_result(result)
