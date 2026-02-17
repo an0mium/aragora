@@ -813,7 +813,7 @@ class AutonomousOrchestrator:
             if self.enable_outcome_tracking and self._outcome_tracker is not None:
                 try:
                     _outcome_baseline = await self._outcome_tracker.capture_baseline()
-                except (RuntimeError, OSError, ValueError) as e:
+                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
                     logger.debug("outcome_baseline_capture_failed: %s", e)
 
             # Step 2d: Collect metrics baseline for objective improvement measurement
@@ -878,7 +878,7 @@ class AutonomousOrchestrator:
                             "outcome_regression_detected recommendation=%s",
                             _outcome_comparison.recommendation,
                         )
-                except (RuntimeError, OSError, ValueError) as e:
+                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
                     logger.debug("outcome_tracking_failed: %s", e)
 
             # Step 5c: Metrics comparison - objective improvement measurement
@@ -947,7 +947,7 @@ class AutonomousOrchestrator:
 
             return result
 
-        except (RuntimeError, OSError, ValueError) as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.warning("orchestration_failed", orchestration_id=self._orchestration_id, error_type=type(e).__name__)
             self._emit_improvement_event("IMPROVEMENT_CYCLE_FAILED", {
@@ -960,7 +960,7 @@ class AutonomousOrchestrator:
             if self.enable_convoy_tracking and self._convoy_id:
                 try:
                     await self._complete_convoy(success=False, error=f"Orchestration failed: {type(e).__name__}")
-                except (RuntimeError, OSError, ValueError):
+                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError):
                     logger.debug("Failed to update convoy on error")
 
             return OrchestrationResult(
@@ -1047,7 +1047,7 @@ class AutonomousOrchestrator:
                 await self._stuck_detector.initialize()
                 await self._stuck_detector.start_monitoring()
                 logger.info("stuck_detection_started")
-            except (RuntimeError, OSError, ValueError) as e:
+            except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
                 logger.debug(f"stuck_detection_start_failed: {e}")
 
         pending = list(assignments)
@@ -1105,7 +1105,7 @@ class AutonomousOrchestrator:
             for task in done:
                 try:
                     await task
-                except (RuntimeError, OSError, ValueError) as e:
+                except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
                     logger.exception(f"Task failed: {e}")
 
         # Stop stuck detection monitoring
@@ -1123,7 +1123,7 @@ class AutonomousOrchestrator:
                         f"stuck_detection_clean total={health.total_items} "
                         f"health={health.health_percentage:.0f}%"
                     )
-            except (RuntimeError, OSError, ValueError) as e:
+            except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
                 logger.debug(f"stuck_detection_shutdown_failed: {e}")
 
         # Merge completed branches and cleanup worktrees
@@ -1319,7 +1319,7 @@ class AutonomousOrchestrator:
                         assignment.status = "failed"
                         await self._update_bead_status(subtask.id, "failed")
 
-        except (RuntimeError, OSError, ValueError) as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             logger.warning("assignment_failed", subtask_id=subtask.id, error_type=type(e).__name__)
             assignment.status = "failed"
             assignment.result = {"error": f"Assignment execution failed: {type(e).__name__}"}
@@ -2194,7 +2194,7 @@ class AutonomousOrchestrator:
                 bead_count=len(beads),
             )
 
-        except (RuntimeError, OSError, ValueError) as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             logger.warning(f"Failed to create convoy: {e}")
 
     async def _update_bead_status(
@@ -2218,7 +2218,7 @@ class AutonomousOrchestrator:
                 await self.workspace_manager.complete_bead(bead_id)
             elif status == "failed":
                 await self.workspace_manager.fail_bead(bead_id, error or "Unknown error")
-        except (RuntimeError, OSError, ValueError) as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             logger.debug(f"Failed to update bead {bead_id}: {e}")
 
     async def _complete_convoy(
@@ -2238,7 +2238,7 @@ class AutonomousOrchestrator:
             else:
                 tracker = self.workspace_manager._convoy_tracker
                 await tracker.fail_convoy(self._convoy_id, error or "Orchestration failed")
-        except (RuntimeError, OSError, ValueError) as e:
+        except (RuntimeError, OSError, ValueError, ConnectionError, asyncio.TimeoutError) as e:
             logger.debug(f"Failed to complete convoy: {e}")
 
     def _hierarchical_to_orchestration_result(
