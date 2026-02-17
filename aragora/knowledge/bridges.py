@@ -692,3 +692,92 @@ class KnowledgeBridgeHub:
         if self._tool_audit is None:
             self._tool_audit = ToolAuditBridge(self.mound)
         return self._tool_audit
+
+    async def synthesize_for_debate(
+        self,
+        topic: str,
+        domain: str = "general",
+        max_items: int = 10,
+    ) -> str:
+        """Synthesize cross-adapter knowledge relevant to a debate topic.
+
+        Queries multiple KM adapters (Consensus, Evidence, Performance, Pulse,
+        Belief, Compliance) and returns a unified context block for injection
+        into debate prompts. This is the missing cross-adapter synthesis layer
+        that turns 33 write-heavy adapters into a coherent read-back system.
+
+        Args:
+            topic: The debate topic to search for
+            domain: Domain context for filtering
+            max_items: Maximum items to return across all adapters
+
+        Returns:
+            Formatted markdown context string for prompt injection
+        """
+        sections: list[str] = []
+        items_remaining = max_items
+
+        # Query adapters in priority order (most decision-relevant first)
+        adapter_queries = [
+            ("consensus", "search_by_topic", "Past Consensus Decisions"),
+            ("debate", "search_by_topic", "Related Debate Outcomes"),
+            ("evidence", "search_by_topic", "Evidence & Citations"),
+            ("insight", "search_by_topic", "Organizational Insights"),
+            ("compliance", "search_by_topic", "Compliance Considerations"),
+        ]
+
+        for adapter_name, method_name, section_title in adapter_queries:
+            if items_remaining <= 0:
+                break
+
+            try:
+                adapter = self._get_adapter(adapter_name)
+                if adapter is None:
+                    continue
+
+                search_fn = getattr(adapter, method_name, None)
+                if search_fn is None:
+                    continue
+
+                # Most adapters accept (topic, limit) or (query, limit)
+                results = search_fn(topic, limit=min(3, items_remaining))
+                if not results:
+                    continue
+
+                items = []
+                for r in results[:min(3, items_remaining)]:
+                    # Handle various result formats
+                    if isinstance(r, dict):
+                        content = r.get("content", r.get("summary", str(r)))
+                        confidence = r.get("confidence", "")
+                        conf_str = f" ({confidence:.0%})" if isinstance(confidence, (int, float)) else ""
+                        items.append(f"- {content[:200]}{conf_str}")
+                    elif hasattr(r, "content"):
+                        conf = getattr(r, "confidence", "")
+                        conf_str = f" ({conf:.0%})" if isinstance(conf, (int, float)) else ""
+                        items.append(f"- {str(r.content)[:200]}{conf_str}")
+                    else:
+                        items.append(f"- {str(r)[:200]}")
+
+                if items:
+                    sections.append(f"### {section_title}\n" + "\n".join(items))
+                    items_remaining -= len(items)
+
+            except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
+                logger.debug("KM synthesis: %s adapter query failed: %s", adapter_name, e)
+                continue
+
+        if not sections:
+            return ""
+
+        return "## ORGANIZATIONAL KNOWLEDGE (Cross-Adapter Synthesis)\n\n" + "\n\n".join(sections)
+
+    def _get_adapter(self, adapter_name: str) -> Any:
+        """Get a KM adapter by name, lazily importing from the factory."""
+        try:
+            from aragora.knowledge.mound.adapters.factory import get_adapter
+
+            return get_adapter(self.mound, adapter_name)
+        except (ImportError, KeyError, AttributeError, TypeError) as e:
+            logger.debug("Could not get adapter %s: %s", adapter_name, e)
+            return None

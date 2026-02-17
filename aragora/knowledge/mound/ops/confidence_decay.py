@@ -492,6 +492,117 @@ class ConfidenceDecayManager:
             "last_decay_runs": {k: v.isoformat() for k, v in self._last_decay_run.items()},
         }
 
+    async def apply_surprise_driven_decay(
+        self,
+        mound: KnowledgeMoundProtocol,
+        workspace_id: str,
+        retention_decisions: list[Any],
+    ) -> DecayReport:
+        """Apply retention gate decisions to KM items.
+
+        Uses RetentionDecision objects to adjust confidence:
+        - "forget" -> set confidence to min_confidence
+        - "demote" -> apply accelerated decay
+        - "consolidate" -> apply confidence boost
+        - "retain" -> apply normal decay rate or override
+
+        Args:
+            mound: KnowledgeMound instance
+            workspace_id: Workspace being processed
+            retention_decisions: List of RetentionDecision objects from RetentionGate
+
+        Returns:
+            DecayReport with results
+        """
+        import time
+        import uuid
+
+        start_time = time.time()
+        adjustments: list[ConfidenceAdjustment] = []
+        items_decayed = 0
+        items_boosted = 0
+        total_change = 0.0
+
+        for decision in retention_decisions:
+            item = await mound.get(decision.item_id)
+            if not item:
+                continue
+
+            old_confidence = getattr(item, "confidence", 0.5)
+            if old_confidence is None:
+                old_confidence = 0.5
+
+            if decision.action == "forget":
+                new_confidence = self.config.min_confidence
+            elif decision.action == "demote":
+                # Accelerated decay: 20% reduction
+                new_confidence = max(
+                    self.config.min_confidence,
+                    old_confidence * 0.8,
+                )
+            elif decision.action == "consolidate":
+                new_confidence = min(
+                    self.config.max_confidence,
+                    old_confidence + self.config.validation_boost,
+                )
+            else:  # retain
+                if decision.decay_rate_override is not None:
+                    # Apply custom decay rate
+                    new_confidence = max(
+                        self.config.min_confidence,
+                        old_confidence * (1.0 - decision.decay_rate_override),
+                    )
+                else:
+                    new_confidence = old_confidence
+
+            if abs(new_confidence - old_confidence) < 0.001:
+                continue
+
+            adjustment = ConfidenceAdjustment(
+                id=str(uuid.uuid4()),
+                item_id=decision.item_id,
+                event=ConfidenceEvent.DECAYED,
+                old_confidence=old_confidence,
+                new_confidence=new_confidence,
+                reason=f"Surprise-driven: {decision.action} ({decision.reason})",
+                metadata={
+                    "surprise_score": decision.surprise_score,
+                    "retention_score": decision.retention_score,
+                    "source_system": decision.source_system,
+                },
+            )
+            adjustments.append(adjustment)
+
+            change = new_confidence - old_confidence
+            total_change += change
+            if change < 0:
+                items_decayed += 1
+            else:
+                items_boosted += 1
+
+            try:
+                if hasattr(mound, "update_confidence"):
+                    await mound.update_confidence(decision.item_id, new_confidence)
+            except (RuntimeError, ValueError, AttributeError, KeyError) as e:
+                logger.warning(f"Failed to update confidence for {decision.item_id}: {e}")
+
+        async with self._lock:
+            self._adjustments.extend(adjustments)
+            if len(self._adjustments) > 10000:
+                self._adjustments = self._adjustments[-10000:]
+
+        duration_ms = (time.time() - start_time) * 1000
+
+        return DecayReport(
+            workspace_id=workspace_id,
+            items_processed=len(retention_decisions),
+            items_decayed=items_decayed,
+            items_boosted=items_boosted,
+            average_confidence_change=total_change / len(retention_decisions) if retention_decisions else 0.0,
+            adjustments=adjustments,
+            duration_ms=duration_ms,
+        )
+
 
 class ConfidenceDecayMixin:
     """Mixin for confidence decay operations on KnowledgeMound."""
@@ -558,6 +669,16 @@ class ConfidenceDecayMixin:
         """Get confidence adjustment history."""
         manager = self._get_decay_manager()
         return await manager.get_adjustment_history(item_id, event_type, limit)
+
+    async def apply_surprise_driven_decay(
+        self,
+        workspace_id: str,
+        retention_decisions: list[Any],
+    ) -> DecayReport:
+        """Apply surprise-driven retention decisions to workspace items."""
+        manager = self._get_decay_manager()
+        mound = cast(KnowledgeMoundProtocol, self)
+        return await manager.apply_surprise_driven_decay(mound, workspace_id, retention_decisions)
 
     def get_decay_stats(self) -> dict[str, Any]:
         """Get confidence decay statistics."""

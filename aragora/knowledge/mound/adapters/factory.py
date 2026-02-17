@@ -421,6 +421,46 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_langextract_adapter",
         },
     ),
+    (
+        ".codebase_adapter",
+        "CodebaseAdapter",
+        {
+            "name": "codebase",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+            "priority": 63,
+            "enabled_by_default": False,
+            "config_key": "km_codebase_adapter",
+        },
+    ),
+    # --- Unified memory adapters ---
+    (
+        ".claude_mem_adapter",
+        "ClaudeMemAdapter",
+        {
+            "name": "claude_mem",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 14,
+            "enabled_by_default": False,
+            "config_key": "km_claude_mem_adapter",
+        },
+    ),
+    (
+        ".rlm_context_adapter",
+        "RLMContextAdapter",
+        {
+            "name": "rlm_context",
+            "required_deps": [],
+            "forward_method": "store_codebase_summary",
+            "reverse_method": "get_codebase_context",
+            "priority": 55,
+            "enabled_by_default": False,
+            "config_key": "km_rlm_context_adapter",
+        },
+    ),
 ]
 
 
@@ -797,6 +837,34 @@ class AdapterFactory:
                 adapter = adapter_class(
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "codebase":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "claude_mem":
+                try:
+                    from aragora.connectors.memory.claude_mem import (
+                        ClaudeMemConnector,
+                        ClaudeMemConfig,
+                    )
+
+                    cm_config = ClaudeMemConfig.from_env()
+                    connector = ClaudeMemConnector(cm_config)
+                    adapter = adapter_class(
+                        connector=connector,
+                        project=cm_config.project,
+                        event_callback=self._event_callback,
+                    )
+                except (ImportError, OSError, ValueError) as e:
+                    logger.debug("claude-mem connector init failed: %s", e)
+                    return None
+            elif spec.name == "rlm_context":
+                adapter = adapter_class(
+                    store_fn=deps.get("rlm_context_store_fn"),
+                    search_fn=deps.get("rlm_context_search_fn"),
+                    event_callback=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -866,6 +934,29 @@ class AdapterFactory:
                     return adapter_class(trickster=deps.get("trickster"))
                 elif spec.name == "erc8004":
                     return adapter_class()
+                elif spec.name == "codebase":
+                    return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "claude_mem":
+                    try:
+                        from aragora.connectors.memory.claude_mem import (
+                            ClaudeMemConnector,
+                            ClaudeMemConfig,
+                        )
+
+                        cm_config = ClaudeMemConfig.from_env()
+                        connector = ClaudeMemConnector(cm_config)
+                        return adapter_class(
+                            connector=connector,
+                            project=cm_config.project,
+                        )
+                    except (ImportError, OSError, ValueError) as e:
+                        logger.debug("claude-mem connector init failed: %s", e)
+                        return None
+                elif spec.name == "rlm_context":
+                    return adapter_class(
+                        store_fn=deps.get("rlm_context_store_fn"),
+                        search_fn=deps.get("rlm_context_search_fn"),
+                    )
                 else:
                     return adapter_class(**deps)
             except (RuntimeError, ValueError, OSError, AttributeError) as e2:
