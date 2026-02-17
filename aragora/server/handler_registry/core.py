@@ -92,6 +92,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_decision_pipeline_handler": "extended",
     "_unified_memory_handler": "extended",
     "_canvas_pipeline_handler": "extended",
+    "_idea_canvas_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",
@@ -306,7 +307,7 @@ def _run_handler_coroutine(coro: Any) -> Any:
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop.run_until_complete(coro)
+    return loop.run_until_complete(asyncio.wait_for(coro, timeout=60))
 
 
 class RouteIndex:
@@ -370,6 +371,7 @@ class RouteIndex:
             "_memory_handler": ["/api/memory/"],
             "_unified_memory_handler": ["/api/v1/memory/unified/"],
             "_canvas_pipeline_handler": ["/api/v1/canvas/", "/api/canvas/"],
+            "_idea_canvas_handler": ["/api/v1/ideas"],
             "_document_handler": ["/api/documents/"],
             "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
             "_auditing_handler": [
