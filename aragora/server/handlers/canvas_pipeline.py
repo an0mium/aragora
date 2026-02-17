@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 # In-memory pipeline result store (production would use persistence)
 _pipeline_results: dict[str, Any] = {}
+# Live PipelineResult objects for advance_stage()
+_pipeline_objects: dict[str, Any] = {}
 
 
 class CanvasPipelineHandler:
@@ -70,6 +72,7 @@ class CanvasPipelineHandler:
             # Store result for later retrieval
             result_dict = result.to_dict()
             _pipeline_results[result.pipeline_id] = result_dict
+            _pipeline_objects[result.pipeline_id] = result
 
             return {
                 "pipeline_id": result.pipeline_id,
@@ -115,6 +118,7 @@ class CanvasPipelineHandler:
 
             result_dict = result.to_dict()
             _pipeline_results[result.pipeline_id] = result_dict
+            _pipeline_objects[result.pipeline_id] = result
 
             return {
                 "pipeline_id": result.pipeline_id,
@@ -125,6 +129,54 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-ideas failed: %s", e)
             return {"error": "Pipeline execution failed"}
+
+    async def handle_advance(self, request_data: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/canvas/pipeline/advance
+
+        Advance a pipeline to the next stage.
+
+        Body:
+            pipeline_id: str — ID of an existing pipeline
+            target_stage: str — Stage to advance to (goals, actions, orchestration)
+        """
+        try:
+            from aragora.canvas.stages import PipelineStage
+            from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+            pipeline_id = request_data.get("pipeline_id", "")
+            target_stage = request_data.get("target_stage", "")
+
+            if not pipeline_id:
+                return {"error": "Missing required field: pipeline_id"}
+            if not target_stage:
+                return {"error": "Missing required field: target_stage"}
+
+            result_obj = _pipeline_objects.get(pipeline_id)
+            if not result_obj:
+                return {"error": f"Pipeline {pipeline_id} not found"}
+
+            try:
+                stage = PipelineStage(target_stage)
+            except ValueError:
+                return {"error": f"Invalid stage: {target_stage}"}
+
+            pipeline = IdeaToExecutionPipeline()
+            result_obj = pipeline.advance_stage(result_obj, stage)
+
+            # Update both stores
+            result_dict = result_obj.to_dict()
+            _pipeline_results[pipeline_id] = result_dict
+            _pipeline_objects[pipeline_id] = result_obj
+
+            return {
+                "pipeline_id": pipeline_id,
+                "advanced_to": target_stage,
+                "stage_status": result_obj.stage_status,
+                "result": result_dict,
+            }
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("Pipeline advance failed: %s", e)
+            return {"error": "Pipeline advance failed"}
 
     async def handle_get_pipeline(
         self, pipeline_id: str

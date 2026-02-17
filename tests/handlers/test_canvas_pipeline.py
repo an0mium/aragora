@@ -15,6 +15,7 @@ import pytest
 
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
+    _pipeline_objects,
     _pipeline_results,
 )
 
@@ -23,8 +24,10 @@ from aragora.server.handlers.canvas_pipeline import (
 def _clear_pipeline_store():
     """Clear in-memory pipeline results between tests."""
     _pipeline_results.clear()
+    _pipeline_objects.clear()
     yield
     _pipeline_results.clear()
+    _pipeline_objects.clear()
 
 
 @pytest.fixture
@@ -113,6 +116,57 @@ class TestFromIdeas:
         with patch.dict("sys.modules", {"aragora.pipeline.idea_to_execution": None}):
             result = await handler.handle_from_ideas({
                 "ideas": ["improve caching", "add monitoring"],
+            })
+        assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# POST advance
+# ---------------------------------------------------------------------------
+
+
+class TestAdvance:
+    @pytest.mark.asyncio
+    async def test_missing_pipeline_id(self, handler):
+        result = await handler.handle_advance({})
+        assert "error" in result
+        assert "pipeline_id" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_target_stage(self, handler):
+        result = await handler.handle_advance({"pipeline_id": "pipe-1"})
+        assert "error" in result
+        assert "target_stage" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_pipeline_not_found(self, handler):
+        result = await handler.handle_advance({
+            "pipeline_id": "nonexistent",
+            "target_stage": "goals",
+        })
+        assert "error" in result
+        assert "not found" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_stage(self, handler):
+        _pipeline_objects["pipe-1"] = MagicMock()
+        result = await handler.handle_advance({
+            "pipeline_id": "pipe-1",
+            "target_stage": "invalid_stage",
+        })
+        assert "error" in result
+        assert "Invalid stage" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_import_error_returns_error(self, handler):
+        _pipeline_objects["pipe-1"] = MagicMock()
+        with patch.dict("sys.modules", {
+            "aragora.canvas.stages": None,
+            "aragora.pipeline.idea_to_execution": None,
+        }):
+            result = await handler.handle_advance({
+                "pipeline_id": "pipe-1",
+                "target_stage": "goals",
             })
         assert "error" in result
 
