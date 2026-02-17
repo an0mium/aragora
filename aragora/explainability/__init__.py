@@ -26,17 +26,32 @@ from aragora.explainability.decision import (
     InfluenceType,
     VotePivot,
 )
+from aragora.explainability.live_stream import (
+    ExplanationSnapshot,
+    LiveBeliefShift,
+    LiveEvidence,
+    LiveExplainabilityStream,
+    LiveFactor,
+    LiveVote,
+)
 
 __all__ = [
     # Main classes
     "Decision",
     "ExplanationBuilder",
+    "LiveExplainabilityStream",
     # Data classes
     "EvidenceLink",
     "VotePivot",
     "BeliefChange",
     "ConfidenceAttribution",
     "Counterfactual",
+    # Live stream data classes
+    "LiveEvidence",
+    "LiveVote",
+    "LiveBeliefShift",
+    "LiveFactor",
+    "ExplanationSnapshot",
     # Enums
     "InfluenceType",
 ]

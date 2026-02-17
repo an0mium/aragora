@@ -692,7 +692,7 @@ class SourceGatheringMixin:
         except (RuntimeError, TypeError) as e:
             logger.warning("[knowledge] Unexpected error in Knowledge Mound query: %s", e)
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - KM adapters may raise driver-specific errors
             logger.warning("[knowledge] Knowledge Mound query error: %s", e)
             return None
 

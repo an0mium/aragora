@@ -190,8 +190,7 @@ def decrypt_sensitive(
     except (ValueError, RuntimeError, OSError) as e:
         logger.error(f"Failed to decrypt sensitive fields: {e}")
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
-    except Exception as e:
-        # Catch cryptography-specific exceptions (e.g., InvalidTag on AAD mismatch)
+    except Exception as e:  # noqa: BLE001 - cryptography errors (InvalidTag) don't subclass standard types
         logger.error(f"Failed to decrypt sensitive fields (crypto error): {e}")
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
 

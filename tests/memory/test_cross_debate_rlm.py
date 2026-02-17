@@ -945,12 +945,12 @@ class TestCrossDebateMemoryRLMFallback:
 class TestCrossDebateMemoryKMIntegration:
     """Tests for Knowledge Mound integration."""
 
-    def test_km_integration_disabled_by_default(self):
-        """Test KM integration is disabled by default."""
+    def test_km_integration_enabled_by_default(self):
+        """Test KM integration is enabled by default (post Phase A2)."""
         from aragora.memory.cross_debate_rlm import CrossDebateConfig
 
         config = CrossDebateConfig(persist_to_disk=False)
-        assert config.enable_km_integration is False
+        assert config.enable_km_integration is True
         assert config.km_max_results == 5
 
     def test_km_integration_config(self):

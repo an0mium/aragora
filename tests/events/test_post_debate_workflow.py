@@ -310,12 +310,10 @@ class TestPostDebateWorkflowSubscriber:
             "confidence": 0.9,
         })
 
-        with patch(
-            "aragora.events.subscribers.workflow_automation.PostDebateWorkflowSubscriber._trigger_workflow"
-        ) as mock_trigger:
-            sub.handle_debate_end(event)
+        sub.handle_debate_end(event)
 
-        mock_trigger.assert_not_called()
+        assert sub.stats["workflows_triggered"] == 0
+        assert sub.stats["events_processed"] == 1
 
     def test_outcome_workflow_map_defaults(self):
         """OUTCOME_WORKFLOW_MAP should have expected default mappings."""

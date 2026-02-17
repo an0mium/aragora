@@ -208,7 +208,7 @@ def mock_ab_module():
 @pytest.fixture
 def ab_handler():
     """Create EvolutionABTestingHandler with mock context."""
-    import aragora.server.handlers.evolution_ab_testing as ab_module
+    import aragora.server.handlers.evolution.ab_testing as ab_module
 
     # Save original value
     original_value = ab_module.AB_TESTING_AVAILABLE
@@ -228,7 +228,7 @@ def ab_handler():
 @pytest.fixture
 def ab_handler_unavailable():
     """Create handler when A/B testing is not available."""
-    import aragora.server.handlers.evolution_ab_testing as ab_module
+    import aragora.server.handlers.evolution.ab_testing as ab_module
 
     # Save original value
     original_value = ab_module.AB_TESTING_AVAILABLE
@@ -306,7 +306,7 @@ class TestModuleAvailability:
     def test_unavailable_delete(self, ab_handler_unavailable):
         """Test DELETE returns 503 when module unavailable."""
         result = ab_handler_unavailable.handle_delete(
-            "/api/evolution/ab-tests/test-123",
+            "/api/evolution/ab-tests/test-123", {},
         )
         assert result.status_code == 503
 
