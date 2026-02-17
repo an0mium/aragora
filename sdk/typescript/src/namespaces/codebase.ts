@@ -5,141 +5,7 @@
  * security scanning, dependency analysis, metrics, and code intelligence.
  */
 
-import type {
-  CodebaseScan,
-  CodebaseMetrics,
-  CodebaseSymbols,
-  CodebaseCallgraph,
-  CodebaseDeadcode,
-  CodebaseAudit,
-  CodebaseUnderstanding,
-  CodebaseImpact,
-  VulnerabilityScan,
-  DependencyAnalysis,
-  LicenseCheck,
-  Sbom,
-  SecretsScan,
-  SastScan,
-  PaginationParams,
-} from '../types';
-
-/**
- * Interface for the internal client methods used by CodebaseAPI.
- */
-interface CodebaseClientInterface {
-  // Scanning
-  startCodebaseScan(repo: string, body: {
-    repo_path: string;
-    branch?: string;
-    commit_sha?: string;
-    workspace_id?: string;
-  }): Promise<CodebaseScan>;
-  getLatestCodebaseScan(repo: string): Promise<CodebaseScan>;
-  getCodebaseScan(repo: string, scanId: string): Promise<CodebaseScan>;
-  listCodebaseScans(repo: string, params?: {
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ scans: CodebaseScan[]; total: number }>;
-
-  // Vulnerabilities
-  listCodebaseVulnerabilities(repo: string, params?: {
-    severity?: string;
-    package?: string;
-    ecosystem?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<VulnerabilityScan>;
-
-  // Dependencies
-  analyzeDependencies(body: { repo_path: string; depth?: number }): Promise<DependencyAnalysis>;
-  scanVulnerabilities(body: { repo_path: string; fail_on_severity?: string }): Promise<VulnerabilityScan>;
-
-  // Licenses & SBOM
-  checkCodebaseLicenses(body: {
-    repo_path: string;
-    allowed_licenses?: string[];
-  }): Promise<LicenseCheck>;
-  generateCodebaseSbom(body: {
-    repo_path: string;
-    format?: 'spdx' | 'cyclonedx';
-  }): Promise<Sbom>;
-
-  // Secrets & SAST
-  startSecretsScan(repo: string, body: {
-    repo_path: string;
-    scan_history?: boolean;
-  }): Promise<SecretsScan>;
-  startSastScan(repo: string, body: {
-    repo_path: string;
-    rule_sets?: string[];
-    workspace_id?: string;
-  }): Promise<SastScan>;
-
-  // Metrics
-  runCodebaseMetricsAnalysis(repo: string, body: {
-    repo_path: string;
-    include_coverage?: boolean;
-  }): Promise<CodebaseMetrics>;
-  getLatestCodebaseMetrics(repo: string): Promise<CodebaseMetrics>;
-  getCodebaseMetrics(repo: string, analysisId: string): Promise<CodebaseMetrics>;
-  listCodebaseMetricsHistory(repo: string, params?: PaginationParams): Promise<{
-    metrics: CodebaseMetrics[];
-    total: number;
-  }>;
-  getCodebaseHotspots(repo: string, params?: PaginationParams): Promise<{
-    hotspots: Array<{ file_path: string; complexity: number; churn: number; risk_score: number }>;
-    total: number;
-  }>;
-  getCodebaseDuplicates(repo: string, params?: PaginationParams): Promise<{
-    duplicates: Array<{ files: string[]; lines: number; tokens: number }>;
-    total: number;
-    total_duplicated_lines: number;
-  }>;
-  getCodebaseFileMetrics(repo: string, filePath: string): Promise<{
-    file_path: string;
-    lines: number;
-    complexity: number;
-    maintainability: number;
-  }>;
-
-  // Code Intelligence
-  analyzeCodebase(repo: string, body: {
-    repo_path: string;
-    depth?: number;
-  }): Promise<CodebaseUnderstanding>;
-  getCodebaseSymbols(repo: string, params?: {
-    type?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<CodebaseSymbols>;
-  getCodebaseCallgraph(repo: string, params?: {
-    entry_point?: string;
-    depth?: number;
-  }): Promise<CodebaseCallgraph>;
-  getCodebaseDeadcode(repo: string, params?: {
-    confidence_threshold?: number;
-    limit?: number;
-  }): Promise<CodebaseDeadcode>;
-  analyzeCodebaseImpact(repo: string, body: {
-    file_path: string;
-    change_type?: string;
-  }): Promise<CodebaseImpact>;
-  understandCodebase(repo: string, body: {
-    query?: string;
-    include_architecture?: boolean;
-  }): Promise<CodebaseUnderstanding>;
-
-  // Audits
-  startCodebaseAudit(repo: string, body: {
-    repo_path: string;
-    categories?: string[];
-  }): Promise<CodebaseAudit>;
-  getCodebaseAudit(repo: string, auditId: string): Promise<CodebaseAudit>;
-
-  // Cache
-  clearCodebaseCache(): Promise<{ success: boolean }>;
-}
+import type { AragoraClient } from '../client';
 
 /**
  * Codebase Analysis API namespace.
@@ -151,337 +17,559 @@ interface CodebaseClientInterface {
  * - Code intelligence (symbols, call graphs, dead code)
  * - Impact analysis for changes
  * - Full codebase audits
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
- *
- * // Run a security scan
- * const scan = await client.codebase.startScan('my-repo', {
- *   repo_path: '/path/to/repo',
- *   branch: 'main'
- * });
- *
- * // Check for vulnerabilities
- * const vulns = await client.codebase.listVulnerabilities('my-repo', {
- *   severity: 'critical'
- * });
- *
- * // Analyze code metrics
- * const metrics = await client.codebase.analyzeMetrics('my-repo', {
- *   repo_path: '/path/to/repo'
- * });
- *
- * // Get dead code report
- * const deadcode = await client.codebase.getDeadcode('my-repo');
- *
- * // Generate SBOM
- * const sbom = await client.codebase.generateSbom({
- *   repo_path: '/path/to/repo',
- *   format: 'cyclonedx'
- * });
- * ```
  */
 export class CodebaseAPI {
-  constructor(private client: CodebaseClientInterface) {}
+  constructor(private client: AragoraClient) {}
 
   // ===========================================================================
-  // Security Scanning
-  // ===========================================================================
-
-  /**
-   * Start a security scan for a repository.
-   */
-  async startScan(repo: string, body: {
-    repo_path: string;
-    branch?: string;
-    commit_sha?: string;
-    workspace_id?: string;
-  }): Promise<CodebaseScan> {
-    return this.client.startCodebaseScan(repo, body);
-  }
-
-  /**
-   * Get the latest scan for a repository.
-   */
-  async getLatestScan(repo: string): Promise<CodebaseScan> {
-    return this.client.getLatestCodebaseScan(repo);
-  }
-
-  /**
-   * Get a specific scan by ID.
-   */
-  async getScan(repo: string, scanId: string): Promise<CodebaseScan> {
-    return this.client.getCodebaseScan(repo, scanId);
-  }
-
-  /**
-   * List all scans for a repository.
-   */
-  async listScans(repo: string, params?: {
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ scans: CodebaseScan[]; total: number }> {
-    return this.client.listCodebaseScans(repo, params);
-  }
-
-  // ===========================================================================
-  // Vulnerability Analysis
+  // Top-level Scanning & Analysis
   // ===========================================================================
 
   /**
-   * List vulnerabilities from the latest scan.
+   * Analyze codebase.
+   * @route GET /api/v1/codebase/analyze
    */
-  async listVulnerabilities(repo: string, params?: {
-    severity?: string;
-    package?: string;
-    ecosystem?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<VulnerabilityScan> {
-    return this.client.listCodebaseVulnerabilities(repo, params);
+  async analyze(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/analyze') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Scan for vulnerabilities in dependencies.
+   * Analyze dependencies.
+   * @route POST /api/v1/codebase/analyze-dependencies
    */
-  async scanVulnerabilities(body: {
-    repo_path: string;
-    fail_on_severity?: string;
-  }): Promise<VulnerabilityScan> {
-    return this.client.scanVulnerabilities(body);
-  }
-
-  // ===========================================================================
-  // Dependency Analysis
-  // ===========================================================================
-
-  /**
-   * Analyze dependencies for a repository.
-   */
-  async analyzeDependencies(body: {
-    repo_path: string;
-    depth?: number;
-  }): Promise<DependencyAnalysis> {
-    return this.client.analyzeDependencies(body);
+  async analyzeDependencies(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/codebase/analyze-dependencies', {
+      body,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Check license compatibility.
+   * Get codebase audit results.
+   * @route GET /api/v1/codebase/audit
    */
-  async checkLicenses(body: {
-    repo_path: string;
-    allowed_licenses?: string[];
-  }): Promise<LicenseCheck> {
-    return this.client.checkCodebaseLicenses(body);
+  async getAudit(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/audit') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Generate a Software Bill of Materials (SBOM).
+   * Get codebase bugs.
+   * @route GET /api/v1/codebase/bugs
    */
-  async generateSbom(body: {
-    repo_path: string;
-    format?: 'spdx' | 'cyclonedx';
-  }): Promise<Sbom> {
-    return this.client.generateCodebaseSbom(body);
-  }
-
-  // ===========================================================================
-  // Secrets & SAST
-  // ===========================================================================
-
-  /**
-   * Scan for secrets (API keys, passwords, etc.) in code.
-   */
-  async scanSecrets(repo: string, body: {
-    repo_path: string;
-    scan_history?: boolean;
-  }): Promise<SecretsScan> {
-    return this.client.startSecretsScan(repo, body);
+  async getBugs(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/bugs') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Run Static Application Security Testing (SAST).
+   * Get call graph.
+   * @route GET /api/v1/codebase/callgraph
    */
-  async runSast(repo: string, body: {
-    repo_path: string;
-    rule_sets?: string[];
-    workspace_id?: string;
-  }): Promise<SastScan> {
-    return this.client.startSastScan(repo, body);
-  }
-
-  // ===========================================================================
-  // Code Metrics
-  // ===========================================================================
-
-  /**
-   * Run metrics analysis for a repository.
-   */
-  async analyzeMetrics(repo: string, body: {
-    repo_path: string;
-    include_coverage?: boolean;
-  }): Promise<CodebaseMetrics> {
-    return this.client.runCodebaseMetricsAnalysis(repo, body);
+  async getCallgraph(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/callgraph') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get the latest metrics for a repository.
+   * Check licenses.
+   * @route POST /api/v1/codebase/check-licenses
    */
-  async getLatestMetrics(repo: string): Promise<CodebaseMetrics> {
-    return this.client.getLatestCodebaseMetrics(repo);
+  async checkLicenses(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/codebase/check-licenses', {
+      body,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get metrics by analysis ID.
+   * Clear analysis cache.
+   * @route POST /api/v1/codebase/clear-cache
    */
-  async getMetrics(repo: string, analysisId: string): Promise<CodebaseMetrics> {
-    return this.client.getCodebaseMetrics(repo, analysisId);
+  async clearCache(): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/codebase/clear-cache') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get metrics history for a repository.
+   * Get codebase dashboard.
+   * @route GET /api/v1/codebase/dashboard
    */
-  async listMetricsHistory(repo: string, params?: PaginationParams): Promise<{
-    metrics: CodebaseMetrics[];
-    total: number;
-  }> {
-    return this.client.listCodebaseMetricsHistory(repo, params);
-  }
-
-  /**
-   * Get complexity hotspots in the codebase.
-   */
-  async getHotspots(repo: string, params?: PaginationParams): Promise<{
-    hotspots: Array<{
-      file_path: string;
-      complexity: number;
-      churn: number;
-      risk_score: number;
-    }>;
-    total: number;
-  }> {
-    return this.client.getCodebaseHotspots(repo, params);
-  }
-
-  /**
-   * Get code duplication report.
-   */
-  async getDuplicates(repo: string, params?: PaginationParams): Promise<{
-    duplicates: Array<{ files: string[]; lines: number; tokens: number }>;
-    total: number;
-    total_duplicated_lines: number;
-  }> {
-    return this.client.getCodebaseDuplicates(repo, params);
-  }
-
-  /**
-   * Get metrics for a specific file.
-   */
-  async getFileMetrics(repo: string, filePath: string): Promise<{
-    file_path: string;
-    lines: number;
-    complexity: number;
-    maintainability: number;
-  }> {
-    return this.client.getCodebaseFileMetrics(repo, filePath);
-  }
-
-  // ===========================================================================
-  // Code Intelligence
-  // ===========================================================================
-
-  /**
-   * Run full codebase analysis.
-   */
-  async analyze(repo: string, body: {
-    repo_path: string;
-    depth?: number;
-  }): Promise<CodebaseUnderstanding> {
-    return this.client.analyzeCodebase(repo, body);
-  }
-
-  /**
-   * Get symbols (classes, functions, etc.) from the codebase.
-   */
-  async getSymbols(repo: string, params?: {
-    type?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<CodebaseSymbols> {
-    return this.client.getCodebaseSymbols(repo, params);
-  }
-
-  /**
-   * Get the call graph for the codebase.
-   */
-  async getCallgraph(repo: string, params?: {
-    entry_point?: string;
-    depth?: number;
-  }): Promise<CodebaseCallgraph> {
-    return this.client.getCodebaseCallgraph(repo, params);
+  async getDashboard(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/dashboard') as Promise<Record<string, unknown>>;
   }
 
   /**
    * Get dead code report.
+   * @route GET /api/v1/codebase/deadcode
    */
-  async getDeadcode(repo: string, params?: {
-    confidence_threshold?: number;
-    limit?: number;
-  }): Promise<CodebaseDeadcode> {
-    return this.client.getCodebaseDeadcode(repo, params);
+  async getDeadcode(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/deadcode') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Analyze impact of changes to a file.
+   * Get codebase demo.
+   * @route GET /api/v1/codebase/demo
    */
-  async analyzeImpact(repo: string, body: {
-    file_path: string;
-    change_type?: string;
-  }): Promise<CodebaseImpact> {
-    return this.client.analyzeCodebaseImpact(repo, body);
+  async getDemo(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/demo') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get AI-powered understanding of the codebase.
+   * Get dependencies.
+   * @route GET /api/v1/codebase/dependencies
    */
-  async understand(repo: string, body: {
-    query?: string;
-    include_architecture?: boolean;
-  }): Promise<CodebaseUnderstanding> {
-    return this.client.understandCodebase(repo, body);
+  async getDependencies(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/dependencies') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get findings.
+   * @route GET /api/v1/codebase/findings
+   */
+  async getFindings(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/findings') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Create issue for a finding.
+   * @route GET /api/v1/codebase/findings/{finding_id}/create-issue
+   */
+  async createFindingIssue(findingId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/findings/${encodeURIComponent(findingId)}/create-issue`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Dismiss a finding.
+   * @route GET /api/v1/codebase/findings/{finding_id}/dismiss
+   */
+  async dismissFinding(findingId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/findings/${encodeURIComponent(findingId)}/dismiss`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get impact analysis.
+   * @route GET /api/v1/codebase/impact
+   */
+  async getImpact(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/impact') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get codebase metrics.
+   * @route GET /api/v1/codebase/metrics
+   */
+  async getMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/metrics') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get SAST results.
+   * @route GET /api/v1/codebase/sast
+   */
+  async getSast(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/sast') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Generate SBOM.
+   * @route POST /api/v1/codebase/sbom
+   */
+  async generateSbom(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/codebase/sbom', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get scan results.
+   * @route GET /api/v1/codebase/scan
+   */
+  async getScan(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/scan') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Scan for vulnerabilities.
+   * @route POST /api/v1/codebase/scan-vulnerabilities
+   */
+  async scanVulnerabilities(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/codebase/scan-vulnerabilities', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get scan by ID.
+   * @route GET /api/v1/codebase/scan/{scan_id}
+   */
+  async getScanById(scanId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/scan/${encodeURIComponent(scanId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List scans.
+   * @route GET /api/v1/codebase/scans
+   */
+  async listScans(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/scans') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get secrets scan results.
+   * @route GET /api/v1/codebase/secrets
+   */
+  async getSecrets(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/secrets') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get symbols.
+   * @route GET /api/v1/codebase/symbols
+   */
+  async getSymbols(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/symbols') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get codebase understanding.
+   * @route GET /api/v1/codebase/understand
+   */
+  async getUnderstanding(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/codebase/understand') as Promise<Record<string, unknown>>;
   }
 
   // ===========================================================================
-  // Audits
+  // Per-repo Operations
   // ===========================================================================
 
   /**
-   * Start a comprehensive codebase audit.
+   * Analyze a specific repo.
+   * @route POST /api/v1/codebase/{repo}/analyze
    */
-  async startAudit(repo: string, body: {
-    repo_path: string;
-    categories?: string[];
-  }): Promise<CodebaseAudit> {
-    return this.client.startCodebaseAudit(repo, body);
+  async analyzeRepo(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/analyze`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get audit results by ID.
+   * Start a codebase audit for a repo.
+   * @route POST /api/v1/codebase/{repo}/audit
    */
-  async getAudit(repo: string, auditId: string): Promise<CodebaseAudit> {
-    return this.client.getCodebaseAudit(repo, auditId);
+  async startRepoAudit(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/audit`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
   }
 
-  // ===========================================================================
-  // Utilities
-  // ===========================================================================
+  /**
+   * Get repo audit by ID.
+   * @route GET /api/v1/codebase/{repo}/audit/{audit_id}
+   */
+  async getRepoAudit(repo: string, auditId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/audit/${encodeURIComponent(auditId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
 
   /**
-   * Clear analysis cache.
+   * Get repo call graph.
+   * @route GET /api/v1/codebase/{repo}/callgraph
    */
-  async clearCache(): Promise<{ success: boolean }> {
-    return this.client.clearCodebaseCache();
+  async getRepoCallgraph(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/callgraph`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo dead code.
+   * @route GET /api/v1/codebase/{repo}/deadcode
+   */
+  async getRepoDeadcode(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/deadcode`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo duplicates.
+   * @route GET /api/v1/codebase/{repo}/duplicates
+   */
+  async getRepoDuplicates(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/duplicates`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo hotspots.
+   * @route GET /api/v1/codebase/{repo}/hotspots
+   */
+  async getRepoHotspots(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/hotspots`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Analyze impact for a repo.
+   * @route POST /api/v1/codebase/{repo}/impact
+   */
+  async analyzeRepoImpact(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/impact`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo metrics.
+   * @route GET /api/v1/codebase/{repo}/metrics
+   */
+  async getRepoMetrics(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Run metrics analysis for a repo.
+   * @route POST /api/v1/codebase/{repo}/metrics/analyze
+   */
+  async analyzeRepoMetrics(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/analyze`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get file metrics for a repo.
+   * @route GET /api/v1/codebase/{repo}/metrics/file/{file_path}
+   */
+  async getRepoFileMetrics(repo: string, filePath: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/file/${encodeURIComponent(filePath)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get metrics history for a repo.
+   * @route GET /api/v1/codebase/{repo}/metrics/history
+   */
+  async getRepoMetricsHistory(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/history`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get metrics by analysis ID.
+   * @route GET /api/v1/codebase/{repo}/metrics/{analysis_id}
+   */
+  async getRepoMetricsById(repo: string, analysisId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/metrics/${encodeURIComponent(analysisId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get SAST findings for a repo.
+   * @route GET /api/v1/codebase/{repo}/sast/findings
+   */
+  async getRepoSastFindings(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/sast/findings`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get OWASP summary for a repo.
+   * @route GET /api/v1/codebase/{repo}/sast/owasp-summary
+   */
+  async getRepoOwaspSummary(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/sast/owasp-summary`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Start a scan for a repo.
+   * @route POST /api/v1/codebase/{repo}/scan
+   */
+  async startRepoScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get latest scan for a repo.
+   * @route GET /api/v1/codebase/{repo}/scan/latest
+   */
+  async getRepoLatestScan(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/latest`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Start SAST scan for a repo.
+   * @route POST /api/v1/codebase/{repo}/scan/sast
+   */
+  async startRepoSastScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get SAST scan by ID.
+   * @route GET /api/v1/codebase/{repo}/scan/sast/{scan_id}
+   */
+  async getRepoSastScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/sast/${encodeURIComponent(scanId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Start secrets scan for a repo.
+   * @route POST /api/v1/codebase/{repo}/scan/secrets
+   */
+  async startRepoSecretsScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get latest secrets scan for a repo.
+   * @route GET /api/v1/codebase/{repo}/scan/secrets/latest
+   */
+  async getRepoLatestSecretsScan(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/latest`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get secrets scan by ID.
+   * @route GET /api/v1/codebase/{repo}/scan/secrets/{scan_id}
+   */
+  async getRepoSecretsScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/secrets/${encodeURIComponent(scanId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get scan by ID for a repo.
+   * @route GET /api/v1/codebase/{repo}/scan/{scan_id}
+   */
+  async getRepoScan(repo: string, scanId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scan/${encodeURIComponent(scanId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List scans for a repo.
+   * @route GET /api/v1/codebase/{repo}/scans
+   */
+  async listRepoScans(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scans`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List secrets scans for a repo.
+   * @route GET /api/v1/codebase/{repo}/scans/secrets
+   */
+  async listRepoSecretsScans(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/scans/secrets`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo secrets.
+   * @route GET /api/v1/codebase/{repo}/secrets
+   */
+  async getRepoSecrets(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/secrets`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo symbols.
+   * @route GET /api/v1/codebase/{repo}/symbols
+   */
+  async getRepoSymbols(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/symbols`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Understand a repo.
+   * @route POST /api/v1/codebase/{repo}/understand
+   */
+  async understandRepo(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/understand`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get repo vulnerabilities.
+   * @route GET /api/v1/codebase/{repo}/vulnerabilities
+   */
+  async getRepoVulnerabilities(repo: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/codebase/${encodeURIComponent(repo)}/vulnerabilities`
+    ) as Promise<Record<string, unknown>>;
   }
 }

@@ -3,7 +3,8 @@
 Audit test skip markers and generate categorized report.
 
 This script parses all test files for @pytest.mark.skip, @pytest.mark.skipif,
-and pytest.skip() calls, categorizes them by reason, and generates reports.
+pytest.skip() calls, and module-level pytest.importorskip() calls, categorizes
+them by reason, and generates reports.
 
 Usage:
     python scripts/audit_test_skips.py                    # Full report
@@ -30,7 +31,7 @@ class SkipMarker:
 
     file: str
     line: int
-    marker_type: str  # 'skip', 'skipif', 'pytest.skip'
+    marker_type: str  # 'skip', 'skipif', 'pytest.skip', 'pytest.importorskip'
     reason: str
     category: str
     condition: str | None = None
@@ -240,12 +241,12 @@ def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> SkipMarke
 
 
 def find_pytest_skip_calls(tree: ast.AST, file_path: str) -> list[SkipMarker]:
-    """Find pytest.skip() and pytest.importorskip() calls in the AST."""
+    """Find pytest.skip() calls in the AST."""
     markers = []
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            # Check for pytest.skip(...) and pytest.importorskip(...)
+            # Check for pytest.skip(...)
             if isinstance(node.func, ast.Attribute):
                 if (
                     isinstance(node.func.value, ast.Name)
@@ -272,34 +273,54 @@ def find_pytest_skip_calls(tree: ast.AST, file_path: str) -> list[SkipMarker]:
                         )
                     )
 
-                elif (
-                    isinstance(node.func.value, ast.Name)
-                    and node.func.value.id == "pytest"
-                    and node.func.attr == "importorskip"
-                ):
-                    # pytest.importorskip("module", reason="...")
-                    module_name = ""
-                    reason = ""
-                    if node.args:
-                        module_name = extract_string_value(node.args[0])
-                    for keyword in node.keywords:
-                        if keyword.arg == "reason":
-                            reason = extract_string_value(keyword.value)
-
-                    if not reason:
-                        reason = f"{module_name} not installed" if module_name else "No reason provided"
-
-                    markers.append(
-                        SkipMarker(
-                            file=file_path,
-                            line=node.lineno,
-                            marker_type="pytest.importorskip",
-                            reason=reason,
-                            category=categorize_reason(reason),
-                        )
-                    )
-
     return markers
+
+
+def find_module_level_importorskip(tree: ast.AST, file_path: str) -> SkipMarker | None:
+    """Find module-level pytest.importorskip() calls.
+
+    Only counts the first module-level importorskip per file, since pytest
+    skips the entire module on the first failing importorskip. This avoids
+    double-counting files with multiple importorskip guards.
+    """
+    for node in ast.iter_child_nodes(tree):
+        # Module-level statements are direct children of the Module node.
+        # They can be Expr (bare call) or Assign (result = importorskip(...)).
+        call_node = None
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            call_node = node.value
+        elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            call_node = node.value
+
+        if call_node is None:
+            continue
+
+        if (
+            isinstance(call_node.func, ast.Attribute)
+            and isinstance(call_node.func.value, ast.Name)
+            and call_node.func.value.id == "pytest"
+            and call_node.func.attr == "importorskip"
+        ):
+            module_name = ""
+            reason = ""
+            if call_node.args:
+                module_name = extract_string_value(call_node.args[0])
+            for keyword in call_node.keywords:
+                if keyword.arg == "reason":
+                    reason = extract_string_value(keyword.value)
+
+            if not reason:
+                reason = f"{module_name} not installed" if module_name else "No reason provided"
+
+            return SkipMarker(
+                file=file_path,
+                line=call_node.lineno,
+                marker_type="pytest.importorskip",
+                reason=reason,
+                category=categorize_reason(reason),
+            )
+
+    return None
 
 
 def parse_test_file(file_path: Path) -> list[SkipMarker]:
@@ -325,6 +346,11 @@ def parse_test_file(file_path: Path) -> list[SkipMarker]:
 
     # Find pytest.skip() calls
     markers.extend(find_pytest_skip_calls(tree, rel_path))
+
+    # Find module-level pytest.importorskip() (one per file max)
+    importorskip_marker = find_module_level_importorskip(tree, rel_path)
+    if importorskip_marker:
+        markers.append(importorskip_marker)
 
     return markers
 

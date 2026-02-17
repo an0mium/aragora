@@ -11,6 +11,7 @@ The heavy lifting is delegated to specialized mixins:
 - KnowledgeMoundHandlersMixin: Bidirectional KM event handlers
 - CultureHandlersMixin: Culture pattern handlers
 - ValidationHandlersMixin: Consensus and validation handlers
+- StrategicHandlersMixin: Strategic feedback loop handlers (risk, genesis, budget, alerts)
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from .dispatch import DispatchMixin
 from .handlers.basic import BasicHandlersMixin
 from .handlers.culture import CultureHandlersMixin
 from .handlers.knowledge_mound import KnowledgeMoundHandlersMixin
+from .handlers.strategic import StrategicHandlersMixin
 from .handlers.validation import ValidationHandlersMixin
 
 if TYPE_CHECKING:
@@ -65,6 +67,7 @@ class CrossSubscriberManager(
     KnowledgeMoundHandlersMixin,
     CultureHandlersMixin,
     ValidationHandlersMixin,
+    StrategicHandlersMixin,
 ):
     """
     Manages cross-subsystem event subscribers.
@@ -444,6 +447,66 @@ class CrossSubscriberManager(
                 event_type,
                 self._handle_webhook_delivery,
             )
+
+        # =====================================================================
+        # Strategic Feedback Loops (Tier 5)
+        # =====================================================================
+
+        # Risk Warning → Health Registry degradation
+        self.register(
+            "risk_warning_to_health",
+            StreamEventType.RISK_WARNING,
+            self._handle_risk_warning_to_health,
+        )
+
+        # Agent Birth → Control Plane Registry
+        self.register(
+            "agent_birth_to_control_plane",
+            StreamEventType.AGENT_BIRTH,
+            self._handle_genesis_to_control_plane,
+        )
+
+        # Agent Death → Control Plane Registry
+        self.register(
+            "agent_death_to_control_plane",
+            StreamEventType.AGENT_DEATH,
+            self._handle_genesis_to_control_plane,
+        )
+
+        # Agent Evolution → Control Plane Registry
+        self.register(
+            "agent_evolution_to_control_plane",
+            StreamEventType.AGENT_EVOLUTION,
+            self._handle_genesis_to_control_plane,
+        )
+
+        # Approval Approved → KM Reinforcement
+        self.register(
+            "approval_to_km_reinforcement",
+            StreamEventType.APPROVAL_APPROVED,
+            self._handle_approval_to_km_reinforcement,
+        )
+
+        # Budget Alert → Team Selection Constraint
+        self.register(
+            "budget_alert_to_team_selection",
+            StreamEventType.BUDGET_ALERT,
+            self._handle_budget_alert_to_team_selection,
+        )
+
+        # Alert Escalated → Workflow Emergency Brake
+        self.register(
+            "alert_escalated_to_workflow_brake",
+            StreamEventType.ALERT_ESCALATED,
+            self._handle_alert_escalated_to_workflow_brake,
+        )
+
+        # Meta-Learning Adjusted → Team Selection Recalibration
+        self.register(
+            "meta_learning_to_team_selection",
+            StreamEventType.META_LEARNING_ADJUSTED,
+            self._handle_meta_learning_to_team_selection,
+        )
 
         logger.debug("Registered built-in cross-subsystem subscribers")
 

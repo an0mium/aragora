@@ -3,25 +3,10 @@
  *
  * Provides access to belief network analysis, cruxes, and provenance tracking.
  * The belief network represents claims and their supporting/opposing relationships.
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
- *
- * // Get key cruxes (claims that would most impact outcome)
- * const cruxes = await client.belief.getCruxes('debate-123');
- *
- * // Get belief network as a graph
- * const graph = await client.belief.getGraph('debate-123');
- *
- * // Export belief network
- * const exported = await client.belief.export('debate-123', { format: 'graphml' });
- * ```
  */
 
-/**
- * Interface for belief client methods.
- */
+import type { AragoraClient } from '../client';
+
 /**
  * Crux analysis result from CruxDetector.
  */
@@ -37,16 +22,6 @@ export interface CruxAnalysis {
     composite_score: number;
   }>;
   count: number;
-}
-
-interface BeliefClientInterface {
-  getBeliefCruxes(debateId: string, params?: { top_k?: number }): Promise<BeliefCruxes>;
-  getLoadBearingClaims(debateId: string, params?: { limit?: number }): Promise<LoadBearingClaims>;
-  getBeliefGraph(debateId: string, params?: { include_cruxes?: boolean }): Promise<BeliefGraph>;
-  exportBeliefNetwork(debateId: string, params?: { format?: ExportFormat }): Promise<BeliefExport>;
-  getClaimSupport(debateId: string, claimId: string): Promise<ClaimSupport>;
-  getClaimProvenance(debateId: string, claimId: string): Promise<ClaimProvenance>;
-  getCruxAnalysis(debateId: string, params?: { limit?: number }): Promise<CruxAnalysis>;
 }
 
 /**
@@ -138,141 +113,73 @@ export interface BeliefExport {
 }
 
 /**
- * Support/opposition for a claim.
- */
-export interface ClaimSupport {
-  claim_id: string;
-  supporting_claims: Array<{ id: string; text: string; strength: number }>;
-  opposing_claims: Array<{ id: string; text: string; strength: number }>;
-  net_support: number;
-}
-
-/**
- * Provenance chain for a claim.
- */
-export interface ClaimProvenance {
-  claim_id: string;
-  origin: {
-    agent: string;
-    round: number;
-    timestamp: string;
-  };
-  modifications: Array<{
-    agent: string;
-    round: number;
-    action: 'refined' | 'challenged' | 'supported';
-    timestamp: string;
-  }>;
-}
-
-/**
  * Belief Network API.
  *
  * Provides methods for analyzing belief networks in debates:
  * - Finding cruxes (key claims that would change outcomes)
  * - Identifying load-bearing claims (high centrality)
  * - Exporting graph structures
- * - Tracking claim provenance
  */
 export class BeliefAPI {
-  constructor(private client: BeliefClientInterface) {}
+  constructor(private client: AragoraClient) {}
 
   /**
-   * Get key claims that would most impact the debate outcome.
-   *
-   * @param debateId - The debate ID
-   * @param options - Query options
-   * @param options.topK - Number of top cruxes to return (1-10, default: 3)
+   * Get key claims (cruxes) that would most impact the debate outcome.
+   * @route GET /api/v1/belief-network/{debate_id}/cruxes
    */
   async getCruxes(
     debateId: string,
-    options?: { topK?: number }
+    options?: { top_k?: number }
   ): Promise<BeliefCruxes> {
-    const params = options?.topK ? { top_k: options.topK } : undefined;
-    return this.client.getBeliefCruxes(debateId, params);
+    return this.client.request(
+      'GET',
+      `/api/v1/belief-network/${encodeURIComponent(debateId)}/cruxes`,
+      { params: options }
+    ) as Promise<BeliefCruxes>;
   }
 
   /**
    * Get claims with highest centrality (most load-bearing).
-   *
-   * @param debateId - The debate ID
-   * @param options - Query options
-   * @param options.limit - Maximum claims to return (1-20, default: 5)
+   * @route GET /api/v1/belief-network/{debate_id}/load-bearing-claims
    */
   async getLoadBearingClaims(
     debateId: string,
     options?: { limit?: number }
   ): Promise<LoadBearingClaims> {
-    const params = options?.limit ? { limit: options.limit } : undefined;
-    return this.client.getLoadBearingClaims(debateId, params);
+    return this.client.request(
+      'GET',
+      `/api/v1/belief-network/${encodeURIComponent(debateId)}/load-bearing-claims`,
+      { params: options }
+    ) as Promise<LoadBearingClaims>;
   }
 
   /**
    * Get belief network as a graph structure for visualization.
-   *
-   * @param debateId - The debate ID
-   * @param options - Query options
-   * @param options.includeCruxes - Whether to include crux detection (default: true)
+   * @route GET /api/v1/belief-network/{debate_id}/graph
    */
   async getGraph(
     debateId: string,
-    options?: { includeCruxes?: boolean }
+    options?: { include_cruxes?: boolean }
   ): Promise<BeliefGraph> {
-    const params = options?.includeCruxes !== undefined
-      ? { include_cruxes: options.includeCruxes }
-      : undefined;
-    return this.client.getBeliefGraph(debateId, params);
+    return this.client.request(
+      'GET',
+      `/api/v1/belief-network/${encodeURIComponent(debateId)}/graph`,
+      { params: options }
+    ) as Promise<BeliefGraph>;
   }
 
   /**
    * Export belief network in various formats.
-   *
-   * @param debateId - The debate ID
-   * @param options - Export options
-   * @param options.format - Export format (json, graphml, csv)
+   * @route GET /api/v1/belief-network/{debate_id}/export
    */
   async export(
     debateId: string,
     options?: { format?: ExportFormat }
   ): Promise<BeliefExport> {
-    return this.client.exportBeliefNetwork(debateId, options);
-  }
-
-  /**
-   * Get support and opposition for a specific claim.
-   *
-   * @param debateId - The debate ID
-   * @param claimId - The claim ID
-   */
-  async getClaimSupport(debateId: string, claimId: string): Promise<ClaimSupport> {
-    return this.client.getClaimSupport(debateId, claimId);
-  }
-
-  /**
-   * Get provenance chain for a claim (origin and modifications).
-   *
-   * @param debateId - The debate ID
-   * @param claimId - The claim ID
-   */
-  async getClaimProvenance(debateId: string, claimId: string): Promise<ClaimProvenance> {
-    return this.client.getClaimProvenance(debateId, claimId);
-  }
-
-  /**
-   * Get advanced crux analysis for a debate.
-   *
-   * Uses influence, disagreement, uncertainty, and centrality scores
-   * to identify debate-pivotal claims via the CruxDetector.
-   *
-   * @param debateId - The debate ID
-   * @param options - Query options
-   * @param options.limit - Maximum cruxes to return (1-20, default: 5)
-   */
-  async getCruxAnalysis(
-    debateId: string,
-    options?: { limit?: number }
-  ): Promise<CruxAnalysis> {
-    const params = options?.limit ? { limit: options.limit } : undefined;
-    return this.client.getCruxAnalysis(debateId, params);
+    return this.client.request(
+      'GET',
+      `/api/v1/belief-network/${encodeURIComponent(debateId)}/export`,
+      { params: options }
+    ) as Promise<BeliefExport>;
   }
 }

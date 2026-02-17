@@ -5,427 +5,7 @@
  * agent management, task scheduling, policy governance, and health monitoring.
  */
 
-/**
- * Interface for the internal client methods used by ControlPlaneAPI.
- */
-interface ControlPlaneClientInterface {
-  // Agent Management
-  registerAgent(body: {
-    agent_id: string;
-    name?: string;
-    capabilities?: string[];
-    metadata?: Record<string, unknown>;
-  }): Promise<{ registered: boolean; agent_id: string }>;
-
-  unregisterAgent(agentId: string): Promise<{ unregistered: boolean }>;
-
-  sendHeartbeat(body: {
-    agent_id: string;
-    status?: 'idle' | 'busy' | 'offline' | 'draining';
-    current_task?: string;
-    metrics?: Record<string, number>;
-  }): Promise<{ acknowledged: boolean }>;
-
-  getAgentStatus(agentId: string): Promise<{
-    agent_id: string;
-    status: string;
-    last_heartbeat?: string;
-    current_task?: string;
-  }>;
-
-  listRegisteredAgents(params?: {
-    status?: string;
-    capability?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    agents: Array<{
-      agent_id: string;
-      name?: string;
-      status: string;
-      capabilities?: string[];
-      last_heartbeat?: string;
-    }>;
-  }>;
-
-  // Task Management
-  submitTask(body: {
-    task_type: string;
-    payload: Record<string, unknown>;
-    priority?: 'low' | 'normal' | 'high' | 'critical';
-    agent_hint?: string;
-    timeout_seconds?: number;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ task_id: string; status: string }>;
-
-  getTaskStatus(taskId: string): Promise<{
-    task_id: string;
-    status: string;
-    assigned_agent?: string;
-    result?: unknown;
-    error?: string;
-    submitted_at: string;
-    completed_at?: string;
-  }>;
-
-  listTasks(params?: {
-    status?: string;
-    task_type?: string;
-    agent_id?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    tasks: Array<{
-      task_id: string;
-      task_type: string;
-      status: string;
-      priority: string;
-      assigned_agent?: string;
-      submitted_at: string;
-    }>;
-  }>;
-
-  claimTask(body: {
-    agent_id: string;
-    task_type?: string;
-    capabilities?: string[];
-  }): Promise<{ task_id: string; payload: Record<string, unknown> } | null>;
-
-  completeTask(
-    taskId: string,
-    body: {
-      result: unknown;
-      metrics?: Record<string, number>;
-    }
-  ): Promise<{ completed: boolean }>;
-
-  failTask(
-    taskId: string,
-    body: {
-      error: string;
-      retry?: boolean;
-    }
-  ): Promise<{ failed: boolean }>;
-
-  cancelTask(taskId: string): Promise<{ cancelled: boolean }>;
-
-  // Health Monitoring
-  getControlPlaneHealth(): Promise<{
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    agents_total: number;
-    agents_active: number;
-    tasks_pending: number;
-    tasks_running: number;
-  }>;
-
-  // Policy Management
-  createPolicy(body: {
-    name: string;
-    description?: string;
-    rules: Array<{
-      condition: string;
-      action: 'allow' | 'deny' | 'require_approval';
-      priority?: number;
-    }>;
-    enabled?: boolean;
-    scope?: 'global' | 'tenant' | 'user';
-  }): Promise<{ policy_id: string; created: boolean }>;
-
-  getPolicy(policyId: string): Promise<{
-    policy_id: string;
-    name: string;
-    description?: string;
-    rules: Array<{
-      condition: string;
-      action: string;
-      priority: number;
-    }>;
-    enabled: boolean;
-    scope: string;
-    created_at: string;
-    updated_at: string;
-  }>;
-
-  updatePolicy(
-    policyId: string,
-    body: {
-      name?: string;
-      description?: string;
-      rules?: Array<{
-        condition: string;
-        action: 'allow' | 'deny' | 'require_approval';
-        priority?: number;
-      }>;
-      enabled?: boolean;
-    }
-  ): Promise<{ updated: boolean }>;
-
-  deletePolicy(policyId: string): Promise<{ deleted: boolean }>;
-
-  listPolicies(params?: {
-    scope?: string;
-    enabled?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    policies: Array<{
-      policy_id: string;
-      name: string;
-      enabled: boolean;
-      scope: string;
-      rules_count: number;
-    }>;
-  }>;
-
-  // Scheduling
-  scheduleTask(body: {
-    task_type: string;
-    payload: Record<string, unknown>;
-    schedule_at?: string;
-    cron?: string;
-    priority?: 'low' | 'normal' | 'high' | 'critical';
-    max_retries?: number;
-    timeout_seconds?: number;
-  }): Promise<{ schedule_id: string; next_run_at: string }>;
-
-  getScheduledTask(scheduleId: string): Promise<{
-    schedule_id: string;
-    task_type: string;
-    status: 'active' | 'paused' | 'completed' | 'failed';
-    schedule_at?: string;
-    cron?: string;
-    next_run_at?: string;
-    last_run_at?: string;
-    run_count: number;
-  }>;
-
-  listScheduledTasks(params?: {
-    status?: string;
-    task_type?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    schedules: Array<{
-      schedule_id: string;
-      task_type: string;
-      status: string;
-      next_run_at?: string;
-      cron?: string;
-    }>;
-  }>;
-
-  cancelScheduledTask(scheduleId: string): Promise<{ cancelled: boolean }>;
-
-  // Deliberations
-  createDeliberation(body: {
-    topic: string;
-    description?: string;
-    participants?: string[];
-    deadline?: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ deliberation_id: string; created: boolean }>;
-
-  getDeliberation(deliberationId: string): Promise<{
-    deliberation_id: string;
-    topic: string;
-    description?: string;
-    status: 'open' | 'voting' | 'closed';
-    participants: string[];
-    votes: Array<{ participant: string; vote: string; timestamp: string }>;
-    outcome?: string;
-    created_at: string;
-    closed_at?: string;
-  }>;
-
-  listDeliberations(params?: {
-    status?: string;
-    participant?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    deliberations: Array<{
-      deliberation_id: string;
-      topic: string;
-      status: string;
-      participants_count: number;
-      created_at: string;
-    }>;
-  }>;
-
-  voteOnDeliberation(
-    deliberationId: string,
-    body: {
-      participant: string;
-      vote: string;
-      rationale?: string;
-    }
-  ): Promise<{ voted: boolean }>;
-
-  closeDeliberation(
-    deliberationId: string,
-    body?: { outcome?: string }
-  ): Promise<{ closed: boolean; outcome?: string }>;
-
-  getDeliberationTranscript(deliberationId: string): Promise<{
-    deliberation_id: string;
-    topic: string;
-    transcript: Array<{
-      type: 'message' | 'vote' | 'decision';
-      participant?: string;
-      content: string;
-      timestamp: string;
-    }>;
-  }>;
-
-  // Audit Logs
-  listAuditLogs(params?: {
-    action?: string;
-    actor?: string;
-    resource_type?: string;
-    resource_id?: string;
-    start_time?: string;
-    end_time?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    logs: Array<{
-      log_id: string;
-      action: string;
-      actor: string;
-      resource_type?: string;
-      resource_id?: string;
-      details?: Record<string, unknown>;
-      timestamp: string;
-    }>;
-  }>;
-
-  getAuditLog(logId: string): Promise<{
-    log_id: string;
-    action: string;
-    actor: string;
-    resource_type?: string;
-    resource_id?: string;
-    details?: Record<string, unknown>;
-    ip_address?: string;
-    user_agent?: string;
-    timestamp: string;
-  }>;
-
-  // Policy Violations
-  listPolicyViolations(params?: {
-    policy_id?: string;
-    severity?: string;
-    acknowledged?: boolean;
-    start_time?: string;
-    end_time?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    violations: Array<{
-      violation_id: string;
-      policy_id: string;
-      policy_name: string;
-      severity: 'low' | 'medium' | 'high' | 'critical';
-      actor?: string;
-      resource_type?: string;
-      resource_id?: string;
-      acknowledged: boolean;
-      timestamp: string;
-    }>;
-  }>;
-
-  acknowledgePolicyViolation(
-    violationId: string,
-    body?: { notes?: string }
-  ): Promise<{ acknowledged: boolean }>;
-
-  escalatePolicyViolation(
-    violationId: string,
-    body: {
-      escalate_to: string;
-      reason?: string;
-    }
-  ): Promise<{ escalated: boolean; escalation_id?: string }>;
-
-  // Metrics
-  getAgentMetrics(agentId: string, params?: {
-    start_time?: string;
-    end_time?: string;
-    resolution?: 'minute' | 'hour' | 'day';
-  }): Promise<{
-    agent_id: string;
-    metrics: {
-      tasks_completed: number;
-      tasks_failed: number;
-      avg_task_duration_ms: number;
-      uptime_percent: number;
-      error_rate: number;
-    };
-    timeseries?: Array<{
-      timestamp: string;
-      tasks_completed: number;
-      tasks_failed: number;
-    }>;
-  }>;
-
-  getTaskMetrics(params?: {
-    task_type?: string;
-    start_time?: string;
-    end_time?: string;
-    resolution?: 'minute' | 'hour' | 'day';
-  }): Promise<{
-    metrics: {
-      total_submitted: number;
-      total_completed: number;
-      total_failed: number;
-      avg_wait_time_ms: number;
-      avg_execution_time_ms: number;
-    };
-    by_type?: Record<string, {
-      submitted: number;
-      completed: number;
-      failed: number;
-    }>;
-  }>;
-
-  getControlPlaneSystemMetrics(): Promise<{
-    agents: {
-      total: number;
-      active: number;
-      idle: number;
-      offline: number;
-    };
-    tasks: {
-      pending: number;
-      running: number;
-      completed_24h: number;
-      failed_24h: number;
-    };
-    policies: {
-      total: number;
-      enabled: number;
-      violations_24h: number;
-    };
-    deliberations: {
-      open: number;
-      completed_24h: number;
-    };
-  }>;
-
-  // Wait for task completion
-  waitForTask(
-    taskId: string,
-    options?: { pollIntervalMs?: number; timeoutMs?: number }
-  ): Promise<{
-    task_id: string;
-    status: string;
-    assigned_agent?: string;
-    result?: unknown;
-    error?: string;
-    submitted_at: string;
-    completed_at?: string;
-  }>;
-}
+import type { AragoraClient } from '../client';
 
 /**
  * Control Plane API namespace.
@@ -433,698 +13,348 @@ interface ControlPlaneClientInterface {
  * Provides enterprise-grade orchestration capabilities:
  * - Agent lifecycle management (registration, heartbeats, status)
  * - Task scheduling and distribution
- * - Policy governance and access control
  * - Health monitoring and metrics
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
- *
- * // Register an agent
- * await client.controlPlane.agents.register({
- *   agent_id: 'worker-1',
- *   name: 'Analysis Worker',
- *   capabilities: ['code-review', 'security-scan']
- * });
- *
- * // Submit a task
- * const { task_id } = await client.controlPlane.tasks.submit({
- *   task_type: 'code-review',
- *   payload: { repo: 'my-repo', pr: 123 },
- *   priority: 'high'
- * });
- *
- * // Check health
- * const health = await client.controlPlane.getHealth();
- * ```
+ * - Policy violations and deliberations
+ * - Audit logs and notifications
  */
 export class ControlPlaneAPI {
-  public readonly agents: AgentsSubAPI;
-  public readonly tasks: TasksSubAPI;
-  public readonly policies: PoliciesSubAPI;
-  public readonly schedules: SchedulesSubAPI;
-  public readonly deliberations: DeliberationsSubAPI;
-  public readonly auditLogs: AuditLogsSubAPI;
-  public readonly violations: ViolationsSubAPI;
-  public readonly metrics: MetricsSubAPI;
+  constructor(private client: AragoraClient) {}
 
-  constructor(private client: ControlPlaneClientInterface) {
-    this.agents = new AgentsSubAPI(client);
-    this.tasks = new TasksSubAPI(client);
-    this.policies = new PoliciesSubAPI(client);
-    this.schedules = new SchedulesSubAPI(client);
-    this.deliberations = new DeliberationsSubAPI(client);
-    this.auditLogs = new AuditLogsSubAPI(client);
-    this.violations = new ViolationsSubAPI(client);
-    this.metrics = new MetricsSubAPI(client);
-  }
-
-  /**
-   * Get control plane health status.
-   */
-  async getHealth(): Promise<{
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    agents_total: number;
-    agents_active: number;
-    tasks_pending: number;
-    tasks_running: number;
-  }> {
-    return this.client.getControlPlaneHealth();
-  }
-}
-
-/**
- * Agent management sub-API.
- */
-class AgentsSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * Register an agent with the control plane.
-   */
-  async register(body: {
-    agent_id: string;
-    name?: string;
-    capabilities?: string[];
-    metadata?: Record<string, unknown>;
-  }): Promise<{ registered: boolean; agent_id: string }> {
-    return this.client.registerAgent(body);
-  }
-
-  /**
-   * Unregister an agent from the control plane.
-   */
-  async unregister(agentId: string): Promise<{ unregistered: boolean }> {
-    return this.client.unregisterAgent(agentId);
-  }
-
-  /**
-   * Send a heartbeat for an agent.
-   */
-  async heartbeat(body: {
-    agent_id: string;
-    status?: 'idle' | 'busy' | 'offline' | 'draining';
-    current_task?: string;
-    metrics?: Record<string, number>;
-  }): Promise<{ acknowledged: boolean }> {
-    return this.client.sendHeartbeat(body);
-  }
-
-  /**
-   * Get an agent's status.
-   */
-  async getStatus(agentId: string): Promise<{
-    agent_id: string;
-    status: string;
-    last_heartbeat?: string;
-    current_task?: string;
-  }> {
-    return this.client.getAgentStatus(agentId);
-  }
+  // ===========================================================================
+  // Agents
+  // ===========================================================================
 
   /**
    * List registered agents.
+   * @route GET /api/control-plane/agents
    */
-  async list(params?: {
-    status?: string;
-    capability?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    agents: Array<{
-      agent_id: string;
-      name?: string;
-      status: string;
-      capabilities?: string[];
-      last_heartbeat?: string;
-    }>;
-  }> {
-    return this.client.listRegisteredAgents(params);
-  }
-}
-
-/**
- * Task management sub-API.
- */
-class TasksSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * Submit a task for execution.
-   */
-  async submit(body: {
-    task_type: string;
-    payload: Record<string, unknown>;
-    priority?: 'low' | 'normal' | 'high' | 'critical';
-    agent_hint?: string;
-    timeout_seconds?: number;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ task_id: string; status: string }> {
-    return this.client.submitTask(body);
+  async listAgents(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/agents') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get task status.
+   * Register an agent.
+   * @route POST /api/control-plane/agents
    */
-  async getStatus(taskId: string): Promise<{
-    task_id: string;
-    status: string;
-    assigned_agent?: string;
-    result?: unknown;
-    error?: string;
-    submitted_at: string;
-    completed_at?: string;
-  }> {
-    return this.client.getTaskStatus(taskId);
+  async registerAgent(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/control-plane/agents', {
+      body,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * List tasks.
+   * Get an agent by ID.
+   * @route GET /api/control-plane/agents/{agent_id}
    */
-  async list(params?: {
-    status?: string;
-    task_type?: string;
-    agent_id?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    tasks: Array<{
-      task_id: string;
-      task_type: string;
-      status: string;
-      priority: string;
-      assigned_agent?: string;
-      submitted_at: string;
-    }>;
-  }> {
-    return this.client.listTasks(params);
+  async getAgent(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Claim a pending task for an agent.
+   * Deregister an agent.
+   * @route DELETE /api/control-plane/agents/{agent_id}
    */
-  async claim(body: {
-    agent_id: string;
-    task_type?: string;
-    capabilities?: string[];
-  }): Promise<{ task_id: string; payload: Record<string, unknown> } | null> {
-    return this.client.claimTask(body);
+  async deregisterAgent(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'DELETE',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Complete a task with a result.
+   * Send agent heartbeat.
+   * @route POST /api/control-plane/agents/{agent_id}/heartbeat
    */
-  async complete(
-    taskId: string,
-    body: {
-      result: unknown;
-      metrics?: Record<string, number>;
-    }
-  ): Promise<{ completed: boolean }> {
-    return this.client.completeTask(taskId, body);
+  async heartbeat(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/agents/${encodeURIComponent(agentId)}/heartbeat`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Health
+  // ===========================================================================
+
+  /**
+   * Get control plane health.
+   * @route GET /api/control-plane/health
+   */
+  async getHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/health') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Fail a task with an error.
+   * Get detailed health information.
+   * @route GET /api/control-plane/health/detailed
    */
-  async fail(
-    taskId: string,
-    body: {
-      error: string;
-      retry?: boolean;
-    }
-  ): Promise<{ failed: boolean }> {
-    return this.client.failTask(taskId, body);
+  async getHealthDetailed(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/health/detailed') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get health of a specific agent.
+   * @route GET /api/control-plane/health/{agent_id}
+   */
+  async getAgentHealth(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/health/${encodeURIComponent(agentId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Tasks
+  // ===========================================================================
+
+  /**
+   * Create a task.
+   * @route POST /api/control-plane/tasks
+   */
+  async createTask(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/control-plane/tasks', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Claim a task.
+   * @route POST /api/control-plane/tasks/claim
+   */
+  async claimTask(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/control-plane/tasks/claim', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get task history.
+   * @route GET /api/control-plane/tasks/history
+   */
+  async getTaskHistory(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/tasks/history') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a task by ID.
+   * @route GET /api/control-plane/tasks/{task_id}
+   */
+  async getTask(taskId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
    * Cancel a task.
+   * @route POST /api/control-plane/tasks/{task_id}/cancel
    */
-  async cancel(taskId: string): Promise<{ cancelled: boolean }> {
-    return this.client.cancelTask(taskId);
+  async cancelTask(taskId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/cancel`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Wait for a task to complete.
-   * Polls until the task finishes or times out.
+   * Complete a task.
+   * @route POST /api/control-plane/tasks/{task_id}/complete
    */
-  async waitForCompletion(
-    taskId: string,
-    options?: { pollIntervalMs?: number; timeoutMs?: number }
-  ): Promise<{
-    task_id: string;
-    status: string;
-    assigned_agent?: string;
-    result?: unknown;
-    error?: string;
-    submitted_at: string;
-    completed_at?: string;
-  }> {
-    return this.client.waitForTask(taskId, options);
-  }
-}
-
-/**
- * Policy management sub-API.
- */
-class PoliciesSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * Create a new policy.
-   */
-  async create(body: {
-    name: string;
-    description?: string;
-    rules: Array<{
-      condition: string;
-      action: 'allow' | 'deny' | 'require_approval';
-      priority?: number;
-    }>;
-    enabled?: boolean;
-    scope?: 'global' | 'tenant' | 'user';
-  }): Promise<{ policy_id: string; created: boolean }> {
-    return this.client.createPolicy(body);
+  async completeTask(taskId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/complete`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get a policy by ID.
+   * Mark a task as failed.
+   * @route POST /api/control-plane/tasks/{task_id}/fail
    */
-  async get(policyId: string): Promise<{
-    policy_id: string;
-    name: string;
-    description?: string;
-    rules: Array<{
-      condition: string;
-      action: string;
-      priority: number;
-    }>;
-    enabled: boolean;
-    scope: string;
-    created_at: string;
-    updated_at: string;
-  }> {
-    return this.client.getPolicy(policyId);
+  async failTask(taskId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/control-plane/tasks/${encodeURIComponent(taskId)}/fail`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Metrics & Stats
+  // ===========================================================================
+
+  /**
+   * Get control plane metrics.
+   * @route GET /api/control-plane/metrics
+   */
+  async getMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/metrics') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Update a policy.
+   * Get control plane statistics.
+   * @route GET /api/control-plane/stats
    */
-  async update(
-    policyId: string,
-    body: {
-      name?: string;
-      description?: string;
-      rules?: Array<{
-        condition: string;
-        action: 'allow' | 'deny' | 'require_approval';
-        priority?: number;
-      }>;
-      enabled?: boolean;
-    }
-  ): Promise<{ updated: boolean }> {
-    return this.client.updatePolicy(policyId, body);
+  async getStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/stats') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Delete a policy.
+   * Get circuit breaker status.
+   * @route GET /api/control-plane/breakers
    */
-  async delete(policyId: string): Promise<{ deleted: boolean }> {
-    return this.client.deletePolicy(policyId);
+  async getBreakers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/breakers') as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Queue
+  // ===========================================================================
+
+  /**
+   * Get task queue.
+   * @route GET /api/control-plane/queue
+   */
+  async getQueue(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/queue') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * List policies.
+   * Get queue metrics.
+   * @route GET /api/control-plane/queue/metrics
    */
-  async list(params?: {
-    scope?: string;
-    enabled?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    policies: Array<{
-      policy_id: string;
-      name: string;
-      enabled: boolean;
-      scope: string;
-      rules_count: number;
-    }>;
-  }> {
-    return this.client.listPolicies(params);
+  async getQueueMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/queue/metrics') as Promise<Record<string, unknown>>;
   }
-}
 
-/**
- * Schedule management sub-API.
- */
-class SchedulesSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
+  // ===========================================================================
+  // Audit
+  // ===========================================================================
 
   /**
-   * Schedule a task for future execution.
+   * Get control plane audit log.
+   * @route GET /api/control-plane/audit
    */
-  async create(body: {
-    task_type: string;
-    payload: Record<string, unknown>;
-    schedule_at?: string;
-    cron?: string;
-    priority?: 'low' | 'normal' | 'high' | 'critical';
-    max_retries?: number;
-    timeout_seconds?: number;
-  }): Promise<{ schedule_id: string; next_run_at: string }> {
-    return this.client.scheduleTask(body);
+  async getAudit(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/audit') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get a scheduled task.
+   * Get audit statistics.
+   * @route GET /api/control-plane/audit/stats
    */
-  async get(scheduleId: string): Promise<{
-    schedule_id: string;
-    task_type: string;
-    status: 'active' | 'paused' | 'completed' | 'failed';
-    schedule_at?: string;
-    cron?: string;
-    next_run_at?: string;
-    last_run_at?: string;
-    run_count: number;
-  }> {
-    return this.client.getScheduledTask(scheduleId);
+  async getAuditStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/audit/stats') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * List scheduled tasks.
+   * Verify audit integrity.
+   * @route GET /api/control-plane/audit/verify
    */
-  async list(params?: {
-    status?: string;
-    task_type?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    schedules: Array<{
-      schedule_id: string;
-      task_type: string;
-      status: string;
-      next_run_at?: string;
-      cron?: string;
-    }>;
-  }> {
-    return this.client.listScheduledTasks(params);
+  async verifyAudit(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/audit/verify') as Promise<Record<string, unknown>>;
   }
 
-  /**
-   * Cancel a scheduled task.
-   */
-  async cancel(scheduleId: string): Promise<{ cancelled: boolean }> {
-    return this.client.cancelScheduledTask(scheduleId);
-  }
-}
-
-/**
- * Deliberations management sub-API.
- */
-class DeliberationsSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * Create a new deliberation.
-   */
-  async create(body: {
-    topic: string;
-    description?: string;
-    participants?: string[];
-    deadline?: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ deliberation_id: string; created: boolean }> {
-    return this.client.createDeliberation(body);
-  }
-
-  /**
-   * Get a deliberation by ID.
-   */
-  async get(deliberationId: string): Promise<{
-    deliberation_id: string;
-    topic: string;
-    description?: string;
-    status: 'open' | 'voting' | 'closed';
-    participants: string[];
-    votes: Array<{ participant: string; vote: string; timestamp: string }>;
-    outcome?: string;
-    created_at: string;
-    closed_at?: string;
-  }> {
-    return this.client.getDeliberation(deliberationId);
-  }
-
-  /**
-   * List deliberations.
-   */
-  async list(params?: {
-    status?: string;
-    participant?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    deliberations: Array<{
-      deliberation_id: string;
-      topic: string;
-      status: string;
-      participants_count: number;
-      created_at: string;
-    }>;
-  }> {
-    return this.client.listDeliberations(params);
-  }
-
-  /**
-   * Vote on a deliberation.
-   */
-  async vote(
-    deliberationId: string,
-    body: {
-      participant: string;
-      vote: string;
-      rationale?: string;
-    }
-  ): Promise<{ voted: boolean }> {
-    return this.client.voteOnDeliberation(deliberationId, body);
-  }
-
-  /**
-   * Close a deliberation.
-   */
-  async close(
-    deliberationId: string,
-    body?: { outcome?: string }
-  ): Promise<{ closed: boolean; outcome?: string }> {
-    return this.client.closeDeliberation(deliberationId, body);
-  }
-
-  /**
-   * Get deliberation transcript.
-   */
-  async getTranscript(deliberationId: string): Promise<{
-    deliberation_id: string;
-    topic: string;
-    transcript: Array<{
-      type: 'message' | 'vote' | 'decision';
-      participant?: string;
-      content: string;
-      timestamp: string;
-    }>;
-  }> {
-    return this.client.getDeliberationTranscript(deliberationId);
-  }
-}
-
-/**
- * Audit logs sub-API.
- */
-class AuditLogsSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * List audit logs with optional filtering.
-   */
-  async list(params?: {
-    action?: string;
-    actor?: string;
-    resource_type?: string;
-    resource_id?: string;
-    start_time?: string;
-    end_time?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    logs: Array<{
-      log_id: string;
-      action: string;
-      actor: string;
-      resource_type?: string;
-      resource_id?: string;
-      details?: Record<string, unknown>;
-      timestamp: string;
-    }>;
-  }> {
-    return this.client.listAuditLogs(params);
-  }
-
-  /**
-   * Get a specific audit log entry.
-   */
-  async get(logId: string): Promise<{
-    log_id: string;
-    action: string;
-    actor: string;
-    resource_type?: string;
-    resource_id?: string;
-    details?: Record<string, unknown>;
-    ip_address?: string;
-    user_agent?: string;
-    timestamp: string;
-  }> {
-    return this.client.getAuditLog(logId);
-  }
-}
-
-/**
- * Policy violations sub-API.
- */
-class ViolationsSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
+  // ===========================================================================
+  // Policy Violations
+  // ===========================================================================
 
   /**
    * List policy violations.
+   * @route GET /api/control-plane/policies/violations
    */
-  async list(params?: {
-    policy_id?: string;
-    severity?: string;
-    acknowledged?: boolean;
-    start_time?: string;
-    end_time?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{
-    violations: Array<{
-      violation_id: string;
-      policy_id: string;
-      policy_name: string;
-      severity: 'low' | 'medium' | 'high' | 'critical';
-      actor?: string;
-      resource_type?: string;
-      resource_id?: string;
-      acknowledged: boolean;
-      timestamp: string;
-    }>;
-  }> {
-    return this.client.listPolicyViolations(params);
+  async listViolations(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/policies/violations') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Acknowledge a policy violation.
+   * Get policy violations statistics.
+   * @route GET /api/control-plane/policies/violations/stats
    */
-  async acknowledge(
-    violationId: string,
-    body?: { notes?: string }
-  ): Promise<{ acknowledged: boolean }> {
-    return this.client.acknowledgePolicyViolation(violationId, body);
+  async getViolationsStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/policies/violations/stats') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Escalate a policy violation.
+   * Get a policy violation by ID.
+   * @route GET /api/control-plane/policies/violations/{violation_id}
    */
-  async escalate(
-    violationId: string,
-    body: {
-      escalate_to: string;
-      reason?: string;
-    }
-  ): Promise<{ escalated: boolean; escalation_id?: string }> {
-    return this.client.escalatePolicyViolation(violationId, body);
-  }
-}
-
-/**
- * Metrics sub-API.
- */
-class MetricsSubAPI {
-  constructor(private client: ControlPlaneClientInterface) {}
-
-  /**
-   * Get metrics for a specific agent.
-   */
-  async getAgentMetrics(agentId: string, params?: {
-    start_time?: string;
-    end_time?: string;
-    resolution?: 'minute' | 'hour' | 'day';
-  }): Promise<{
-    agent_id: string;
-    metrics: {
-      tasks_completed: number;
-      tasks_failed: number;
-      avg_task_duration_ms: number;
-      uptime_percent: number;
-      error_rate: number;
-    };
-    timeseries?: Array<{
-      timestamp: string;
-      tasks_completed: number;
-      tasks_failed: number;
-    }>;
-  }> {
-    return this.client.getAgentMetrics(agentId, params);
+  async getViolation(violationId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/policies/violations/${encodeURIComponent(violationId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get task execution metrics.
+   * Update a policy violation.
+   * @route PATCH /api/control-plane/policies/violations/{violation_id}
    */
-  async getTaskMetrics(params?: {
-    task_type?: string;
-    start_time?: string;
-    end_time?: string;
-    resolution?: 'minute' | 'hour' | 'day';
-  }): Promise<{
-    metrics: {
-      total_submitted: number;
-      total_completed: number;
-      total_failed: number;
-      avg_wait_time_ms: number;
-      avg_execution_time_ms: number;
-    };
-    by_type?: Record<string, {
-      submitted: number;
-      completed: number;
-      failed: number;
-    }>;
-  }> {
-    return this.client.getTaskMetrics(params);
+  async updateViolation(violationId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PATCH',
+      `/api/control-plane/policies/violations/${encodeURIComponent(violationId)}`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Deliberations
+  // ===========================================================================
+
+  /**
+   * Create a deliberation.
+   * @route POST /api/control-plane/deliberations
+   */
+  async createDeliberation(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/control-plane/deliberations', {
+      body,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Get overall system metrics.
+   * Get a deliberation.
+   * @route GET /api/control-plane/deliberations/{request_id}
    */
-  async getSystemMetrics(): Promise<{
-    agents: {
-      total: number;
-      active: number;
-      idle: number;
-      offline: number;
-    };
-    tasks: {
-      pending: number;
-      running: number;
-      completed_24h: number;
-      failed_24h: number;
-    };
-    policies: {
-      total: number;
-      enabled: number;
-      violations_24h: number;
-    };
-    deliberations: {
-      open: number;
-      completed_24h: number;
-    };
-  }> {
-    return this.client.getControlPlaneSystemMetrics();
+  async getDeliberation(requestId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/deliberations/${encodeURIComponent(requestId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get deliberation status.
+   * @route GET /api/control-plane/deliberations/{request_id}/status
+   */
+  async getDeliberationStatus(requestId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/control-plane/deliberations/${encodeURIComponent(requestId)}/status`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // Notifications
+  // ===========================================================================
+
+  /**
+   * List control plane notifications.
+   * @route GET /api/control-plane/notifications
+   */
+  async listNotifications(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/notifications') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get notification statistics.
+   * @route GET /api/control-plane/notifications/stats
+   */
+  async getNotificationStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/control-plane/notifications/stats') as Promise<Record<string, unknown>>;
   }
 }

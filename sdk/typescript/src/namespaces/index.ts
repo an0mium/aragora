@@ -1072,8 +1072,6 @@ export {
   type BeliefGraph,
   type ExportFormat as BeliefExportFormat,
   type BeliefExport,
-  type ClaimSupport,
-  type ClaimProvenance,
 } from './belief';
 
 // Bots (Platform Integrations)

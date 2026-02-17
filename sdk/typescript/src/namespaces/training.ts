@@ -2,9 +2,9 @@
  * Training Namespace API
  *
  * Provides model training data export and job management.
- * All methods were removed — no corresponding backend routes exist.
- * The class and type definitions are preserved for future use.
  */
+
+import type { AragoraClient } from '../client';
 
 /**
  * Export format types.
@@ -216,22 +216,66 @@ export interface TrainingArtifacts {
 }
 
 /**
- * Client interface for training operations.
- */
-interface TrainingClientInterface {
-  request<T = unknown>(
-    method: string,
-    path: string,
-    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
-  ): Promise<T>;
-}
-
-/**
  * Training API namespace.
  *
- * All methods were removed — no corresponding backend routes exist.
- * The class is preserved for future use.
+ * Provides methods for model training data export and job management.
  */
 export class TrainingAPI {
-  constructor(private client: TrainingClientInterface) {}
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * Export SFT (Supervised Fine-Tuning) training data.
+   * @route GET /api/v1/training/export/sft
+   */
+  async exportSFT(params?: SFTExportParams): Promise<TrainingExportResult> {
+    return this.client.request('GET', '/api/v1/training/export/sft', {
+      params: params as Record<string, unknown>,
+    }) as Promise<TrainingExportResult>;
+  }
+
+  /**
+   * Export DPO (Direct Preference Optimization) training data.
+   * @route GET /api/v1/training/export/dpo
+   */
+  async exportDPO(params?: DPOExportParams): Promise<TrainingExportResult> {
+    return this.client.request('GET', '/api/v1/training/export/dpo', {
+      params: params as Record<string, unknown>,
+    }) as Promise<TrainingExportResult>;
+  }
+
+  /**
+   * Export Gauntlet training data.
+   * @route GET /api/v1/training/export/gauntlet
+   */
+  async exportGauntlet(params?: GauntletExportParams): Promise<TrainingExportResult> {
+    return this.client.request('GET', '/api/v1/training/export/gauntlet', {
+      params: params as Record<string, unknown>,
+    }) as Promise<TrainingExportResult>;
+  }
+
+  /**
+   * Get available training formats.
+   * @route GET /api/v1/training/formats
+   */
+  async getFormats(): Promise<TrainingFormats> {
+    return this.client.request('GET', '/api/v1/training/formats') as Promise<TrainingFormats>;
+  }
+
+  /**
+   * List training jobs.
+   * @route GET /api/v1/training/jobs
+   */
+  async listJobs(params?: ListJobsParams): Promise<{ jobs: TrainingJob[] }> {
+    return this.client.request('GET', '/api/v1/training/jobs', {
+      params: params as Record<string, unknown>,
+    }) as Promise<{ jobs: TrainingJob[] }>;
+  }
+
+  /**
+   * Get training statistics.
+   * @route GET /api/v1/training/stats
+   */
+  async getStats(): Promise<TrainingStats> {
+    return this.client.request('GET', '/api/v1/training/stats') as Promise<TrainingStats>;
+  }
 }

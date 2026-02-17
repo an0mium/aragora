@@ -2,288 +2,223 @@
  * SME Namespace API
  *
  * Provides a namespaced interface for SME (Small/Medium Enterprise) operations
- * including workflows, onboarding, and starter pack features.
+ * including budgets, Slack integration, and workspace management.
  */
 
-import type {
-  OnboardingStatus,
-  WorkflowTemplate,
-} from '../types';
-
-/**
- * SME workflow execution result.
- */
-interface SMEWorkflowExecutionResult {
-  execution_id: string;
-}
-
-/**
- * Interface for the internal client methods used by SMEAPI.
- */
-interface SMEClientInterface {
-  // SME Workflows
-  listSMEWorkflows(params?: { category?: string; limit?: number; offset?: number }): Promise<{ workflows: WorkflowTemplate[] }>;
-  getSMEWorkflow(workflowId: string): Promise<WorkflowTemplate>;
-  executeSMEWorkflow(workflowId: string, body: {
-    inputs?: Record<string, unknown>;
-    context?: Record<string, unknown>;
-    execute?: boolean;
-    tenant_id?: string;
-  }): Promise<SMEWorkflowExecutionResult>;
-
-  // Onboarding
-  getOnboardingStatus(): Promise<OnboardingStatus>;
-  completeOnboarding(request?: { first_debate_id?: string; template_used?: string }): Promise<{
-    completed: boolean;
-    organization_id: string;
-    completed_at: string;
-  }>;
-}
+import type { AragoraClient } from '../client';
 
 /**
  * SME API namespace.
  *
- * Provides methods for SME (Small/Medium Enterprise) features:
- * - Pre-built SME workflow templates (invoice, followup, inventory, reports)
- * - Onboarding status and completion
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai', apiKey: 'your-key' });
- *
- * // List available SME workflows
- * const { workflows } = await client.sme.listWorkflows();
- *
- * // Execute an invoice workflow
- * const result = await client.sme.executeWorkflow('invoice', {
- *   inputs: {
- *     customer_email: 'customer@example.com',
- *     items: [{ name: 'Service', price: 100 }]
- *   }
- * });
- *
- * // Check onboarding status
- * const status = await client.sme.getOnboardingStatus();
- *
- * // Complete onboarding
- * await client.sme.completeOnboarding({ template_used: 'invoice' });
- * ```
+ * Provides methods for SME features:
+ * - Budget management
+ * - Slack integration (OAuth, workspaces, channels, subscriptions)
  */
 export class SMEAPI {
-  constructor(private client: SMEClientInterface) {}
+  constructor(private client: AragoraClient) {}
 
   // ===========================================================================
-  // SME Workflows
-  // ===========================================================================
-
-  /**
-   * List available SME workflow templates.
-   *
-   * SME workflows are pre-built templates designed for common small business tasks:
-   * - invoice: Generate and send invoices
-   * - followup: Customer follow-up campaigns
-   * - inventory: Stock level monitoring and alerts
-   * - report: Automated business reports
-   */
-  async listWorkflows(params?: { category?: string; limit?: number; offset?: number }): Promise<{ workflows: WorkflowTemplate[] }> {
-    return this.client.listSMEWorkflows(params);
-  }
-
-  /**
-   * Get details of a specific SME workflow template.
-   */
-  async getWorkflow(workflowId: string): Promise<WorkflowTemplate> {
-    return this.client.getSMEWorkflow(workflowId);
-  }
-
-  /**
-   * Execute an SME workflow template with inputs.
-   *
-   * @example
-   * ```typescript
-   * // Execute invoice workflow
-   * const result = await client.sme.executeWorkflow('invoice', {
-   *   inputs: {
-   *     customer_name: 'Acme Corp',
-   *     customer_email: 'billing@acme.com',
-   *     items: [
-   *       { name: 'Consulting', quantity: 10, unit_price: 150 },
-   *       { name: 'Support', quantity: 1, unit_price: 500 }
-   *     ],
-   *     due_date: '2024-02-01'
-   *   }
-   * });
-   *
-   * // Execute inventory alert workflow
-   * const result = await client.sme.executeWorkflow('inventory', {
-   *   inputs: {
-   *     product_id: 'SKU-001',
-   *     min_threshold: 10,
-   *     notification_email: 'ops@company.com'
-   *   }
-   * });
-   * ```
-   */
-  async executeWorkflow(
-    workflowId: string,
-    body: {
-      inputs?: Record<string, unknown>;
-      context?: Record<string, unknown>;
-      execute?: boolean;
-      tenant_id?: string;
-    }
-  ): Promise<SMEWorkflowExecutionResult> {
-    return this.client.executeSMEWorkflow(workflowId, body);
-  }
-
-  // ===========================================================================
-  // Onboarding
+  // Budgets
   // ===========================================================================
 
   /**
-   * Get current onboarding status.
-   *
-   * Returns the user's progress through the onboarding flow.
+   * List budgets.
+   * @route GET /api/v1/sme/budgets
    */
-  async getOnboardingStatus(): Promise<OnboardingStatus> {
-    return this.client.getOnboardingStatus();
+  async listBudgets(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/sme/budgets', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Mark onboarding as complete.
-   *
-   * @param request - Optional metadata about the onboarding completion
-   * @param request.first_debate_id - ID of the first debate created during onboarding
-   * @param request.template_used - Name of the template used for the first debate
+   * Create a budget.
+   * @route POST /api/v1/sme/budgets
    */
-  async completeOnboarding(request?: { first_debate_id?: string; template_used?: string }): Promise<{
-    completed: boolean;
-    organization_id: string;
-    completed_at: string;
-  }> {
-    return this.client.completeOnboarding(request);
+  async createBudget(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/sme/budgets', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a budget by ID.
+   * @route GET /api/v1/sme/budgets/{budget_id}
+   */
+  async getBudget(budgetId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/sme/budgets/${encodeURIComponent(budgetId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Update a budget.
+   * @route PATCH /api/v1/sme/budgets/{budget_id}
+   */
+  async updateBudget(budgetId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PATCH',
+      `/api/v1/sme/budgets/${encodeURIComponent(budgetId)}`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Delete a budget.
+   * @route DELETE /api/v1/sme/budgets/{budget_id}
+   */
+  async deleteBudget(budgetId: string): Promise<void> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/sme/budgets/${encodeURIComponent(budgetId)}`
+    ) as Promise<void>;
+  }
+
+  /**
+   * Get budget alerts.
+   * @route GET /api/v1/sme/budgets/{budget_id}/alerts
+   */
+  async getBudgetAlerts(budgetId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/sme/budgets/${encodeURIComponent(budgetId)}/alerts`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get budget transactions.
+   * @route GET /api/v1/sme/budgets/{budget_id}/transactions
+   */
+  async getBudgetTransactions(budgetId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/sme/budgets/${encodeURIComponent(budgetId)}/transactions`
+    ) as Promise<Record<string, unknown>>;
   }
 
   // ===========================================================================
-  // Quick Start Helpers
+  // Slack Integration
   // ===========================================================================
 
   /**
-   * Quick invoice generation helper.
-   * Creates and executes an invoice workflow with minimal configuration.
-   *
-   * @example
-   * ```typescript
-   * const result = await client.sme.quickInvoice({
-   *   customerEmail: 'billing@client.com',
-   *   customerName: 'Client Corp',
-   *   items: [{ name: 'Service', price: 1000 }]
-   * });
-   * ```
+   * Start Slack OAuth flow.
+   * @route GET /api/v1/sme/slack/oauth/start
    */
-  async quickInvoice(options: {
-    customerEmail: string;
-    customerName: string;
-    items: Array<{ name: string; price: number; quantity?: number }>;
-    dueDate?: string;
-  }): Promise<SMEWorkflowExecutionResult> {
-    return this.executeWorkflow('invoice', {
-      inputs: {
-        customer_email: options.customerEmail,
-        customer_name: options.customerName,
-        items: options.items.map(item => ({
-          name: item.name,
-          unit_price: item.price,
-          quantity: item.quantity ?? 1,
-        })),
-        due_date: options.dueDate,
-      },
-    });
+  async slackOAuthStart(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/sme/slack/oauth/start') as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Quick inventory check helper.
-   * Sets up inventory monitoring for a product.
-   *
-   * @example
-   * ```typescript
-   * const result = await client.sme.quickInventoryCheck({
-   *   productId: 'SKU-001',
-   *   minThreshold: 10,
-   *   notificationEmail: 'ops@company.com'
-   * });
-   * ```
+   * Slack OAuth callback.
+   * @route GET /api/v1/sme/slack/oauth/callback
    */
-  async quickInventoryCheck(options: {
-    productId: string;
-    minThreshold: number;
-    notificationEmail: string;
-  }): Promise<SMEWorkflowExecutionResult> {
-    return this.executeWorkflow('inventory', {
-      inputs: {
-        product_id: options.productId,
-        min_threshold: options.minThreshold,
-        notification_email: options.notificationEmail,
-      },
-    });
+  async slackOAuthCallback(params?: { code?: string; state?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/sme/slack/oauth/callback', {
+      params: params as Record<string, unknown>,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Quick report generation helper.
-   * Generates a business report with minimal configuration.
-   *
-   * @example
-   * ```typescript
-   * const result = await client.sme.quickReport({
-   *   type: 'sales',
-   *   period: 'weekly',
-   *   format: 'pdf',
-   *   email: 'ceo@company.com'
-   * });
-   * ```
+   * Subscribe to Slack notifications.
+   * @route POST /api/v1/sme/slack/subscribe
    */
-  async quickReport(options: {
-    type: 'sales' | 'inventory' | 'customers' | 'financial';
-    period: 'daily' | 'weekly' | 'monthly' | 'quarterly';
-    format?: 'pdf' | 'excel' | 'html' | 'json';
-    email?: string;
-  }): Promise<SMEWorkflowExecutionResult> {
-    return this.executeWorkflow('report', {
-      inputs: {
-        report_type: options.type,
-        period: options.period,
-        format: options.format ?? 'pdf',
-        delivery_email: options.email,
-      },
-    });
+  async slackSubscribe(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/sme/slack/subscribe', {
+      body,
+    }) as Promise<Record<string, unknown>>;
   }
 
   /**
-   * Quick customer follow-up helper.
-   * Creates a follow-up campaign for a customer.
-   *
-   * @example
-   * ```typescript
-   * const result = await client.sme.quickFollowup({
-   *   customerId: 'cust-123',
-   *   type: 'renewal',
-   *   message: 'Your subscription is expiring soon!'
-   * });
-   * ```
+   * List Slack subscriptions.
+   * @route GET /api/v1/sme/slack/subscriptions
    */
-  async quickFollowup(options: {
-    customerId: string;
-    type: 'post_sale' | 'check_in' | 'renewal' | 'feedback';
-    message?: string;
-    delayDays?: number;
-  }): Promise<SMEWorkflowExecutionResult> {
-    return this.executeWorkflow('followup', {
-      inputs: {
-        customer_id: options.customerId,
-        followup_type: options.type,
-        custom_message: options.message,
-        delay_days: options.delayDays ?? 0,
-      },
-    });
+  async listSlackSubscriptions(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/sme/slack/subscriptions') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Delete a Slack subscription.
+   * @route DELETE /api/v1/sme/slack/subscriptions/{subscription_id}
+   */
+  async deleteSlackSubscription(subscriptionId: string): Promise<void> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/sme/slack/subscriptions/${encodeURIComponent(subscriptionId)}`
+    ) as Promise<void>;
+  }
+
+  /**
+   * List Slack workspaces.
+   * @route GET /api/v1/sme/slack/workspaces
+   */
+  async listSlackWorkspaces(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/sme/slack/workspaces') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Create a Slack workspace connection.
+   * @route POST /api/v1/sme/slack/workspaces
+   */
+  async createSlackWorkspace(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/sme/slack/workspaces', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a Slack workspace by ID.
+   * @route GET /api/v1/sme/slack/workspaces/{workspace_id}
+   */
+  async getSlackWorkspace(workspaceId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/sme/slack/workspaces/${encodeURIComponent(workspaceId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Update a Slack workspace.
+   * @route PATCH /api/v1/sme/slack/workspaces/{workspace_id}
+   */
+  async updateSlackWorkspace(workspaceId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PATCH',
+      `/api/v1/sme/slack/workspaces/${encodeURIComponent(workspaceId)}`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Delete a Slack workspace.
+   * @route DELETE /api/v1/sme/slack/workspaces/{workspace_id}
+   */
+  async deleteSlackWorkspace(workspaceId: string): Promise<void> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/sme/slack/workspaces/${encodeURIComponent(workspaceId)}`
+    ) as Promise<void>;
+  }
+
+  /**
+   * Get channels for a Slack workspace.
+   * @route GET /api/v1/sme/slack/workspaces/{workspace_id}/channels
+   */
+  async getSlackWorkspaceChannels(workspaceId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/sme/slack/workspaces/${encodeURIComponent(workspaceId)}/channels`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Test a Slack workspace connection.
+   * @route POST /api/v1/sme/slack/workspaces/{workspace_id}/test
+   */
+  async testSlackWorkspace(workspaceId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/sme/slack/workspaces/${encodeURIComponent(workspaceId)}/test`
+    ) as Promise<Record<string, unknown>>;
   }
 }

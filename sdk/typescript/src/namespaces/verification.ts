@@ -2,15 +2,52 @@
  * Verification Namespace API
  *
  * Provides a namespaced interface for claim and debate verification operations.
- * This wraps the flat client methods for a more intuitive API.
  */
 
-import type {
-  VerificationResult,
-  VerificationStatus,
-  VerificationReport,
-  VerifyClaimRequest,
-} from '../types';
+import type { AragoraClient } from '../client';
+
+/**
+ * Verification result.
+ */
+export interface VerificationResult {
+  verified: boolean;
+  confidence: number;
+  evidence?: Array<{ source: string; relevance: number; excerpt: string }>;
+  counterfactuals?: Array<{ claim: string; likelihood: number }>;
+}
+
+/**
+ * Verification status.
+ */
+export interface VerificationStatus {
+  available: boolean;
+  backends: string[];
+  last_check?: string;
+}
+
+/**
+ * Verification report.
+ */
+export interface VerificationReport {
+  debate_id: string;
+  verified_claims: number;
+  unverified_claims: number;
+  confidence_score: number;
+  details: Array<{
+    claim: string;
+    verified: boolean;
+    confidence: number;
+  }>;
+}
+
+/**
+ * Verify claim request.
+ */
+export interface VerifyClaimRequest {
+  claim: string;
+  context?: string;
+  sources?: string[];
+}
 
 /**
  * Options for debate conclusion verification.
@@ -25,75 +62,30 @@ export interface DebateConclusionVerifyOptions {
 }
 
 /**
- * Interface for the internal client methods used by VerificationAPI.
- */
-interface VerificationClientInterface {
-  verifyClaim(request: VerifyClaimRequest): Promise<VerificationResult>;
-  getVerificationStatus(): Promise<VerificationStatus>;
-  verifyDebateConclusion(debateId: string, options?: DebateConclusionVerifyOptions): Promise<VerificationResult>;
-  getVerificationReport(debateId: string): Promise<VerificationReport>;
-}
-
-/**
  * Verification API namespace.
  *
  * Provides methods for verifying claims and debate conclusions:
  * - Independent claim verification
- * - Debate conclusion verification
- * - Verification reports
  * - System verification status
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
- *
- * // Verify a claim
- * const result = await client.verification.verifyClaim({
- *   claim: 'The Earth is approximately 4.5 billion years old',
- *   context: 'Geological science',
- * });
- *
- * // Verify debate conclusion
- * const verified = await client.verification.verifyConclusion(debateId, {
- *   include_evidence: true,
- *   depth: 'deep',
- * });
- *
- * // Get verification report for a debate
- * const report = await client.verification.getReport(debateId);
- * ```
  */
 export class VerificationAPI {
-  constructor(private client: VerificationClientInterface) {}
+  constructor(private client: AragoraClient) {}
 
   /**
-   * Verify a claim independently.
+   * Get verification system status.
+   * @route GET /api/v1/verification/status
    */
-  async verifyClaim(request: VerifyClaimRequest): Promise<VerificationResult> {
-    return this.client.verifyClaim(request);
+  async getStatus(): Promise<VerificationStatus> {
+    return this.client.request('GET', '/api/v1/verification/status') as Promise<VerificationStatus>;
   }
 
   /**
-   * Get the current verification system status.
+   * Formally verify a claim.
+   * @route POST /api/v1/verification/formal-verify
    */
-  async status(): Promise<VerificationStatus> {
-    return this.client.getVerificationStatus();
-  }
-
-  /**
-   * Verify a debate's conclusion.
-   */
-  async verifyConclusion(
-    debateId: string,
-    options?: DebateConclusionVerifyOptions
-  ): Promise<VerificationResult> {
-    return this.client.verifyDebateConclusion(debateId, options);
-  }
-
-  /**
-   * Get the verification report for a debate.
-   */
-  async getReport(debateId: string): Promise<VerificationReport> {
-    return this.client.getVerificationReport(debateId);
+  async formalVerify(request: VerifyClaimRequest): Promise<VerificationResult> {
+    return this.client.request('POST', '/api/v1/verification/formal-verify', {
+      body: request,
+    }) as Promise<VerificationResult>;
   }
 }
