@@ -497,16 +497,21 @@ class TestCapabilityProbe:
     @pytest.mark.no_auto_auth
     def test_capability_probe_requires_permission(self, auditing_handler):
         """Test capability probe requires admin:audit permission."""
+        from aragora.rbac.models import AuthorizationContext
+
         mock_handler = MockHandler(body={"agent_name": "test-agent"})
+        # Attach a member context (no admin:audit permission) so the decorator finds it
+        mock_handler._auth_context = AuthorizationContext(
+            user_id="user_1",
+            roles={"member"},
+            permissions={"debates:read"},  # No admin:audit
+        )
 
-        with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
-            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                # Member role lacks admin:audit permission
-                mock_extract.return_value = self.make_auth_context("user_1", "member")
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
-                result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
-
-                assert result.status_code == 403
+            assert result.status_code == 403
 
     def test_capability_probe_prober_unavailable(self, auditing_handler):
         """Test capability probe returns 503 when prober unavailable."""
@@ -587,11 +592,17 @@ class TestDeepAudit:
     @pytest.mark.no_auto_auth
     def test_deep_audit_requires_permission(self, auditing_handler):
         """Test deep audit requires admin:audit permission."""
+        from aragora.rbac.models import AuthorizationContext
+
         mock_handler = MockHandler(body={"task": "Test task"})
+        mock_handler._auth_context = AuthorizationContext(
+            user_id="user_1",
+            roles={"member"},
+            permissions={"debates:read"},
+        )
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = self.make_auth_context("user_1", "member")
-
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
             result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
             assert result.status_code == 403
@@ -645,11 +656,17 @@ class TestRedTeamAnalysis:
     @pytest.mark.no_auto_auth
     def test_red_team_requires_permission(self, auditing_handler):
         """Test red team analysis requires admin:audit permission."""
+        from aragora.rbac.models import AuthorizationContext
+
         mock_handler = MockHandler(body={})
+        mock_handler._auth_context = AuthorizationContext(
+            user_id="user_1",
+            roles={"member"},
+            permissions={"debates:read"},
+        )
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_extract.return_value = self.make_auth_context("user_1", "member")
-
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
             result = auditing_handler.handle(
                 "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
             )
@@ -806,7 +823,9 @@ class TestUnauthorized:
         """
         mock_handler = MockHandler(body={"agent_name": "test"})
 
-        result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
         assert result.status_code == 403
 
@@ -814,7 +833,9 @@ class TestUnauthorized:
         """Test deep audit rejects unauthenticated requests."""
         mock_handler = MockHandler(body={"task": "Test"})
 
-        result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
         assert result.status_code == 403
 
@@ -822,6 +843,8 @@ class TestUnauthorized:
         """Test red team rejects unauthenticated requests."""
         mock_handler = MockHandler(body={})
 
-        result = auditing_handler.handle("/api/v1/debates/test-debate-1/red-team", {}, mock_handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            result = auditing_handler.handle("/api/v1/debates/test-debate-1/red-team", {}, mock_handler)
 
         assert result.status_code == 403

@@ -2204,7 +2204,7 @@ class TestErrorHandling:
     async def test_redis_timeout_raises_connection_timeout_error(self, sample_checkpoint):
         """Redis timeout error is wrapped in ConnectionTimeoutError."""
 
-        class RedisTimeoutError(Exception):
+        class RedisTimeoutError(TimeoutError):
             pass
 
         mock_redis = MagicMock()

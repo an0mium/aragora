@@ -1215,7 +1215,7 @@ class TestErrorHandling:
             store._redis = mock_redis
 
             # Simulate timeout
-            mock_redis.setex.side_effect = type("TimeoutError", (Exception,), {})("timeout")
+            mock_redis.setex.side_effect = TimeoutError("timeout")
 
             checkpoint = WorkflowCheckpoint(
                 id="cp-timeout",

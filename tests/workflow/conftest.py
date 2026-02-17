@@ -50,7 +50,7 @@ class MockWorkflowStep:
     async def execute(self, context: WorkflowContext) -> Any:
         # Check if we should fail (from config)
         if self._config.get("should_fail"):
-            raise Exception("Mock step failure")
+            raise RuntimeError("Mock step failure")
 
         # Check for delay
         delay = self._config.get("delay_seconds", 0.0)
@@ -144,7 +144,7 @@ class FailingWorkflowStep:
         return self._name
 
     async def execute(self, context: WorkflowContext) -> Any:
-        raise Exception("Mock step failure")
+        raise RuntimeError("Mock step failure")
 
 
 class SlowWorkflowStep:

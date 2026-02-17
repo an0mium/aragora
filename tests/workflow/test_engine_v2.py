@@ -622,7 +622,7 @@ class TestMetricsCallback:
         """Test that errors in metrics callback don't break execution."""
 
         def failing_callback(metrics: dict[str, Any]) -> None:
-            raise Exception("Callback error")
+            raise RuntimeError("Callback error")
 
         engine = EnhancedWorkflowEngine(
             config=workflow_config,
