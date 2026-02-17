@@ -236,19 +236,34 @@ class ActiveIntrospectionTracker:
     def update_round(
         self,
         agent_name: str,
-        round_num: int,
-        metrics: RoundMetrics,
+        round_num: int | RoundMetrics,
+        metrics: RoundMetrics | None = None,
     ) -> None:
         """Record metrics for a completed round.
 
         Creates the agent summary if it does not exist yet.
         Metrics are accumulated into the running totals.
 
+        Supports two calling conventions::
+
+            tracker.update_round("claude", 1, metrics)  # explicit round_num
+            tracker.update_round("claude", metrics)      # round_num from metrics
+
         Args:
             agent_name: Name of the agent
-            round_num: Round number (1-indexed)
-            metrics: Metrics for this round
+            round_num: Round number (1-indexed) or RoundMetrics when called
+                with two positional args
+            metrics: Metrics for this round (optional when round_num is
+                a RoundMetrics instance)
         """
+        # Support 2-arg form: update_round(agent, metrics)
+        if isinstance(round_num, RoundMetrics):
+            metrics = round_num
+            round_num = metrics.round_number
+
+        if metrics is None:
+            raise TypeError("metrics must be provided")
+
         if agent_name not in self._summaries:
             self._summaries[agent_name] = AgentPerformanceSummary(
                 agent_name=agent_name
@@ -288,6 +303,32 @@ class ActiveIntrospectionTracker:
             metrics.critiques_given,
             metrics.argument_influence,
         )
+
+        # Emit introspection event
+        self._emit_introspection_event(agent_name, round_num, summary)
+
+    def _emit_introspection_event(
+        self, agent_name: str, round_num: int, summary: AgentPerformanceSummary
+    ) -> None:
+        """Emit an introspection update event after each round."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "agent_introspection_update",
+                {
+                    "agent": agent_name,
+                    "round": round_num,
+                    "rounds_completed": summary.rounds_completed,
+                    "acceptance_rate": round(summary.proposal_acceptance_rate, 4),
+                    "critique_effectiveness": round(summary.critique_effectiveness, 4),
+                    "average_influence": round(summary.average_influence, 4),
+                    "total_proposals": summary.total_proposals,
+                    "total_critiques": summary.total_critiques,
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Introspection event emission unavailable: %s", e)
 
     def get_summary(self, agent_name: str) -> AgentPerformanceSummary | None:
         """Get the accumulated performance summary for an agent.

@@ -250,6 +250,7 @@ class ComplianceMonitor:
 
         # Store status
         self._last_status = status
+        self._emit_compliance_status_event(status)
         self._status_history.append(status)
         if len(self._status_history) > 1000:
             self._status_history = self._status_history[-500:]
@@ -468,6 +469,31 @@ class ComplianceMonitor:
                     message=f"Compliance score dropped to {status.overall_score:.1f}% (threshold: {self.config.critical_score_threshold}%)",
                     data={"score": status.overall_score},
                 )
+
+    def _emit_compliance_status_event(self, status: ComplianceStatus) -> None:
+        """Emit a compliance status event to the events dispatcher."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "compliance_status_updated",
+                {
+                    "overall_health": status.overall_health.value,
+                    "overall_score": round(status.overall_score, 2),
+                    "open_violations": status.open_violations,
+                    "trend": status.trend.value if hasattr(status.trend, 'value') else str(status.trend),
+                    "frameworks": {
+                        name: {
+                            "health": fs.health.value if hasattr(fs.health, 'value') else str(getattr(fs, 'health', 'unknown')),
+                            "score": getattr(fs, 'score', 0),
+                            "critical": getattr(fs, 'critical_violations', 0),
+                        }
+                        for name, fs in status.frameworks.items()
+                    } if status.frameworks else {},
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Compliance event emission unavailable: %s", e)
 
     def _emit_compliance_event(self, alert_type: str, severity: str, data: dict[str, Any]) -> None:
         """Emit a COMPLIANCE_FINDING event if an emitter is available."""

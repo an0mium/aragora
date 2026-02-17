@@ -282,6 +282,40 @@ class RelationshipTracker:
             )
             conn.commit()
 
+        # Emit relationship event
+        try:
+            raw = self.get_raw(agent_a, agent_b)
+            if raw:
+                rel = AgentRelationship.from_stats(raw)
+                self._emit_relationship_event(agent_a, agent_b, rel)
+        except (RuntimeError, ValueError, TypeError) as e:
+            logger.debug("Failed to emit relationship event: %s", e)
+
+    def _emit_relationship_event(self, agent_a: str, agent_b: str, relationship: AgentRelationship) -> None:
+        """Emit a relationship update event."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "relationship_updated",
+                {
+                    "agent_a": agent_a,
+                    "agent_b": agent_b,
+                    "debate_count": relationship.debate_count,
+                    "rivalry_score": round(relationship.rivalry_score, 4),
+                    "alliance_score": round(relationship.alliance_score, 4),
+                    "relationship_type": (
+                        "rival" if relationship.rivalry_score > 0.5
+                        else "ally" if relationship.alliance_score > 0.5
+                        else "neutral"
+                    ),
+                    "influence_a_on_b": round(relationship.influence_a_on_b, 4),
+                    "influence_b_on_a": round(relationship.influence_b_on_a, 4),
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Relationship event emission unavailable: %s", e)
+
     def update_batch(self, updates: list[dict]) -> None:
         """
         Batch update multiple agent relationships in a single transaction.

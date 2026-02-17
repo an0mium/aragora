@@ -50,6 +50,11 @@ class TestImports:
             "IntrospectionCache",
             "get_agent_introspection",
             "format_introspection_section",
+            # Active introspection
+            "ActiveIntrospectionTracker",
+            "MetaReasoningEngine",
+            "IntrospectionGoals",
+            "RoundMetrics",
         }
         assert expected == set(mod.__all__)
 

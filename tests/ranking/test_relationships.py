@@ -299,9 +299,9 @@ class TestRelationshipTracker:
             tracker = RelationshipTracker("/path/to/db")
             tracker.update_relationship("claude", "gpt", debate_increment=1, a_win=1)
 
-            mock_cursor.execute.assert_called_once()
-            # Should have called with INSERT OR UPDATE
-            sql = mock_cursor.execute.call_args[0][0]
+            assert mock_cursor.execute.call_count >= 1
+            # First call should be INSERT OR UPDATE
+            sql = mock_cursor.execute.call_args_list[0][0][0]
             assert "INSERT INTO agent_relationships" in sql
 
     def test_update_relationship_canonical_ordering(self, mock_db):
