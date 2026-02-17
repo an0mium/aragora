@@ -322,7 +322,8 @@ class TestMemoryCoordinationEmission:
             ),
         )
 
-    def test_memory_coordination_emitted_on_success(self, coordinator_with_continuum):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_emitted_on_success(self, coordinator_with_continuum):
         """dispatch_event should be called when transaction succeeds."""
         ctx = _FakeDebateContext(agents=[_FakeAgent("a1")])
 
@@ -331,9 +332,7 @@ class TestMemoryCoordinationEmission:
             "aragora.events.dispatcher.dispatch_event",
             mock_dispatch,
         ):
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator_with_continuum.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator_with_continuum.commit_debate_outcome(ctx)
 
         assert transaction.success
         mock_dispatch.assert_called_once()
@@ -346,7 +345,8 @@ class TestMemoryCoordinationEmission:
         assert data["operations_count"] == len(transaction.operations)
         assert "skipped_count" in data
 
-    def test_memory_coordination_not_emitted_on_failure(self):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_not_emitted_on_failure(self):
         """No event should be emitted when all operations fail."""
         from aragora.memory.coordinator import CoordinatorOptions, MemoryCoordinator
 
@@ -373,26 +373,24 @@ class TestMemoryCoordinationEmission:
             "aragora.events.dispatcher.dispatch_event",
             mock_dispatch,
         ):
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator.commit_debate_outcome(ctx)
 
         assert not transaction.success
         mock_dispatch.assert_not_called()
 
-    def test_memory_coordination_graceful_on_import_error(self, coordinator_with_continuum):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_graceful_on_import_error(self, coordinator_with_continuum):
         """ImportError during event emission should not break commit_debate_outcome."""
         ctx = _FakeDebateContext(agents=[_FakeAgent("a1")])
 
         with patch.dict("sys.modules", {"aragora.events.dispatcher": None}):
             # Should not raise
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator_with_continuum.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator_with_continuum.commit_debate_outcome(ctx)
 
         assert transaction.success
 
-    def test_memory_coordination_graceful_on_runtime_error(self, coordinator_with_continuum):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_graceful_on_runtime_error(self, coordinator_with_continuum):
         """RuntimeError during event emission should not break commit_debate_outcome."""
         ctx = _FakeDebateContext(agents=[_FakeAgent("a1")])
 
@@ -402,13 +400,12 @@ class TestMemoryCoordinationEmission:
             mock_dispatch,
         ):
             # Should not raise
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator_with_continuum.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator_with_continuum.commit_debate_outcome(ctx)
 
         assert transaction.success
 
-    def test_memory_coordination_skipped_count_reported(self):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_skipped_count_reported(self):
         """The skipped_count should reflect operations skipped due to thresholds."""
         from aragora.memory.coordinator import CoordinatorOptions, MemoryCoordinator
 
@@ -436,9 +433,7 @@ class TestMemoryCoordinationEmission:
             "aragora.events.dispatcher.dispatch_event",
             mock_dispatch,
         ):
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator.commit_debate_outcome(ctx)
 
         assert transaction.success
         mock_dispatch.assert_called_once()
@@ -446,7 +441,8 @@ class TestMemoryCoordinationEmission:
         # Mound write should be skipped (confidence 0.85 < 0.99 threshold)
         assert data["skipped_count"] == 1
 
-    def test_memory_coordination_no_result_no_emission(self, coordinator_with_continuum):
+    @pytest.mark.asyncio
+    async def test_memory_coordination_no_result_no_emission(self, coordinator_with_continuum):
         """When context has no result, no operations or events should occur."""
         ctx = _FakeDebateContext(result=None)
 
@@ -455,9 +451,7 @@ class TestMemoryCoordinationEmission:
             "aragora.events.dispatcher.dispatch_event",
             mock_dispatch,
         ):
-            transaction = asyncio.get_event_loop().run_until_complete(
-                coordinator_with_continuum.commit_debate_outcome(ctx)
-            )
+            transaction = await coordinator_with_continuum.commit_debate_outcome(ctx)
 
         # No operations means no success branch (transaction has 0 ops, so success is True vacuously)
         # But the method returns early before executing anything
