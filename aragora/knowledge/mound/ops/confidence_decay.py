@@ -135,6 +135,12 @@ class DecayConfig:
         }
     )
 
+    # Surprise-modulated decay (Titans-inspired)
+    enable_surprise_modulated_decay: bool = False  # Opt-in
+    surprise_decay_strength: float = 2.0  # How strongly surprise affects half-life
+    min_half_life_ratio: float = 0.25  # Floor: half_life >= base * 0.25
+    max_half_life_ratio: float = 3.0  # Ceiling: half_life <= base * 3.0
+
 
 @dataclass
 class DecayReport:
@@ -173,11 +179,52 @@ class ConfidenceDecayManager:
         self._last_decay_run: dict[str, datetime] = {}
         self._lock = asyncio.Lock()
 
+    def calculate_dynamic_half_life(
+        self,
+        base_half_life: float,
+        item_surprise: float,
+        tier_pressure: float = 0.0,
+    ) -> float:
+        """Modulate half-life based on Titans-inspired surprise signal.
+
+        High surprise -> longer half-life (preserve novel knowledge)
+        Low surprise + high tier pressure -> shorter half-life (forget faster)
+
+        Args:
+            base_half_life: The base (domain/default) half-life in days.
+            item_surprise: Surprise score in [0, 1].
+            tier_pressure: Memory tier pressure in [0, 1]. 0 = no pressure,
+                1 = tier is full and urgently needs to forget.
+
+        Returns:
+            Dynamically adjusted half-life in days, clamped to
+            [base * min_ratio, base * max_ratio].
+        """
+        strength = self.config.surprise_decay_strength
+
+        # surprise=0.5 → factor=1.0 (no change)
+        # surprise=1.0 → factor=2.0 (double half-life)
+        # surprise=0.0 → factor=0.0 (minimum half-life)
+        factor = 1.0 + (item_surprise - 0.5) * strength
+
+        # Tier pressure accelerates forgetting for low-surprise items
+        # High-surprise items resist pressure
+        pressure_factor = 1.0 - (tier_pressure * 0.5 * (1.0 - item_surprise))
+
+        dynamic = base_half_life * factor * pressure_factor
+
+        # Clamp
+        floor = base_half_life * self.config.min_half_life_ratio
+        ceiling = base_half_life * self.config.max_half_life_ratio
+        return max(floor, min(ceiling, dynamic))
+
     def calculate_decay(
         self,
         current_confidence: float,
         age_days: float,
         domain: str | None = None,
+        surprise_score: float | None = None,
+        tier_pressure: float = 0.0,
     ) -> float:
         """Calculate decayed confidence based on age.
 
@@ -185,12 +232,23 @@ class ConfidenceDecayManager:
             current_confidence: Current confidence level (0-1)
             age_days: Age of the knowledge item in days
             domain: Optional domain for domain-specific decay
+            surprise_score: Optional surprise score for dynamic half-life
+            tier_pressure: Memory tier pressure for dynamic half-life
 
         Returns:
             New confidence level after decay
         """
         # Get half-life for domain
         half_life = self.config.domain_half_lives.get(domain or "", self.config.half_life_days)
+
+        # Apply surprise modulation if enabled and score provided
+        if (
+            self.config.enable_surprise_modulated_decay
+            and surprise_score is not None
+        ):
+            half_life = self.calculate_dynamic_half_life(
+                half_life, surprise_score, tier_pressure
+            )
 
         if self.config.model == DecayModel.EXPONENTIAL:
             # Exponential decay: C(t) = C0 * (0.5)^(t/half_life)

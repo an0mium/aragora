@@ -24,15 +24,15 @@ HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
 
 # -- Endpoint extraction patterns --
 
-# Python: self._client._request("METHOD", "/api/...")
+# Python: self._client.request("METHOD", "/api/...") or self._client._request(...)
 PY_REQUEST_RE = re.compile(
-    r'self\._client\._request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
+    r'self\._client\._?request\(\s*["\'](?P<method>GET|POST|PUT|PATCH|DELETE)["\']'
     r'\s*,\s*(?:f?["\'])(?P<path>/api/[^"\']+)["\']'
 )
 
-# TypeScript: this.client.request('METHOD', `path`)
+# TypeScript: this.client.request('METHOD', `path`) or this.client.request<Type>('METHOD', `path`)
 TS_REQUEST_RE = re.compile(
-    r"this\.client\.request\(\s*['\"](?P<method>[A-Z]+)['\"]\s*,"
+    r"this\.client\.request(?:<[^(]+>)?\(\s*['\"](?P<method>[A-Z]+)['\"]\s*,"
     r"\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")"
 )
 # TypeScript: this.client.get(`path`)

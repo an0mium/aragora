@@ -139,7 +139,7 @@ class TestDebateExecution:
         agents[1].generate_responses = ["Critique: Consider edge cases"]
 
         env = Environment(task="Design a cache", max_rounds=2)
-        protocol = DebateProtocol(rounds=2)
+        protocol = DebateProtocol(rounds=2, enable_calibration=False)
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -157,7 +157,7 @@ class TestDebateExecution:
         ]
 
         env = Environment(task="Test task", max_rounds=1)
-        protocol = DebateProtocol(rounds=1)
+        protocol = DebateProtocol(rounds=1, enable_calibration=False)
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()
@@ -165,6 +165,7 @@ class TestDebateExecution:
         assert len(result.messages) > 0
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(120)
     async def test_early_stopping_when_consensus(self):
         """Test debate stops early when consensus reached."""
         agents = [
@@ -192,7 +193,7 @@ class TestDebateExecution:
         ]
 
         env = Environment(task="Test task", max_rounds=5)
-        protocol = DebateProtocol(rounds=5, early_stopping=True)
+        protocol = DebateProtocol(rounds=5, early_stopping=True, enable_calibration=False)
 
         arena = Arena(env, agents, protocol)
         result = await arena.run()

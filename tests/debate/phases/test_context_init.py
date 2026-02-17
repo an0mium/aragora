@@ -845,7 +845,8 @@ class TestInjectHistoricalDissents:
         init = ContextInitializer(dissent_retriever=dissent_retriever)
 
         # Should not raise
-        init._inject_historical_dissents(ctx)
+        with patch("aragora.debate.phases.context_init.ContextInitializer._inject_epistemic_priors"):
+            init._inject_historical_dissents(ctx)
         assert ctx.env.context == ""
 
 

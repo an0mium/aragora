@@ -2677,6 +2677,10 @@ The codebase is **feature-rich with improving exposure**:
 - Genesis API exposes evolution/lineage tracking
 - Introspection API enables agent self-awareness
 - Surprise-based ContinuumMemory learning now connected
+- Live Explainability wired into Arena via `enable_live_explainability` (EventBus → factor tracking → metadata)
+- Active Introspection wired into Arena via `enable_introspection` (per-round proposals/critiques/influence tracking)
+- Argument Structure Verification wired into PostDebateCoordinator via `auto_verify_arguments`
+- Outcome Feedback Bridge wired into PostDebateCoordinator via `auto_outcome_feedback` (systematic error → Nomic goals)
 
 **Key Insight**: Continuing to expose hidden features via REST APIs increases system utility without new core logic.
 

@@ -474,6 +474,11 @@ class TestGauntletRBACPermissions:
 class TestGauntletProductizationIntegration:
     """Integration tests for productization features."""
 
+    @pytest.fixture(autouse=True)
+    def clean_signing_env(self, monkeypatch):
+        """Prevent env pollution from other tests affecting signing key."""
+        monkeypatch.delenv("ARAGORA_RECEIPT_SIGNING_KEY", raising=False)
+
     def test_error_codes_are_serializable(self):
         """Error responses should be JSON-serializable."""
         from aragora.gauntlet.errors import gauntlet_error_response

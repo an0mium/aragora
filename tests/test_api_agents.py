@@ -484,13 +484,11 @@ class TestOpenRouterRateLimiter:
             "X-RateLimit-Reset": "bad_timestamp",
         }
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.DEBUG, logger="aragora.shared.rate_limiting.token_bucket"):
             limiter.update_from_headers(headers)
 
-        # Should log warnings for each invalid header
-        assert "Failed to parse X-RateLimit-Limit" in caplog.text
-        assert "Failed to parse X-RateLimit-Remaining" in caplog.text
-        assert "Failed to parse X-RateLimit-Reset" in caplog.text
+        # Should log debug messages about parse failures
+        assert "Failed to parse numeric value" in caplog.text
 
         # Stats should not be updated with invalid values
         stats = limiter.stats
@@ -510,15 +508,15 @@ class TestOpenRouterRateLimiter:
             "X-RateLimit-Remaining": "invalid",  # Invalid
         }
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.DEBUG, logger="aragora.shared.rate_limiting.token_bucket"):
             limiter.update_from_headers(headers)
 
         # Valid should be updated
         stats = limiter.stats
         assert stats["api_limit"] == 100
 
-        # Invalid should log warning
-        assert "Failed to parse X-RateLimit-Remaining" in caplog.text
+        # Invalid should log debug message about parse failure
+        assert "Failed to parse numeric value" in caplog.text
 
     def test_global_limiter_singleton(self):
         """Test global rate limiter is a singleton."""

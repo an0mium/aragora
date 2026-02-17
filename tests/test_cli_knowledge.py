@@ -60,13 +60,13 @@ class TestCmdFacts:
         captured = capsys.readouterr()
         assert "fact_id required" in captured.out.lower()
 
-    def test_facts_verify_not_implemented(self, capsys):
-        """cmd_facts verify is not implemented."""
+    def test_facts_verify_requires_fact_id(self, capsys):
+        """cmd_facts verify requires fact_id."""
         from aragora.cli.knowledge import cmd_facts
 
         args = argparse.Namespace(
             action="verify",
-            fact_id="test-fact-id",
+            fact_id=None,
             workspace="default",
             topic=None,
             status=None,
@@ -84,6 +84,8 @@ class TestCmdFacts:
             result = cmd_facts(args)
 
         assert result == 1
+        captured = capsys.readouterr()
+        assert "fact_id required" in captured.out
 
 
 class TestCmdJobs:

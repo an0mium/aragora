@@ -51,9 +51,15 @@ class TestCSPModes:
         assert "'unsafe-inline'" in csp
         assert "'unsafe-eval'" in csp
 
-    def test_csp_disabled_by_default(self):
-        """CSP should be disabled by default."""
+    def test_csp_enabled_by_default(self):
+        """CSP should be enabled by default."""
         headers = get_security_headers()
+
+        assert CSP_HEADER in headers
+
+    def test_csp_disabled_when_requested(self):
+        """CSP should be excluded when explicitly disabled."""
+        headers = get_security_headers(enable_csp=False)
 
         assert CSP_HEADER not in headers
 

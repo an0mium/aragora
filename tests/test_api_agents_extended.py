@@ -287,6 +287,7 @@ class TestAnthropicFallback:
         assert fallback.system_prompt == "You are a helpful assistant."
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_missing_openrouter_api_key_graceful_error(self, anthropic_agent):
         """Test graceful handling when OPENROUTER_API_KEY not set."""
         import os

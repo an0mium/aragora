@@ -258,6 +258,11 @@ class TestRedirectUrlValidation:
         """Prevent env pollution from other tests affecting OAuth config."""
         monkeypatch.delenv("OAUTH_ALLOWED_REDIRECT_HOSTS", raising=False)
         monkeypatch.delenv("ARAGORA_ENV", raising=False)
+        # Reset SecretManager to clear any cached secrets from prior tests
+        from aragora.config.secrets import reset_secret_manager
+        reset_secret_manager()
+        yield
+        reset_secret_manager()
 
     def test_allows_localhost(self):
         """Allows localhost redirects for development."""

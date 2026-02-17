@@ -14,6 +14,7 @@ SLOs are defined in tests/slo_config.py and docs/PERFORMANCE_TARGETS.md.
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
 from unittest.mock import patch, AsyncMock
 
@@ -504,9 +505,10 @@ class TestPerformanceBaselines:
         import subprocess
 
         # Measure import time in subprocess for clean measurement
+        # Use sys.executable to ensure same Python interpreter is used
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-c",
                 "import time; start=time.perf_counter(); import aragora; print(time.perf_counter()-start)",
             ],
@@ -522,8 +524,7 @@ class TestPerformanceBaselines:
                 f"Import took {elapsed:.2f}s (target: <{SLO.STARTUP['import_max_sec']}s)"
             )
         else:
-            # If subprocess fails, skip test rather than fail
-            pytest.skip(f"Subprocess import failed: {result.stderr}")
+            pytest.fail(f"Subprocess import failed: {result.stderr}")
 
     @pytest.mark.asyncio
     async def test_agent_generation_overhead(self):
@@ -788,9 +789,10 @@ class TestBenchmarks:
         import subprocess
 
         def import_aragora():
+            # Use sys.executable to ensure same Python interpreter is used
             proc = subprocess.run(
                 [
-                    "python",
+                    sys.executable,
                     "-c",
                     "import time; s=time.perf_counter(); import aragora; "
                     "print(time.perf_counter()-s)",
@@ -800,11 +802,9 @@ class TestBenchmarks:
                 timeout=10,
             )
             if proc.returncode != 0:
-                return -1.0
+                pytest.fail(f"Subprocess import failed: {proc.stderr}")
             return float(proc.stdout.strip())
 
         elapsed = benchmark.pedantic(import_aragora, rounds=10, iterations=1)
-        if elapsed < 0:
-            pytest.skip("Subprocess import failed")
         # Sanity: import should complete in under 5 seconds
         assert elapsed < 5.0, f"Import took {elapsed:.2f}s (target: < 5s)"

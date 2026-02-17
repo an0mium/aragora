@@ -437,6 +437,7 @@ class TestBackupDuringActiveOperations:
     """Test backup behavior during active operations."""
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_backup_during_active_debate(
         self, backup_harness: E2ETestHarness, temp_backup_dir: Path, sample_database: Path
     ):

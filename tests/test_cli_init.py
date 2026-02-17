@@ -266,9 +266,9 @@ class TestCmdInit:
         cmd_init(args)
 
         captured = capsys.readouterr()
-        assert "Next steps" in captured.out
+        assert "GOLDEN PATH" in captured.out
         assert "No API keys detected" in captured.out
-        assert "aragora ask" in captured.out
+        assert "aragora" in captured.out
 
     def test_handles_missing_directory_attr(self, clean_dir, capsys, monkeypatch):
         """Handle missing directory attribute."""

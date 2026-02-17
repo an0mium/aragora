@@ -9,6 +9,13 @@ import pytest
 from aragora.cli.gauntlet import cmd_gauntlet, create_gauntlet_parser, parse_agents
 
 
+@pytest.fixture(autouse=True)
+def _force_local_mode():
+    """Prevent cmd_gauntlet from detecting a running server and switching to API mode."""
+    with patch("aragora.cli.gauntlet._is_server_available", return_value=False):
+        yield
+
+
 class TestParseAgents:
     """Tests for parse_agents function.
 

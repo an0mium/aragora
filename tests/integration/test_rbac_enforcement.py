@@ -19,11 +19,11 @@ from aragora.server.handlers.base import error_response, json_response
 
 @pytest.fixture(autouse=True)
 def clear_permission_cache():
-    """Clear the permission checker cache before each test."""
-    checker = get_permission_checker()
-    checker.clear_cache()
+    """Reset permission checker to a fresh instance for test isolation."""
+    from aragora.rbac.checker import set_permission_checker, PermissionChecker
+    set_permission_checker(PermissionChecker())
     yield
-    checker.clear_cache()
+    set_permission_checker(PermissionChecker())
 
 
 class TestKnowledgeMoundRBACEnforcement:

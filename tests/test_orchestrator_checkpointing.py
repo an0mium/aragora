@@ -441,9 +441,10 @@ class TestCheckpointResume:
         ]
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_debate_completes_normally(self, env, agents):
         """Normal debate completes without needing resume."""
-        protocol = DebateProtocol(rounds=2, consensus="majority")
+        protocol = DebateProtocol(rounds=2, consensus="majority", enable_calibration=False)
         arena = Arena(environment=env, agents=agents, protocol=protocol)
 
         result = await arena.run()

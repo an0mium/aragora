@@ -56,6 +56,15 @@ def parse_handler_result(result: HandlerResult) -> tuple[dict, int]:
 # ============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_batch_store():
+    """Reset batch store singleton between tests to prevent cross-test pollution."""
+    from aragora.server.handlers.explainability_store import reset_batch_job_store
+    reset_batch_job_store()
+    yield
+    reset_batch_job_store()
+
+
 @pytest.fixture
 def handler():
     """Create a fresh handler instance for each test."""

@@ -7,6 +7,7 @@ Tests cover the new Knowledge Mound features:
 - Federation operations (region sync)
 """
 
+import asyncio
 import json
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,6 +15,73 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
+
+
+@pytest.fixture(autouse=True)
+def _reset_knowledge_limiter():
+    """Reset the module-level _knowledge_limiter between tests.
+
+    The ``_knowledge_limiter`` in ``handler.py`` is a standalone
+    ``RateLimiter`` instance (not registered in the global ``_limiters``
+    dict).  The handler-conftest ``_reset_rate_limiters`` fixture only
+    clears limiters created via ``_get_limiter()``, so this one can
+    accumulate requests across tests causing 429 responses when many
+    handler tests share the ``127.0.0.1`` client IP.
+    """
+    try:
+        import aragora.server.handlers.knowledge_base.mound.handler as _mound_handler_mod
+
+        _mound_handler_mod._knowledge_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+    yield
+    try:
+        import aragora.server.handlers.knowledge_base.mound.handler as _mound_handler_mod
+
+        _mound_handler_mod._knowledge_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _ensure_clean_run_async():
+    """Ensure ``_run_async`` in sharing/handler modules is the real function.
+
+    Prior tests can pollute module-level ``_run_async`` references via leaked
+    mocks or module reloads.  The handler-conftest ``_restore_module_level_functions``
+    fixture covers *most* modules, but edge cases (e.g. the coroutine bridge
+    failing under a stale event loop) can still cause ``RuntimeError`` or
+    ``TypeError`` inside ``_run_async``, which the handler catches as a 500.
+
+    This fixture patches ``_run_async`` in the sharing and handler modules with
+    a minimal synchronous bridge that creates a fresh event loop, ensuring tests
+    are independent of external event-loop state.
+    """
+    def _safe_run_async(coro):
+        """Run a coroutine synchronously in a fresh event loop."""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    patches = []
+    for mod_path in (
+        "aragora.server.handlers.knowledge_base.mound.sharing._run_async",
+        "aragora.server.handlers.knowledge_base.mound.handler._run_async",
+        "aragora.server.handlers.knowledge_base.mound.routing._run_async",
+    ):
+        try:
+            p = patch(mod_path, side_effect=_safe_run_async)
+            p.start()
+            patches.append(p)
+        except (ImportError, AttributeError):
+            pass
+
+    yield
+
+    for p in patches:
+        p.stop()
 
 
 @pytest.fixture

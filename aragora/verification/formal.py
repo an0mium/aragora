@@ -1022,6 +1022,10 @@ class Z3Backend:
         except (RuntimeError, ValueError, TypeError) as e:
             logger.debug(f"SMT-LIB2 validation failed: {type(e).__name__}: {e}")
             return False
+        except Exception as e:
+            # Z3Exception and other Z3-specific errors
+            logger.debug(f"SMT-LIB2 validation failed (Z3 error): {type(e).__name__}: {e}")
+            return False
 
     def _simple_translate(self, claim: str) -> str | None:
         """

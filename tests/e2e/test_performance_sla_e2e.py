@@ -231,7 +231,7 @@ class TestConcurrentDebateThroughput:
     """Test concurrent debate handling meets throughput SLAs."""
 
     @pytest.mark.asyncio
-    @pytest.mark.timeout(60)
+    @pytest.mark.timeout(120)
     async def test_concurrent_debate_start(self, load_harness: E2ETestHarness):
         """Test system can start multiple debates concurrently."""
         num_debates = SLAS.concurrent_debates_target

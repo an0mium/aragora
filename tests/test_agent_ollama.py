@@ -333,9 +333,11 @@ class TestOllamaGenerateStream:
             for line in stream_lines:
                 yield line
 
+        mock_content = MagicMock()
+        mock_content.iter_any = MagicMock(return_value=mock_content_iter())
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.content = mock_content_iter()
+        mock_response.content = mock_content
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -366,9 +368,11 @@ class TestOllamaGenerateStream:
             for line in stream_lines:
                 yield line
 
+        mock_content = MagicMock()
+        mock_content.iter_any = MagicMock(return_value=mock_content_iter())
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.content = mock_content_iter()
+        mock_response.content = mock_content
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 
@@ -403,9 +407,11 @@ class TestOllamaPullModel:
             for line in progress_lines:
                 yield line
 
+        mock_content = MagicMock()
+        mock_content.iter_any = MagicMock(return_value=mock_content_iter())
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.content = mock_content_iter()
+        mock_response.content = mock_content
         mock_response.__aenter__ = AsyncMock(return_value=mock_response)
         mock_response.__aexit__ = AsyncMock(return_value=None)
 

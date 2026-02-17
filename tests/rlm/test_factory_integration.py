@@ -312,14 +312,23 @@ class TestTrueRLMRouting:
     async def test_result_includes_approach_metadata(self):
         """Results should include metadata about which approach was used."""
         from aragora.rlm import compress_and_query, reset_singleton
+        from aragora.rlm.types import RLMResult
 
         reset_singleton()
 
-        result = await compress_and_query(
-            query="Summarize this",
-            content="This is a test document about software architecture.",
-            source_type="document",
+        # Mock the underlying query to avoid real API calls
+        mock_result = RLMResult(
+            answer="Test summary",
+            confidence=0.85,
+            used_true_rlm=False,
+            used_compression_fallback=True,
         )
+        with patch("aragora.rlm.bridge.AragoraRLM.query", new_callable=AsyncMock, return_value=mock_result):
+            result = await compress_and_query(
+                query="Summarize this",
+                content="This is a test document about software architecture.",
+                source_type="document",
+            )
 
         # Result should have both tracking flags
         assert hasattr(result, "used_true_rlm")
@@ -366,12 +375,20 @@ class TestMockedOfficialRLM:
         # Get RLM instance
         rlm = get_rlm()
 
-        # Even if TRUE RLM were to fail, compression fallback should work
-        result = await rlm.compress_and_query(
-            query="Test query",
-            content="Test content",
-            source_type="test",
+        # Mock the query method to avoid real API calls (which can fail
+        # with 429 rate limit errors when API keys leak from other tests)
+        mock_result = RLMResult(
+            answer="Fallback answer",
+            confidence=0.8,
+            used_true_rlm=False,
+            used_compression_fallback=True,
         )
+        with patch.object(rlm, "query", new_callable=AsyncMock, return_value=mock_result):
+            result = await rlm.compress_and_query(
+                query="Test query",
+                content="Test content",
+                source_type="test",
+            )
 
         # Should get a valid result regardless of TRUE RLM availability
         assert result is not None

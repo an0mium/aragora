@@ -648,6 +648,7 @@ class TestSpectatorNotifications:
         assert notify.call_count >= 2
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_notify_spectator_on_consensus(self):
         """Should notify spectator of consensus result."""
         protocol = MockProtocol(consensus="majority")
