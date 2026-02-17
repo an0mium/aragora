@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
 **Generated**: 2026-02-17
-**Total Skip Markers**: 94
+**Total Skip Markers**: 109
 
 ---
 
@@ -9,28 +9,29 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| integration_dependency | 29 | 30.9% |
-| missing_feature | 27 | 28.7% |
-| optional_dependency | 18 | 19.1% |
-| platform_specific | 14 | 14.9% |
-| performance | 3 | 3.2% |
-| known_bug | 2 | 2.1% |
-| uncategorized | 1 | 1.1% |
+| missing_feature | 31 | 28.4% |
+| integration_dependency | 29 | 26.6% |
+| optional_dependency | 29 | 26.6% |
+| platform_specific | 14 | 12.8% |
+| performance | 3 | 2.8% |
+| known_bug | 2 | 1.8% |
+| uncategorized | 1 | 0.9% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 55 |
+| `pytest.skip` | 59 |
 | `skipif` | 39 |
+| `pytest.importorskip` | 11 |
 
 ## High-Skip Files (Top 10)
 
 | File | Skip Count |
 |------|------------|
+| `tests/server/openapi/test_contract_matrix.py` | 7 |
 | `tests/test_plugin_sandbox.py` | 6 |
 | `tests/integration/test_knowledge_visibility_sharing.py` | 6 |
-| `tests/server/openapi/test_contract_matrix.py` | 4 |
 | `tests/rlm/test_true_rlm_priority.py` | 4 |
 | `tests/transcription/test_whisper_backend.py` | 3 |
 | `tests/server/middleware/rate_limit/test_distributed_integration.py` | 3 |
@@ -69,7 +70,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **94** skips
+Current baseline: **109** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

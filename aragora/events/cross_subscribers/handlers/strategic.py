@@ -54,26 +54,19 @@ class StrategicHandlersMixin:
         )
 
         try:
-            from aragora.resilience.health import HealthRegistry
+            from aragora.resilience.health import get_global_health_registry
 
-            registry = HealthRegistry.get_instance()
-            if registry is None:
-                return
+            registry = get_global_health_registry()
 
-            # Record failure to trigger health state transition
-            checker = registry.get_checker(component)
-            if checker is None:
-                # Register new checker for this component
-                checker = registry.register(component)
-
-            if checker and hasattr(checker, "record_failure"):
-                checker.record_failure(
-                    error=f"[{risk_type}] {description}",
-                )
-                logger.debug(
-                    "Recorded health degradation for %s from risk warning",
-                    component,
-                )
+            # get_or_create ensures the checker exists
+            checker = registry.get_or_create(component)
+            checker.record_failure(
+                error=f"[{risk_type}] {description}",
+            )
+            logger.debug(
+                "Recorded health degradation for %s from risk warning",
+                component,
+            )
         except ImportError:
             pass  # Health registry not available
         except (RuntimeError, TypeError, AttributeError, ValueError) as e:
@@ -101,40 +94,61 @@ class StrategicHandlersMixin:
         )
 
         try:
-            from aragora.control_plane.registry import get_agent_registry
+            from aragora.control_plane.registry import AgentRegistry
 
-            registry = get_agent_registry()
-            if registry is None:
-                return
+            import asyncio
+
+            registry = AgentRegistry()
 
             if event_subtype in ("birth", "agent_birth"):
-                # Register new agent
-                agent_type = data.get("agent_type", "evolved")
                 capabilities = data.get("capabilities", [])
-                if hasattr(registry, "register_agent"):
-                    registry.register_agent(
+                agent_type = data.get("agent_type", "evolved")
+                metadata = {"source": "genesis", "generation": data.get("generation", 0)}
+
+                async def _register():
+                    await registry.register(
                         agent_id=agent_id,
-                        agent_type=agent_type,
                         capabilities=capabilities,
-                        metadata={"source": "genesis", "generation": data.get("generation", 0)},
+                        model=agent_type,
+                        metadata=metadata,
                     )
-                    logger.info("Registered born agent %s in control plane", agent_id)
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_register())
+                except RuntimeError:
+                    pass  # No event loop; skip async registration
+                logger.info("Scheduled born agent %s for control plane registration", agent_id)
 
             elif event_subtype in ("death", "agent_death"):
-                # Deregister retired agent
-                if hasattr(registry, "deregister_agent"):
-                    registry.deregister_agent(agent_id)
-                    logger.info("Deregistered dead agent %s from control plane", agent_id)
+
+                async def _unregister():
+                    await registry.unregister(agent_id)
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_unregister())
+                except RuntimeError:
+                    pass
+                logger.info("Scheduled dead agent %s for control plane removal", agent_id)
 
             elif event_subtype in ("mutation", "evolution", "agent_evolution"):
-                # Update agent capabilities after mutation
                 new_capabilities = data.get("capabilities", data.get("new_traits", []))
-                if hasattr(registry, "update_agent"):
-                    registry.update_agent(
+
+                async def _update():
+                    await registry.register(
                         agent_id=agent_id,
-                        updates={"capabilities": new_capabilities, "evolved": True},
+                        capabilities=new_capabilities,
+                        model=data.get("agent_type", "evolved"),
+                        metadata={"evolved": True},
                     )
-                    logger.debug("Updated evolved agent %s in control plane", agent_id)
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_update())
+                except RuntimeError:
+                    pass
+                logger.debug("Scheduled evolved agent %s for control plane update", agent_id)
 
         except ImportError:
             pass  # Control plane not available
