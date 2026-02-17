@@ -369,4 +369,37 @@ export class TeamsAPI {
     );
     return response.messages;
   }
+
+  // ===========================================================================
+  // Team Management
+  // ===========================================================================
+
+  /**
+   * List teams.
+   *
+   * @route GET /api/v1/teams
+   */
+  async listTeams(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/teams', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Create a new team.
+   *
+   * @route POST /api/v1/teams
+   */
+  async createTeam(body: {
+    name: string;
+    description?: string;
+    members?: string[];
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/teams', {
+      body,
+    });
+  }
 }

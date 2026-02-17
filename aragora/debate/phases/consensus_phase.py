@@ -1383,7 +1383,9 @@ class ConsensusPhase:
         if not self.protocol:
             return
 
-        formal_enabled = getattr(self.protocol, "formal_verification_enabled", False)
+        formal_enabled = getattr(self.protocol, "formal_verification_enabled", False) or getattr(
+            self.protocol, "enable_formal_verification", False
+        )
         if not formal_enabled:
             return
 

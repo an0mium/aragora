@@ -307,4 +307,40 @@ export class RLMAPI {
       },
     });
   }
+
+  // ===========================================================================
+  // Codebase Health
+  // ===========================================================================
+
+  /**
+   * Get codebase health metrics from RLM analysis.
+   *
+   * @route GET /api/v1/rlm/codebase/health
+   */
+  async getCodebaseHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/rlm/codebase/health');
+  }
+
+  /**
+   * Reset codebase health data.
+   *
+   * @route DELETE /api/v1/rlm/codebase/health
+   */
+  async resetCodebaseHealth(): Promise<{ reset: boolean }> {
+    return this.client.request('DELETE', '/api/v1/rlm/codebase/health');
+  }
+
+  /**
+   * Trigger codebase health analysis.
+   *
+   * @route POST /api/v1/rlm/codebase/health
+   */
+  async analyzeCodebaseHealth(body?: {
+    paths?: string[];
+    deep?: boolean;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/rlm/codebase/health', {
+      json: body as Record<string, unknown>,
+    });
+  }
 }

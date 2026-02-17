@@ -559,6 +559,11 @@ class DebateProtocol:
     # Blocks debates with spam/low-quality prompts before burning API tokens
     enable_content_moderation: bool = False  # Opt-in: uses SpamModerationIntegration
 
+    # Formal verification: Verify consensus claims using Z3/Lean theorem provers
+    # Adds mathematical proof validation to debate conclusions when enabled
+    # This is a convenience alias that activates formal_verification_enabled
+    enable_formal_verification: bool = False  # Opt-in: requires Z3 or Lean installation
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 
