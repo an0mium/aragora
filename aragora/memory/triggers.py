@@ -203,39 +203,172 @@ class MemoryTriggerEngine:
 
 
 async def _log_high_surprise(context: dict[str, Any]) -> None:
+    """Investigate high-surprise memory write via anomaly detection queue."""
+    item_id = context.get("item_id")
+    surprise = context.get("surprise", 0)
     logger.info(
         "High surprise detected: item_id=%s surprise=%.3f",
-        context.get("item_id"),
-        context.get("surprise", 0),
+        item_id,
+        surprise,
     )
+    try:
+        from aragora.security.anomaly_detection import get_anomaly_detector
+
+        detector = get_anomaly_detector()
+        detector.report_anomaly(
+            source="memory",
+            severity="medium" if surprise < 0.9 else "high",
+            details={
+                "item_id": item_id,
+                "surprise_score": surprise,
+                "content_preview": context.get("content_preview", "")[:200],
+            },
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logger.debug("Anomaly report failed (non-critical): %s", exc)
+
+    try:
+        from aragora.events.dispatcher import dispatch_event
+
+        dispatch_event(
+            "memory.high_surprise",
+            {
+                "item_id": item_id,
+                "surprise": surprise,
+                "source": context.get("source", "unknown"),
+            },
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
 
 
 async def _mark_for_revalidation(context: dict[str, Any]) -> None:
+    """Mark stale knowledge for revalidation and apply confidence decay."""
+    item_id = context.get("item_id")
     logger.info(
         "Stale knowledge marked for revalidation: item_id=%s",
-        context.get("item_id"),
+        item_id,
     )
+    try:
+        from aragora.knowledge.mound.ops.confidence_decay import get_decay_manager
+
+        manager = get_decay_manager()
+        await manager.apply_decay(
+            item_id=item_id,
+            reason="stale_trigger",
+            decay_factor=0.1,
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logger.debug("Confidence decay failed (non-critical): %s", exc)
+
+    try:
+        from aragora.events.dispatcher import dispatch_event
+
+        dispatch_event(
+            "memory.stale_revalidation",
+            {
+                "item_id": item_id,
+                "days_since_access": context.get("days_since_access", 0),
+                "confidence": context.get("confidence", 0),
+            },
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
 
 
 async def _create_debate_topic(context: dict[str, Any]) -> None:
+    """Route contradiction to debate engine for resolution."""
+    description = context.get("description", "")
     logger.info(
         "Contradiction detected, debate topic created: %s",
-        context.get("description", ""),
+        description,
     )
+    try:
+        from aragora.nomic.improvement_queue import (
+            ImprovementSuggestion,
+            get_improvement_queue,
+        )
+
+        queue = get_improvement_queue()
+        queue.enqueue(
+            ImprovementSuggestion(
+                debate_id=f"contradiction_{id(context)}",
+                task=f"Resolve contradiction: {description[:200]}",
+                suggestion="Run targeted debate to reconcile conflicting knowledge",
+                category="knowledge_contradiction",
+                confidence=0.9,
+            )
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logger.debug("Debate topic creation failed (non-critical): %s", exc)
+
+    try:
+        from aragora.events.dispatcher import dispatch_event
+
+        dispatch_event(
+            "memory.contradiction_detected",
+            {"description": description},
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
 
 
 async def _merge_summaries(context: dict[str, Any]) -> None:
+    """Consolidate similar memory items into a single merged entry."""
+    item_count = context.get("item_count", 0)
     logger.info(
         "Consolidation merge triggered for %d items",
-        context.get("item_count", 0),
+        item_count,
     )
+    try:
+        from aragora.events.dispatcher import dispatch_event
+
+        dispatch_event(
+            "memory.consolidation_merge",
+            {
+                "item_count": item_count,
+                "avg_surprise": context.get("avg_surprise", 0),
+            },
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
 
 
 async def _extract_pattern(context: dict[str, Any]) -> None:
+    """Extract emerging pattern and persist to Knowledge Mound."""
+    pattern = context.get("pattern", "")
     logger.info(
         "Pattern emergence detected: %s",
-        context.get("pattern", ""),
+        pattern,
     )
+    try:
+        from aragora.events.dispatcher import dispatch_event
+
+        dispatch_event(
+            "memory.pattern_emerged",
+            {
+                "pattern": pattern,
+                "trend": context.get("surprise_ema_trend", ""),
+            },
+        )
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError):
+        pass
 
 
 __all__ = ["MemoryTriggerEngine", "MemoryTrigger", "TriggerResult"]

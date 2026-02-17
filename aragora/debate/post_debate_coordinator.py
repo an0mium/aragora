@@ -52,6 +52,9 @@ class PostDebateConfig:
     calibration_min_predictions: int = 5  # Min predictions before pushing
     # Outcome feedback: feed systematic errors back to Nomic Loop
     auto_outcome_feedback: bool = False
+    # Canvas pipeline: auto-trigger idea-to-execution visualization
+    auto_trigger_canvas: bool = False
+    canvas_min_confidence: float = 0.7
     # Execution bridge: auto-trigger downstream actions
     auto_execution_bridge: bool = True
     execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
@@ -77,6 +80,7 @@ class PostDebateResult:
     argument_verification: dict[str, Any] | None = None
     improvement_queued: bool = False
     outcome_feedback: dict[str, Any] | None = None
+    canvas_result: dict[str, Any] | None = None
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -187,6 +191,12 @@ class PostDebateCoordinator:
         # Step 7.7: Outcome feedback — feed systematic errors to Nomic Loop
         if self.config.auto_outcome_feedback:
             result.outcome_feedback = self._step_outcome_feedback(debate_id)
+
+        # Step 8.5: Canvas pipeline — auto-trigger idea-to-execution visualization
+        if self.config.auto_trigger_canvas and confidence >= self.config.canvas_min_confidence:
+            result.canvas_result = self._step_trigger_canvas(
+                debate_id, debate_result, task
+            )
 
         # Step 8: Execution bridge — auto-trigger downstream actions
         if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
@@ -727,6 +737,72 @@ class PostDebateCoordinator:
             return None
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.debug("Outcome feedback failed (non-critical): %s", e)
+            return None
+
+    def _step_trigger_canvas(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+    ) -> dict[str, Any] | None:
+        """Step 8.5: Trigger idea-to-execution canvas pipeline from debate result.
+
+        Converts the debate's argument graph into a visual canvas pipeline,
+        progressing through ideas → goals → actions → orchestration stages.
+        """
+        try:
+            from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+            from aragora.visualization.mapper import ArgumentCartographer
+        except ImportError:
+            logger.debug("Canvas pipeline not available")
+            return None
+
+        try:
+            # Build argument graph from debate messages
+            cartographer = ArgumentCartographer()
+            cartographer.set_debate_context(debate_id, task)
+
+            messages = getattr(debate_result, "messages", [])
+            if isinstance(messages, list):
+                for msg in messages:
+                    agent = getattr(msg, "agent", "unknown")
+                    content = getattr(msg, "content", "")
+                    role = getattr(msg, "role", "proposal")
+                    round_num = getattr(msg, "round", 0) or 0
+                    if content:
+                        cartographer.update_from_message(
+                            agent=str(agent),
+                            content=str(content),
+                            role=str(role),
+                            round_num=int(round_num),
+                        )
+
+            if not cartographer.nodes:
+                logger.debug("No argument nodes for canvas pipeline (debate %s)", debate_id)
+                return None
+
+            export_data = cartographer.export()
+            pipeline = IdeaToExecutionPipeline()
+            pipeline_result = pipeline.from_debate(
+                cartographer_data=export_data,
+                auto_advance=True,
+            )
+
+            logger.info(
+                "Canvas pipeline triggered for debate %s: pipeline_id=%s",
+                debate_id,
+                getattr(pipeline_result, "pipeline_id", "unknown"),
+            )
+            return {
+                "debate_id": debate_id,
+                "pipeline_id": getattr(pipeline_result, "pipeline_id", None),
+                "stages_completed": [
+                    k for k, v in getattr(pipeline_result, "stage_status", {}).items()
+                    if v == "complete"
+                ],
+            }
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.warning("Canvas pipeline trigger failed: %s", e)
             return None
 
     @staticmethod
