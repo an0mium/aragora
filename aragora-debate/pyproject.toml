@@ -57,7 +57,7 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
 
 [project.urls]
 Homepage = "https://github.com/an0mium/aragora"
-Documentation = "https://aragora.dev/docs/debate"
+Documentation = "https://github.com/an0mium/aragora/blob/main/docs/START_HERE.md"
 Repository = "https://github.com/an0mium/aragora/tree/main/aragora-debate"
 Changelog = "https://github.com/an0mium/aragora/blob/main/aragora-debate/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/an0mium/aragora/issues"

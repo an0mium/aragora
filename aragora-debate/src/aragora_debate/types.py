@@ -307,7 +307,7 @@ class DecisionReceipt:
             "confidence": self.confidence,
             "consensus": {
                 "reached": self.consensus.reached,
-                "method": self.consensus.method.value,
+                "method": self.consensus.method.value if isinstance(self.consensus.method, ConsensusMethod) else self.consensus.method,
                 "confidence": self.consensus.confidence,
                 "supporting_agents": self.consensus.supporting_agents,
                 "dissenting_agents": self.consensus.dissenting_agents,
@@ -331,7 +331,7 @@ class DecisionReceipt:
             f"**Verdict:** {self.verdict.value.replace('_', ' ').title()}",
             f"**Confidence:** {self.confidence:.0%}",
             f"**Consensus:** {'Reached' if self.consensus.reached else 'Not reached'}"
-            f" ({self.consensus.method.value}, "
+            f" ({self.consensus.method.value if isinstance(self.consensus.method, ConsensusMethod) else self.consensus.method}, "
             f"{self.consensus.agreement_ratio:.0%} agreement)",
             f"**Agents:** {', '.join(self.agents)}",
             f"**Rounds:** {self.rounds_used}",

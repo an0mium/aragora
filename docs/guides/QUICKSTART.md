@@ -1,3 +1,5 @@
+> **Canonical entry point:** New to Aragora? Start at **[docs/START_HERE.md](../START_HERE.md)** -- it covers all packages, personas, and paths in one place.
+
 # Quickstart: Run Your First Debate in 5 Minutes
 
 This guide gets you from zero to a running multi-agent debate as fast as possible.
