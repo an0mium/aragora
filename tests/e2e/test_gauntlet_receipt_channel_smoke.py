@@ -157,13 +157,15 @@ class TestGauntletReceiptChannelPipeline:
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.aclose = AsyncMock()
 
-        with patch("httpx.AsyncClient") as MockClient:
-            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+        with patch("aragora.server.debate_origin.router.USE_DOCK_ROUTING", False):
+            with patch("aragora.server.debate_origin.senders.slack.httpx.AsyncClient") as MockClient:
+                MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            with patch.dict("os.environ", {"SLACK_BOT_TOKEN": "xoxb-test-token"}):
-                success = await route_debate_result(gauntlet_id, debate_result)
+                with patch.dict("os.environ", {"SLACK_BOT_TOKEN": "xoxb-test-token"}):
+                    success = await route_debate_result(gauntlet_id, debate_result)
 
         # Verify origin tracking
         final_origin = get_debate_origin(gauntlet_id)
@@ -234,13 +236,15 @@ class TestGauntletReceiptChannelPipeline:
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.aclose = AsyncMock()
 
-        with patch("httpx.AsyncClient") as MockClient:
-            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+        with patch("aragora.server.debate_origin.router.USE_DOCK_ROUTING", False):
+            with patch("aragora.server.debate_origin.senders.telegram.httpx.AsyncClient") as MockClient:
+                MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+                MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}):
-                await route_debate_result(gauntlet_id, debate_result)
+                with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}):
+                    await route_debate_result(gauntlet_id, debate_result)
 
 
 # ---------------------------------------------------------------------------

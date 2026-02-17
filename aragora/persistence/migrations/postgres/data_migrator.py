@@ -238,7 +238,7 @@ class DataMigrator:
 
             logger.info(f"Migrated {stats.rows_migrated} rows to {table}")
 
-        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError, sqlite3.Error) as e:
             stats.errors.append(f"Migration error: {e}")
             logger.exception(f"Error migrating table {table}")
 

@@ -178,6 +178,26 @@ def _bypass_auth_for_billing_tests(request, monkeypatch):
     )
     monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_auth_ctx)
     monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+
+    # Also patch extract_user_from_request to return a matching context.
+    # This overrides the conftest patch which uses a different user_id.
+    try:
+        from aragora.billing.auth.context import UserAuthContext
+
+        _mock_jwt_user = UserAuthContext(
+            authenticated=True,
+            user_id="test-owner-001",
+            email="test@example.com",
+            org_id="test-org-001",
+            role="owner",
+            token_type="access",
+        )
+        monkeypatch.setattr(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            lambda handler, user_store=None: _mock_jwt_user,
+        )
+    except ImportError:
+        pass
     yield
 
 
@@ -200,6 +220,25 @@ def auth_user_override(monkeypatch):
             role=role,
         )
         monkeypatch.setattr(handler_decorators, "_test_user_context_override", ctx)
+        # Also override extract_user_from_request so the decorator sees this user_id
+        # (conftest patches extract_user_from_request with a different sentinel).
+        try:
+            from aragora.billing.auth.context import UserAuthContext
+
+            _jwt_user = UserAuthContext(
+                authenticated=True,
+                user_id=user_id,
+                email="test@example.com",
+                org_id=org_id,
+                role=role,
+                token_type="access",
+            )
+            monkeypatch.setattr(
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                lambda handler, user_store=None: _jwt_user,
+            )
+        except ImportError:
+            pass
 
     return _set
 

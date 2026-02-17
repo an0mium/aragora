@@ -591,7 +591,7 @@ class TestMigrateSqliteToPostgres:
         def side_effect(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 2:
-                raise Exception("Simulated PG error")
+                raise RuntimeError("Simulated PG error")
 
         mock_pg_cursor.executemany.side_effect = side_effect
         mock_psycopg2.connect.return_value = mock_pg_conn
@@ -701,7 +701,7 @@ class TestMigrateSqliteToPostgres:
         def conditional_fail(sql, rows):
             for tname in table_fail_set:
                 if f"INSERT INTO {tname}" in sql:
-                    raise Exception(f"Failed to migrate {tname}")
+                    raise RuntimeError(f"Failed to migrate {tname}")
             # Success case: do nothing (mock default behavior)
             return None
 
@@ -773,7 +773,7 @@ class TestVerifyMigration:
         mock_pg_conn = MagicMock()
         mock_pg_cursor = MagicMock()
         # First table succeeds, second fails
-        mock_pg_cursor.execute.side_effect = [None, Exception("Table not found")]
+        mock_pg_cursor.execute.side_effect = [None, RuntimeError("Table not found")]
         mock_pg_cursor.fetchone.return_value = (2,)
         mock_pg_conn.cursor.return_value = mock_pg_cursor
         mock_psycopg2.connect.return_value = mock_pg_conn
@@ -1105,7 +1105,7 @@ class TestRollbackScenarios:
         def fail_on_beta(sql, rows):
             if "INSERT INTO beta" in sql:
                 fail_count[0] += 1
-                raise Exception("beta migration failed")
+                raise RuntimeError("beta migration failed")
 
         mock_pg_cursor.executemany.side_effect = fail_on_beta
         mock_psycopg2.connect.return_value = mock_pg_conn
@@ -1132,7 +1132,7 @@ class TestRollbackScenarios:
 
         def fail_on_beta(sql, rows):
             if "INSERT INTO beta" in sql:
-                raise Exception("beta migration failed")
+                raise RuntimeError("beta migration failed")
 
         mock_pg_cursor.executemany.side_effect = fail_on_beta
         mock_psycopg2.connect.return_value = mock_pg_conn
@@ -1153,7 +1153,7 @@ class TestRollbackScenarios:
         mock_pg_conn = MagicMock()
         mock_pg_cursor = MagicMock()
         mock_pg_conn.cursor.return_value = mock_pg_cursor
-        mock_pg_cursor.executemany.side_effect = Exception("All fail")
+        mock_pg_cursor.executemany.side_effect = RuntimeError("All fail")
         mock_psycopg2.connect.return_value = mock_pg_conn
 
         with patch.dict("sys.modules", {"psycopg2": mock_psycopg2}):

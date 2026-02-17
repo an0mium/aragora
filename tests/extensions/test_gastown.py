@@ -6,6 +6,7 @@ Tests workspace management, convoy tracking, hook persistence, and coordination.
 
 import pytest
 import tempfile
+import uuid
 from pathlib import Path
 
 from aragora.extensions.gastown import (
@@ -184,8 +185,12 @@ class TestConvoyTracker:
 
     @pytest.fixture
     def tracker(self, tmp_path: Path) -> ConvoyTracker:
-        """Create a convoy tracker with temp storage."""
-        return ConvoyTracker(storage_path=tmp_path / "convoys")
+        """Create a convoy tracker with temp storage.
+
+        Uses a unique subdirectory per invocation to avoid state bleed
+        when pytest-rerunfailures retries with the same tmp_path.
+        """
+        return ConvoyTracker(storage_path=tmp_path / f"convoys-{uuid.uuid4().hex[:8]}")
 
     @pytest.mark.asyncio
     async def test_create_convoy(self, tracker: ConvoyTracker):

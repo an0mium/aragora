@@ -6,6 +6,8 @@ import logging
 import os
 from typing import Any
 
+import httpx
+
 from ..models import DebateOrigin
 from ..formatting import _format_result_message
 
@@ -23,8 +25,6 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
     message = _format_result_message(result, origin, markdown=True)
 
     try:
-        import httpx
-
         url = "https://slack.com/api/chat.postMessage"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -66,8 +66,6 @@ async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: s
         return False
 
     try:
-        import httpx
-
         url = "https://slack.com/api/chat.postMessage"
         headers = {
             "Authorization": f"Bearer {token}",
@@ -116,8 +114,6 @@ async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
         return False
 
     try:
-        import httpx
-
         url = "https://slack.com/api/chat.postMessage"
         headers = {
             "Authorization": f"Bearer {token}",

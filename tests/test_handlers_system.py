@@ -189,6 +189,37 @@ def temp_nomic_dir_with_files():
         yield nomic_dir
 
 
+@pytest.fixture(autouse=True)
+def clear_health_caches():
+    """Clear health probe caches before and after each test."""
+    from aragora.server.handlers.admin.health import _HEALTH_CACHE, _HEALTH_CACHE_TIMESTAMPS
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+    yield
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_server_readiness():
+    """Mock server startup and handler initialization checks for readiness probes.
+
+    The readiness probe checks is_server_ready() and get_route_index() which
+    are not initialized in test environments. Patch them to return True/populated.
+    """
+    mock_route_index = MagicMock()
+    mock_route_index._exact_routes = {"/healthz": True}  # Non-empty dict
+
+    with patch(
+        "aragora.server.unified_server.is_server_ready",
+        return_value=True,
+    ), patch(
+        "aragora.server.handler_registry.core.get_route_index",
+        return_value=mock_route_index,
+    ):
+        yield
+
+
 # =============================================================================
 # Kubernetes Health Probes Tests
 # =============================================================================

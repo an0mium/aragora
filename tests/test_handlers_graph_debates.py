@@ -81,11 +81,11 @@ class TestGraphDebatesRouting:
 
     def test_routes_defined(self, handler):
         """Test handler has routes defined."""
-        assert "/api/debates/graph" in handler.ROUTES
+        assert "/api/v1/debates/graph" in handler.ROUTES
 
     def test_auth_required_endpoints(self, handler):
         """Test auth required endpoints defined."""
-        assert "/api/debates/graph" in handler.AUTH_REQUIRED_ENDPOINTS
+        assert "/api/v1/debates/graph" in handler.AUTH_REQUIRED_ENDPOINTS
 
 
 # ============================================================================

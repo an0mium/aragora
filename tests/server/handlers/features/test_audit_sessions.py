@@ -1604,7 +1604,10 @@ class TestBackgroundAuditRun:
     async def test_background_cleans_up_cancellation_token(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "running"
         _cancellation_tokens[_seed_session] = MagicMock(is_cancelled=False)
-        with patch.object(audit_mod, "asyncio", self._fake_asyncio()):
+        with (
+            patch.object(audit_mod, "asyncio", self._fake_asyncio()),
+            patch.dict("sys.modules", {"aragora.audit.document_auditor": None}),
+        ):
             await handler._run_audit_background(_seed_session)
         assert _seed_session not in _cancellation_tokens
 
@@ -1618,6 +1621,7 @@ class TestBackgroundAuditRun:
             raise RuntimeError("simulated error")
 
         handler._emit_event = failing_emit
-        await handler._run_audit_background(_seed_session)
+        with patch.dict("sys.modules", {"aragora.audit.document_auditor": None}):
+            await handler._run_audit_background(_seed_session)
         assert _sessions[_seed_session]["status"] == "failed"
         assert _sessions[_seed_session]["error"]  # Sanitized error message present

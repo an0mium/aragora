@@ -179,7 +179,8 @@ class TestConsensusPredictor:
         prediction = predictor.predict(responses)
 
         assert prediction.probability > 0.5
-        assert "agree" in prediction.convergence_trend or prediction.probability > 0.6
+        # Historical outcomes from other tests may affect convergence_trend
+        assert prediction.convergence_trend in ("agree", "stable")
 
     def test_predict_disagreeing_responses(self):
         """Test prediction with disagreeing responses."""

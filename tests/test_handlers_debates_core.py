@@ -934,8 +934,11 @@ class TestForkDebate:
         mock_pivot.statement = "What if we tried approach B?"
         mock_counterfactual.PivotClaim.return_value = mock_pivot
 
-        # Mock CounterfactualBranch
+        # Mock CounterfactualBranch - all attributes must be JSON-serializable strings
         mock_branch = Mock()
+        mock_branch.branch_id = "fork-d1-r1-abc12345"
+        mock_branch.parent_debate_id = "d1"
+        mock_branch.pivot_claim = mock_pivot
         mock_counterfactual.CounterfactualBranch.return_value = mock_branch
 
         mock_validate.return_value = Mock(is_valid=True)
@@ -1226,7 +1229,9 @@ class TestHandlePatch:
         mock_storage.get_debate = Mock(return_value=None)
         handler.read_json_body = Mock(return_value={"title": "New"})
 
-        result = handler.handle_patch("/api/debates/d1", {}, mock_handler_request)
+        # handle_patch checks path.startswith("/api/v1/debates/") and path.count("/") == 4
+        # so we must use the versioned path format
+        result = handler.handle_patch("/api/v1/debates/d1", {}, mock_handler_request)
 
         assert result is not None
         assert result.status_code == 404

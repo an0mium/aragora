@@ -346,8 +346,11 @@ class TestEvaluationHandlerRBAC:
     def test_list_dimensions_requires_evaluation_read(self, mock_server_context):
         """Test that listing dimensions requires evaluation:read permission."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = EvaluationHandler(mock_server_context)
             mock_handler = create_mock_handler()
@@ -356,14 +359,18 @@ class TestEvaluationHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 h.handle("/api/v1/evaluate/dimensions", {}, mock_handler)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.no_auto_auth
     def test_list_profiles_requires_evaluation_read(self, mock_server_context):
         """Test that listing profiles requires evaluation:read permission."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = EvaluationHandler(mock_server_context)
             mock_handler = create_mock_handler()
@@ -372,6 +379,7 @@ class TestEvaluationHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 h.handle("/api/v1/evaluate/profiles", {}, mock_handler)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.no_auto_auth
@@ -379,8 +387,11 @@ class TestEvaluationHandlerRBAC:
     async def test_evaluate_requires_evaluation_create(self, mock_server_context):
         """Test that evaluation requires evaluation:create permission."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = EvaluationHandler(mock_server_context)
             mock_handler = create_mock_handler(
@@ -392,6 +403,7 @@ class TestEvaluationHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 await h.handle_post("/api/v1/evaluate", {}, mock_handler)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.no_auto_auth
@@ -399,8 +411,11 @@ class TestEvaluationHandlerRBAC:
     async def test_compare_requires_evaluation_create(self, mock_server_context):
         """Test that comparison requires evaluation:create permission."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = EvaluationHandler(mock_server_context)
             mock_handler = create_mock_handler(
@@ -416,6 +431,7 @@ class TestEvaluationHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 await h.handle_post("/api/v1/evaluate/compare", {}, mock_handler)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
 

@@ -39,7 +39,7 @@ class TestEmergentTraitsEndpoint:
     def test_emergent_traits_unavailable(self, handler):
         """Returns 503 when laboratory not available."""
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", False):
-            result = handler.handle("/api/laboratory/emergent-traits", {})
+            result = handler.handle("/api/v1/laboratory/emergent-traits", {})
             assert result.status_code == 503
             data = json.loads(result.body)
             assert "error" in data
@@ -61,7 +61,7 @@ class TestEmergentTraitsEndpoint:
             with patch(
                 "aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab
             ):
-                result = handler.handle("/api/laboratory/emergent-traits", {})
+                result = handler.handle("/api/v1/laboratory/emergent-traits", {})
                 assert result.status_code == 200
                 data = json.loads(result.body)
                 assert "emergent_traits" in data
@@ -92,7 +92,7 @@ class TestCrossPollinationsEndpoint:
 
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", False):
             result = handler.handle_post(
-                "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+                "/api/v1/laboratory/cross-pollinations/suggest", {}, mock_handler
             )
             assert result.status_code == 503
             data = json.loads(result.body)
@@ -106,7 +106,7 @@ class TestCrossPollinationsEndpoint:
         with patch("aragora.server.handlers.laboratory.LABORATORY_AVAILABLE", True):
             with patch("aragora.server.handlers.laboratory.PersonaLaboratory"):
                 result = handler.handle_post(
-                    "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+                    "/api/v1/laboratory/cross-pollinations/suggest", {}, mock_handler
                 )
                 assert result.status_code == 400
                 data = json.loads(result.body)
@@ -127,7 +127,7 @@ class TestCrossPollinationsEndpoint:
                 "aragora.server.handlers.laboratory.PersonaLaboratory", return_value=mock_lab
             ):
                 result = handler.handle_post(
-                    "/api/laboratory/cross-pollinations/suggest", {}, mock_handler
+                    "/api/v1/laboratory/cross-pollinations/suggest", {}, mock_handler
                 )
                 assert result.status_code == 200
                 data = json.loads(result.body)

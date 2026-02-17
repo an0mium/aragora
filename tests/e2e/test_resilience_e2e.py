@@ -255,19 +255,26 @@ class TestGlobalRegistry:
 
     def test_reset_all_clears_state(self):
         """E2E: reset_all should clear all circuit breaker state."""
-        # Use threshold=3 so 3 failures will open the circuit
-        config = CircuitBreakerConfig(failure_threshold=3)
-        cb = get_circuit_breaker("reset-test", config=config)
+        # Create a fresh breaker directly to avoid registry returning an
+        # existing breaker with a different threshold from a prior test.
+        cb = CircuitBreaker(failure_threshold=3, cooldown_seconds=60.0)
         cb.record_failure()
         cb.record_failure()
         cb.record_failure()
 
         assert cb.get_status() == "open"
 
-        reset_all_circuit_breakers()
+        cb.reset()
 
         assert cb.get_status() == "closed"
         assert cb.failures == 0
+
+        # Also verify the global reset_all works on registry breakers
+        cb2 = get_circuit_breaker("reset-all-test-unique")
+        cb2.record_failure()
+        assert cb2.failures == 1
+        reset_all_circuit_breakers()
+        assert cb2.failures == 0
 
     def test_status_returns_all_breakers(self):
         """E2E: get_circuit_breaker_status should return all breakers."""

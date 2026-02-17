@@ -226,7 +226,11 @@ class TestPersistReceipt:
         mock_receipt = MagicMock()
         mock_receipt.to_dict.side_effect = TypeError("boom")
 
-        result = _persist_receipt(mock_receipt, "debate-001")
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=MagicMock(),
+        ):
+            result = _persist_receipt(mock_receipt, "debate-001")
         assert result is None
 
     def test_import_failure_returns_none(self):

@@ -233,6 +233,8 @@ class TestSSOHandlerCallback:
         """Test successful OIDC callback."""
         mock_user = Mock()
         mock_user.id = "user-123"
+        mock_user.email = "user@example.com"
+        mock_user.name = "Test User"
         mock_user.to_dict.return_value = {"id": "user-123", "email": "user@example.com"}
 
         mock_provider = Mock()
@@ -250,7 +252,8 @@ class TestSSOHandlerCallback:
         with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
             with patch("aragora.server.handlers.sso.auth_config") as mock_auth:
                 mock_auth.generate_token.return_value = "session-token-xyz"
-                result = await handler.handle_callback(mock_handler, params)
+                with patch("aragora.storage.user_store.singleton.get_user_store", return_value=None):
+                    result = await handler.handle_callback(mock_handler, params)
 
         assert result["status"] == 200
         assert result["body"]["success"] is True
@@ -262,6 +265,8 @@ class TestSSOHandlerCallback:
         """Test callback redirects with relay_state URL."""
         mock_user = Mock()
         mock_user.id = "user-123"
+        mock_user.email = "user@example.com"
+        mock_user.name = "Test User"
         mock_user.to_dict.return_value = {"id": "user-123"}
 
         mock_provider = Mock()
@@ -279,7 +284,8 @@ class TestSSOHandlerCallback:
         with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
             with patch("aragora.server.handlers.sso.auth_config") as mock_auth:
                 mock_auth.generate_token.return_value = "token-123"
-                result = await handler.handle_callback(mock_handler, params)
+                with patch("aragora.storage.user_store.singleton.get_user_store", return_value=None):
+                    result = await handler.handle_callback(mock_handler, params)
 
         assert result["status"] == 302
         assert "token=token-123" in result["headers"]["Location"]
@@ -447,15 +453,13 @@ class TestSSOHandlerMetadata:
 
         handler._get_provider = Mock(return_value=mock_provider)
 
+        # Don't patch builtins.isinstance -- it causes infinite recursion in mock internals.
+        # Instead, just patch SSOProviderType so the provider_type comparison works.
         with patch("aragora.server.handlers.sso.SSOProviderType", MockProviderType):
-            with patch("aragora.server.handlers.sso.SAMLProvider", Mock):
-                # Make isinstance return True
-                with patch("builtins.isinstance", return_value=True):
-                    result = await handler.handle_metadata(mock_handler, {})
+            result = await handler.handle_metadata(mock_handler, {})
 
-        # The result depends on isinstance check, may need adjustment
-        # For now, verify we don't get an error
-        assert result["status"] in [200, 400]
+        # The handler should return 200 with XML metadata
+        assert result["status"] == 200
 
 
 class TestSSOHandlerStatus:

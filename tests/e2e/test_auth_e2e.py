@@ -92,17 +92,32 @@ def create_mock_request(
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiters():
-    """Reset rate limiters before each test."""
+    """Reset rate limiters and lockout tracker before each test."""
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
 
         for limiter in _limiters.values():
             limiter.clear()
-        yield
+    except ImportError:
+        pass
+    try:
+        from aragora.auth.lockout import reset_lockout_tracker
+        reset_lockout_tracker()
+    except ImportError:
+        pass
+    yield
+    try:
+        from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter.clear()
     except ImportError:
-        yield
+        pass
+    try:
+        from aragora.auth.lockout import reset_lockout_tracker
+        reset_lockout_tracker()
+    except ImportError:
+        pass
 
 
 @pytest.fixture

@@ -190,6 +190,10 @@ def decrypt_sensitive(
     except (ValueError, RuntimeError, OSError) as e:
         logger.error(f"Failed to decrypt sensitive fields: {e}")
         raise DecryptionError(f"Failed to decrypt data: {e}") from e
+    except Exception as e:
+        # Catch cryptography-specific exceptions (e.g., InvalidTag on AAD mismatch)
+        logger.error(f"Failed to decrypt sensitive fields (crypto error): {e}")
+        raise DecryptionError(f"Failed to decrypt data: {e}") from e
 
 
 def is_field_encrypted(data: dict[str, Any], field_name: str) -> bool:

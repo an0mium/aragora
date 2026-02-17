@@ -282,6 +282,28 @@ def _bypass_auth(monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Override extract_user_from_request to return a user WITHOUT org_id.
+    # The conftest patches this with org_id="test-org-001" for test_handlers_* files,
+    # but integration tests save debates without org_id, so org-scoped queries
+    # would miss them. Setting org_id=None ensures list_recent returns all debates.
+    try:
+        from aragora.billing.auth.context import UserAuthContext
+
+        _integration_user = UserAuthContext(
+            authenticated=True,
+            user_id="test-admin",
+            email="admin@example.com",
+            org_id=None,
+            role="admin",
+            token_type="access",
+        )
+        monkeypatch.setattr(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            lambda handler, user_store=None: _integration_user,
+        )
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture
 def debate_factory(integrated_storage):

@@ -521,7 +521,7 @@ class TestErrorHandling:
 
         class ExplodingCache:
             def items(self):
-                raise Exception("Cache error")
+                raise RuntimeError("Cache error")
 
         mock_detector = Mock()
         mock_detector._moment_cache = ExplodingCache()

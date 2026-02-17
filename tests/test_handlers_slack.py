@@ -281,7 +281,7 @@ class TestSlackStatusCommand:
     def test_status_handles_error(self, slack_handler):
         """Status handles errors gracefully."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
-            mock.side_effect = Exception("DB error")
+            mock.side_effect = RuntimeError("DB error")
             result = slack_handler._command_status()
 
         assert result.status_code == 200
@@ -332,7 +332,7 @@ class TestSlackAgentsCommand:
     def test_agents_handles_error(self, slack_handler):
         """Agents command handles errors."""
         with patch("aragora.ranking.elo.get_elo_store") as mock:
-            mock.side_effect = Exception("Store error")
+            mock.side_effect = RuntimeError("Store error")
             result = slack_handler._command_agents()
 
         assert result.status_code == 200

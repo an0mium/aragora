@@ -81,6 +81,7 @@ class ConvoyTracker:
             if self._use_nomic_store and self._canonical_stores is None:
                 self._canonical_stores = get_canonical_workspace_stores(
                     bead_dir=str(self._storage_path),
+                    convoy_dir=str(self._storage_path),
                     git_enabled=False,
                     auto_commit=False,
                 )

@@ -669,7 +669,7 @@ class TestAgentsErrorHandling:
 
     def test_elo_exception_returns_500(self, agents_handler, mock_elo_system):
         """Should return 500 on ELO system exceptions."""
-        mock_elo_system.get_cached_leaderboard.side_effect = Exception("DB error")
+        mock_elo_system.get_cached_leaderboard.side_effect = RuntimeError("DB error")
 
         result = agents_handler.handle("/api/leaderboard", {}, None)
 
@@ -695,7 +695,7 @@ class TestAgentsErrorHandling:
 
     def test_compare_exception_returns_500(self, agents_handler, mock_elo_system):
         """Should return 500 on compare exceptions."""
-        mock_elo_system.get_ratings_batch.side_effect = Exception("Compare error")
+        mock_elo_system.get_ratings_batch.side_effect = RuntimeError("Compare error")
 
         result = agents_handler.handle("/api/agent/compare", {"agents": ["a", "b"]}, None)
 

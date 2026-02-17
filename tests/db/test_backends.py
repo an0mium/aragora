@@ -555,7 +555,7 @@ class TestPostgresBackendOperations:
 
     def test_health_check_failure(self, mock_postgres_backend):
         """health_check() returns False on error."""
-        mock_postgres_backend._mock_cursor.execute.side_effect = Exception("Connection failed")
+        mock_postgres_backend._mock_cursor.execute.side_effect = RuntimeError("Connection failed")
 
         assert mock_postgres_backend.health_check() is False
 

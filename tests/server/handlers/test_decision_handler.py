@@ -316,8 +316,11 @@ class TestDecisionHandlerRBAC:
     async def test_list_decisions_requires_decisions_read(self, mock_server_context):
         """Test that listing decisions requires decisions:read permission."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = DecisionHandler(mock_server_context)
             mock_handler = create_mock_handler()
@@ -326,6 +329,7 @@ class TestDecisionHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 h.handle("/api/v1/decisions", {}, mock_handler)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.no_auto_auth

@@ -616,8 +616,11 @@ class TestExplainabilityHandlerRBAC:
         """Test that batch create requires explainability:read permission."""
         from aragora.server.handlers.explainability import ExplainabilityHandler
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = ExplainabilityHandler(mock_server_context)
             http = mock_http_handler(
@@ -629,6 +632,7 @@ class TestExplainabilityHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 await h.handle("/api/v1/explainability/batch", {}, http)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.no_auto_auth
@@ -637,8 +641,11 @@ class TestExplainabilityHandlerRBAC:
         """Test that explanation endpoint requires explainability:read permission."""
         from aragora.server.handlers.explainability import ExplainabilityHandler
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
+        orig_enabled = auth_config.enabled
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        auth_config.enabled = True
         try:
             h = ExplainabilityHandler(mock_server_context)
             http = mock_http_handler(method="GET")
@@ -647,6 +654,7 @@ class TestExplainabilityHandlerRBAC:
             with pytest.raises(PermissionDeniedError):
                 await h.handle("/api/v1/debates/debate-123/explanation", {}, http)
         finally:
+            auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
 

@@ -106,8 +106,34 @@ def health_handler_with_deps(mock_nomic_dir, mock_storage, mock_elo_system, mock
 def clear_caches():
     """Clear caches before and after each test."""
     clear_cache()
+    # Also clear health probe cache so readiness checks aren't stale
+    from aragora.server.handlers.admin.health import _HEALTH_CACHE, _HEALTH_CACHE_TIMESTAMPS
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
     yield
     clear_cache()
+    _HEALTH_CACHE.clear()
+    _HEALTH_CACHE_TIMESTAMPS.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_server_readiness():
+    """Mock server startup and handler initialization checks for readiness probes.
+
+    The readiness probe checks is_server_ready() and get_route_index() which
+    are not initialized in test environments. Patch them to return True/populated.
+    """
+    mock_route_index = MagicMock()
+    mock_route_index._exact_routes = {"/healthz": True}  # Non-empty dict
+
+    with patch(
+        "aragora.server.unified_server.is_server_ready",
+        return_value=True,
+    ), patch(
+        "aragora.server.handler_registry.core.get_route_index",
+        return_value=mock_route_index,
+    ):
+        yield
 
 
 # ============================================================================
@@ -290,10 +316,9 @@ class TestComprehensiveHealth:
 
     async def test_health_returns_degraded_on_critical_failure(self, health_handler):
         """Health returns degraded status when critical service fails."""
-        # Patch filesystem check to fail
-        with patch.object(
-            health_handler,
-            "_check_filesystem_health",
+        # Patch the filesystem check at the module level where health_check() calls it
+        with patch(
+            "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
             return_value={"healthy": False, "error": "Write failed"},
         ):
             result = await health_handler.handle("/api/health", {}, None)

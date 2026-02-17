@@ -358,7 +358,7 @@ class TestErrorRecovery:
         config = GauntletConfig(run_scenario_matrix=True)
         runner = GauntletRunner(config=config)
 
-        with patch.object(runner, "_run_scenarios", side_effect=Exception("Scenario failed")):
+        with patch.object(runner, "_run_scenarios", side_effect=RuntimeError("Scenario failed")):
             result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)
@@ -369,8 +369,8 @@ class TestErrorRecovery:
         """Handle errors in all phases gracefully."""
         runner = GauntletRunner(config=quick_config)
 
-        with patch.object(runner, "_run_red_team", side_effect=Exception("RT error")):
-            with patch.object(runner, "_run_probes", side_effect=Exception("Probe error")):
+        with patch.object(runner, "_run_red_team", side_effect=RuntimeError("RT error")):
+            with patch.object(runner, "_run_probes", side_effect=RuntimeError("Probe error")):
                 result = await runner.run("Test input")
 
         assert isinstance(result, GauntletResult)

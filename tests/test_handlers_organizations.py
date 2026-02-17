@@ -563,12 +563,14 @@ class TestRemoveMember:
 
         assert result.status_code == 403
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_owner(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, owner_user
+        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user, owner_user
     ):
         """Test cannot remove the owner."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             admin_user if uid == admin_user.id else owner_user
         )
@@ -583,12 +585,14 @@ class TestRemoveMember:
         assert result.status_code == 403
         assert b"owner" in result.body.lower()
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_cannot_remove_self(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
+        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test cannot remove yourself."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
         mock_user_store.get_user_by_id.return_value = admin_user
 
         org_handler.ctx = {"user_store": mock_user_store}
@@ -626,12 +630,14 @@ class TestRemoveMember:
 
         assert result.status_code == 403
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_remove_member_success(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user, member_user
+        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user, member_user
     ):
         """Test successful member removal."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             admin_user if uid == admin_user.id else member_user
         )
@@ -699,12 +705,14 @@ class TestUpdateMemberRole:
 
         assert result.status_code == 403
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_update_role_success(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, owner_user, member_user
+        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, owner_user, member_user
     ):
         """Test successful role update."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=owner_user.id)
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
         mock_user_store.get_user_by_id.side_effect = lambda uid: (
             owner_user if uid == owner_user.id else member_user
         )
@@ -776,12 +784,14 @@ class TestInvitationManagement:
         body = json.loads(result.body)
         assert body["count"] == 1
 
+    @patch("aragora.server.handlers.organizations.check_permission")
     @patch(JWT_AUTH_PATH)
     def test_revoke_invitation_success(
-        self, mock_extract, org_handler, mock_http_handler, mock_user_store, admin_user
+        self, mock_extract, mock_check_perm, org_handler, mock_http_handler, mock_user_store, admin_user
     ):
         """Test successful invitation revocation."""
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id=admin_user.id)
+        mock_check_perm.return_value = MagicMock(allowed=True, reason="test")
         mock_user_store.get_user_by_id.return_value = admin_user
 
         invitation = OrganizationInvitation(

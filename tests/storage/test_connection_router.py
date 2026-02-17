@@ -203,7 +203,7 @@ class TestConnectionRouter:
         """Should fallback to primary if replica fails."""
         mock_replica_pool = MagicMock()
         mock_replica_pool.acquire.return_value.__aenter__ = AsyncMock(
-            side_effect=Exception("Replica error")
+            side_effect=ConnectionError("Replica error")
         )
 
         mock_primary_conn = MagicMock()

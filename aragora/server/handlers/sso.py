@@ -222,6 +222,12 @@ class SSOHandler(SecureHandler):
         "/api/sso/metadata",
     ]
 
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Check if this handler can process the given path."""
+        normalized = self._normalize_sso_path(path)
+        sso_prefixes = ("/auth/sso/",)
+        return any(normalized.startswith(prefix) for prefix in sso_prefixes)
+
     @staticmethod
     def _normalize_sso_path(path: str) -> str:
         """Normalize SDK SSO paths to internal auth paths."""

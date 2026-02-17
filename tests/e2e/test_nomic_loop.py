@@ -321,7 +321,9 @@ class TestDebatePhase:
         mock_claude_agent.generate = AsyncMock(
             return_value="Proposal: Add caching layer for better performance"
         )
+        mock_claude_agent.vote = AsyncMock(return_value=MagicMock(choice=0))
         mock_codex_agent.generate = AsyncMock(return_value="Proposal: Improve error handling")
+        mock_codex_agent.vote = AsyncMock(return_value=MagicMock(choice=0))
 
         phase = DebatePhase(
             aragora_path=nomic_temp_dir,
@@ -346,7 +348,9 @@ class TestDebatePhase:
         from aragora.nomic.phases.debate import DebatePhase
 
         mock_claude_agent.generate = AsyncMock(return_value="Proposal: Add streaming")
+        mock_claude_agent.vote = AsyncMock(return_value=MagicMock(choice=0))
         mock_codex_agent.generate = AsyncMock(return_value="Proposal: Add streaming")
+        mock_codex_agent.vote = AsyncMock(return_value=MagicMock(choice=0))
 
         phase = DebatePhase(
             aragora_path=nomic_temp_dir,

@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from ..models import DebateOrigin
 from ..formatting import _format_result_message
 from ..voice import _synthesize_voice
@@ -25,8 +27,6 @@ async def _send_telegram_result(origin: DebateOrigin, result: dict[str, Any]) ->
     message = _format_result_message(result, origin)
 
     try:
-        import httpx
-
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         data = {
             "chat_id": chat_id,
@@ -59,8 +59,6 @@ async def _send_telegram_receipt(origin: DebateOrigin, summary: str) -> bool:
         return False
 
     try:
-        import httpx
-
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         data = {
             "chat_id": origin.channel_id,
@@ -90,8 +88,6 @@ async def _send_telegram_error(origin: DebateOrigin, message: str) -> bool:
         return False
 
     try:
-        import httpx
-
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         data = {
             "chat_id": origin.channel_id,
@@ -122,8 +118,6 @@ async def _send_telegram_voice(origin: DebateOrigin, result: dict[str, Any]) -> 
         return False
 
     try:
-        import httpx
-
         url = f"https://api.telegram.org/bot{token}/sendVoice"
         chat_id = origin.channel_id
 

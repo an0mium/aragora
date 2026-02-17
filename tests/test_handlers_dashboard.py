@@ -104,6 +104,7 @@ def mock_storage(temp_db):
                 conn.close()
 
     storage.db = MockDb(temp_db)
+    storage.connection = storage.db.connection
     storage.list_debates.return_value = [
         {
             "id": "debate-1",
@@ -426,7 +427,7 @@ class TestDashboardErrorHandling:
 
     def test_dashboard_elo_exception(self, dashboard_handler, mock_elo_system):
         # Simulate ELO exception by making get_all_ratings fail
-        mock_elo_system.get_all_ratings.side_effect = Exception("ELO error")
+        mock_elo_system.get_all_ratings.side_effect = RuntimeError("ELO error")
 
         result = run_handle(dashboard_handler, "/api/dashboard/debates", {}, None)
 
@@ -865,7 +866,17 @@ class TestConsensusInsights:
 
         mock_memory.db.connection.return_value = mock_conn
 
-        with patch("aragora.memory.consensus.ConsensusMemory", return_value=mock_memory):
+        @contextmanager
+        def mock_wal_connection(*args, **kwargs):
+            yield mock_conn
+
+        with (
+            patch("aragora.memory.consensus.ConsensusMemory", return_value=mock_memory),
+            patch(
+                "aragora.storage.schema.get_wal_connection",
+                side_effect=mock_wal_connection,
+            ),
+        ):
             result = handler._get_consensus_insights(None)
 
         assert "total_consensus_topics" in result

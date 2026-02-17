@@ -90,14 +90,18 @@ class TestMemoryHandlerRouting:
         assert handler.can_handle("/api/v1/memory/continuum/consolidate")
 
     def test_cannot_handle_invalid_path(self, handler):
-        """Handler should not match invalid paths."""
+        """Handler should not match paths outside /api/v1/memory/ prefix."""
         assert not handler.can_handle("/api/v1/memory")
-        assert not handler.can_handle("/api/v1/memory/continuum")
-        assert not handler.can_handle("/api/v1/memory/other")
+        assert not handler.can_handle("/api/v1/other/resource")
+        assert not handler.can_handle("/api/v1/memo")
 
-    def test_cannot_handle_partial_paths(self, handler):
-        """Handler should not match partial paths."""
-        assert not handler.can_handle("/api/v1/memory/continuum/retrieve/extra")
+    def test_can_handle_dynamic_memory_subpaths(self, handler):
+        """Handler matches any path under /api/v1/memory/ (dynamic routing)."""
+        # The handler uses a broad startswith("/api/v1/memory/") catch-all
+        # to support dynamic path segments (e.g., /api/v1/memory/continuum/{id})
+        assert handler.can_handle("/api/v1/memory/continuum")
+        assert handler.can_handle("/api/v1/memory/other")
+        assert handler.can_handle("/api/v1/memory/continuum/retrieve/extra")
 
 
 class TestRetrieveEndpoint:

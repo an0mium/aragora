@@ -252,7 +252,7 @@ class TestEnrichPlanContext:
 
         with patch(
             "aragora.rlm.debate_helpers.load_debate_context",
-            side_effect=Exception("load failed"),
+            side_effect=RuntimeError("load failed"),
         ):
             ctx = enrich_plan_context(rlm, debate_result=debate)
 
@@ -478,7 +478,7 @@ class TestAnalyzeDebateForGauntlet:
 
         with patch(
             "aragora.rlm.debate_helpers.load_debate_context",
-            side_effect=Exception("load failed"),
+            side_effect=RuntimeError("load failed"),
         ):
             analysis = analyze_debate_for_gauntlet(MagicMock(spec=[]), debate)
 

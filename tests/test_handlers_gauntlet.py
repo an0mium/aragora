@@ -55,6 +55,10 @@ def create_mock_handler(path: str = "/api/gauntlet/run", method: str = "POST") -
     mock_handler.headers = {}
     mock_handler.client_address = ("127.0.0.1", 8080)
     mock_handler.command = method
+    # Explicitly set user_store to None so the quota check in _start_gauntlet
+    # is skipped (otherwise Mock() returns a truthy mock for any attribute,
+    # causing the org.is_at_limit check to fire and return 429).
+    mock_handler.user_store = None
     return mock_handler
 
 

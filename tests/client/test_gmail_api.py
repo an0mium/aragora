@@ -99,7 +99,7 @@ class TestGetConnection:
         assert result is None
 
     def test_get_connection_on_exception(self, api: GmailAPI, mock_client: AragoraClient) -> None:
-        mock_client._get.side_effect = RuntimeError("network error")
+        mock_client._get.side_effect = ConnectionError("network error")
         result = api.get_connection()
         assert result is None
 
@@ -122,7 +122,7 @@ class TestGetConnection:
     async def test_get_connection_async_on_exception(
         self, api: GmailAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(side_effect=RuntimeError("timeout"))
+        mock_client._get_async = AsyncMock(side_effect=ConnectionError("timeout"))
         result = await api.get_connection_async()
         assert result is None
 

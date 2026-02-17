@@ -9,8 +9,8 @@ Endpoints tested:
 - DELETE /api/checkpoints/{id} - Delete checkpoint
 - POST /api/checkpoints/{id}/intervention - Add intervention note
 - GET /api/debates/{id}/checkpoints - List debate checkpoints
-- POST /api/debates/{id}/checkpoint - Create checkpoint (501)
-- POST /api/debates/{id}/checkpoint/pause - Pause debate (501)
+- POST /api/debates/{id}/checkpoint - Create checkpoint (404 if no active debate)
+- POST /api/debates/{id}/checkpoint/pause - Pause debate (404 if no active debate)
 """
 
 import json
@@ -738,8 +738,13 @@ class TestCreateCheckpoint:
     """Tests for POST /api/debates/{id}/checkpoint endpoint."""
 
     @pytest.mark.asyncio
-    async def test_create_checkpoint_returns_501(self, checkpoint_handler, mock_handler):
-        """Returns 501 Not Implemented."""
+    async def test_create_checkpoint_no_debate_returns_404(self, checkpoint_handler, mock_handler):
+        """Returns 404 when no active debate session exists.
+
+        The handler first checks get_state_manager().get_debate() which returns
+        None for non-running debates, resulting in a 404 before any checkpoint
+        logic is reached.
+        """
         mock_handler.command = "POST"
 
         result = await checkpoint_handler.handle(
@@ -747,10 +752,9 @@ class TestCreateCheckpoint:
         )
 
         assert result is not None
-        assert result.status_code == 501
+        assert result.status_code == 404
         data = json.loads(result.body)
-        assert "active debate session" in data["message"].lower()
-        assert "hint" in data
+        assert "not found" in data["error"].lower()
 
 
 # ============================================================================
@@ -762,8 +766,13 @@ class TestPauseDebate:
     """Tests for POST /api/debates/{id}/checkpoint/pause endpoint."""
 
     @pytest.mark.asyncio
-    async def test_pause_debate_returns_501(self, checkpoint_handler, mock_handler):
-        """Returns 501 Not Implemented."""
+    async def test_pause_debate_no_debate_returns_404(self, checkpoint_handler, mock_handler):
+        """Returns 404 when no active debate session exists.
+
+        The handler first checks get_state_manager().get_debate() which returns
+        None for non-running debates, resulting in a 404 before any pause
+        logic is reached.
+        """
         mock_handler.command = "POST"
 
         result = await checkpoint_handler.handle(
@@ -771,10 +780,9 @@ class TestPauseDebate:
         )
 
         assert result is not None
-        assert result.status_code == 501
+        assert result.status_code == 404
         data = json.loads(result.body)
-        assert "lifecycle manager" in data["message"].lower()
-        assert "hint" in data
+        assert "not found" in data["error"].lower()
 
 
 # ============================================================================

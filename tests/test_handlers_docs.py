@@ -135,7 +135,7 @@ class TestRedoc:
 
     def test_redoc_returns_html(self, docs_handler):
         """Returns HTML content for ReDoc."""
-        result = docs_handler.handle("/api/redoc", {}, None)
+        result = docs_handler.handle("/api/v1/redoc", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -144,16 +144,16 @@ class TestRedoc:
 
     def test_redoc_contains_required_elements(self, docs_handler):
         """ReDoc HTML contains necessary elements."""
-        result = docs_handler.handle("/api/redoc", {}, None)
+        result = docs_handler.handle("/api/v1/redoc", {}, None)
 
         html = result.body.decode("utf-8")
         assert "redoc" in html
-        assert "/api/openapi.json" in html
+        assert "/api/v1/openapi.json" in html
         assert "Aragora API" in html
 
     def test_redoc_trailing_slash(self, docs_handler):
         """ReDoc works with trailing slash."""
-        result = docs_handler.handle("/api/redoc/", {}, None)
+        result = docs_handler.handle("/api/v1/redoc/", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -177,7 +177,7 @@ class TestOpenAPISpec:
             "aragora.server.openapi.handle_openapi_request",
             return_value=(mock_content, mock_content_type),
         ):
-            result = docs_handler.handle("/api/openapi", {}, None)
+            result = docs_handler.handle("/api/v1/openapi", {}, None)
 
             assert result is not None
             assert result.status_code == 200
@@ -193,7 +193,7 @@ class TestOpenAPISpec:
             "aragora.server.openapi.handle_openapi_request",
             return_value=(mock_content, mock_content_type),
         ):
-            result = docs_handler.handle("/api/openapi.json", {}, None)
+            result = docs_handler.handle("/api/v1/openapi.json", {}, None)
 
             assert result is not None
             assert result.status_code == 200
@@ -208,7 +208,7 @@ class TestOpenAPISpec:
             "aragora.server.openapi.handle_openapi_request",
             return_value=(mock_content, mock_content_type),
         ):
-            result = docs_handler.handle("/api/openapi.yaml", {}, None)
+            result = docs_handler.handle("/api/v1/openapi.yaml", {}, None)
 
             assert result is not None
             assert result.status_code == 200
@@ -230,7 +230,7 @@ class TestOpenAPISpec:
             {"aragora.server.openapi": None},
         ):
             clear_cache()
-            result = docs_handler.handle("/api/openapi", {}, None)
+            result = docs_handler.handle("/api/v1/openapi", {}, None)
 
             assert result is not None
             assert result.status_code == 503
@@ -250,7 +250,7 @@ class TestOpenAPISpec:
             side_effect=ValueError("Generation failed"),
         ):
             clear_cache()
-            result = docs_handler.handle("/api/openapi", {}, None)
+            result = docs_handler.handle("/api/v1/openapi", {}, None)
 
             assert result is not None
             assert result.status_code == 500
@@ -275,7 +275,7 @@ class TestPostmanCollection:
             "aragora.server.openapi.handle_postman_request",
             return_value=(mock_content, mock_content_type),
         ):
-            result = docs_handler.handle("/api/postman.json", {}, None)
+            result = docs_handler.handle("/api/v1/postman.json", {}, None)
 
             assert result is not None
             assert result.status_code == 200
@@ -291,7 +291,7 @@ class TestPostmanCollection:
             "aragora.server.openapi.handle_postman_request",
             return_value=(mock_content, mock_content_type),
         ):
-            result = docs_handler.handle("/api/postman.json", {}, None)
+            result = docs_handler.handle("/api/v1/postman.json", {}, None)
 
             assert result is not None
             assert result.headers is not None
@@ -302,9 +302,9 @@ class TestPostmanCollection:
         """Returns 500 on Postman generation error."""
         with patch(
             "aragora.server.openapi.handle_postman_request",
-            side_effect=Exception("Generation failed"),
+            side_effect=RuntimeError("Generation failed"),
         ):
-            result = docs_handler.handle("/api/postman.json", {}, None)
+            result = docs_handler.handle("/api/v1/postman.json", {}, None)
 
             assert result is not None
             assert result.status_code == 500
@@ -329,7 +329,7 @@ class TestDocsErrorHandling:
         """DocsHandler doesn't implement handle_post."""
         assert (
             not hasattr(docs_handler, "handle_post")
-            or docs_handler.handle_post("/api/docs", {}, None) is None
+            or docs_handler.handle_post("/api/v1/docs", {}, None) is None
         )
 
 
@@ -375,13 +375,13 @@ class TestDocsConstants:
     def test_routes_list(self, docs_handler):
         """ROUTES list contains expected paths."""
         expected_routes = [
-            "/api/openapi",
-            "/api/openapi.json",
-            "/api/openapi.yaml",
-            "/api/postman.json",
-            "/api/docs",
-            "/api/docs/",
-            "/api/redoc",
-            "/api/redoc/",
+            "/api/v1/openapi",
+            "/api/v1/openapi.json",
+            "/api/v1/openapi.yaml",
+            "/api/v1/postman.json",
+            "/api/v1/docs",
+            "/api/v1/docs/",
+            "/api/v1/redoc",
+            "/api/v1/redoc/",
         ]
         assert docs_handler.ROUTES == expected_routes
