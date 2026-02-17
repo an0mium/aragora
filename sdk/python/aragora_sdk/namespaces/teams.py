@@ -43,7 +43,7 @@ class TeamsAPI:
         if organization_id:
             params["organization_id"] = organization_id
 
-        return self._client._request("GET", "/api/v1/teams", params=params)
+        return self._client.request("GET", "/api/v1/teams", params=params)
 
     def get(self, team_id: str) -> dict[str, Any]:
         """
@@ -55,7 +55,7 @@ class TeamsAPI:
         Returns:
             Team details
         """
-        return self._client._request("GET", f"/api/v1/teams/{team_id}")
+        return self._client.request("GET", f"/api/v1/teams/{team_id}")
 
     def create(
         self,
@@ -84,7 +84,7 @@ class TeamsAPI:
         if settings:
             data["settings"] = settings
 
-        return self._client._request("POST", "/api/v1/teams", json=data)
+        return self._client.request("POST", "/api/v1/teams", json=data)
 
     def update(
         self,
@@ -113,7 +113,7 @@ class TeamsAPI:
         if settings is not None:
             data["settings"] = settings
 
-        return self._client._request("PATCH", f"/api/v1/teams/{team_id}", json=data)
+        return self._client.request("PATCH", f"/api/v1/teams/{team_id}", json=data)
 
     def delete(self, team_id: str) -> dict[str, Any]:
         """
@@ -125,7 +125,7 @@ class TeamsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client._request("DELETE", f"/api/v1/teams/{team_id}")
+        return self._client.request("DELETE", f"/api/v1/teams/{team_id}")
 
     def list_members(self, team_id: str) -> dict[str, Any]:
         """
@@ -137,7 +137,7 @@ class TeamsAPI:
         Returns:
             Team members
         """
-        return self._client._request("GET", f"/api/v1/teams/{team_id}/members")
+        return self._client.request("GET", f"/api/v1/teams/{team_id}/members")
 
     def add_member(self, team_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
         """
@@ -151,7 +151,7 @@ class TeamsAPI:
         Returns:
             Membership record
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             f"/api/v1/teams/{team_id}/members",
             json={"user_id": user_id, "role": role},
@@ -169,7 +169,7 @@ class TeamsAPI:
         Returns:
             Updated membership record
         """
-        return self._client._request(
+        return self._client.request(
             "PATCH",
             f"/api/v1/teams/{team_id}/members/{user_id}",
             json={"role": role},
@@ -186,7 +186,7 @@ class TeamsAPI:
         Returns:
             Removal confirmation
         """
-        return self._client._request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
+        return self._client.request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
 
     def get_stats(self, team_id: str) -> dict[str, Any]:
         """
@@ -198,7 +198,7 @@ class TeamsAPI:
         Returns:
             Team statistics
         """
-        return self._client._request("GET", f"/api/v1/teams/{team_id}/stats")
+        return self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
 
 
 class AsyncTeamsAPI:
@@ -218,11 +218,11 @@ class AsyncTeamsAPI:
         if organization_id:
             params["organization_id"] = organization_id
 
-        return await self._client._request("GET", "/api/v1/teams", params=params)
+        return await self._client.request("GET", "/api/v1/teams", params=params)
 
     async def get(self, team_id: str) -> dict[str, Any]:
         """Get team details."""
-        return await self._client._request("GET", f"/api/v1/teams/{team_id}")
+        return await self._client.request("GET", f"/api/v1/teams/{team_id}")
 
     async def create(
         self,
@@ -240,7 +240,7 @@ class AsyncTeamsAPI:
         if settings:
             data["settings"] = settings
 
-        return await self._client._request("POST", "/api/v1/teams", json=data)
+        return await self._client.request("POST", "/api/v1/teams", json=data)
 
     async def update(
         self,
@@ -258,19 +258,19 @@ class AsyncTeamsAPI:
         if settings is not None:
             data["settings"] = settings
 
-        return await self._client._request("PATCH", f"/api/v1/teams/{team_id}", json=data)
+        return await self._client.request("PATCH", f"/api/v1/teams/{team_id}", json=data)
 
     async def delete(self, team_id: str) -> dict[str, Any]:
         """Delete a team."""
-        return await self._client._request("DELETE", f"/api/v1/teams/{team_id}")
+        return await self._client.request("DELETE", f"/api/v1/teams/{team_id}")
 
     async def list_members(self, team_id: str) -> dict[str, Any]:
         """List team members."""
-        return await self._client._request("GET", f"/api/v1/teams/{team_id}/members")
+        return await self._client.request("GET", f"/api/v1/teams/{team_id}/members")
 
     async def add_member(self, team_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
         """Add a member to the team."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             f"/api/v1/teams/{team_id}/members",
             json={"user_id": user_id, "role": role},
@@ -278,7 +278,7 @@ class AsyncTeamsAPI:
 
     async def update_member(self, team_id: str, user_id: str, role: str) -> dict[str, Any]:
         """Update a team member's role."""
-        return await self._client._request(
+        return await self._client.request(
             "PATCH",
             f"/api/v1/teams/{team_id}/members/{user_id}",
             json={"role": role},
@@ -286,8 +286,8 @@ class AsyncTeamsAPI:
 
     async def remove_member(self, team_id: str, user_id: str) -> dict[str, Any]:
         """Remove a member from the team."""
-        return await self._client._request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
+        return await self._client.request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
 
     async def get_stats(self, team_id: str) -> dict[str, Any]:
         """Get team statistics."""
-        return await self._client._request("GET", f"/api/v1/teams/{team_id}/stats")
+        return await self._client.request("GET", f"/api/v1/teams/{team_id}/stats")

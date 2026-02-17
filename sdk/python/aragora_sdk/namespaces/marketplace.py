@@ -46,7 +46,7 @@ class MarketplaceAPI:
         if category:
             params["category"] = category
 
-        return self._client._request("GET", "/api/v1/marketplace/templates", params=params)
+        return self._client.request("GET", "/api/v1/marketplace/templates", params=params)
 
     def search_templates(
         self,
@@ -66,7 +66,7 @@ class MarketplaceAPI:
             Matching templates
         """
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return self._client._request("GET", "/api/v1/marketplace/templates/search", params=params)
+        return self._client.request("GET", "/api/v1/marketplace/templates/search", params=params)
 
     def get_template(self, template_id: str) -> dict[str, Any]:
         """
@@ -78,7 +78,7 @@ class MarketplaceAPI:
         Returns:
             Template details
         """
-        return self._client._request("GET", f"/api/v1/marketplace/templates/{template_id}")
+        return self._client.request("GET", f"/api/v1/marketplace/templates/{template_id}")
 
     def get_template_reviews(
         self,
@@ -98,7 +98,7 @@ class MarketplaceAPI:
             Template reviews
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client._request(
+        return self._client.request(
             "GET", f"/api/v1/marketplace/templates/{template_id}/reviews", params=params
         )
 
@@ -125,7 +125,7 @@ class MarketplaceAPI:
         if config:
             data["config"] = config
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/marketplace/templates/{template_id}/deploy", json=data
         )
 
@@ -139,7 +139,7 @@ class MarketplaceAPI:
         Returns:
             Deployment status
         """
-        return self._client._request("GET", f"/api/v1/marketplace/deployments/{deployment_id}")
+        return self._client.request("GET", f"/api/v1/marketplace/deployments/{deployment_id}")
 
     def list_categories(self) -> dict[str, Any]:
         """
@@ -148,7 +148,7 @@ class MarketplaceAPI:
         Returns:
             List of categories
         """
-        return self._client._request("GET", "/api/v1/marketplace/categories")
+        return self._client.request("GET", "/api/v1/marketplace/categories")
 
     def get_featured(self) -> dict[str, Any]:
         """
@@ -157,7 +157,7 @@ class MarketplaceAPI:
         Returns:
             Featured templates list
         """
-        return self._client._request("GET", "/api/v1/marketplace/featured")
+        return self._client.request("GET", "/api/v1/marketplace/featured")
 
     def submit_review(
         self,
@@ -180,7 +180,7 @@ class MarketplaceAPI:
         if comment:
             data["comment"] = comment
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/marketplace/templates/{template_id}/reviews", json=data
         )
 
@@ -200,7 +200,7 @@ class MarketplaceAPI:
             List of deployments
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client._request("GET", "/api/v1/marketplace/my-deployments", params=params)
+        return self._client.request("GET", "/api/v1/marketplace/my-deployments", params=params)
 
     def get_marketplace_status(self) -> dict[str, Any]:
         """
@@ -247,7 +247,7 @@ class AsyncMarketplaceAPI:
         if category:
             params["category"] = category
 
-        return await self._client._request("GET", "/api/v1/marketplace/templates", params=params)
+        return await self._client.request("GET", "/api/v1/marketplace/templates", params=params)
 
     async def search_templates(
         self,
@@ -257,13 +257,13 @@ class AsyncMarketplaceAPI:
     ) -> dict[str, Any]:
         """Search marketplace templates."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/v1/marketplace/templates/search", params=params
         )
 
     async def get_template(self, template_id: str) -> dict[str, Any]:
         """Get a template by ID."""
-        return await self._client._request("GET", f"/api/v1/marketplace/templates/{template_id}")
+        return await self._client.request("GET", f"/api/v1/marketplace/templates/{template_id}")
 
     async def get_template_reviews(
         self,
@@ -273,7 +273,7 @@ class AsyncMarketplaceAPI:
     ) -> dict[str, Any]:
         """Get reviews for a template."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client._request(
+        return await self._client.request(
             "GET",
             f"/api/v1/marketplace/templates/{template_id}/reviews",
             params=params,
@@ -292,23 +292,23 @@ class AsyncMarketplaceAPI:
         if config:
             data["config"] = config
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/marketplace/templates/{template_id}/deploy", json=data
         )
 
     async def get_deployment_status(self, deployment_id: str) -> dict[str, Any]:
         """Get deployment status."""
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/marketplace/deployments/{deployment_id}"
         )
 
     async def list_categories(self) -> dict[str, Any]:
         """List available template categories."""
-        return await self._client._request("GET", "/api/v1/marketplace/categories")
+        return await self._client.request("GET", "/api/v1/marketplace/categories")
 
     async def get_featured(self) -> dict[str, Any]:
         """Get featured templates."""
-        return await self._client._request("GET", "/api/v1/marketplace/featured")
+        return await self._client.request("GET", "/api/v1/marketplace/featured")
 
     async def submit_review(
         self,
@@ -321,7 +321,7 @@ class AsyncMarketplaceAPI:
         if comment:
             data["comment"] = comment
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/marketplace/templates/{template_id}/reviews", json=data
         )
 
@@ -332,7 +332,7 @@ class AsyncMarketplaceAPI:
     ) -> dict[str, Any]:
         """List templates deployed to your workspace."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/v1/marketplace/my-deployments", params=params
         )
 

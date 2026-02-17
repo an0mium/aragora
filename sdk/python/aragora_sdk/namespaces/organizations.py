@@ -40,6 +40,15 @@ class OrganizationsAPI:
     # Organization Details
     # ===========================================================================
 
+    def list_orgs(self) -> dict[str, Any]:
+        """
+        List all organizations.
+
+        Returns:
+            Dict with organizations array.
+        """
+        return self._client.request("GET", "/api/v1/org")
+
     def get(self, org_id: str) -> dict[str, Any]:
         """
         Get organization details.
@@ -225,6 +234,43 @@ class OrganizationsAPI:
         """
         return self._client.request("POST", f"/api/v1/invitations/{token}/accept")
 
+    # ===========================================================================
+    # Tenants
+    # ===========================================================================
+
+    def list_tenants(self) -> dict[str, Any]:
+        """
+        List all tenants.
+
+        Returns:
+            Dict with tenants array.
+        """
+        return self._client.request("GET", "/api/v1/tenants")
+
+    def create_tenant(
+        self,
+        name: str,
+        slug: str | None = None,
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new tenant.
+
+        Args:
+            name: Tenant name.
+            slug: URL-friendly identifier.
+            settings: Tenant configuration.
+
+        Returns:
+            Created tenant details.
+        """
+        data: dict[str, Any] = {"name": name}
+        if slug is not None:
+            data["slug"] = slug
+        if settings is not None:
+            data["settings"] = settings
+        return self._client.request("POST", "/api/v1/tenants", json=data)
+
 class AsyncOrganizationsAPI:
     """
     Asynchronous Organizations API.
@@ -241,6 +287,10 @@ class AsyncOrganizationsAPI:
     # ===========================================================================
     # Organization Details
     # ===========================================================================
+
+    async def list_orgs(self) -> dict[str, Any]:
+        """List all organizations."""
+        return await self._client.request("GET", "/api/v1/org")
 
     async def get(self, org_id: str) -> dict[str, Any]:
         """Get organization details."""
@@ -322,3 +372,22 @@ class AsyncOrganizationsAPI:
     async def accept_invitation(self, token: str) -> dict[str, Any]:
         """Accept an invitation to join an organization."""
         return await self._client.request("POST", f"/api/v1/invitations/{token}/accept")
+
+    # Tenants
+    async def list_tenants(self) -> dict[str, Any]:
+        """List all tenants."""
+        return await self._client.request("GET", "/api/v1/tenants")
+
+    async def create_tenant(
+        self,
+        name: str,
+        slug: str | None = None,
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a new tenant."""
+        data: dict[str, Any] = {"name": name}
+        if slug is not None:
+            data["slug"] = slug
+        if settings is not None:
+            data["settings"] = settings
+        return await self._client.request("POST", "/api/v1/tenants", json=data)

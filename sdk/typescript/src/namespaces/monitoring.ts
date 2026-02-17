@@ -223,6 +223,14 @@ export class MonitoringAPI {
   }
 
   /**
+   * List all monitoring baselines.
+   * Returns baseline statistics for all tracked metrics.
+   */
+  async listBaselines(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/autonomous/monitoring/baseline');
+  }
+
+  /**
    * Get baseline statistics for a metric.
    * Returns mean, stdev, min, max, and median.
    */

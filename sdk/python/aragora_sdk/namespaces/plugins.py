@@ -211,6 +211,45 @@ class PluginsAPI:
 
         return self._client.request("GET", "/api/v1/plugins/submissions", params=params)
 
+    # ===========================================================================
+    # Query & Validation
+    # ===========================================================================
+
+    def query(
+        self,
+        query: str,
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Query plugins with advanced search.
+
+        Args:
+            query: Search query string.
+            filters: Optional search filters.
+
+        Returns:
+            Matching plugins.
+        """
+        data: dict[str, Any] = {"query": query}
+        if filters:
+            data["filters"] = filters
+        return self._client.request("POST", "/api/v1/plugins/query", json=data)
+
+    def validate(
+        self,
+        plugin_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Validate a plugin configuration.
+
+        Args:
+            plugin_config: Plugin configuration to validate.
+
+        Returns:
+            Validation result with any errors or warnings.
+        """
+        return self._client.request("POST", "/api/v1/plugins/validate", json=plugin_config)
+
 
 class AsyncPluginsAPI:
     """
@@ -312,3 +351,22 @@ class AsyncPluginsAPI:
             params["status"] = status
 
         return await self._client.request("GET", "/api/v1/plugins/submissions", params=params)
+
+    # Query & Validation
+    async def query(
+        self,
+        query: str,
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Query plugins with advanced search."""
+        data: dict[str, Any] = {"query": query}
+        if filters:
+            data["filters"] = filters
+        return await self._client.request("POST", "/api/v1/plugins/query", json=data)
+
+    async def validate(
+        self,
+        plugin_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Validate a plugin configuration."""
+        return await self._client.request("POST", "/api/v1/plugins/validate", json=plugin_config)

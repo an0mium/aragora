@@ -47,6 +47,24 @@ class RLMAPI:
     # Statistics & Configuration
     # ===========================================================================
 
+    def get_codebase_health(self) -> dict[str, Any]:
+        """
+        Get RLM codebase health status.
+
+        Returns:
+            Dict with codebase health metrics and diagnostics.
+        """
+        return self._client.request("GET", "/api/v1/rlm/codebase/health")
+
+    def reset_codebase_health(self) -> dict[str, Any]:
+        """
+        Reset RLM codebase health metrics.
+
+        Returns:
+            Confirmation of health reset.
+        """
+        return self._client.request("POST", "/api/v1/rlm/codebase/health")
+
     def compress_and_query(
         self,
         content: str,
@@ -95,6 +113,14 @@ class AsyncRLMAPI:
     # ===========================================================================
     # Statistics & Configuration
     # ===========================================================================
+
+    async def get_codebase_health(self) -> dict[str, Any]:
+        """Get RLM codebase health status."""
+        return await self._client.request("GET", "/api/v1/rlm/codebase/health")
+
+    async def reset_codebase_health(self) -> dict[str, Any]:
+        """Reset RLM codebase health metrics."""
+        return await self._client.request("POST", "/api/v1/rlm/codebase/health")
 
     async def compress_and_query(
         self,

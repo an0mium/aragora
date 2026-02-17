@@ -46,7 +46,7 @@ class MonitoringAPI:
         if end_time:
             params["end"] = end_time
 
-        return self._client._request("GET", "/api/v1/monitoring/metrics", params=params)
+        return self._client.request("GET", "/api/v1/monitoring/metrics", params=params)
 
     def get_health(self) -> dict[str, Any]:
         """
@@ -55,7 +55,7 @@ class MonitoringAPI:
         Returns:
             Health status for all components
         """
-        return self._client._request("GET", "/api/v1/monitoring/health")
+        return self._client.request("GET", "/api/v1/monitoring/health")
 
     def list_alerts(
         self,
@@ -80,7 +80,7 @@ class MonitoringAPI:
         if severity:
             params["severity"] = severity
 
-        return self._client._request("GET", "/api/v1/monitoring/alerts", params=params)
+        return self._client.request("GET", "/api/v1/monitoring/alerts", params=params)
 
     def acknowledge_alert(self, alert_id: str, comment: str | None = None) -> dict[str, Any]:
         """
@@ -97,7 +97,7 @@ class MonitoringAPI:
         if comment:
             data["comment"] = comment
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge", json=data
         )
 
@@ -116,7 +116,7 @@ class MonitoringAPI:
         if resolution:
             data["resolution"] = resolution
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
 
@@ -127,7 +127,7 @@ class MonitoringAPI:
         Returns:
             List of dashboards
         """
-        return self._client._request("GET", "/api/v1/monitoring/dashboards")
+        return self._client.request("GET", "/api/v1/monitoring/dashboards")
 
     def get_dashboard(self, dashboard_id: str) -> dict[str, Any]:
         """
@@ -139,7 +139,7 @@ class MonitoringAPI:
         Returns:
             Dashboard configuration
         """
-        return self._client._request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
+        return self._client.request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
 
     def get_logs(
         self,
@@ -168,7 +168,7 @@ class MonitoringAPI:
         if end_time:
             params["end"] = end_time
 
-        return self._client._request("GET", "/api/v1/monitoring/logs", params=params)
+        return self._client.request("GET", "/api/v1/monitoring/logs", params=params)
 
     def get_traces(
         self,
@@ -197,7 +197,7 @@ class MonitoringAPI:
         if min_duration:
             params["min_duration"] = min_duration
 
-        return self._client._request("GET", "/api/v1/monitoring/traces", params=params)
+        return self._client.request("GET", "/api/v1/monitoring/traces", params=params)
 
     def get_slos(self) -> dict[str, Any]:
         """
@@ -206,7 +206,7 @@ class MonitoringAPI:
         Returns:
             List of SLOs with current status
         """
-        return self._client._request("GET", "/api/v1/monitoring/slos")
+        return self._client.request("GET", "/api/v1/monitoring/slos")
 
 
 class AsyncMonitoringAPI:
@@ -231,11 +231,11 @@ class AsyncMonitoringAPI:
         if end_time:
             params["end"] = end_time
 
-        return await self._client._request("GET", "/api/v1/monitoring/metrics", params=params)
+        return await self._client.request("GET", "/api/v1/monitoring/metrics", params=params)
 
     async def get_health(self) -> dict[str, Any]:
         """Get system health status."""
-        return await self._client._request("GET", "/api/v1/monitoring/health")
+        return await self._client.request("GET", "/api/v1/monitoring/health")
 
     async def list_alerts(
         self,
@@ -250,7 +250,7 @@ class AsyncMonitoringAPI:
         if severity:
             params["severity"] = severity
 
-        return await self._client._request("GET", "/api/v1/monitoring/alerts", params=params)
+        return await self._client.request("GET", "/api/v1/monitoring/alerts", params=params)
 
     async def acknowledge_alert(self, alert_id: str, comment: str | None = None) -> dict[str, Any]:
         """Acknowledge an alert."""
@@ -258,7 +258,7 @@ class AsyncMonitoringAPI:
         if comment:
             data["comment"] = comment
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge", json=data
         )
 
@@ -268,17 +268,17 @@ class AsyncMonitoringAPI:
         if resolution:
             data["resolution"] = resolution
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/monitoring/alerts/{alert_id}/resolve", json=data
         )
 
     async def list_dashboards(self) -> dict[str, Any]:
         """List available dashboards."""
-        return await self._client._request("GET", "/api/v1/monitoring/dashboards")
+        return await self._client.request("GET", "/api/v1/monitoring/dashboards")
 
     async def get_dashboard(self, dashboard_id: str) -> dict[str, Any]:
         """Get dashboard details."""
-        return await self._client._request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
+        return await self._client.request("GET", f"/api/v1/monitoring/dashboards/{dashboard_id}")
 
     async def get_logs(
         self,
@@ -296,7 +296,7 @@ class AsyncMonitoringAPI:
         if end_time:
             params["end"] = end_time
 
-        return await self._client._request("GET", "/api/v1/monitoring/logs", params=params)
+        return await self._client.request("GET", "/api/v1/monitoring/logs", params=params)
 
     async def get_traces(
         self,
@@ -314,8 +314,8 @@ class AsyncMonitoringAPI:
         if min_duration:
             params["min_duration"] = min_duration
 
-        return await self._client._request("GET", "/api/v1/monitoring/traces", params=params)
+        return await self._client.request("GET", "/api/v1/monitoring/traces", params=params)
 
     async def get_slos(self) -> dict[str, Any]:
         """Get SLO status."""
-        return await self._client._request("GET", "/api/v1/monitoring/slos")
+        return await self._client.request("GET", "/api/v1/monitoring/slos")

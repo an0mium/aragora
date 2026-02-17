@@ -50,7 +50,7 @@ class LaboratoryAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return self._client._request("GET", "/api/v1/laboratory/emergent-traits", params=params)
+        return self._client.request("GET", "/api/v1/laboratory/emergent-traits", params=params)
 
     def suggest_cross_pollinations(
         self,
@@ -65,7 +65,7 @@ class LaboratoryAPI:
         Returns:
             Cross-pollination suggestions with source agents and reasons.
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/laboratory/cross-pollinations",
             json={"target_agent": target_agent},
@@ -84,7 +84,7 @@ class LaboratoryAPI:
         Returns:
             Trait analysis with strengths, weaknesses, and recommendations.
         """
-        return self._client._request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
+        return self._client.request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
 
     def run_experiment(
         self,
@@ -110,7 +110,7 @@ class LaboratoryAPI:
         if config:
             data["config"] = config
 
-        return self._client._request("POST", "/api/v1/laboratory/experiments", json=data)
+        return self._client.request("POST", "/api/v1/laboratory/experiments", json=data)
 
     def get_experiments(
         self,
@@ -133,7 +133,7 @@ class LaboratoryAPI:
         if status is not None:
             params["status"] = status
 
-        return self._client._request("GET", "/api/v1/laboratory/experiments", params=params)
+        return self._client.request("GET", "/api/v1/laboratory/experiments", params=params)
 
 
 class AsyncLaboratoryAPI:
@@ -154,7 +154,7 @@ class AsyncLaboratoryAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/v1/laboratory/emergent-traits", params=params
         )
 
@@ -163,7 +163,7 @@ class AsyncLaboratoryAPI:
         target_agent: str,
     ) -> dict[str, Any]:
         """Suggest beneficial trait transfers for a target agent."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/laboratory/cross-pollinations",
             json={"target_agent": target_agent},
@@ -174,7 +174,7 @@ class AsyncLaboratoryAPI:
         agent_name: str,
     ) -> dict[str, Any]:
         """Get detailed trait analysis for an agent."""
-        return await self._client._request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
+        return await self._client.request("GET", f"/api/v1/laboratory/agent/{agent_name}/analysis")
 
     async def run_experiment(
         self,
@@ -190,7 +190,7 @@ class AsyncLaboratoryAPI:
         if config:
             data["config"] = config
 
-        return await self._client._request("POST", "/api/v1/laboratory/experiments", json=data)
+        return await self._client.request("POST", "/api/v1/laboratory/experiments", json=data)
 
     async def get_experiments(
         self,
@@ -204,4 +204,4 @@ class AsyncLaboratoryAPI:
         if status is not None:
             params["status"] = status
 
-        return await self._client._request("GET", "/api/v1/laboratory/experiments", params=params)
+        return await self._client.request("GET", "/api/v1/laboratory/experiments", params=params)

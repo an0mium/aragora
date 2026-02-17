@@ -118,4 +118,39 @@ export class LaboratoryAPI {
       params: request as unknown as Record<string, unknown>,
     });
   }
+
+  /**
+   * Create a cross-pollination between agents.
+   */
+  async createCrossPollination(body: {
+    target_agent: string;
+    source_agent?: string;
+    trait_or_domain?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/laboratory/cross-pollinations', {
+      json: body as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * List laboratory experiments.
+   */
+  async listExperiments(options?: { limit?: number; status?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/laboratory/experiments', {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Create a new laboratory experiment.
+   */
+  async createExperiment(body: {
+    experiment_type: string;
+    agents: string[];
+    config?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/laboratory/experiments', {
+      json: body as Record<string, unknown>,
+    });
+  }
 }

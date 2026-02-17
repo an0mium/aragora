@@ -309,4 +309,68 @@ export class APAutomationAPI {
   async getDiscountOpportunities(): Promise<{ opportunities: DiscountOpportunity[] }> {
     return this.client.request('GET', '/api/v1/accounting/ap/discounts');
   }
+
+  // ===========================================================================
+  // AP Shortcut Routes
+  // ===========================================================================
+
+  /**
+   * List AP invoices (shortcut route).
+   */
+  async listAPInvoices(
+    params?: ListAPInvoicesParams
+  ): Promise<{ invoices: APInvoice[]; total: number }> {
+    return this.client.request('GET', '/api/v1/ap/invoices', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Add an AP invoice (shortcut route).
+   */
+  async addAPInvoice(
+    request: AddAPInvoiceRequest
+  ): Promise<{ invoice: APInvoice; message: string }> {
+    return this.client.request('POST', '/api/v1/ap/invoices', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Optimize AP payments (shortcut route).
+   */
+  async optimizeAP(
+    request?: OptimizePaymentsRequest
+  ): Promise<{ schedule: PaymentSchedule }> {
+    return this.client.request('POST', '/api/v1/ap/optimize', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Create batch AP payment (shortcut route).
+   */
+  async createAPBatchPayment(
+    request: BatchPaymentRequest
+  ): Promise<{ batch: BatchPayment }> {
+    return this.client.request('POST', '/api/v1/ap/batch-payments', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get AP cash flow forecast (shortcut route).
+   */
+  async getAPCashFlow(params?: { days?: number }): Promise<{ forecast: CashFlowForecast }> {
+    return this.client.request('GET', '/api/v1/ap/cash-flow', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get AP discount opportunities (shortcut route).
+   */
+  async getAPDiscountOpportunities(): Promise<{ opportunities: DiscountOpportunity[] }> {
+    return this.client.request('GET', '/api/v1/ap/discount-opportunities');
+  }
 }

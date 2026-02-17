@@ -59,6 +59,7 @@ export interface CostAnomaliesResponse {
 }
 
 interface BudgetsClientInterface {
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown>; body?: unknown }): Promise<T>;
   listBudgets(params?: PaginationParams): Promise<BudgetList>;
   createBudget(body: CreateBudgetRequest): Promise<Budget>;
   getBudget(budgetId: string): Promise<Budget>;
@@ -347,7 +348,9 @@ export class BudgetsAPI {
    * ```
    */
   async getOrgTrends(params?: TrendsOptions): Promise<BudgetTrendsResponse> {
-    return this.client.getOrgTrends(params);
+    return this.client.request('GET', '/api/v1/budgets/trends', {
+      params: params as Record<string, unknown>,
+    });
   }
 
   // ===========================================================================

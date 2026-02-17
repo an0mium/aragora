@@ -353,7 +353,7 @@ class BudgetsAPI:
             Organization-wide trend data
         """
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return self._client._request("GET", "/api/v1/budgets/trends", params=params)
+        return self._client.request("GET", "/api/v1/budgets/trends", params=params)
 
     def add_single_override(self, budget_id: str) -> dict[str, Any]:
         """Add a budget override."""
@@ -607,7 +607,7 @@ class AsyncBudgetsAPI:
     ) -> dict[str, Any]:
         """Get organization-wide spending trends across all budgets."""
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return await self._client._request("GET", "/api/v1/budgets/trends", params=params)
+        return await self._client.request("GET", "/api/v1/budgets/trends", params=params)
 
     async def add_single_override(self, budget_id: str) -> dict[str, Any]:
         """Add a budget override."""

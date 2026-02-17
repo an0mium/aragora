@@ -125,6 +125,41 @@ class CrossPollinationAPI:
         return self._client.request("GET", "/api/v1/cross-pollination/km/staleness-check")
 
     # ===========================================================================
+    # Federation
+    # ===========================================================================
+
+    def get_federation(self) -> dict[str, Any]:
+        """
+        Get cross-pollination federation status and configuration.
+
+        Returns:
+            Dict with federation status, nodes, and sync info.
+        """
+        return self._client.request("GET", "/api/v1/cross-pollination/federation")
+
+    # ===========================================================================
+    # Sync Operations
+    # ===========================================================================
+
+    def get_sync_status(self) -> dict[str, Any]:
+        """
+        Get cross-pollination sync status.
+
+        Returns:
+            Dict with sync state, last sync time, and pending items.
+        """
+        return self._client.request("GET", "/api/v1/cross-pollination/sync/status")
+
+    def trigger_sync(self) -> dict[str, Any]:
+        """
+        Trigger a cross-pollination sync operation.
+
+        Returns:
+            Dict with sync trigger confirmation and job ID.
+        """
+        return self._client.request("POST", "/api/v1/cross-pollination/sync/trigger")
+
+    # ===========================================================================
     # Laboratory (Suggestions)
     # ===========================================================================
 
@@ -210,6 +245,20 @@ class AsyncCrossPollinationAPI:
     async def check_staleness(self) -> dict[str, Any]:
         """Check for stale cross-pollinated knowledge."""
         return await self._client.request("GET", "/api/v1/cross-pollination/km/staleness-check")
+
+    # Federation
+    async def get_federation(self) -> dict[str, Any]:
+        """Get cross-pollination federation status and configuration."""
+        return await self._client.request("GET", "/api/v1/cross-pollination/federation")
+
+    # Sync Operations
+    async def get_sync_status(self) -> dict[str, Any]:
+        """Get cross-pollination sync status."""
+        return await self._client.request("GET", "/api/v1/cross-pollination/sync/status")
+
+    async def trigger_sync(self) -> dict[str, Any]:
+        """Trigger a cross-pollination sync operation."""
+        return await self._client.request("POST", "/api/v1/cross-pollination/sync/trigger")
 
     # Laboratory (Suggestions)
     async def suggest(

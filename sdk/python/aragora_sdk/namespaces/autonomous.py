@@ -409,6 +409,17 @@ class AutonomousAPI:
             "GET", "/api/v1/autonomous/monitoring/anomalies", params=params
         )
 
+    def list_monitoring_baselines(self) -> dict[str, Any]:
+        """
+        List all monitoring baselines.
+
+        GET /api/v1/autonomous/monitoring/baseline
+
+        Returns:
+            Dict with all baseline statistics across tracked metrics.
+        """
+        return self._client.request("GET", "/api/v1/autonomous/monitoring/baseline")
+
     def get_monitoring_baseline(self, metric_name: str) -> dict[str, Any]:
         """
         Get baseline statistics for a metric.
@@ -642,6 +653,10 @@ class AsyncAutonomousAPI:
         return await self._client.request(
             "GET", "/api/v1/autonomous/monitoring/anomalies", params=params
         )
+
+    async def list_monitoring_baselines(self) -> dict[str, Any]:
+        """List all monitoring baselines. GET /api/v1/autonomous/monitoring/baseline"""
+        return await self._client.request("GET", "/api/v1/autonomous/monitoring/baseline")
 
     async def get_monitoring_baseline(self, metric_name: str) -> dict[str, Any]:
         """Get baseline statistics. GET /api/v1/autonomous/monitoring/baseline/:metric_name"""

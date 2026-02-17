@@ -38,6 +38,24 @@ class SharedInboxAPI:
         """
         return self._client.request("GET", "/api/v1/inbox/routing/rules")
 
+    def list_mentions(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List inbox mentions for the current user.
+
+        Args:
+            limit: Maximum mentions to return.
+            offset: Pagination offset.
+
+        Returns:
+            Dict with mentions array and count.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/inbox/mentions", params=params)
+
 
 class AsyncSharedInboxAPI:
     """Asynchronous Shared Inbox API."""
@@ -52,4 +70,13 @@ class AsyncSharedInboxAPI:
     async def list_routing_rules(self) -> dict[str, Any]:
         """List inbox routing rules."""
         return await self._client.request("GET", "/api/v1/inbox/routing/rules")
+
+    async def list_mentions(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List inbox mentions for the current user."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/inbox/mentions", params=params)
 

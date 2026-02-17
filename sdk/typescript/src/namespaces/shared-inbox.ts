@@ -130,4 +130,12 @@ export class SharedInboxNamespace {
   async listRoutingRules(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/inbox/routing/rules') as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * List inbox mentions for the current user.
+   * @route GET /api/v1/inbox/mentions
+   */
+  async listMentions(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/inbox/mentions', { params }) as Promise<Record<string, unknown>>;
+  }
 }

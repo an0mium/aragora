@@ -167,7 +167,7 @@ class DocumentsAPI:
             Matching document chunks
         """
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return self._client._request("GET", "/api/v1/documents/search", params=params)
+        return self._client.request("GET", "/api/v1/documents/search", params=params)
 
     def get_chunks(
         self,
@@ -287,7 +287,7 @@ class AsyncDocumentsAPI:
     ) -> dict[str, Any]:
         """Search document contents."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return await self._client._request("GET", "/api/v1/documents/search", params=params)
+        return await self._client.request("GET", "/api/v1/documents/search", params=params)
 
     async def get_chunks(
         self,

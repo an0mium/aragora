@@ -364,6 +364,55 @@ export class AccountingAPI {
   }
 
   // ===========================================================================
+  // Accounting Gusto Integration
+  // ===========================================================================
+
+  /**
+   * List Gusto employees via the accounting integration.
+   */
+  async listAccountingGustoEmployees(params?: PaginationParams): Promise<EmployeeList> {
+    return this.client.request('GET', '/api/v1/accounting/gusto/employees', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * List Gusto payroll runs via the accounting integration.
+   */
+  async listAccountingGustoPayrolls(params?: PaginationParams): Promise<PayrollList> {
+    return this.client.request('GET', '/api/v1/accounting/gusto/payrolls', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get Gusto integration status via the accounting integration.
+   */
+  async getAccountingGustoStatus(): Promise<{ connected: boolean; company_name?: string }> {
+    return this.client.request('GET', '/api/v1/accounting/gusto/status');
+  }
+
+  // ===========================================================================
+  // Invoice Status
+  // ===========================================================================
+
+  /**
+   * Get invoice processing status summary.
+   */
+  async getInvoiceStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/accounting/invoices/status');
+  }
+
+  /**
+   * Update invoice processing status.
+   */
+  async updateInvoiceStatus(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/accounting/invoices/status', {
+      json: body,
+    });
+  }
+
+  // ===========================================================================
   // Gusto Payroll
   // ===========================================================================
 

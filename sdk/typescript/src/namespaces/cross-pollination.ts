@@ -627,7 +627,7 @@ export class CrossPollinationAPI {
     }>;
     last_federation_at?: string;
   }> {
-    return this.client.get('/api/v1/cross-pollination/federation');
+    return this.client.request('GET', '/api/v1/cross-pollination/federation');
   }
 
   /**
@@ -708,7 +708,7 @@ export class CrossPollinationAPI {
       success: boolean;
     }>;
   }> {
-    return this.client.get('/api/v1/cross-pollination/sync/status');
+    return this.client.request('GET', '/api/v1/cross-pollination/sync/status');
   }
 
   /**
@@ -730,6 +730,6 @@ export class CrossPollinationAPI {
     duration_ms: number;
     errors?: string[];
   }> {
-    return this.client.post('/api/v1/cross-pollination/sync/trigger');
+    return this.client.request('POST', '/api/v1/cross-pollination/sync/trigger');
   }
 }

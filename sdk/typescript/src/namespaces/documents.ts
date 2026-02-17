@@ -109,4 +109,16 @@ export class DocumentsAPI {
   }): Promise<UploadResult> {
     return this.client.post('/api/v1/documents/upload', body);
   }
+
+  /**
+   * Search document contents.
+   *
+   * @param query - Search query string.
+   * @param options - Optional search parameters.
+   */
+  async search(query: string, options?: { limit?: number; offset?: number }): Promise<{ results: unknown[]; total: number }> {
+    return this.client.request('GET', '/api/v1/documents/search', {
+      params: { query, ...options } as Record<string, unknown>,
+    });
+  }
 }
