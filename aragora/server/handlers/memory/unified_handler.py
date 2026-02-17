@@ -24,9 +24,9 @@ class UnifiedMemoryHandler(SecureHandler):
     Wraps MemoryGateway to expose cross-system search via REST API.
     """
 
-    def __init__(self, gateway: Any = None, ctx: dict[str, Any] | None = None) -> None:
-        self._gateway = gateway
+    def __init__(self, ctx: dict[str, Any] | None = None, gateway: Any = None) -> None:
         self.ctx = ctx or {}
+        self._gateway = gateway
 
     @require_permission(MEMORY_READ_PERMISSION)
     async def handle_search(self, request_data: dict[str, Any]) -> dict[str, Any]:

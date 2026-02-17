@@ -40,12 +40,15 @@ class AnalysisEventBridge:
             # BugSeverity is a str enum, so .value gives the string
             if hasattr(severity, "value"):
                 severity = severity.value
+            bug_type = getattr(finding, "bug_type", "")
+            if hasattr(bug_type, "value"):
+                bug_type = bug_type.value
             self._emit_risk_warning(
                 risk_type="bug_detected",
                 severity=severity,
                 description=getattr(finding, "description", "")[:500],
                 details={
-                    "bug_type": str(getattr(finding, "bug_type", "")),
+                    "bug_type": str(bug_type),
                     "file": getattr(finding, "file_path", ""),
                     "line": getattr(finding, "line_number", 0),
                     "confidence": round(confidence, 4),
