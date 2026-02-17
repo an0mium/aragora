@@ -846,6 +846,19 @@ class AutonomousOrchestrator:
                     result.metrics_delta = _metrics_delta.to_dict()
                     result.improvement_score = _metrics_delta.improvement_score
 
+                    # Check success criteria from subtasks
+                    all_criteria: dict[str, Any] = {}
+                    for a in assignments:
+                        if a.subtask.success_criteria:
+                            all_criteria.update(a.subtask.success_criteria)
+                    if all_criteria:
+                        met, unmet = self._metrics_collector.check_success_criteria(
+                            _metrics_after, all_criteria,
+                        )
+                        result.success_criteria_met = met
+                        if not met:
+                            logger.info("success_criteria_unmet: %s", "; ".join(unmet))
+
                     if _metrics_delta.improved:
                         logger.info(
                             "metrics_improvement_detected score=%.2f summary=%s",
