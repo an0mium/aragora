@@ -502,23 +502,39 @@ class SelfImprovePipeline:
 
             # Write instruction to worktree for agent pickup
             dispatched = False
+            executed = False
             worktree_path = instruction.worktree_path or getattr(
                 subtask, "worktree_path", None
             )
+            files_changed: list[str] = []
+            tests_passed = 0
+            tests_failed = 0
+
             if worktree_path:
                 dispatched = self._write_instruction_to_worktree(
                     instruction, worktree_path
                 )
+
+                # Try to execute via Claude Code harness
+                exec_result = await self._dispatch_to_claude_code(
+                    instruction, worktree_path
+                )
+                if exec_result is not None:
+                    executed = True
+                    files_changed = exec_result.get("files_changed", [])
+                    tests_passed = exec_result.get("tests_passed", 0)
+                    tests_failed = exec_result.get("tests_failed", 0)
 
             return {
                 "success": True,
                 "subtask": desc[:100],
                 "instruction_generated": True,
                 "instruction_dispatched": dispatched,
+                "instruction_executed": executed,
                 "worktree_path": worktree_path,
-                "files_changed": [],
-                "tests_passed": 0,
-                "tests_failed": 0,
+                "files_changed": files_changed,
+                "tests_passed": tests_passed,
+                "tests_failed": tests_failed,
             }
         except ImportError:
             pass
@@ -534,6 +550,142 @@ class SelfImprovePipeline:
             "tests_passed": 0,
             "tests_failed": 0,
         }
+
+    async def _dispatch_to_claude_code(
+        self,
+        instruction: Any,
+        worktree_path: str,
+    ) -> dict[str, Any] | None:
+        """Dispatch an instruction to Claude Code CLI for execution.
+
+        Uses ClaudeCodeHarness.execute_implementation() to run the instruction
+        in the given worktree directory. Returns None if the CLI is not
+        available or if dispatch is skipped (e.g., require_approval is True
+        and no approval mechanism exists yet).
+
+        Args:
+            instruction: ExecutionInstruction with to_agent_prompt()
+            worktree_path: Path to the isolated worktree
+
+        Returns:
+            Dict with execution results, or None if dispatch was skipped.
+        """
+        if self.config.require_approval:
+            logger.info(
+                "dispatch_skipped reason=require_approval subtask=%s",
+                instruction.subtask_id[:20],
+            )
+            return None
+
+        try:
+            import shutil
+
+            if not shutil.which("claude"):
+                logger.debug("Claude Code CLI not found in PATH, skipping dispatch")
+                return None
+
+            from pathlib import Path as P
+            from aragora.harnesses.claude_code import ClaudeCodeHarness, ClaudeCodeConfig
+
+            config = ClaudeCodeConfig(
+                timeout_seconds=int(
+                    min(self.config.budget_limit_usd * 60, 600)  # Budget → timeout
+                ),
+                use_mcp_tools=False,  # Keep it simple for now
+            )
+            harness = ClaudeCodeHarness(config)
+            prompt = instruction.to_agent_prompt()
+
+            stdout, stderr = await harness.execute_implementation(
+                repo_path=P(worktree_path),
+                prompt=prompt,
+            )
+
+            # Parse files changed from git diff in worktree
+            files_changed: list[str] = []
+            try:
+                import subprocess
+
+                diff_result = subprocess.run(
+                    ["git", "diff", "--name-only", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    cwd=worktree_path,
+                    timeout=10,
+                )
+                if diff_result.returncode == 0:
+                    files_changed = [
+                        f for f in diff_result.stdout.strip().split("\n") if f
+                    ]
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+
+            # Run tests if configured
+            tests_passed = 0
+            tests_failed = 0
+            if self.config.run_tests and files_changed:
+                test_result = await self._run_tests_in_worktree(worktree_path)
+                tests_passed = test_result.get("passed", 0)
+                tests_failed = test_result.get("failed", 0)
+
+            logger.info(
+                "dispatch_completed subtask=%s files=%d tests=%d/%d",
+                instruction.subtask_id[:20],
+                len(files_changed),
+                tests_passed,
+                tests_passed + tests_failed,
+            )
+
+            return {
+                "files_changed": files_changed,
+                "tests_passed": tests_passed,
+                "tests_failed": tests_failed,
+                "stdout_len": len(stdout),
+            }
+
+        except ImportError as exc:
+            logger.debug("ClaudeCodeHarness not available: %s", exc)
+            return None
+        except (RuntimeError, OSError, asyncio.TimeoutError) as exc:
+            logger.warning("Claude Code dispatch failed: %s", exc)
+            return None
+
+    async def _run_tests_in_worktree(
+        self,
+        worktree_path: str,
+    ) -> dict[str, int]:
+        """Run pytest in a worktree and return pass/fail counts."""
+        try:
+            import subprocess
+
+            result = await asyncio.to_thread(
+                subprocess.run,
+                ["python", "-m", "pytest", "--tb=no", "-q", "--timeout=30"],
+                capture_output=True,
+                text=True,
+                cwd=worktree_path,
+                timeout=300,
+            )
+
+            # Parse pytest summary line: "X passed, Y failed"
+            passed = 0
+            failed = 0
+            for line in result.stdout.splitlines():
+                if "passed" in line:
+                    import re
+
+                    m = re.search(r"(\d+) passed", line)
+                    if m:
+                        passed = int(m.group(1))
+                    m = re.search(r"(\d+) failed", line)
+                    if m:
+                        failed = int(m.group(1))
+
+            return {"passed": passed, "failed": failed}
+
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.warning("Test run failed in worktree: %s", exc)
+            return {"passed": 0, "failed": 0}
 
     @staticmethod
     def _write_instruction_to_worktree(

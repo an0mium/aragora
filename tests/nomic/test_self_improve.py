@@ -682,6 +682,73 @@ class TestWriteInstructionToWorktree:
 
 
 # ---------------------------------------------------------------------------
+# Claude Code dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestDispatchToClaudeCode:
+    @pytest.mark.asyncio
+    async def test_skips_when_require_approval(self):
+        """Should return None when require_approval is True."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(require_approval=True)
+        )
+        mock_instruction = MagicMock()
+        mock_instruction.subtask_id = "t1"
+        result = await pipeline._dispatch_to_claude_code(
+            mock_instruction, "/tmp/fake"
+        )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_skips_when_cli_not_found(self):
+        """Should return None when claude CLI is not in PATH."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(require_approval=False)
+        )
+        mock_instruction = MagicMock()
+        mock_instruction.subtask_id = "t1"
+
+        with patch("shutil.which", return_value=None):
+            result = await pipeline._dispatch_to_claude_code(
+                mock_instruction, "/tmp/fake"
+            )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_dispatches_when_cli_available(self):
+        """Should dispatch via ClaudeCodeHarness when CLI is available."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(require_approval=False, run_tests=False)
+        )
+        mock_instruction = MagicMock()
+        mock_instruction.subtask_id = "t1"
+        mock_instruction.to_agent_prompt.return_value = "# Task: test"
+
+        with patch("shutil.which", return_value="/usr/local/bin/claude"):
+            with patch(
+                "aragora.harnesses.claude_code.ClaudeCodeHarness"
+            ) as MockHarness:
+                mock_h = MagicMock()
+                mock_h.execute_implementation = AsyncMock(
+                    return_value=("output", "")
+                )
+                MockHarness.return_value = mock_h
+
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = MagicMock(
+                        returncode=0, stdout="file1.py\nfile2.py\n"
+                    )
+                    result = await pipeline._dispatch_to_claude_code(
+                        mock_instruction, "/tmp/fake-wt"
+                    )
+
+        assert result is not None
+        assert result["files_changed"] == ["file1.py", "file2.py"]
+        assert result["stdout_len"] == len("output")
+
+
+# ---------------------------------------------------------------------------
 # End-to-end (with mocked execution)
 # ---------------------------------------------------------------------------
 
