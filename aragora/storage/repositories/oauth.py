@@ -77,7 +77,7 @@ class OAuthRepository:
                 )
             logger.info(f"OAuth linked: user={user_id} provider={provider}")
             return True
-        except Exception as e:
+        except (sqlite3.Error, ValueError, TypeError) as e:
             logger.error(f"Failed to link OAuth: {e}")
             return False
 

@@ -120,7 +120,7 @@ class DatabaseRepository:
         for callback in self._on_change_callbacks:
             try:
                 callback(operation)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - user-provided callbacks can raise anything
                 logger.warning(f"Change callback error: {e}")
 
     def on_change(self, callback: Callable[[str], None]) -> None:
