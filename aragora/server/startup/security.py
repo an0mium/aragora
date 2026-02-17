@@ -9,6 +9,8 @@ and decision router initialization.
 import logging
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -306,7 +308,9 @@ async def init_rbac_distributed_cache() -> bool:
 
     except ImportError as e:
         logger.debug(f"RBAC distributed cache not available: {e}")
-    except (ConnectionError, OSError, RuntimeError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
+    except RuntimeError as e:
         logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
 
     return False

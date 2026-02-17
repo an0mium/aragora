@@ -12,6 +12,8 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 if TYPE_CHECKING:
     from aragora.queue.workers.gauntlet_worker import GauntletWorker
 
@@ -285,7 +287,9 @@ async def init_notification_worker() -> bool:
 
     except ImportError as e:
         logger.debug(f"Notification worker dependencies not available: {e}")
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Failed to start notification worker: {e}")
+    except (RuntimeError, ValueError, TypeError) as e:
         logger.warning(f"Failed to start notification worker: {e}")
 
     return False

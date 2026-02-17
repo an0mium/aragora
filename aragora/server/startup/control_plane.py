@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,9 +53,12 @@ async def init_control_plane_coordinator() -> Any | None:
     except ImportError as e:
         logger.debug(f"Control Plane not available: {e}")
         return None
-    except (RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         # Redis may not be available - this is OK for local development
         logger.warning(f"Control Plane coordinator not started (Redis may be unavailable): {e}")
+        return None
+    except RuntimeError as e:
+        logger.warning(f"Control Plane coordinator not started: {e}")
         return None
 
 
@@ -79,7 +84,10 @@ async def init_shared_control_plane_state() -> bool:
     except ImportError as e:
         logger.debug(f"Shared control plane state not available: {e}")
         return False
-    except (RuntimeError, ConnectionError, TimeoutError, OSError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Shared control plane state initialization failed: {e}")
+        return False
+    except RuntimeError as e:
         logger.warning(f"Shared control plane state initialization failed: {e}")
         return False
 
@@ -210,7 +218,10 @@ async def init_mayor_coordinator() -> bool:
     except ImportError as e:
         logger.debug(f"Mayor coordinator not available: {e}")
         return False
-    except (RuntimeError, ConnectionError, TimeoutError, OSError, ValueError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Mayor coordinator initialization failed: {e}")
+        return False
+    except (RuntimeError, ValueError) as e:
         logger.warning(f"Mayor coordinator initialization failed: {e}")
         return False
 
