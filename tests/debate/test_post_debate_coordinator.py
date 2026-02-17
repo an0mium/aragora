@@ -25,8 +25,11 @@ def _make_debate_result(consensus=True, confidence=0.85, task="Test task"):
     result.consensus = "majority" if consensus else None
     result.confidence = confidence
     result.task = task
+    result.domain = "general"
     result.messages = []
     result.winner = "claude"
+    result.agents = ["claude", "gpt4"]
+    result.debate_id = "test-debate"
     return result
 
 
@@ -72,6 +75,8 @@ class TestStepOrdering:
             auto_create_plan=False,
             auto_notify=False,
             auto_execute_plan=False,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
         )
         coordinator = PostDebateCoordinator(config=config)
         result = coordinator.run("d1", _make_debate_result())
