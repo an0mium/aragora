@@ -555,6 +555,7 @@ class AutonomousOrchestrator:
         outcome_tracker: Any | None = None,
         enable_metrics: bool = False,
         metrics_collector: Any | None = None,
+        enable_preflight: bool = False,
     ):
         """
         Initialize the orchestrator.
@@ -595,6 +596,9 @@ class AutonomousOrchestrator:
             metrics_collector: Optional MetricsCollector instance. Created
                 automatically when enable_metrics is True and no collector
                 is provided.
+            enable_preflight: Run preflight health checks (API key validation,
+                circuit breaker state, agent availability) before execution
+                to fail fast instead of wasting budget on doomed runs.
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -666,6 +670,9 @@ class AutonomousOrchestrator:
             except ImportError:
                 logger.debug("Outcome tracker unavailable")
 
+        # Preflight health checks before execution
+        self.enable_preflight = enable_preflight
+
         # Metrics collection for objective improvement measurement
         self.enable_metrics = enable_metrics
         self._metrics_collector = metrics_collector
@@ -716,6 +723,36 @@ class AutonomousOrchestrator:
             "goal": goal[:200],
             "tracks": tracks or [],
         })
+
+        # Step 0: Preflight health check — validate environment before spending budget
+        if self.enable_preflight:
+            try:
+                from aragora.nomic.preflight import PreflightHealthCheck
+
+                preflight = PreflightHealthCheck(min_required_agents=1)
+                preflight_result = await preflight.run(timeout=10.0)
+                if not preflight_result.passed:
+                    duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                    issues = "; ".join(preflight_result.blocking_issues)
+                    logger.warning("preflight_failed issues=%s", issues)
+                    return OrchestrationResult(
+                        goal=goal,
+                        total_subtasks=0,
+                        completed_subtasks=0,
+                        failed_subtasks=0,
+                        skipped_subtasks=0,
+                        assignments=[],
+                        duration_seconds=duration,
+                        success=False,
+                        error=f"Preflight check failed: {issues}",
+                    )
+                if preflight_result.warnings:
+                    for w in preflight_result.warnings:
+                        logger.info("preflight_warning: %s", w)
+            except ImportError:
+                pass
+            except (RuntimeError, OSError, ValueError, asyncio.TimeoutError) as e:
+                logger.debug("preflight_check_skipped: %s", e)
 
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:

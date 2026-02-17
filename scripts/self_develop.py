@@ -289,6 +289,7 @@ async def run_orchestration(
     budget_limit: float | None = None,
     repo_path: Path | None = None,
     enable_metrics: bool = False,
+    enable_preflight: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -302,6 +303,7 @@ async def run_orchestration(
         "on_checkpoint": create_checkpoint_handler(require_approval),
         "use_debate_decomposition": use_debate,
         "enable_metrics": enable_metrics,
+        "enable_preflight": enable_preflight,
     }
     if repo_path is not None:
         common_kwargs["aragora_path"] = repo_path
@@ -487,6 +489,11 @@ Examples:
         help="Collect test/lint/size metrics before and after to objectively measure improvement",
     )
     parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Run preflight health checks (API keys, circuit breakers) before execution",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -582,6 +589,7 @@ Examples:
                 budget_limit=args.budget_limit,
                 repo_path=resolved_repo,
                 enable_metrics=args.metrics,
+                enable_preflight=args.preflight,
             )
         )
         print_result(result)
