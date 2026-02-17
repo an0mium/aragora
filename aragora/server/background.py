@@ -379,6 +379,25 @@ def followup_checker_task() -> None:
         logger.warning("Follow-up check failed: %s", e)
 
 
+def retention_gate_sweep_task() -> None:
+    """Run retention gate sweep to evaluate and decay low-value memories."""
+    try:
+        from aragora.memory.retention_gate import RetentionGate, RetentionGateConfig
+
+        gate = RetentionGate(config=RetentionGateConfig())
+        report = gate.sweep()
+        if report.demoted or report.archived:
+            logger.info(
+                "Retention gate sweep: %d demoted, %d archived",
+                len(report.demoted),
+                len(report.archived),
+            )
+    except ImportError:
+        logger.debug("RetentionGate not available, skipping sweep")
+    except (RuntimeError, ValueError, OSError) as e:
+        logger.warning("Retention gate sweep failed: %s", e)
+
+
 @dataclass
 class TaskConfig:
     """Configuration for a background task."""
@@ -735,6 +754,14 @@ def setup_default_tasks(
         name="followup_checker",
         interval_seconds=30 * 60,  # 30 minutes
         callback=followup_checker_task,
+        enabled=True,
+        run_on_startup=False,
+    )
+
+    manager.register_task(
+        name="retention_gate_sweep",
+        interval_seconds=12 * 3600,  # 12 hours
+        callback=retention_gate_sweep_task,
         enabled=True,
         run_on_startup=False,
     )

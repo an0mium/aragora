@@ -65,6 +65,10 @@ from .sbom_generator import (
     HashAlgorithm,
     generate_sbom,
 )
+from .event_bridge import (
+    AnalysisEventBridge,
+    get_analysis_event_bridge,
+)
 
 __all__ = [
     # Models
@@ -119,4 +123,7 @@ __all__ = [
     "ComponentType",
     "HashAlgorithm",
     "generate_sbom",
+    # Event Bridge
+    "AnalysisEventBridge",
+    "get_analysis_event_bridge",
 ]

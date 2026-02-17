@@ -799,15 +799,40 @@ class ArenaExtensions:
             if builder is None:
                 builder = ExplanationBuilder()
                 self.explanation_builder = builder
-            decision = builder.build(result, ctx)
-            self._last_explanation = decision
-            # Attach to result so callers can access it
-            if hasattr(result, "__dict__"):
-                result.explanation = decision  # type: ignore[attr-defined]
-            logger.info(
-                "explanation_generated debate_id=%s",
-                ctx.debate_id,
-            )
+
+            # builder.build() is async -- schedule it on the running loop.
+            # We use a done-callback so the explanation is attached as soon
+            # as the task completes (fire-and-forget from the sync caller).
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                logger.debug(
+                    "explanation_skipped: no running event loop for async build"
+                )
+                return
+
+            async def _build_and_attach() -> None:
+                decision = await builder.build(result, ctx)
+                self._last_explanation = decision
+                # Attach to result so callers can access it
+                if hasattr(result, "__dict__"):
+                    result.explanation = decision  # type: ignore[attr-defined]
+                logger.info(
+                    "explanation_generated debate_id=%s",
+                    ctx.debate_id,
+                )
+
+            task = loop.create_task(_build_and_attach())
+            # Store reference so the task is not garbage-collected
+            self._pending_explanation_task = task  # type: ignore[attr-defined]
+
+            def _on_done(t: asyncio.Task[None]) -> None:
+                exc = t.exception() if not t.cancelled() else None
+                if exc is not None:
+                    logger.debug("explanation_failed: %s", exc)
+
+            task.add_done_callback(_on_done)
+
         except ImportError:
             logger.debug("explanation_skipped: explainability module not available")
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:

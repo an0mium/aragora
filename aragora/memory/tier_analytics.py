@@ -276,6 +276,40 @@ class TierAnalyticsTracker:
             )
             conn.commit()
 
+        # Emit tier movement event
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+            from aragora.events.cross_subscribers import get_cross_subscriber_manager
+
+            event_type = (
+                StreamEventType.MEMORY_TIER_PROMOTION
+                if self._is_promotion(from_tier, to_tier)
+                else StreamEventType.MEMORY_TIER_DEMOTION
+            )
+            manager = get_cross_subscriber_manager()
+            manager.dispatch(StreamEvent(
+                type=event_type,
+                data={
+                    "memory_id": memory_id,
+                    "from_tier": from_tier.value,
+                    "to_tier": to_tier.value,
+                    "reason": reason,
+                },
+            ))
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Tier movement event emission unavailable: %s", e)
+
+    @staticmethod
+    def _is_promotion(from_tier: MemoryTier, to_tier: MemoryTier) -> bool:
+        """Check if a tier movement is a promotion (toward faster tier)."""
+        tier_order = {
+            MemoryTier.GLACIAL: 0,
+            MemoryTier.SLOW: 1,
+            MemoryTier.MEDIUM: 2,
+            MemoryTier.FAST: 3,
+        }
+        return tier_order.get(to_tier, 0) > tier_order.get(from_tier, 0)
+
     def get_tier_stats(
         self,
         tier: MemoryTier,
