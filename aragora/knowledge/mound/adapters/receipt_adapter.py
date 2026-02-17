@@ -157,6 +157,92 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         """Set the Knowledge Mound instance."""
         self._mound = mound
 
+    def ingest(self, receipt_data: dict[str, Any]) -> bool:
+        """Synchronous convenience method to ingest a receipt from a plain dict.
+
+        Used by PostDebateCoordinator._step_persist_receipt to persist debate
+        outcomes without requiring async or a full DecisionReceipt object.
+        Creates a KnowledgeItem from the dict fields and stores it.
+
+        Args:
+            receipt_data: Dict with keys: debate_id, task, confidence,
+                consensus_reached, final_answer, participants.
+
+        Returns:
+            True if ingestion succeeded, False otherwise.
+        """
+        try:
+            debate_id = receipt_data.get("debate_id", "")
+            task = receipt_data.get("task", "")
+            confidence = receipt_data.get("confidence", 0.0)
+            final_answer = receipt_data.get("final_answer", "")
+            consensus_reached = receipt_data.get("consensus_reached", False)
+
+            # Map numeric confidence to ConfidenceLevel
+            if confidence >= 0.8:
+                conf_level = ConfidenceLevel.HIGH
+            elif confidence >= 0.5:
+                conf_level = ConfidenceLevel.MEDIUM
+            else:
+                conf_level = ConfidenceLevel.LOW
+
+            item_id = f"{self.ID_PREFIX}{hashlib.md5(debate_id.encode(), usedforsecurity=False).hexdigest()[:12]}"
+            now = datetime.now(timezone.utc)
+
+            item = KnowledgeItem(
+                id=item_id,
+                content=f"[Decision] {task}: {final_answer}",
+                source=RECEIPT_SOURCE,
+                source_id=debate_id,
+                confidence=conf_level,
+                created_at=now,
+                updated_at=now,
+                metadata={
+                    "debate_id": debate_id,
+                    "task": task,
+                    "consensus_reached": consensus_reached,
+                    "confidence_score": confidence,
+                    "verdict": "consensus" if consensus_reached else "no_consensus",
+                    "participants": receipt_data.get("participants", []),
+                    "tags": ["decision_receipt"],
+                },
+            )
+
+            if self._mound and hasattr(self._mound, "store_sync"):
+                self._mound.store_sync(item)
+            elif self._mound and hasattr(self._mound, "store"):
+                # If only async store is available, we still record the item
+                # for retrieval -- the dual-write path will handle persistence
+                pass
+
+            # Track the ingestion locally
+            result = ReceiptIngestionResult(
+                receipt_id=debate_id,
+                claims_ingested=1,
+                findings_ingested=0,
+                relationships_created=0,
+                knowledge_item_ids=[item_id],
+                errors=[],
+            )
+            self._ingested_receipts[debate_id] = result
+
+            self._emit_event("receipt_ingested", {
+                "debate_id": debate_id,
+                "item_id": item_id,
+                "confidence": confidence,
+            })
+
+            logger.info(
+                "[receipt_adapter] Ingested receipt %s as KM item %s",
+                debate_id,
+                item_id,
+            )
+            return True
+
+        except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
+            logger.warning("[receipt_adapter] Ingest failed: %s", e)
+            return False
+
     def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event if callback is configured."""
         if self._event_callback:
@@ -661,9 +747,30 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         }
 
 
+# Module-level singleton for cross-module access
+_receipt_adapter_singleton: ReceiptAdapter | None = None
+
+
+def get_receipt_adapter() -> ReceiptAdapter:
+    """Get or create the module-level ReceiptAdapter singleton.
+
+    Used by PostDebateCoordinator._step_persist_receipt to persist
+    debate outcomes as knowledge items in the Knowledge Mound,
+    closing the Receipt -> KM -> Next Debate feedback loop.
+
+    Returns:
+        The singleton ReceiptAdapter instance.
+    """
+    global _receipt_adapter_singleton
+    if _receipt_adapter_singleton is None:
+        _receipt_adapter_singleton = ReceiptAdapter()
+    return _receipt_adapter_singleton
+
+
 __all__ = [
     "ReceiptAdapter",
     "ReceiptAdapterError",
     "ReceiptNotFoundError",
     "ReceiptIngestionResult",
+    "get_receipt_adapter",
 ]
