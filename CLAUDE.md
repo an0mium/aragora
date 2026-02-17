@@ -115,7 +115,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (33 registered)
+│       └── adapters/       # KM adapters (34 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -388,7 +388,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
-  - 33 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Supermemory, RLM, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance, LangExtract, Extraction, NomicCycle, Ranking, OpenClaw)
+  - 34 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Supermemory, RLM, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance, LangExtract, Extraction, NomicCycle, Ranking, OpenClaw, ClaudeMem)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
@@ -398,6 +398,12 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
   - Quality filtering, freshness scoring, source weighting
   - Integration with debate context and prompt building
 - Evidence collection - STABLE with KM integration
+- Unified Memory Gateway - STABLE (150 tests, all opt-in via `enable_unified_memory`)
+  - MemoryGateway: fan-out query across ContinuumMemory, KM, Supermemory, claude-mem
+  - RetentionGate: Titans/MIRAS surprise-driven retain/demote/forget/consolidate
+  - CrossSystemDedupEngine: SHA-256 exact + Jaccard near-duplicate detection
+  - RLMMemoryNavigator: REPL helpers for programmatic cross-system exploration
+  - ClaudeMemAdapter: 34th KM adapter wrapping claude-mem MCP connector
 
 See `docs/STATUS.md` for 74+ detailed feature statuses.
 

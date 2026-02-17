@@ -109,101 +109,80 @@ class TestHasPermission:
 class TestRequirePermissionDecorator:
     """Tests for the require_permission decorator."""
 
-    def test_decorator_returns_401_when_no_handler(self):
-        """Decorator should return 401 when no handler is provided."""
+    def test_decorator_raises_when_no_context(self):
+        """Decorator should raise PermissionDeniedError when no context is found and auth is enabled."""
+        from aragora.rbac.decorators import PermissionDeniedError
 
         @require_permission("debates:read")
         def test_func():
             return "success"
 
-        result = test_func()
-        # HandlerResult is a dataclass with body, status_code, headers
-        assert result.status_code == 401
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError):
+                test_func()
 
-    def test_decorator_returns_401_when_not_authenticated(self):
-        """Decorator should return 401 when user is not authenticated."""
-        mock_handler = MagicMock()
-        mock_handler.headers = {"Authorization": ""}
-        mock_handler.user_store = None
+    def test_decorator_raises_when_no_context_and_auth_enabled(self):
+        """Decorator should raise PermissionDeniedError when no context and auth is enabled."""
+        from aragora.rbac.decorators import PermissionDeniedError
 
         @require_permission("debates:read")
         def test_func(handler):
             return "success"
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_ctx = MagicMock()
-            mock_ctx.is_authenticated = False
-            mock_ctx.error_reason = None
-            mock_extract.return_value = mock_ctx
+        mock_handler = MagicMock(spec=[])
 
-            result = test_func(handler=mock_handler)
-            assert result.status_code == 401
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError):
+                test_func(mock_handler)
 
-    def test_decorator_returns_403_when_not_authorized(self):
-        """Decorator should return 403 when user lacks permission."""
-        mock_handler = MagicMock()
-        mock_handler.headers = {"Authorization": "Bearer test_token"}
-        mock_handler.user_store = None
+    def test_decorator_raises_when_permission_denied(self):
+        """Decorator should raise PermissionDeniedError when user lacks permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.rbac.models import AuthorizationContext
 
         @require_permission("org:billing")
-        def test_func(handler, user=None):
+        def test_func(context):
             return "success"
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_ctx = MagicMock()
-            mock_ctx.is_authenticated = True
-            mock_ctx.user_id = "user123"
-            mock_ctx.role = "member"  # Members can't access billing
-            mock_extract.return_value = mock_ctx
+        # Member context without org:billing permission
+        ctx = AuthorizationContext(
+            user_id="user123",
+            roles={"member"},
+            permissions={"debates:read"},
+        )
 
-            result = test_func(handler=mock_handler)
-            assert result.status_code == 403
-            assert b"org:billing" in result.body
+        with pytest.raises(PermissionDeniedError):
+            test_func(ctx)
 
     def test_decorator_allows_authorized_user(self):
         """Decorator should allow access when user has permission."""
-        mock_handler = MagicMock()
-        mock_handler.headers = {"Authorization": "Bearer test_token"}
-        mock_handler.user_store = None
+        from aragora.rbac.models import AuthorizationContext
 
         @require_permission("debates:read")
-        def test_func(handler, user=None):
+        def test_func(context):
             return ("success", 200)
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_ctx = MagicMock()
-            mock_ctx.is_authenticated = True
-            mock_ctx.user_id = "user123"
-            mock_ctx.role = "member"
-            mock_extract.return_value = mock_ctx
+        ctx = AuthorizationContext(
+            user_id="user123",
+            roles={"member"},
+            permissions={"debates:read"},
+        )
 
-            result = test_func(handler=mock_handler)
-            assert result == ("success", 200)
+        result = test_func(ctx)
+        assert result == ("success", 200)
 
-    def test_decorator_injects_user_context(self):
-        """Decorator should inject user context into kwargs."""
-        mock_handler = MagicMock()
-        mock_handler.headers = {"Authorization": "Bearer test_token"}
-        mock_handler.user_store = None
-
-        received_user = None
+    def test_decorator_passes_through_when_auth_disabled(self):
+        """Decorator should allow access when auth is disabled."""
 
         @require_permission("debates:read")
-        def test_func(handler, user=None):
-            nonlocal received_user
-            received_user = user
+        def test_func():
             return ("success", 200)
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            mock_ctx = MagicMock()
-            mock_ctx.is_authenticated = True
-            mock_ctx.user_id = "user123"
-            mock_ctx.email = "test@example.com"
-            mock_ctx.role = "admin"
-            mock_extract.return_value = mock_ctx
-
-            test_func(handler=mock_handler)
-            assert received_user is mock_ctx
+        # auth_config.enabled defaults to False in test environment
+        result = test_func()
+        assert result == ("success", 200)
 
     def test_decorator_owner_has_all_access(self):
         """Owner role should have access to owner-only permissions."""

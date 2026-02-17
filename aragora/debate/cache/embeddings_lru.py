@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import sqlite3
 import threading
 from collections import OrderedDict
 
@@ -144,8 +145,8 @@ class EmbeddingCache:
 
             if row and row[0]:
                 return np.frombuffer(row[0], dtype=np.float32)
-        except OSError as e:
-            # Expected: DB file issues, permissions
+        except (OSError, sqlite3.Error) as e:
+            # Expected: DB file issues, permissions, OperationalError
             logger.debug(f"Failed to load embedding from DB: {e}")
         except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             # Unexpected: log at warning for visibility
@@ -178,8 +179,8 @@ class EmbeddingCache:
             )
             conn.commit()
             conn.close()
-        except OSError as e:
-            # Expected: DB file issues, disk full, permissions
+        except (OSError, sqlite3.Error) as e:
+            # Expected: DB file issues, disk full, permissions, OperationalError
             logger.debug(f"Failed to save embedding to DB: {e}")
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             # Unexpected: log at warning for visibility

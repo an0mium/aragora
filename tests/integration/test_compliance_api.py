@@ -134,11 +134,18 @@ class TestComplianceAPIEndpoints:
     @pytest.mark.asyncio
     async def test_gdpr_export_json(self, compliance_handler, mock_compliance_data):
         """Test GDPR data export in JSON format."""
-        result = await compliance_handler.handle(
-            path="/api/v2/compliance/gdpr-export",
-            query_params={"user_id": "user_123", "format": "json"},
-            handler=None,
-        )
+        mock_store = MagicMock()
+        mock_store.search_receipts = MagicMock(return_value=[])
+        mock_store.get_receipts_by_user = MagicMock(return_value=[])
+        with patch(
+            "aragora.server.handlers.compliance.gdpr.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = await compliance_handler.handle(
+                path="/api/v2/compliance/gdpr-export",
+                query_params={"user_id": "user_123", "format": "json"},
+                handler=None,
+            )
 
         assert result is not None
         assert result.status_code in (200, 400, 500)  # 400 if user_id missing
@@ -146,11 +153,18 @@ class TestComplianceAPIEndpoints:
     @pytest.mark.asyncio
     async def test_gdpr_export_csv(self, compliance_handler, mock_compliance_data):
         """Test GDPR data export in CSV format."""
-        result = await compliance_handler.handle(
-            path="/api/v2/compliance/gdpr-export",
-            query_params={"user_id": "user_123", "format": "csv"},
-            handler=None,
-        )
+        mock_store = MagicMock()
+        mock_store.search_receipts = MagicMock(return_value=[])
+        mock_store.get_receipts_by_user = MagicMock(return_value=[])
+        with patch(
+            "aragora.server.handlers.compliance.gdpr.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = await compliance_handler.handle(
+                path="/api/v2/compliance/gdpr-export",
+                query_params={"user_id": "user_123", "format": "csv"},
+                handler=None,
+            )
 
         assert result is not None
         assert result.status_code in (200, 400, 500)

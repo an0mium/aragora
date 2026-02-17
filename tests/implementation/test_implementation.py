@@ -780,7 +780,7 @@ class TestTaskExecution:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor for testing."""
-        return HybridExecutor(temp_repo)
+        return HybridExecutor(temp_repo, sandbox_mode=False)
 
     @pytest.mark.asyncio
     async def test_execute_task_success(self, executor: HybridExecutor, sample_task: ImplementTask):
@@ -866,7 +866,7 @@ class TestPlanExecution:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor for testing."""
-        return HybridExecutor(temp_repo, max_retries=1)
+        return HybridExecutor(temp_repo, max_retries=1, sandbox_mode=False)
 
     @pytest.fixture
     def mock_context(self):
@@ -997,7 +997,7 @@ class TestCodeReview:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor for testing."""
-        return HybridExecutor(temp_repo)
+        return HybridExecutor(temp_repo, sandbox_mode=False)
 
     @pytest.fixture
     def mock_context(self):
@@ -1055,7 +1055,7 @@ class TestCodeReview:
     async def test_review_error_handling(self, executor: HybridExecutor, mock_context):
         """Test review error handling."""
         mock_codex = AsyncMock()
-        mock_codex.generate = AsyncMock(side_effect=Exception("API error"))
+        mock_codex.generate = AsyncMock(side_effect=RuntimeError("API error"))
         mock_codex.name = "codex-reviewer"
 
         with patch("aragora.implement.executor.CodexAgent", return_value=mock_codex):
@@ -1080,7 +1080,7 @@ class TestRetryLogic:
     @pytest.fixture
     def executor(self, temp_repo: Path) -> HybridExecutor:
         """Create executor with retry enabled."""
-        return HybridExecutor(temp_repo, max_retries=3)
+        return HybridExecutor(temp_repo, max_retries=3, sandbox_mode=False)
 
     @pytest.fixture
     def mock_context(self):
@@ -1117,7 +1117,7 @@ class TestRetryLogic:
     ):
         """Test no retry on non-timeout error."""
         mock_claude = AsyncMock()
-        mock_claude.generate = AsyncMock(side_effect=ValueError("Bad input"))
+        mock_claude.generate = AsyncMock(side_effect=RuntimeError("Bad input"))
         mock_claude.name = "claude-test"
         executor._claude = mock_claude
 

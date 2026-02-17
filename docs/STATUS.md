@@ -1,8 +1,59 @@
 # Aragora Project Status
 
-*Last updated: February 15, 2026*
+*Last updated: February 16, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Unified Memory Architecture (February 16, 2026)
+
+### Summary
+Titans/MIRAS-inspired integrated memory system connecting all 5 memory systems (ContinuumMemory, Knowledge Mound, Supermemory, claude-mem, RLM) through a single query/store API with cross-system deduplication, ranking, and surprise-driven retention decisions. 150 new tests across 6 test files.
+
+### Phase 1: Titans-Inspired Retention Gate (39 tests)
+- **`RetentionGate`** bridges `SurpriseScorer` → `ConfidenceDecay` pipeline
+- Actions: retain, demote, forget, consolidate based on surprise + confidence
+- **Adaptive decay rates**: high surprise = slow decay, low surprise = fast decay
+- **Red-line protection**: critical constraints never forgotten
+- `apply_surprise_driven_decay()` added to `ConfidenceDecayManager`
+- `apply_retention_decision()` added to `TierManager`
+- `evaluate_retention()` post-write hook added to `MemoryCoordinator`
+
+### Phase 2: ClaudeMemAdapter — 34th KM Adapter (28 tests)
+- **`ClaudeMemAdapter`** wraps `ClaudeMemConnector` following `SupermemoryAdapter` pattern
+- Read-mostly: pulls observations into KM, does not write back
+- Methods: `search_observations()`, `inject_context()`, `sync_to_km()`, `evidence_to_knowledge_item()`
+- Circuit breaker config: `failure_threshold=5, timeout=30s`
+- Registered in `AdapterFactory` with lazy imports
+
+### Phase 3: Unified Memory Gateway + Cross-System Dedup (48 tests)
+- **`MemoryGateway`**: fan-out query across all available sources, dedup, rank
+- **`CrossSystemDedupEngine`**: SHA-256 exact match + Jaccard token-overlap near-duplicate detection
+- **`MemoryGatewayConfig`**: opt-in via `enabled=False`, configurable timeout, dedup threshold, parallel queries
+- Graceful degradation: single source failure doesn't break others
+- Confidence-weighted ranking with source priority (KM > Continuum > Supermemory > claude-mem)
+
+### Phase 4: RLM Memory Navigator (23 tests)
+- **`RLMMemoryNavigator`**: REPL helpers for programmatic memory exploration
+- `search_all()`, `build_context_hierarchy()`, `drill_into()`, `get_by_surprise()`
+- Filter/sort helpers: `filter_by_source()`, `filter_by_confidence()`, `sort_by_surprise()`
+- `inject_unified_memory_helpers()` added to `AragoraRLM` bridge
+- System prompt extended with unified memory navigation commands
+
+### Phase 5: Arena Wiring + HTTP Handler (12 tests)
+- **`UnifiedMemorySubConfig`**: `enable_unified_memory`, `enable_retention_gate` flags
+- **`UnifiedMemoryHandler`**: REST endpoints for `/api/v1/memory/unified/search` (POST) and `/stats` (GET)
+- RBAC-protected via `@require_permission("memory:read")`
+- **Lazy subsystem factory**: `create_lazy_memory_gateway()` auto-creates gateway from Arena config
+- Routes registered in `MemoryHandler.handle()` and `handle_post()`
+
+### Files
+| Category | Files |
+|----------|-------|
+| New production | `retention_gate.py`, `claude_mem_adapter.py`, `gateway.py`, `gateway_config.py`, `dedup.py`, `memory_navigator.py`, `unified_handler.py` |
+| New tests | `test_retention_gate.py`, `test_claude_mem_adapter.py`, `test_gateway.py`, `test_cross_system_dedup.py`, `test_memory_navigator.py`, `test_unified_memory_wiring.py` |
+| Modified | `confidence_decay.py`, `tier_manager.py`, `coordinator.py`, `factory.py`, `bridge.py`, `arena_sub_configs.py`, `lazy_subsystems.py`, `orchestrator.py`, `orchestrator_config.py`, `orchestrator_init.py`, `memory.py` |
+
+---
 
 ## Phase 10: Multi-Agent Coordination & Security Hardening (February 15, 2026)
 
@@ -2454,6 +2505,11 @@ All stabilization items addressed:
 | Learning Efficiency Tracking | Active | `aragora/ranking/elo.py` (learning rate → ELO bonus) |
 | Memory Checkpoint Snapshot | Active | `aragora/memory/continuum/core.py` (export/restore for debate state) |
 | Knowledge Mound Federation | Active | `aragora/server/handlers/knowledge_base/mound/federation.py` (multi-region sync) |
+| MemoryGateway | Active | `aragora/memory/gateway.py` (unified fan-out query across all 5 memory systems) |
+| RetentionGate | Active | `aragora/memory/retention_gate.py` (Titans/MIRAS surprise-driven retention) |
+| CrossSystemDedupEngine | Active | `aragora/memory/dedup.py` (SHA-256 + Jaccard near-duplicate detection) |
+| ClaudeMemAdapter | Active | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` (34th KM adapter) |
+| RLMMemoryNavigator | Active | `aragora/rlm/memory_navigator.py` (REPL helpers for cross-system memory) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |

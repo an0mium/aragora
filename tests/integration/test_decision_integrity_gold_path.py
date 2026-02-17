@@ -170,7 +170,12 @@ class TestGoldPathReceiptPersistence:
         mock_receipt = MagicMock()
         mock_receipt.to_dict.side_effect = TypeError("serialize error")
 
-        result = _persist_receipt(mock_receipt, "debate-001")
+        mock_store = MagicMock()
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = _persist_receipt(mock_receipt, "debate-001")
         assert result is None
 
 

@@ -321,8 +321,10 @@ class TestCreateFact:
         handler = mock_post_handler({"statement": "Test fact"})
 
         # Without auth context, @require_permission decorator raises PermissionDeniedError
-        with pytest.raises(PermissionDeniedError) as exc_info:
-            knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
         # Verify it's an auth-related denial
         assert "No AuthorizationContext found" in str(exc_info.value)
@@ -370,8 +372,10 @@ class TestUpdateFact:
         handler = mock_put_handler({"statement": "Updated fact"})
 
         # Without auth context, @require_permission decorator raises PermissionDeniedError
-        with pytest.raises(PermissionDeniedError) as exc_info:
-            knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
 
         # Verify it's an auth-related denial
         assert "No AuthorizationContext found" in str(exc_info.value)
@@ -391,8 +395,10 @@ class TestDeleteFact:
         from aragora.rbac.decorators import PermissionDeniedError
 
         # Without auth context, @require_permission decorator raises PermissionDeniedError
-        with pytest.raises(PermissionDeniedError) as exc_info:
-            knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, mock_delete_handler)
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError) as exc_info:
+                knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, mock_delete_handler)
 
         # Verify it's an auth-related denial
         assert "No AuthorizationContext found" in str(exc_info.value)
