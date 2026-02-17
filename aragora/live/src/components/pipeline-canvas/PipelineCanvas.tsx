@@ -325,28 +325,28 @@ function PipelineCanvasInner({
             {/* Pending transition gates */}
             {pendingTransitions.length > 0 && !readOnly && (
               <Panel position="bottom-right" className="space-y-2">
-                {pendingTransitions.map((transition) => (
+                {pendingTransitions.map((transition, idx) => (
                   <div
-                    key={transition.id}
+                    key={(transition.id as string) || idx}
                     className="bg-surface border border-border rounded-lg p-3 max-w-xs"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
                       <span className="text-xs font-mono font-bold text-text uppercase">
-                        {transition.from_stage} &rarr; {transition.to_stage}
+                        {transition.from_stage as string} &rarr; {transition.to_stage as string}
                       </span>
                     </div>
-                    <p className="text-xs text-text-muted mb-2">{transition.ai_rationale}</p>
+                    <p className="text-xs text-text-muted mb-2">{transition.ai_rationale as string}</p>
                     <div className="flex items-center gap-1 mb-2">
                       <span className="text-xs text-text-muted font-mono">Confidence:</span>
                       <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-emerald-400 rounded-full"
-                          style={{ width: `${Math.round((transition.confidence || 0) * 100)}%` }}
+                          style={{ width: `${Math.round(((transition.confidence as number) || 0) * 100)}%` }}
                         />
                       </div>
                       <span className="text-xs text-text font-mono">
-                        {Math.round((transition.confidence || 0) * 100)}%
+                        {Math.round(((transition.confidence as number) || 0) * 100)}%
                       </span>
                     </div>
                   </div>
