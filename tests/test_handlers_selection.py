@@ -129,7 +129,7 @@ class TestListPlugins:
 
     def test_list_plugins_success(self, selection_handler, mock_handler):
         """Returns list of available plugins."""
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -156,7 +156,7 @@ class TestGetDefaults:
 
     def test_get_defaults_success(self, selection_handler, mock_handler):
         """Returns default plugin configuration."""
-        result = selection_handler.handle("/api/selection/defaults", {}, mock_handler)
+        result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -184,7 +184,7 @@ class TestGetScorer:
     def test_get_scorer_success(self, selection_handler, mock_handler):
         """Returns scorer info for valid scorer name."""
         # Get defaults to find a valid scorer name
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_handler)
+        defaults_result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_handler)
         defaults = json.loads(defaults_result.body)
         scorer_name = defaults["scorer"]
 
@@ -219,7 +219,7 @@ class TestGetTeamSelector:
     def test_get_team_selector_success(self, selection_handler, mock_handler):
         """Returns team selector info for valid name."""
         # Get defaults to find a valid team selector name
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_handler)
+        defaults_result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_handler)
         defaults = json.loads(defaults_result.body)
         selector_name = defaults["team_selector"]
 
@@ -255,7 +255,7 @@ class TestGetRoleAssigner:
     def test_get_role_assigner_success(self, selection_handler, mock_handler):
         """Returns role assigner info for valid name."""
         # Get defaults to find a valid role assigner name
-        defaults_result = selection_handler.handle("/api/selection/defaults", {}, mock_handler)
+        defaults_result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_handler)
         defaults = json.loads(defaults_result.body)
         assigner_name = defaults["role_assigner"]
 
@@ -487,7 +487,7 @@ class TestRateLimiting:
         for _ in range(101):  # Exceed 100 requests per minute limit
             _selection_limiter.is_allowed(client_ip)
 
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -516,13 +516,13 @@ class TestHandlerRouting:
 
     def test_handle_routes_to_list_plugins(self, selection_handler, mock_handler):
         """GET /api/selection/plugins routes correctly."""
-        result = selection_handler.handle("/api/selection/plugins", {}, mock_handler)
+        result = selection_handler.handle("/api/v1/selection/plugins", {}, mock_handler)
         assert result is not None
         assert result.status_code == 200
 
     def test_handle_routes_to_defaults(self, selection_handler, mock_handler):
         """GET /api/selection/defaults routes correctly."""
-        result = selection_handler.handle("/api/selection/defaults", {}, mock_handler)
+        result = selection_handler.handle("/api/v1/selection/defaults", {}, mock_handler)
         assert result is not None
         assert result.status_code == 200
 

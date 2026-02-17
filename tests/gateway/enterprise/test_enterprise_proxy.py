@@ -1426,16 +1426,16 @@ class TestEnterpriseProxyHookIntegration:
             config=ProxyConfig(enable_audit_logging=False),
             frameworks={"openai": openai_framework_config},
         )
-        p._session = _make_failing_mock_session(asyncio.TimeoutError)
+        p._session = _make_failing_mock_session(ConnectionError)
         called = []
 
         async def hook(req, exc):
             called.append(type(exc).__name__)
 
         p.add_error_hook(hook)
-        with pytest.raises(RequestTimeoutError):
+        with pytest.raises(ConnectionError):
             await p.request(framework="openai", method="GET", path="/v1/models", skip_retry=True)
-        assert called == ["RequestTimeoutError"]
+        assert called == ["ConnectionError"]
 
     @pytest.mark.asyncio
     async def test_error_hook_exception_does_not_suppress(self, openai_framework_config):
@@ -2146,7 +2146,7 @@ class TestEnterpriseProxyHealthCheck:
     async def test_unhealthy(self):
         c = ExternalFrameworkConfig(base_url="https://x.com", health_check_path="/health")
         p = EnterpriseProxy(config=ProxyConfig(enable_audit_logging=False), frameworks={"t": c})
-        p._session = _make_failing_mock_session(asyncio.TimeoutError)
+        p._session = _make_failing_mock_session(OSError)
         r = await p.check_health("t")
         assert r.status == HealthStatus.UNHEALTHY
         assert r.consecutive_failures == 1
@@ -2155,7 +2155,7 @@ class TestEnterpriseProxyHealthCheck:
     async def test_consecutive_failures(self):
         c = ExternalFrameworkConfig(base_url="https://x.com", health_check_path="/health")
         p = EnterpriseProxy(config=ProxyConfig(enable_audit_logging=False), frameworks={"t": c})
-        p._session = _make_failing_mock_session(asyncio.TimeoutError)
+        p._session = _make_failing_mock_session(OSError)
         assert (await p.check_health("t")).consecutive_failures == 1
         assert (await p.check_health("t")).consecutive_failures == 2
 

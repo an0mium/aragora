@@ -181,7 +181,7 @@ class TestBillingHandlerRoutes:
 class TestGetPlans:
     """Tests for get plans endpoint."""
 
-    @patch("aragora.server.handlers.billing.TIER_LIMITS")
+    @patch("aragora.server.handlers.billing.core.TIER_LIMITS")
     @patch("aragora.server.handlers.billing.SubscriptionTier")
     def test_get_plans_returns_all_tiers(self, mock_tier_enum, mock_limits, billing_handler):
         """Test that all subscription tiers are returned."""
@@ -594,7 +594,7 @@ class TestSecurityMeasures:
         """Test that plans endpoint is publicly accessible."""
         # Plans should not require authentication
         with (
-            patch("aragora.server.handlers.billing.TIER_LIMITS") as mock_limits,
+            patch("aragora.server.handlers.billing.core.TIER_LIMITS") as mock_limits,
             patch("aragora.server.handlers.billing.SubscriptionTier") as mock_tier,
         ):
             mock_tier.__iter__ = Mock(return_value=iter([]))
