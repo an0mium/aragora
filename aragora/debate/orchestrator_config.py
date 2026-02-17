@@ -398,6 +398,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     auto_execution_mode: str = "workflow",
     auto_approval_mode: str = "risk_based",
     auto_max_risk: str = "low",
+    enable_unified_memory: bool = False,
+    enable_retention_gate: bool = False,
 ) -> MergedConfig:
     """Merge config objects with individual parameters.
 
@@ -790,5 +792,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.auto_execution_mode = auto_execution_mode
     cfg.auto_approval_mode = auto_approval_mode
     cfg.auto_max_risk = auto_max_risk
+    cfg.enable_unified_memory = enable_unified_memory
+    cfg.enable_retention_gate = enable_retention_gate
 
     return cfg

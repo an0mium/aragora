@@ -164,7 +164,7 @@ class NomicOutcomeTracker:
         degradation_threshold: float = DEGRADATION_THRESHOLD,
         cycle_store: Any | None = None,
     ):
-        self.scenarios = scenarios or list(DEFAULT_SCENARIOS)
+        self.scenarios = list(DEFAULT_SCENARIOS) if scenarios is None else scenarios
         self._runner = scenario_runner or _default_scenario_runner
         self.degradation_threshold = degradation_threshold
         self._cycle_store = cycle_store

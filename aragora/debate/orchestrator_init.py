@@ -217,6 +217,10 @@ def store_post_tracker_config(
     arena.auto_execution_mode = getattr(cfg, "auto_execution_mode", "workflow")
     arena.auto_approval_mode = getattr(cfg, "auto_approval_mode", "risk_based")
     arena.auto_max_risk = getattr(cfg, "auto_max_risk", "low")
+    # Unified Memory Gateway
+    arena.enable_unified_memory = getattr(cfg, "enable_unified_memory", False)
+    arena.enable_retention_gate = getattr(cfg, "enable_retention_gate", False)
+    arena.memory_gateway = None  # Lazy-initialized via create_lazy_memory_gateway
 
 
 def init_skills_and_propulsion(arena: Arena, cfg: Any) -> None:

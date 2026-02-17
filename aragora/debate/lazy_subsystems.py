@@ -245,3 +245,58 @@ def create_lazy_cross_debate_memory(arena: Arena):
     except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
         logger.warning(f"[lazy] Failed to initialize CrossDebateMemory: {e}")
         return None
+
+
+def create_lazy_memory_gateway(arena: Arena):
+    """Factory for lazy unified memory gateway creation.
+
+    Creates a MemoryGateway configured from Arena settings. Optionally
+    wires RetentionGate when enable_retention_gate is True.
+    """
+    if not getattr(arena, "enable_unified_memory", False):
+        return None
+
+    try:
+        from aragora.memory.gateway import MemoryGateway
+        from aragora.memory.gateway_config import MemoryGatewayConfig
+
+        config = MemoryGatewayConfig(
+            enabled=True,
+            parallel_queries=True,
+        )
+
+        # Wire available memory subsystems
+        continuum = getattr(arena, "continuum_memory", None)
+        km = getattr(arena, "knowledge_mound", None)
+        supermemory = getattr(arena, "supermemory_adapter", None)
+
+        # Optionally wire RetentionGate
+        retention_gate = None
+        if getattr(arena, "enable_retention_gate", False):
+            try:
+                from aragora.memory.retention_gate import RetentionGate, RetentionGateConfig
+
+                retention_gate = RetentionGate(config=RetentionGateConfig())
+                logger.debug("[lazy] RetentionGate wired into MemoryGateway")
+            except ImportError:
+                logger.debug("[lazy] RetentionGate not available")
+
+        gateway = MemoryGateway(
+            config=config,
+            continuum_memory=continuum,
+            knowledge_mound=km,
+            supermemory_adapter=supermemory,
+            retention_gate=retention_gate,
+        )
+        logger.info(
+            "[lazy] Auto-created MemoryGateway (sources=%s, retention_gate=%s)",
+            gateway._available_sources(),
+            retention_gate is not None,
+        )
+        return gateway
+    except ImportError:
+        logger.warning("[lazy] MemoryGateway not available")
+        return None
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+        logger.warning(f"[lazy] Failed to initialize MemoryGateway: {e}")
+        return None

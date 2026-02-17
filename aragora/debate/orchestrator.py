@@ -345,6 +345,9 @@ class Arena(ArenaDelegatesMixin):
     auto_execution_mode: str
     auto_approval_mode: str
     auto_max_risk: str
+    enable_unified_memory: bool
+    enable_retention_gate: bool
+    memory_gateway: Any
 
     def __init__(
         self,
@@ -430,6 +433,9 @@ class Arena(ArenaDelegatesMixin):
         breakpoint_manager: Any = None,
         checkpoint_manager: CheckpointManager | None = None,
         enable_checkpointing: bool = True,
+        codebase_path: str | None = None,
+        enable_codebase_grounding: bool = False,
+        codebase_persist_to_km: bool = False,
         performance_monitor: Any = None,
         enable_performance_monitor: bool = True,
         enable_telemetry: bool = False,
@@ -482,6 +488,9 @@ class Arena(ArenaDelegatesMixin):
         # Meta-Learning
         meta_learner: Any = None,
         enable_meta_learning: bool = False,
+        # Unified Memory Gateway
+        enable_unified_memory: bool = False,
+        enable_retention_gate: bool = False,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
         self.mode_sequence = mode_sequence
@@ -563,6 +572,9 @@ class Arena(ArenaDelegatesMixin):
             rlm_compression_round_threshold=rlm_compression_round_threshold,
             checkpoint_manager=checkpoint_manager,
             enable_checkpointing=enable_checkpointing,
+            codebase_path=codebase_path,
+            enable_codebase_grounding=enable_codebase_grounding,
+            codebase_persist_to_km=codebase_persist_to_km,
             event_hooks=event_hooks,
             hook_manager=hook_manager,
             event_emitter=event_emitter,
@@ -611,6 +623,8 @@ class Arena(ArenaDelegatesMixin):
             auto_execution_mode=auto_execution_mode,
             auto_approval_mode=auto_approval_mode,
             auto_max_risk=auto_max_risk,
+            enable_unified_memory=enable_unified_memory,
+            enable_retention_gate=enable_retention_gate,
         )
 
         # Handle fabric integration - get agents from fabric pool if configured
@@ -647,6 +661,9 @@ class Arena(ArenaDelegatesMixin):
             breakpoint_manager=cfg.breakpoint_manager,
             checkpoint_manager=cfg.checkpoint_manager,
             enable_checkpointing=cfg.enable_checkpointing,
+            codebase_path=cfg.codebase_path,
+            enable_codebase_grounding=cfg.enable_codebase_grounding,
+            codebase_persist_to_km=cfg.codebase_persist_to_km,
             performance_monitor=cfg.performance_monitor,
             enable_performance_monitor=cfg.enable_performance_monitor,
             enable_telemetry=cfg.enable_telemetry,

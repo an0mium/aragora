@@ -180,7 +180,7 @@ class TestExecuteViaHarness:
 
         mock_harness = AsyncMock()
         mock_harness.initialize = AsyncMock(return_value=True)
-        mock_harness.analyze_repository = AsyncMock(return_value=successful_harness_result)
+        mock_harness.execute_implementation = AsyncMock(return_value=("implementation output", ""))
 
         with (
             patch(
@@ -198,7 +198,7 @@ class TestExecuteViaHarness:
         assert result.diff == "some diff"
         assert result.task_id == "task-001"
         mock_harness.initialize.assert_awaited_once()
-        mock_harness.analyze_repository.assert_awaited_once()
+        mock_harness.execute_implementation.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_harness_error_returns_failure(self, tmp_path, task):
@@ -317,7 +317,7 @@ class TestExecuteTaskHarnessRouting:
         """When use_harness=False, always use agent path."""
         from aragora.implement.executor import HybridExecutor
 
-        executor = HybridExecutor(repo_path=tmp_path, use_harness=False)
+        executor = HybridExecutor(repo_path=tmp_path, use_harness=False, sandbox_mode=False)
 
         mock_agent = AsyncMock()
         mock_agent.generate = AsyncMock(return_value="done")
