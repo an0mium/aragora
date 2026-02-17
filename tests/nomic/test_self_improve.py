@@ -646,6 +646,42 @@ class TestInternalMethods:
 
 
 # ---------------------------------------------------------------------------
+# Instruction file dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestWriteInstructionToWorktree:
+    def test_writes_markdown_and_json(self, tmp_path: Path):
+        """Should write both instruction.md and instruction.json."""
+        mock_instruction = MagicMock()
+        mock_instruction.to_agent_prompt.return_value = "# Task: Do the thing"
+        mock_instruction.to_dict.return_value = {"subtask_id": "t1", "objective": "test"}
+        mock_instruction.subtask_id = "t1"
+
+        result = SelfImprovePipeline._write_instruction_to_worktree(
+            mock_instruction, str(tmp_path)
+        )
+
+        assert result is True
+        md_file = tmp_path / ".aragora" / "instruction.md"
+        json_file = tmp_path / ".aragora" / "instruction.json"
+        assert md_file.exists()
+        assert json_file.exists()
+        assert md_file.read_text() == "# Task: Do the thing"
+        import json
+
+        data = json.loads(json_file.read_text())
+        assert data["subtask_id"] == "t1"
+
+    def test_returns_false_for_nonexistent_path(self):
+        """Should return False when worktree path doesn't exist."""
+        result = SelfImprovePipeline._write_instruction_to_worktree(
+            MagicMock(), "/nonexistent/path/12345"
+        )
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
 # End-to-end (with mocked execution)
 # ---------------------------------------------------------------------------
 

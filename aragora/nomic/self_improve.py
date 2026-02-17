@@ -14,6 +14,7 @@ Dry-run (preview without executing):
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -487,7 +488,7 @@ class SelfImprovePipeline:
 
         logger.info("execute_subtask cycle=%s task=%s", cycle_id, desc[:80])
 
-        # Attempt to use ExecutionBridge if available
+        # Attempt to use ExecutionBridge to generate + dispatch instruction
         try:
             from aragora.nomic.execution_bridge import ExecutionBridge
 
@@ -499,14 +500,25 @@ class SelfImprovePipeline:
                 getattr(instruction, "subtask_id", "unknown")[:20],
             )
 
+            # Write instruction to worktree for agent pickup
+            dispatched = False
+            worktree_path = instruction.worktree_path or getattr(
+                subtask, "worktree_path", None
+            )
+            if worktree_path:
+                dispatched = self._write_instruction_to_worktree(
+                    instruction, worktree_path
+                )
+
             return {
                 "success": True,
                 "subtask": desc[:100],
                 "instruction_generated": True,
+                "instruction_dispatched": dispatched,
+                "worktree_path": worktree_path,
                 "files_changed": [],
                 "tests_passed": 0,
                 "tests_failed": 0,
-                "note": "Instruction generated but not yet dispatched to execution agent",
             }
         except ImportError:
             pass
@@ -517,11 +529,51 @@ class SelfImprovePipeline:
             "success": True,
             "subtask": desc[:100],
             "instruction_generated": False,
+            "instruction_dispatched": False,
             "files_changed": [],
             "tests_passed": 0,
             "tests_failed": 0,
-            "note": "Execution placeholder (agent dispatch not yet wired)",
         }
+
+    @staticmethod
+    def _write_instruction_to_worktree(
+        instruction: Any,
+        worktree_path: str,
+    ) -> bool:
+        """Write an execution instruction file into a worktree.
+
+        Creates `.aragora/instruction.md` in the worktree root so a
+        Claude Code session opened in that directory picks it up as context.
+
+        Returns True if the file was written successfully.
+        """
+        from pathlib import Path
+
+        wt = Path(worktree_path)
+        if not wt.exists():
+            logger.debug("Worktree path does not exist: %s", worktree_path)
+            return False
+
+        instruction_dir = wt / ".aragora"
+        instruction_dir.mkdir(parents=True, exist_ok=True)
+
+        prompt = instruction.to_agent_prompt()
+        instruction_file = instruction_dir / "instruction.md"
+        instruction_file.write_text(prompt, encoding="utf-8")
+
+        # Also write machine-readable JSON for programmatic pickup
+        json_file = instruction_dir / "instruction.json"
+        json_file.write_text(
+            json.dumps(instruction.to_dict(), indent=2),
+            encoding="utf-8",
+        )
+
+        logger.info(
+            "instruction_written worktree=%s subtask=%s",
+            worktree_path,
+            instruction.subtask_id[:20],
+        )
+        return True
 
     def _persist_outcome(self, cycle_id: str, result: SelfImproveResult) -> None:
         """Step 6: Persist cycle outcome to CycleLearningStore."""
