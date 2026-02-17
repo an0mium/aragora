@@ -18,10 +18,9 @@ try:
 except (ImportError, AttributeError):
     pass
 
-pytestmark = pytest.mark.xfail(
+pytestmark = pytest.mark.skipif(
     not _HAS_ERC8004_HANDLER,
-    reason="ERC8004Handler class not yet at aragora.blockchain.handler (exists at aragora.server.handlers.erc8004)",
-    strict=False,
+    reason="ERC8004Handler class not available at aragora.blockchain.handler",
 )
 
 

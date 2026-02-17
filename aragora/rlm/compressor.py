@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import time
 from collections import OrderedDict
@@ -523,7 +524,11 @@ Conclusion:""",
             # Use semaphore to control concurrent LLM calls
             semaphore = get_call_semaphore(self.config.max_sub_calls)
             async with semaphore:
-                response = self.agent_call(prompt, self.config.root_model)
+                result = self.agent_call(prompt, self.config.root_model)
+                if inspect.isawaitable(result):
+                    response = await result
+                else:
+                    response = result
 
             # Create new node
             node = AbstractionNode(

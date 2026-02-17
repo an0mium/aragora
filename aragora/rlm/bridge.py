@@ -1230,7 +1230,7 @@ Please provide an improved answer based on the feedback."""
                     "debate_id": debate_id,
                 },
             )
-        except (ImportError, RuntimeError, ValueError, OSError) as e:
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Audit logging skipped: %s", e)
 
     def inject_memory_helpers(

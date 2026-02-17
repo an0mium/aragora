@@ -116,6 +116,11 @@ class TestGauntletErrorCodes:
 class TestReceiptSigning:
     """Tests for cryptographic receipt signing."""
 
+    @pytest.fixture(autouse=True)
+    def clean_signing_env(self, monkeypatch):
+        """Prevent env pollution from other tests affecting signing key."""
+        monkeypatch.delenv("ARAGORA_RECEIPT_SIGNING_KEY", raising=False)
+
     def test_hmac_signer_sign_and_verify(self):
         """Should sign and verify receipts with HMAC."""
         from aragora.gauntlet.signing import HMACSigner

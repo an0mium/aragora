@@ -353,7 +353,7 @@ async def migrate_gmail_tokens(
 
     except ImportError:
         result.errors.append("GmailTokenStore not available")
-    except (OSError, RuntimeError, ValueError) as e:
+    except (OSError, RuntimeError, ValueError, TypeError) as e:
         result.errors.append("GmailTokenStore initialization failed")
         logger.error(f"Failed to initialize GmailTokenStore: {e}")
 

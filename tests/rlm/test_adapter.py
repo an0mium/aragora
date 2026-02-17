@@ -305,7 +305,7 @@ class TestGenerateSummaryAsync:
     @pytest.mark.asyncio
     async def test_llm_failure_falls_back_to_compression(self):
         """Test fallback to compression when LLM fails (priority 2)."""
-        mock_agent = AsyncMock(side_effect=Exception("LLM error"))
+        mock_agent = AsyncMock(side_effect=RuntimeError("LLM error"))
         mock_compressor = AsyncMock()
         mock_result = MagicMock()
         mock_result.context.get_at_level.return_value = "Compressed summary"
@@ -325,8 +325,8 @@ class TestGenerateSummaryAsync:
     @pytest.mark.asyncio
     async def test_compression_failure_falls_back_to_truncation(self):
         """Test fallback to truncation when both LLM and compression fail."""
-        mock_agent = AsyncMock(side_effect=Exception("LLM error"))
-        mock_compressor = AsyncMock(side_effect=Exception("Compress error"))
+        mock_agent = AsyncMock(side_effect=RuntimeError("LLM error"))
+        mock_compressor = AsyncMock(side_effect=RuntimeError("Compress error"))
 
         adapter = RLMContextAdapter(agent_call=mock_agent, compressor=mock_compressor)
         long_content = "First sentence. Second sentence. Third sentence. " * 10

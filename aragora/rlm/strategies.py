@@ -12,6 +12,7 @@ for navigating long context:
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -381,7 +382,8 @@ Partial answers:
 Combined answer:"""
 
             try:
-                final_answer = self.agent_call(reduce_prompt, self.config.root_model, "")
+                result = self.agent_call(reduce_prompt, self.config.root_model, "")
+                final_answer = await result if inspect.isawaitable(result) else result
                 sub_calls += 1
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                 logger.error(f"Reduce step failed: {e}")
@@ -409,7 +411,8 @@ Combined answer:"""
             return None
 
         try:
-            response = self.agent_call(prompt, self.config.sub_model, "")
+            result = self.agent_call(prompt, self.config.sub_model, "")
+            response = await result if inspect.isawaitable(result) else result
             # Filter out "not found" responses
             if "not found" in response.lower() or "no information" in response.lower():
                 return None
@@ -480,7 +483,8 @@ Content:
 
 Summary:"""
                 try:
-                    summary = self.agent_call(prompt, self.config.root_model, "")
+                    result = self.agent_call(prompt, self.config.root_model, "")
+                    summary = await result if inspect.isawaitable(result) else result
                     answer_parts.append(summary)
                 except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                     logger.error(f"Summarization failed: {e}")
@@ -545,7 +549,8 @@ Overview:
 Relevant node IDs (comma-separated):"""
 
             try:
-                relevant_ids = self.agent_call(identify_prompt, self.config.sub_model, "")
+                result = self.agent_call(identify_prompt, self.config.sub_model, "")
+                relevant_ids = await result if inspect.isawaitable(result) else result
                 relevant_nodes = [
                     id.strip()
                     for id in relevant_ids.split(",")
@@ -590,7 +595,8 @@ Context:
 Answer with citations:"""
 
             try:
-                answer = self.agent_call(answer_prompt, self.config.root_model, "")
+                result = self.agent_call(answer_prompt, self.config.root_model, "")
+                answer = await result if inspect.isawaitable(result) else result
                 sub_calls += 1
             except (RuntimeError, ValueError, TimeoutError, ConnectionError, OSError) as e:
                 logger.error(f"Answer generation failed: {e}")

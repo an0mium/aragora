@@ -62,6 +62,7 @@ class TestHandlerRegistry:
             # - routes/ROUTES + handle (SSO-style)
             # - handle_* methods (cost, voice, inbox)
             # - register_routes (alert, autonomous)
+            # - ROUTES only (facade handlers for OpenAPI discovery)
             has_handle = hasattr(handler_class, "handle")
             has_handle_methods = any(
                 attr.startswith("handle_")
@@ -69,9 +70,10 @@ class TestHandlerRegistry:
                 if not attr.startswith("__")
             )
             has_register = hasattr(handler_class, "register_routes")
+            has_routes_only = hasattr(handler_class, "ROUTES")
 
-            assert has_handle or has_handle_methods or has_register, (
-                f"{attr_name} missing handle, handle_*, or register_routes"
+            assert has_handle or has_handle_methods or has_register or has_routes_only, (
+                f"{attr_name} missing handle, handle_*, register_routes, or ROUTES"
             )
 
 

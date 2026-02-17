@@ -273,16 +273,18 @@ class TestMigrateGmailTokens:
         assert len(result.errors) > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="get_gmail_token_store() doesn't accept use_encryption kwarg",
-        strict=False,
-    )
     async def test_dry_run_returns_result(self):
-        """Should return result with dry_run flag set."""
+        """Should return result with dry_run flag set.
+
+        When CRYPTO_AVAILABLE is True but get_gmail_token_store() doesn't
+        accept the use_encryption kwarg, the TypeError is now caught
+        gracefully and the result is returned with an error message.
+        """
         from aragora.storage.migrations.encrypt_existing_data import migrate_gmail_tokens
 
         with patch("aragora.storage.migrations.encrypt_existing_data.CRYPTO_AVAILABLE", True):
-            # When modules can't be imported, result has errors but still returns
+            # The TypeError from get_gmail_token_store(use_encryption=True)
+            # is caught and recorded as an error in the result
             result = await migrate_gmail_tokens(dry_run=True)
 
         assert result.dry_run is True
