@@ -125,7 +125,11 @@ class FileBackend(AuditPersistenceBackend):
                 try:
                     # Get line number before write
                     f.seek(0, os.SEEK_END)
-                    line_num = sum(1 for _ in open(log_file)) if log_file.exists() else 0
+                    if log_file.exists():
+                        with open(log_file) as count_f:
+                            line_num = sum(1 for _ in count_f)
+                    else:
+                        line_num = 0
 
                     f.write(event_json + "\n")
                     f.flush()

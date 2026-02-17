@@ -116,7 +116,8 @@ def count_files_and_lines(path: str) -> tuple[int, int]:
             if not any(ex in p.parts for ex in exclude_dirs):
                 file_count += 1
                 try:
-                    line_count += sum(1 for _ in open(p, encoding="utf-8", errors="ignore"))
+                    with open(p, encoding="utf-8", errors="ignore") as lf:
+                        line_count += sum(1 for _ in lf)
                 except OSError:
                     pass
 
