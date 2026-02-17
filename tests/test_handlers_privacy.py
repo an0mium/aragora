@@ -161,12 +161,16 @@ class TestPrivacyRouting:
         """Handler can handle /api/v2/users/me."""
         assert privacy_handler.can_handle("/api/v2/users/me") is True
 
+    def test_can_handle_users_routes(self, privacy_handler):
+        """Handler handles user privacy routes."""
+        assert privacy_handler.can_handle("/api/v1/users") is True
+        assert privacy_handler.can_handle("/api/v1/users/invite") is True
+
     def test_cannot_handle_unrelated_routes(self, privacy_handler):
         """Handler doesn't handle unrelated routes."""
         assert privacy_handler.can_handle("/api/v1/debates") is False
         assert privacy_handler.can_handle("/api/v1/agents") is False
         assert privacy_handler.can_handle("/api/v1/privacy/unknown") is False
-        assert privacy_handler.can_handle("/api/v1/users") is False
 
 
 # ============================================================================
