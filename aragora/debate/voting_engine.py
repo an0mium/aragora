@@ -231,7 +231,7 @@ class VoteWeightCalculator:
                 # Apply contribution factor
                 rep_weight = 1.0 + (rep_weight - 1.0) * self.config.reputation_contribution
                 weight *= rep_weight
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Reputation weight error for {agent_name}: {e}")
 
         # Reliability weight (0-1 multiplier)
@@ -249,7 +249,7 @@ class VoteWeightCalculator:
                     1.0 + (consistency_weight - 1.0) * self.config.consistency_contribution
                 )
                 weight *= consistency_weight
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Consistency weight error for {agent_name}: {e}")
 
         # Calibration weight (0.5-1.5)
@@ -258,7 +258,7 @@ class VoteWeightCalculator:
                 cal_weight = self._calibration_source(agent_name)
                 cal_weight = 1.0 + (cal_weight - 1.0) * self.config.calibration_contribution
                 weight *= cal_weight
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug(f"Calibration weight error for {agent_name}: {e}")
 
         # Clamp to configured bounds
@@ -514,7 +514,7 @@ class VotingEngine:
                     weight *= self._weight_config.user_intensity_multiplier(
                         intensity, self.protocol
                     )
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                     logger.warning(f"User vote multiplier failed: {e}")
 
             vote_counts[canonical] = vote_counts.get(canonical, 0.0) + weight

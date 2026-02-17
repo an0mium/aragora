@@ -46,6 +46,7 @@ import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
 from typing import Any
 
 from aragora.nomic.autonomous_orchestrator import (
@@ -269,6 +270,7 @@ async def run_orchestration(
     enable_gauntlet: bool = True,
     enable_meta_plan: bool = False,
     budget_limit: float | None = None,
+    repo_path: Path | None = None,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -276,12 +278,14 @@ async def run_orchestration(
     audit reconciliation). Use --standard to fall back to the base
     AutonomousOrchestrator.
     """
-    common_kwargs = {
+    common_kwargs: dict[str, Any] = {
         "require_human_approval": require_approval,
         "max_parallel_tasks": max_parallel,
         "on_checkpoint": create_checkpoint_handler(require_approval),
         "use_debate_decomposition": use_debate,
     }
+    if repo_path is not None:
+        common_kwargs["aragora_path"] = repo_path
 
     if use_parallel:
         from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
@@ -311,6 +315,8 @@ async def run_orchestration(
 
     print_header(f"STARTING ORCHESTRATION ({mode_label})")
     print(f"Goal: {goal}")
+    if repo_path:
+        print(f"Repository: {repo_path}")
     print(f"Tracks: {tracks if tracks else 'all'}")
     print(f"Max cycles per subtask: {max_cycles}")
     print(f"Max parallel tasks: {max_parallel}")
@@ -366,6 +372,13 @@ Examples:
         "--goal",
         required=True,
         help="High-level goal to achieve (e.g., 'Improve error handling')",
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Path to the target repository (default: current directory). "
+        "Enables running the Nomic Loop on external codebases.",
     )
     parser.add_argument(
         "--tracks",
@@ -523,6 +536,9 @@ Examples:
     # --parallel implies --worktree unless explicitly disabled
     use_worktree = args.worktree or args.parallel
 
+    # Resolve repo path
+    resolved_repo_path = Path(args.repo).resolve() if args.repo else None
+
     # Full run
     try:
         result = asyncio.run(
@@ -539,6 +555,7 @@ Examples:
                 enable_gauntlet=enable_gauntlet,
                 enable_meta_plan=args.meta_plan,
                 budget_limit=args.budget_limit,
+                repo_path=resolved_repo_path,
             )
         )
         print_result(result)

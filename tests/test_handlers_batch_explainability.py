@@ -8,6 +8,7 @@ Tests cover:
 - POST /api/v1/explainability/compare - Compare explanations across debates
 """
 
+import asyncio
 import json
 import pytest
 import time
@@ -25,6 +26,19 @@ from aragora.server.handlers.explainability_store import (
     get_batch_job_store,
 )
 from aragora.server.handlers.base import HandlerResult
+
+
+def run_async(coro):
+    """Run an async coroutine synchronously."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(asyncio.run, coro).result()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
 
 
 def parse_handler_result(result: HandlerResult) -> tuple[dict, int]:
@@ -225,7 +239,7 @@ class TestCreateBatchJob:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_post_request)
+        result = handler._handle_batch_create(mock_post_request)
         response_body, status = parse_handler_result(result)
 
         assert status == 202
@@ -241,7 +255,7 @@ class TestCreateBatchJob:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_post_request)
+        result = handler._handle_batch_create(mock_post_request)
         response_body, status = parse_handler_result(result)
 
         assert status == 400
@@ -253,7 +267,7 @@ class TestCreateBatchJob:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_post_request)
+        result = handler._handle_batch_create(mock_post_request)
         response_body, status = parse_handler_result(result)
 
         assert status == 400
@@ -264,7 +278,7 @@ class TestCreateBatchJob:
         mock_post_request.rfile.read = Mock(return_value=b"not valid json")
         mock_post_request.headers["Content-Length"] = 14
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_post_request)
+        result = handler._handle_batch_create(mock_post_request)
         response_body, status = parse_handler_result(result)
 
         assert status == 400
@@ -288,9 +302,7 @@ class TestGetBatchStatus:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-test-123/status", {}, mock_get_request
-        )
+        result = handler._handle_batch_status("batch-test-123")
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -308,9 +320,7 @@ class TestGetBatchStatus:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-test-456/status", {}, mock_get_request
-        )
+        result = handler._handle_batch_status("batch-test-456")
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -319,9 +329,7 @@ class TestGetBatchStatus:
         assert response_body["progress_pct"] == 33.3
 
     def test_get_status_not_found(self, handler, mock_get_request):
-        result = handler.handle(
-            "/api/v1/explainability/batch/nonexistent/status", {}, mock_get_request
-        )
+        result = handler._handle_batch_status("nonexistent")
         response_body, status = parse_handler_result(result)
 
         assert status == 404

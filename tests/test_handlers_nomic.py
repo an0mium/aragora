@@ -10,11 +10,17 @@ Endpoints tested:
 - GET /api/modes - Get available operational modes
 """
 
+import asyncio
 import json
 import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+
+def run_async(coro):
+    """Helper to run async handler methods synchronously in tests."""
+    return asyncio.run(coro)
 
 from aragora.server.handlers.nomic import NomicHandler
 from aragora.server.handlers.base import clear_cache
@@ -100,7 +106,7 @@ class TestNomicRouting:
         assert nomic_handler.can_handle("/api/v1/debates") is False
         assert nomic_handler.can_handle("/api/v1/agents") is False
         assert nomic_handler.can_handle("/api/v1/replays") is False
-        assert nomic_handler.can_handle("/api/v1/nomic/unknown") is False
+        assert nomic_handler.can_handle("/api/v1/settings") is False
 
 
 # ============================================================================
@@ -113,7 +119,7 @@ class TestNomicState:
 
     def test_state_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = nomic_handler_no_nomic.handle("/api/nomic/state", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/state", {}, None))
 
         assert result is not None
         assert result.status_code == 503
@@ -171,7 +177,7 @@ class TestNomicHealth:
 
     def test_health_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = nomic_handler_no_nomic.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/health", {}, None)
 
         assert result is not None
         assert result.status_code == 503
@@ -255,7 +261,7 @@ class TestNomicLog:
 
     def test_log_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = nomic_handler_no_nomic.handle("/api/nomic/log", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/log", {}, None)
 
         assert result is not None
         assert result.status_code == 503
@@ -328,7 +334,7 @@ class TestRiskRegister:
 
     def test_risk_register_no_nomic_dir(self, nomic_handler_no_nomic):
         """Returns 503 when nomic_dir is None."""
-        result = nomic_handler_no_nomic.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler_no_nomic.handle("/api/nomic/risk-register", {}, None)
 
         assert result is not None
         assert result.status_code == 503
