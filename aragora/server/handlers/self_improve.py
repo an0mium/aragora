@@ -87,6 +87,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         path = strip_version_prefix(path)
         return path in self.ROUTES or path.startswith("/api/self-improve/")
 
+    @require_permission("self_improve:read")
     @rate_limit(requests_per_minute=30)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -107,6 +108,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         return None
 
+    @require_permission("self_improve:admin")
     @rate_limit(requests_per_minute=10)
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

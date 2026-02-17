@@ -2263,7 +2263,7 @@ class TestConcurrentDebateHandling:
 
     @pytest.fixture
     def protocol(self):
-        return DebateProtocol(rounds=1, consensus="majority")
+        return DebateProtocol(rounds=1, consensus="majority", enable_calibration=False)
 
     @pytest.mark.asyncio
     async def test_multiple_arenas_can_run_concurrently(self, environment, agents, protocol):

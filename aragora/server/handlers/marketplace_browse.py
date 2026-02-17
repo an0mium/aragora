@@ -27,6 +27,7 @@ from .base import (
     error_response,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ class MarketplaceBrowseHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("marketplace:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route marketplace browse requests."""
         normalized = strip_version_prefix(path)
@@ -90,6 +92,7 @@ class MarketplaceBrowseHandler(BaseHandler):
 
         return None
 
+    @require_permission("marketplace:write")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests (rating)."""
         normalized = strip_version_prefix(path)

@@ -626,6 +626,7 @@ class TestCompleteKMLearningWorkflow:
         assert len(mock_knowledge_mound._items) >= 1
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_learning_improves_over_time(
         self,
         mock_agents,

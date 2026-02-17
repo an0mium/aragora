@@ -86,6 +86,7 @@ class BudgetControlsHandler(SecureHandler):
                 return route_name, match.group(1)
         return None, None
 
+    @require_permission("sme:budgets:read")
     def handle(
         self,
         path: str,

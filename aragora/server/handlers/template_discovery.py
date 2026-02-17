@@ -28,6 +28,7 @@ from .base import (
     error_response,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class TemplateDiscoveryHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("templates:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route template discovery requests."""
         normalized = strip_version_prefix(path)

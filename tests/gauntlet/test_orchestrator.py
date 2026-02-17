@@ -208,7 +208,7 @@ class TestOrchestratorCallbacks:
     @pytest.mark.asyncio
     async def test_callback_exception_does_not_fail_run(self):
         """Test callback exception doesn't crash the run."""
-        callback = MagicMock(side_effect=Exception("Callback error"))
+        callback = MagicMock(side_effect=RuntimeError("Callback error"))
         orchestrator = GauntletOrchestrator(on_phase_complete=callback)
 
         config = GauntletConfig(

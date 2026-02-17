@@ -19,6 +19,7 @@ import os
 import time
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -222,6 +223,7 @@ class DebateShareHandler(BaseHandler):
     # POST /api/v1/debates/{id}/share
     # ------------------------------------------------------------------
 
+    @require_permission("debates:write")
     def handle_post(
         self,
         path: str,
@@ -262,6 +264,7 @@ class DebateShareHandler(BaseHandler):
     # DELETE /api/v1/debates/{id}/share
     # ------------------------------------------------------------------
 
+    @require_permission("debates:write")
     def handle_delete(
         self,
         path: str,

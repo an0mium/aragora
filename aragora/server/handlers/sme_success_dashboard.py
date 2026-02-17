@@ -195,6 +195,7 @@ class SMESuccessDashboardHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES or path.startswith("/api/v1/sme/success")
 
+    @require_permission("org:usage:read")
     def handle(
         self,
         path: str,

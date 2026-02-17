@@ -62,7 +62,8 @@ class FeatureFlagAdminHandler(BaseHandler):
         return path == "/api/admin/feature-flags" or path.startswith("/api/admin/feature-flags/")
 
     @handle_errors("feature flags GET")
-    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    @require_permission("admin:feature_flags:read")
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None) -> HandlerResult | None:
         """Handle GET requests for feature flag endpoints."""
         path = strip_version_prefix(path)
 
@@ -81,8 +82,9 @@ class FeatureFlagAdminHandler(BaseHandler):
         return None
 
     @handle_errors("feature flags PUT")
+    @require_permission("admin:feature_flags:write")
     def handle_put(
-        self, path: str, query_params: dict[str, Any], handler: Any
+        self, path: str, query_params: dict[str, Any], handler: Any, user: Any = None
     ) -> HandlerResult | None:
         """Handle PUT requests for feature flag endpoints."""
         path = strip_version_prefix(path)

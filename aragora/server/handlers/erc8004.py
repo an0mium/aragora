@@ -684,6 +684,7 @@ class ERC8004Handler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path.startswith("/api/v1/blockchain/")
 
+    @require_permission("blockchain:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | Awaitable[HandlerResult] | None:

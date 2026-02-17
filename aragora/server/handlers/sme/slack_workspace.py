@@ -95,12 +95,14 @@ class SlackWorkspaceHandler(SecureHandler):
                 return route_name, match.group(1)
         return None, None
 
+    @require_permission("sme:workspaces:read")
     def handle(
         self,
         path: str,
         query_params: dict,
         handler: Any,
         method: str = "GET",
+        user: Any = None,
     ) -> HandlerResult | None:
         """Route Slack workspace requests to appropriate methods."""
         # Rate limit check

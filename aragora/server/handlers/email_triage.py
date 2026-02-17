@@ -57,6 +57,7 @@ class EmailTriageHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         return path in self.ROUTES
 
+    @require_permission("email:read")
     @handle_errors("get triage rules")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if path == "/api/v1/email/triage/rules":
@@ -72,6 +73,7 @@ class EmailTriageHandler(BaseHandler):
             return self._handle_update_rules(handler)
         return None
 
+    @require_permission("email:read")
     @handle_errors("test triage rules")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

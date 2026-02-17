@@ -147,6 +147,7 @@ class ExternalAgentsHandler(BaseHandler):
                 return return_value
         return specs_fn()
 
+    @require_permission(AGENTS_READ_PERMISSION)
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         path = strip_version_prefix(path)

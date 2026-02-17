@@ -58,6 +58,7 @@ class ReceiptDeliveryHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("sme:receipts:deliver")
     def handle(
         self,
         path: str,

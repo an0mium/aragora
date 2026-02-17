@@ -1017,8 +1017,9 @@ class TestBudgetCoordinator:
         assert arena._budget_coordinator.org_id == "test-org"
 
     @pytest.mark.asyncio
-    async def test_run_checks_budget_before_debate(self, environment, mock_agents, protocol):
+    async def test_run_checks_budget_before_debate(self, environment, mock_agents):
         """Arena.run() checks budget before starting."""
+        protocol = DebateProtocol(rounds=2, consensus="majority", enable_calibration=False)
         arena = Arena(environment, mock_agents, protocol)
         arena._budget_coordinator.check_budget_before_debate = MagicMock()
 
@@ -1027,8 +1028,9 @@ class TestBudgetCoordinator:
         arena._budget_coordinator.check_budget_before_debate.assert_called()
 
     @pytest.mark.asyncio
-    async def test_run_records_debate_cost(self, environment, mock_agents, protocol):
+    async def test_run_records_debate_cost(self, environment, mock_agents):
         """Arena.run() records debate cost after completion."""
+        protocol = DebateProtocol(rounds=2, consensus="majority", enable_calibration=False)
         arena = Arena(environment, mock_agents, protocol)
         arena._budget_coordinator.record_debate_cost = MagicMock()
 
