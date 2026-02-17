@@ -342,3 +342,94 @@ class TestHandlerMethods:
         assert result.content_type == "application/json"
         assert result.body == b"{}"
         assert result.headers is None or isinstance(result.headers, dict)
+
+
+class TestPOSTFallbackDispatch:
+    """Tests for POST dispatch fallback from handle_post() to handle().
+
+    When BaseHandler.handle_post() returns None (the default stub), the
+    handler registry should fall through to calling handle() with the
+    POST method, so handlers that route POST in handle() still work.
+
+    This was a production bug: 60+ handlers route POST in handle() but
+    don't override handle_post(). The inherited BaseHandler.handle_post()
+    returns None, causing 404 for all POST requests to these handlers.
+    """
+
+    def test_base_handler_post_returns_none(self):
+        """BaseHandler.handle_post() should return None (stub)."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        result = handler.handle_post("/api/test", {}, None)
+        assert result is None
+
+    def test_auth_handler_routes_post_in_handle(self):
+        """AuthHandler handles POST /api/auth/login in handle(), not handle_post()."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        handler = AuthHandler({})
+        # handle_post inherited from BaseHandler returns None
+        assert handler.handle_post("/api/auth/login", {}, None) is None
+        # But handle() with POST method should route to login
+        assert handler.can_handle("/api/auth/login")
+        # The handler's handle() checks method=="POST" for login
+
+    def test_handlers_with_post_in_handle_but_no_override(self):
+        """Many handlers route POST in handle() but don't override handle_post().
+
+        The dispatch code must fall through to handle() when handle_post()
+        returns None, otherwise all these handlers fail with 404 on POST.
+        """
+        import inspect
+        from aragora.server.handlers.base import BaseHandler
+
+        handlers_using_post_via_handle = []
+        for attr_name, handler_class in HANDLER_REGISTRY:
+            if handler_class is None:
+                continue
+            # Check if handler routes POST in handle() but uses base handle_post
+            if not hasattr(handler_class, "handle"):
+                continue
+            try:
+                handle_src = inspect.getsource(handler_class.handle)
+            except (TypeError, OSError):
+                continue
+            if '"POST"' not in handle_src and "'POST'" not in handle_src:
+                continue
+            # Check if handle_post is the BaseHandler stub or missing
+            if not hasattr(handler_class, "handle_post"):
+                handlers_using_post_via_handle.append(handler_class.__name__)
+                continue
+            if handler_class.handle_post is BaseHandler.handle_post:
+                handlers_using_post_via_handle.append(handler_class.__name__)
+
+        # There should be many such handlers (AuthHandler, AdminHandler, etc.)
+        assert len(handlers_using_post_via_handle) >= 10, (
+            f"Expected 10+ handlers routing POST via handle(), found: "
+            f"{len(handlers_using_post_via_handle)}"
+        )
+
+    def test_base_handler_delete_returns_none(self):
+        """BaseHandler.handle_delete() should also return None (stub)."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        result = handler.handle_delete("/api/test", {}, None)
+        assert result is None
+
+    def test_base_handler_patch_returns_none(self):
+        """BaseHandler.handle_patch() should also return None (stub)."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        result = handler.handle_patch("/api/test", {}, None)
+        assert result is None
+
+    def test_base_handler_put_returns_none(self):
+        """BaseHandler.handle_put() should also return None (stub)."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        result = handler.handle_put("/api/test", {}, None)
+        assert result is None
