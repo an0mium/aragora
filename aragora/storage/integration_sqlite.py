@@ -309,7 +309,7 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.debug("Error closing connection: %s", e)
                     pass
             self._connections.clear()

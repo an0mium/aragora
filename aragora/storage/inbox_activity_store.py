@@ -201,7 +201,7 @@ class InboxActivityStore:
         for statement in self.SCHEMA_STATEMENTS:
             try:
                 self._backend.execute_write(statement)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Schema statement skipped: {e}")
 
     # =========================================================================

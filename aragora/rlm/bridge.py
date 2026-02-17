@@ -103,6 +103,16 @@ The debate context is stored as Python variables in your REPL environment.
 - `search_memory(ctx, pattern)` - Search across memory tiers
 - `filter_by_importance(entries, threshold)` - Filter by importance
 
+### Unified Memory Navigation (cross-system)
+- `search_all(query, limit, sources)` - Search across ALL memory systems
+- `build_context_hierarchy(topic, max_items)` - Build navigable context from all systems
+- `drill_into(source, item_id)` - Get detailed view of a specific item
+- `get_by_surprise(min_surprise)` - Get high-surprise items (Titans/MIRAS insight)
+- `filter_by_source(items, source)` - Filter by source system
+- `filter_by_confidence(items, threshold)` - Filter by confidence score
+- `sort_by_confidence(items)` - Sort by confidence
+- `sort_by_surprise(items)` - Sort by surprise score
+
 ## Strategy Guidance
 
 For debate analysis, use batched queries to process rounds in parallel:
@@ -1247,6 +1257,35 @@ Please provide an improved answer based on the feedback."""
         except (ImportError, RuntimeError, ValueError, AttributeError) as e:
             logger.debug("Memory helper injection failed: %s", e)
             return {"context": None, "helpers": {}}
+
+    def inject_unified_memory_helpers(
+        self,
+        gateway: Any,
+        retention_gate: Any = None,
+    ) -> dict[str, Any]:
+        """Inject unified memory navigation helpers into RLM REPL context.
+
+        Provides cross-system search, drill-down, and surprise-based
+        filtering across all 5 memory systems.
+
+        Args:
+            gateway: MemoryGateway instance
+            retention_gate: Optional RetentionGate for enrichment
+
+        Returns:
+            Dictionary of injected helpers
+        """
+        try:
+            from .memory_navigator import RLMMemoryNavigator
+
+            navigator = RLMMemoryNavigator(
+                gateway=gateway,
+                retention_gate=retention_gate,
+            )
+            return {"helpers": navigator.get_repl_helpers()}
+        except (ImportError, RuntimeError, ValueError, AttributeError) as e:
+            logger.debug("Unified memory helper injection failed: %s", e)
+            return {"helpers": {}}
 
     def inject_knowledge_helpers(
         self,

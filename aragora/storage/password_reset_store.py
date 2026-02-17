@@ -208,7 +208,7 @@ class SQLitePasswordResetStore(PasswordResetBackend):
             for conn in self._connections:
                 try:
                     conn.close()
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.debug("Error closing connection: %s", e)
             self._connections.clear()
 

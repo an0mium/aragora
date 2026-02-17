@@ -234,7 +234,7 @@ def _decrypt_settings(
     except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning(f"Decryption failed for {integration_type}: {e}")
         return settings
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - cryptography errors don't subclass standard types
         # Catch cryptography-specific errors (e.g. InvalidTag from AAD mismatch)
         if type(e).__name__ in ("InvalidTag", "InvalidSignature"):
             logger.warning(f"Decryption AAD mismatch for {integration_type}: {e}")

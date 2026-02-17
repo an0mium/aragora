@@ -245,7 +245,7 @@ class PostgresMarketplaceStore:
                     category,
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - asyncpg errors don't subclass standard types
                 if "duplicate key" in str(e).lower() or "unique" in str(e).lower():
                     raise ValueError(f"Template with name '{name}' already exists") from e
                 raise

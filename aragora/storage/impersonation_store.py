@@ -240,7 +240,7 @@ class ImpersonationStore:
         for idx in indexes:
             try:
                 self._backend.execute_write(idx)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Index creation skipped: {e}")
 
     # =========================================================================

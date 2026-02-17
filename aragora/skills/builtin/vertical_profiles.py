@@ -31,6 +31,7 @@ from aragora.skills.base import (
     SkillContext,
     SkillManifest,
     SkillResult,
+    SkillStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ class VerticalProfileSkill(Skill):
 
     def _info(self) -> SkillResult:
         """Return profile information."""
-        return SkillResult.success({
+        return SkillResult(status=SkillStatus.SUCCESS, data={
             "name": self._config.name,
             "display_name": self._config.display_name,
             "description": self._config.description,
@@ -114,7 +115,7 @@ class VerticalProfileSkill(Skill):
         """Apply vertical configuration to the arena."""
         try:
             config = self._config.to_arena_config()
-            return SkillResult.success({
+            return SkillResult(status=SkillStatus.SUCCESS, data={
                 "applied": True,
                 "profile": self._config.name,
                 "arena_config": config,
@@ -122,7 +123,7 @@ class VerticalProfileSkill(Skill):
                 "message": f"Applied {self._config.display_name} vertical profile",
             })
         except (ImportError, ValueError, TypeError) as e:
-            return SkillResult.failure(str(e))
+            return SkillResult(status=SkillStatus.FAILURE, error_message=str(e))
 
     async def _validate(self, context: SkillContext | None = None) -> SkillResult:
         """Validate that the current configuration meets vertical requirements."""
@@ -151,7 +152,7 @@ class VerticalProfileSkill(Skill):
                                "detail": "Compliance module not available"})
 
         all_pass = all(c["status"] != "fail" for c in checks)
-        return SkillResult.success({
+        return SkillResult(status=SkillStatus.SUCCESS, data={
             "valid": all_pass,
             "checks": checks,
             "profile": self._config.name,

@@ -881,8 +881,57 @@ class BudgetManager:
                 )
                 logger.warning(f"Budget {budget.budget_id} auto-suspended (exceeded)")
 
+            # Trip circuit breaker for exceeded/suspended budgets
+            self._check_budget_circuit_breaker(budget)
+
         conn.commit()
         return True
+
+    def _check_budget_circuit_breaker(self, budget: Budget) -> None:
+        """Trip circuit breaker when budget is exceeded or suspended.
+
+        Integrates budget enforcement with the resilience system,
+        ensuring that API calls are blocked at the circuit breaker level
+        when budgets are exhausted — preventing runaway costs.
+        """
+        if budget.status not in (BudgetStatus.EXCEEDED, BudgetStatus.SUSPENDED):
+            return
+        try:
+            from aragora.resilience.circuit_breaker import CircuitBreaker
+
+            breaker_name = f"budget_{budget.org_id}"
+            if not hasattr(self, "_budget_breakers"):
+                self._budget_breakers: dict[str, CircuitBreaker] = {}
+            if breaker_name not in self._budget_breakers:
+                self._budget_breakers[breaker_name] = CircuitBreaker(
+                    name=breaker_name,
+                    failure_threshold=1,  # Trip immediately
+                    cooldown_seconds=300.0,  # 5 min cooldown before re-check
+                )
+            breaker = self._budget_breakers[breaker_name]
+            breaker.record_failure()
+            logger.warning(
+                "Budget circuit breaker tripped for org %s: status=%s",
+                budget.org_id,
+                budget.status.value,
+            )
+        except ImportError:
+            logger.debug("Circuit breaker module unavailable for budget enforcement")
+        except (RuntimeError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("Budget circuit breaker failed: %s", e)
+
+    def is_budget_circuit_open(self, org_id: str) -> bool:
+        """Check if budget circuit breaker is blocking operations for an org.
+
+        Returns True if the circuit is open (operations blocked due to budget).
+        """
+        if not hasattr(self, "_budget_breakers"):
+            return False
+        breaker_name = f"budget_{org_id}"
+        breaker = self._budget_breakers.get(breaker_name)
+        if breaker is None:
+            return False
+        return not breaker.can_proceed()
 
     def _check_thresholds(self, budget: Budget, old_pct: float, new_pct: float) -> None:
         """Check if any thresholds were crossed and trigger alerts."""

@@ -96,6 +96,11 @@ class IntrospectionSnapshot:
             traits_str = ", ".join(self.traits[:3])
             lines.append(f"Style: {traits_str}")
 
+        # Line 6: Actionable directives based on performance patterns
+        directives = self._generate_directives()
+        if directives:
+            lines.append(f"Focus: {directives}")
+
         # Join and truncate if needed
         result = "\n".join(lines)
 
@@ -105,6 +110,36 @@ class IntrospectionSnapshot:
             result = "\n".join(lines)
 
         return result
+
+    def _generate_directives(self) -> str:
+        """Generate actionable self-improvement directives based on performance.
+
+        Analyzes the agent's track record and produces brief, specific guidance
+        so the agent can adapt its behavior in the current debate.
+        """
+        directives: list[str] = []
+
+        # Low proposal acceptance → be more rigorous
+        if self.proposals_made >= 3 and self.proposal_acceptance_rate < 0.3:
+            directives.append("strengthen proposals with evidence (low acceptance rate)")
+
+        # Low critique effectiveness → be more constructive
+        if self.critiques_given >= 3 and self.critique_effectiveness < 0.3:
+            directives.append("make critiques more specific and actionable")
+
+        # Poor calibration → hedge less or more
+        if self.calibration_score < 0.3:
+            directives.append("calibrate confidence more carefully (prediction accuracy is low)")
+
+        # High reputation → maintain quality
+        if self.reputation_score >= 0.8 and self.vote_weight >= 1.3:
+            directives.append("your views carry weight — ensure thorough reasoning")
+
+        # Low reputation → work to rebuild
+        if self.reputation_score < 0.3 and self.debate_count >= 5:
+            directives.append("prioritize quality over quantity to rebuild reputation")
+
+        return "; ".join(directives[:2])  # Max 2 directives to stay concise
 
     def to_dict(self) -> dict:
         """Serialize snapshot to dictionary."""

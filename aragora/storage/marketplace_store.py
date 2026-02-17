@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -321,7 +322,7 @@ class MarketplaceStore(SQLiteStore):
                     (category,),
                 )
 
-            except Exception as e:
+            except (sqlite3.IntegrityError, sqlite3.OperationalError, OSError) as e:
                 if "UNIQUE constraint" in str(e):
                     raise ValueError(f"Template with name '{name}' already exists") from e
                 raise

@@ -100,7 +100,7 @@ class DecisionStep(BaseStep):
                     if evaluation_mode == "first_match":
                         break
 
-            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, SafeEvalError) as e:
                 logger.warning(f"Condition evaluation failed for '{name}': {e}")
                 evaluation_results.append(
                     {

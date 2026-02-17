@@ -61,8 +61,8 @@ class RedisIntegrationStore(IntegrationStoreBackend):
             logger.debug(f"Redis package not installed: {e}")
             self._redis = None
             self._redis_checked = True
-        except Exception as e:
-            # Catch all Redis connection errors (redis.exceptions.ConnectionError, etc.)
+        except (ConnectionError, OSError, RuntimeError, ValueError) as e:
+            # Catch Redis connection errors (redis.exceptions.ConnectionError subclasses ConnectionError)
             logger.debug(f"Redis not available, using SQLite only: {e}")
             self._redis = None
             self._redis_checked = True

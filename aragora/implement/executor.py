@@ -561,11 +561,10 @@ Follow existing code style and tests.""",
     async def _execute_via_harness(self, task: ImplementTask) -> TaskResult:
         """Delegate task execution to ClaudeCodeHarness.
 
-        Uses the harness system instead of raw agent subprocess calls,
-        providing structured analysis and better error reporting.
+        Uses the harness in implementation mode (not analysis mode) so that
+        Claude Code can actually edit files. The harness runs without --print,
+        allowing file modifications that show up in git diff.
         """
-        from aragora.harnesses.adapter import adapt_to_implement_result
-        from aragora.harnesses.base import AnalysisType
         from aragora.harnesses.claude_code import ClaudeCodeConfig, ClaudeCodeHarness
 
         timeout = self._get_task_timeout(task)
@@ -575,18 +574,31 @@ Follow existing code style and tests.""",
         prompt = self._build_prompt(task)
 
         logger.info(
-            f"  Executing [{task.complexity}] {task.id} via harness (timeout {timeout}s)..."
+            f"  Executing [{task.complexity}] {task.id} via harness implementation mode (timeout {timeout}s)..."
         )
 
+        start_time = time.time()
         try:
             await harness.initialize()
-            result = await harness.analyze_repository(
+            stdout, stderr = await harness.execute_implementation(
                 repo_path=self.repo_path,
-                analysis_type=AnalysisType.GENERAL,
                 prompt=prompt,
             )
             diff = self._get_git_diff(files=task.files)
-            return adapt_to_implement_result(result, task_id=task.id, diff=diff)
+            duration = time.time() - start_time
+
+            if diff:
+                logger.info(f"    Harness produced changes ({len(diff)} chars diff)")
+            else:
+                logger.info("    Harness completed but no file changes detected")
+
+            return TaskResult(
+                task_id=task.id,
+                success=bool(diff),
+                diff=diff,
+                model_used="harness:claude-code",
+                duration_seconds=duration,
+            )
         except (RuntimeError, OSError, subprocess.SubprocessError) as e:
             logger.error(f"    Harness error: {e}")
             return TaskResult(

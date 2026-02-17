@@ -609,6 +609,221 @@ class ArgumentCartographer:
 
         return best_match
 
+    def export_html(self, title: str = "Debate Argument Map") -> str:
+        """
+        Generate a self-contained HTML file with an interactive force-directed
+        graph rendered on a canvas element using inline vanilla JavaScript.
+
+        No external CDN dependencies -- works fully offline.
+
+        Args:
+            title: Page title shown in the browser tab and header.
+
+        Returns:
+            A complete HTML string that can be written to a file and opened
+            in any modern browser.
+        """
+        import html as html_mod
+
+        # Serialise nodes and edges into JSON-safe lists for embedding
+        nodes_js = []
+        for node in self.nodes.values():
+            nodes_js.append({
+                "id": node.id,
+                "agent": node.agent,
+                "type": node.node_type.value,
+                "summary": node.summary,
+                "content": node.full_content or node.summary,
+                "round": node.round_num,
+            })
+
+        edges_js = []
+        for edge in self.edges:
+            if edge.source_id in self.nodes and edge.target_id in self.nodes:
+                edges_js.append({
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "relation": edge.relation.value,
+                })
+
+        safe_title = html_mod.escape(title)
+        topic_display = html_mod.escape(self.topic or title)
+        graph_json = json.dumps({"nodes": nodes_js, "edges": edges_js})
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{safe_title}</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#1a1a2e; color:#eee; }}
+header {{ padding:16px 24px; background:#16213e; border-bottom:2px solid #0f3460; }}
+header h1 {{ font-size:20px; }}
+#container {{ position:relative; width:100%; height:calc(100vh - 120px); }}
+canvas {{ display:block; width:100%; height:100%; cursor:grab; }}
+canvas.dragging {{ cursor:grabbing; }}
+#legend {{ display:flex; gap:14px; flex-wrap:wrap; padding:10px 24px; background:#16213e; border-top:1px solid #0f3460; position:fixed; bottom:0; width:100%; }}
+.leg {{ display:flex; align-items:center; gap:6px; font-size:13px; }}
+.leg span.dot {{ width:14px; height:14px; border-radius:50%; display:inline-block; }}
+#tooltip {{ position:absolute; display:none; background:#16213e; border:1px solid #0f3460;
+  border-radius:6px; padding:12px 16px; max-width:360px; font-size:13px;
+  line-height:1.45; pointer-events:none; z-index:10; box-shadow:0 4px 12px rgba(0,0,0,.4); }}
+#tooltip .tt-agent {{ color:#aaa; font-size:11px; text-transform:uppercase; margin-bottom:4px; }}
+#tooltip .tt-type {{ display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; margin-bottom:6px; }}
+#detail {{ position:absolute; top:60px; right:16px; width:340px; max-height:60vh; overflow-y:auto;
+  background:#16213e; border:1px solid #0f3460; border-radius:8px; padding:16px; display:none;
+  font-size:13px; line-height:1.5; z-index:20; box-shadow:0 4px 16px rgba(0,0,0,.5); }}
+#detail .close {{ float:right; cursor:pointer; color:#888; font-size:18px; }}
+#detail .close:hover {{ color:#fff; }}
+#detail h3 {{ margin-bottom:8px; font-size:15px; }}
+#detail pre {{ white-space:pre-wrap; word-break:break-word; background:#0f1a30; padding:10px; border-radius:4px; margin-top:8px; }}
+</style>
+</head>
+<body>
+<header><h1>{topic_display}</h1></header>
+<div id="container"><canvas id="c"></canvas></div>
+<div id="tooltip"><div class="tt-agent"></div><div class="tt-type"></div><div class="tt-body"></div></div>
+<div id="detail"><span class="close" onclick="this.parentElement.style.display='none'">&times;</span><h3 id="d-title"></h3><div id="d-meta"></div><pre id="d-content"></pre></div>
+<div id="legend">
+  <div class="leg"><span class="dot" style="background:#4488ff"></span>Proposal</div>
+  <div class="leg"><span class="dot" style="background:#ee4444"></span>Critique</div>
+  <div class="leg"><span class="dot" style="background:#44bb66"></span>Evidence</div>
+  <div class="leg"><span class="dot" style="background:#ee8833"></span>Concession</div>
+  <div class="leg"><span class="dot" style="background:#aa44dd"></span>Rebuttal</div>
+  <div class="leg"><span class="dot" style="background:#999999"></span>Vote</div>
+  <div class="leg"><span class="dot" style="background:#ddaa00"></span>Consensus</div>
+</div>
+<script>
+(function() {{
+  var DATA = {graph_json};
+  var NODE_COLORS = {{proposal:"#4488ff",critique:"#ee4444",evidence:"#44bb66",concession:"#ee8833",rebuttal:"#aa44dd",vote:"#999999",consensus:"#ddaa00"}};
+  var EDGE_STYLES = {{supports:{{color:"#44bb66",dash:[]}},refutes:{{color:"#ee4444",dash:[6,4]}},modifies:{{color:"#4488ff",dash:[2,4]}},responds_to:{{color:"#888888",dash:[]}},concedes_to:{{color:"#ee8833",dash:[4,3]}}}};
+  var canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
+  var W, H, dpr=window.devicePixelRatio||1;
+  function resize() {{ W=canvas.parentElement.clientWidth; H=canvas.parentElement.clientHeight; canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+"px"; canvas.style.height=H+"px"; ctx.setTransform(dpr,0,0,dpr,0,0); }}
+  resize(); window.addEventListener("resize", resize);
+
+  var nodes=DATA.nodes.map(function(n,i) {{
+    var angle=2*Math.PI*i/Math.max(DATA.nodes.length,1);
+    var r=Math.min(W,H)*0.3;
+    return {{id:n.id,agent:n.agent,type:n.type,summary:n.summary,content:n.content,round:n.round,
+      x:W/2+r*Math.cos(angle)+Math.random()*40-20, y:H/2+r*Math.sin(angle)+Math.random()*40-20,
+      vx:0, vy:0, radius:Math.min(8+n.summary.length/12,22), pinned:false}};
+  }});
+  var nodeMap={{}}; nodes.forEach(function(n){{ nodeMap[n.id]=n; }});
+  var edges=DATA.edges.filter(function(e){{ return nodeMap[e.source]&&nodeMap[e.target]; }}).map(function(e){{ return {{source:nodeMap[e.source],target:nodeMap[e.target],relation:e.relation}}; }});
+
+  var dragged=null, hovered=null, mx=0, my=0, offsetX=0, offsetY=0;
+  var DAMPING=0.85, REPULSION=3000, SPRING=0.005, REST_LEN=120, CENTER_PULL=0.0003, DT=0.8;
+
+  function tick() {{
+    for(var i=0;i<nodes.length;i++) {{
+      var a=nodes[i]; if(a.pinned) continue;
+      a.vx+=(W/2-a.x)*CENTER_PULL; a.vy+=(H/2-a.y)*CENTER_PULL;
+      for(var j=i+1;j<nodes.length;j++) {{
+        var b=nodes[j], dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+1;
+        var f=REPULSION/d2, fx=dx/Math.sqrt(d2)*f, fy=dy/Math.sqrt(d2)*f;
+        a.vx+=fx; a.vy+=fy; if(!b.pinned){{ b.vx-=fx; b.vy-=fy; }}
+      }}
+    }}
+    for(var i=0;i<edges.length;i++) {{
+      var e=edges[i], dx=e.target.x-e.source.x, dy=e.target.y-e.source.y;
+      var dist=Math.sqrt(dx*dx+dy*dy)+0.1, f=SPRING*(dist-REST_LEN);
+      var fx=dx/dist*f, fy=dy/dist*f;
+      if(!e.source.pinned){{ e.source.vx+=fx; e.source.vy+=fy; }}
+      if(!e.target.pinned){{ e.target.vx-=fx; e.target.vy-=fy; }}
+    }}
+    for(var i=0;i<nodes.length;i++) {{
+      var n=nodes[i]; if(n.pinned) continue;
+      n.vx*=DAMPING; n.vy*=DAMPING;
+      n.x+=n.vx*DT; n.y+=n.vy*DT;
+      n.x=Math.max(n.radius,Math.min(W-n.radius,n.x));
+      n.y=Math.max(n.radius,Math.min(H-n.radius,n.y));
+    }}
+  }}
+
+  function drawArrow(x1,y1,x2,y2,r2,style) {{
+    var dx=x2-x1,dy=y2-y1,dist=Math.sqrt(dx*dx+dy*dy)+.1;
+    var ux=dx/dist,uy=dy/dist;
+    var ex=x2-ux*(r2+4),ey=y2-uy*(r2+4);
+    ctx.beginPath(); ctx.setLineDash(style.dash); ctx.strokeStyle=style.color; ctx.lineWidth=1.5;
+    ctx.moveTo(x1,y1); ctx.lineTo(ex,ey); ctx.stroke(); ctx.setLineDash([]);
+    var alen=8,aang=0.45;
+    ctx.beginPath(); ctx.fillStyle=style.color;
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-alen*Math.cos(Math.atan2(uy,ux)-aang),ey-alen*Math.sin(Math.atan2(uy,ux)-aang));
+    ctx.lineTo(ex-alen*Math.cos(Math.atan2(uy,ux)+aang),ey-alen*Math.sin(Math.atan2(uy,ux)+aang));
+    ctx.closePath(); ctx.fill();
+  }}
+
+  function draw() {{
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<edges.length;i++) {{
+      var e=edges[i], st=EDGE_STYLES[e.relation]||EDGE_STYLES.responds_to;
+      drawArrow(e.source.x,e.source.y,e.target.x,e.target.y,e.target.radius,st);
+    }}
+    for(var i=0;i<nodes.length;i++) {{
+      var n=nodes[i], col=NODE_COLORS[n.type]||"#888";
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.radius,0,Math.PI*2);
+      ctx.fillStyle=n===hovered?"#fff":col; ctx.fill();
+      ctx.strokeStyle=n===dragged?"#fff":"rgba(255,255,255,.3)"; ctx.lineWidth=n===dragged?2.5:1; ctx.stroke();
+      ctx.fillStyle="#fff"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+      var label=n.agent.length>6?n.agent.substring(0,5)+"..":n.agent;
+      ctx.fillText(label,n.x,n.y+n.radius+12);
+    }}
+  }}
+
+  function loop() {{ tick(); draw(); requestAnimationFrame(loop); }} loop();
+
+  function nodeAt(px,py) {{
+    for(var i=nodes.length-1;i>=0;i--) {{
+      var n=nodes[i],dx=px-n.x,dy=py-n.y;
+      if(dx*dx+dy*dy<=n.radius*n.radius) return n;
+    }} return null;
+  }}
+  function pos(e) {{ var r=canvas.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }}
+
+  var tooltip=document.getElementById("tooltip");
+  canvas.addEventListener("mousemove",function(e){{
+    var p=pos(e); mx=p[0]; my=p[1];
+    if(dragged){{ dragged.x=mx+offsetX; dragged.y=my+offsetY; return; }}
+    var n=nodeAt(mx,my); hovered=n;
+    if(n){{
+      tooltip.querySelector(".tt-agent").textContent=n.agent+" (round "+n.round+")";
+      var tb=tooltip.querySelector(".tt-type"); tb.textContent=n.type; tb.style.background=NODE_COLORS[n.type]||"#888";
+      tooltip.querySelector(".tt-body").textContent=n.summary;
+      tooltip.style.display="block";
+      var tx=e.clientX+14,ty=e.clientY+14;
+      if(tx+370>window.innerWidth) tx=e.clientX-374;
+      tooltip.style.left=tx+"px"; tooltip.style.top=ty+"px";
+    }} else {{ tooltip.style.display="none"; }}
+  }});
+
+  canvas.addEventListener("mousedown",function(e){{
+    var p=pos(e), n=nodeAt(p[0],p[1]);
+    if(n){{ dragged=n; n.pinned=true; offsetX=n.x-p[0]; offsetY=n.y-p[1]; canvas.classList.add("dragging"); e.preventDefault(); }}
+  }});
+  window.addEventListener("mouseup",function(){{
+    if(dragged){{ dragged.pinned=false; dragged=null; canvas.classList.remove("dragging"); }}
+  }});
+
+  canvas.addEventListener("click",function(e){{
+    var p=pos(e), n=nodeAt(p[0],p[1]);
+    if(n){{
+      var d=document.getElementById("detail");
+      document.getElementById("d-title").textContent=n.agent+" - "+n.type;
+      document.getElementById("d-meta").textContent="Round "+n.round;
+      document.getElementById("d-content").textContent=n.content;
+      d.style.display="block";
+    }}
+  }});
+}})();
+</script>
+</body>
+</html>"""
+
     def _sanitize_for_mermaid(self, text: str) -> str:
         """Sanitize text for safe inclusion in Mermaid diagrams."""
         # Remove characters that break Mermaid syntax

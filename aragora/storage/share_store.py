@@ -160,7 +160,7 @@ class ShareLinkStore(SQLiteStore):
         for idx_sql in indexes:
             try:
                 self._backend.execute_write(idx_sql)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug(f"Index creation skipped: {e}")
 
         # Run post-init cleanup

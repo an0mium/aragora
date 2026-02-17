@@ -434,20 +434,86 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
         if context.session_id in self._sessions:
             del self._sessions[context.session_id]
 
+    async def execute_implementation(
+        self,
+        repo_path: Path,
+        prompt: str,
+    ) -> tuple[str, str]:
+        """Execute an implementation task using Claude Code in edit mode.
+
+        Unlike analyze_repository (which uses --print for read-only analysis),
+        this method runs Claude Code without --print, allowing it to edit files
+        directly. Used by the Nomic Loop implementation phase.
+
+        Args:
+            repo_path: Path to the repository to modify
+            prompt: Implementation instructions
+
+        Returns:
+            Tuple of (stdout, stderr) from Claude Code
+        """
+        self._validate_path(repo_path)
+
+        cmd = [
+            self.config.claude_code_path,
+            "-p",  # Non-interactive mode (no --print, allows file edits)
+            prompt,
+            "--yes",  # Auto-approve file edits
+        ]
+
+        if self.config.model:
+            cmd.extend(["--model", self.config.model])
+
+        env = os.environ.copy()
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(repo_path),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=self.config.timeout_seconds,
+            )
+
+            logger.info(
+                "Claude Code implementation completed (exit=%s, stdout=%d bytes)",
+                proc.returncode,
+                len(stdout),
+            )
+            return stdout.decode(), stderr.decode()
+
+        except asyncio.TimeoutError:
+            if proc:
+                proc.kill()
+            raise HarnessTimeoutError(
+                f"Claude Code implementation timed out after {self.config.timeout_seconds}s",
+                self.name,
+            )
+        except FileNotFoundError:
+            raise HarnessConfigError(
+                f"Claude Code CLI not found: {self.config.claude_code_path}",
+                self.name,
+            )
+
     async def _run_claude_code(
         self,
         prompt: str,
         cwd: Path | None = None,
     ) -> tuple[str, str]:
         """
-        Run Claude Code CLI with a prompt.
+        Run Claude Code CLI with a prompt (read-only analysis mode).
 
         Returns:
             Tuple of (stdout, stderr)
         """
         cmd = [
             self.config.claude_code_path,
-            "--print",  # Print output
+            "--print",  # Print output (read-only, no file edits)
             "-p",
             prompt,
         ]
