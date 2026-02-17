@@ -91,7 +91,7 @@ class TestEmitBugFindings:
         findings = [_BugFinding(confidence=0.9)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
@@ -111,7 +111,7 @@ class TestEmitBugFindings:
         findings = [_BugFinding(confidence=0.5)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
@@ -127,7 +127,7 @@ class TestEmitBugFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_bug_findings(findings)
 
@@ -140,7 +140,7 @@ class TestEmitBugFindings:
         findings = [_BugFinding(description=long_desc, confidence=0.9)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_bug_findings(findings)
 
@@ -157,7 +157,7 @@ class TestEmitBugFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_bug_findings(findings)
 
@@ -168,7 +168,7 @@ class TestEmitBugFindings:
         bridge = AnalysisEventBridge()
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_bug_findings([])
 
@@ -184,7 +184,7 @@ class TestEmitSecretFindings:
         findings = [_SecretFinding()]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_secret_findings(findings)
 
@@ -200,7 +200,7 @@ class TestEmitSecretFindings:
         finding.matched_text = "sk-XXXXXXXXXXXXXXXX"  # type: ignore[attr-defined]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_secret_findings([finding])
 
@@ -214,7 +214,7 @@ class TestEmitSecretFindings:
         findings = [_SecretFinding(secret_type=_SecretType.PASSWORD)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_secret_findings(findings)
 
@@ -226,7 +226,7 @@ class TestEmitSecretFindings:
         findings = [_SecretFinding(file_path="env/.env", line_number=5)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_secret_findings(findings)
 
@@ -243,7 +243,7 @@ class TestEmitSecretFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_secret_findings(findings)
 
@@ -259,7 +259,7 @@ class TestEmitSASTFindings:
         findings = [_SASTFinding(severity=_SASTSeverity.ERROR)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
@@ -273,7 +273,7 @@ class TestEmitSASTFindings:
         findings = [_SASTFinding(severity=_SASTSeverity.CRITICAL)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
@@ -286,7 +286,7 @@ class TestEmitSASTFindings:
         findings = [_SASTFinding(severity=_SASTSeverity.INFO)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
@@ -298,7 +298,7 @@ class TestEmitSASTFindings:
         findings = [_SASTFinding(severity=_SASTSeverity.WARNING)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
@@ -316,7 +316,7 @@ class TestEmitSASTFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_sast_findings(findings)
 
@@ -332,7 +332,7 @@ class TestEmitSASTFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             bridge.emit_sast_findings(findings)
 
@@ -349,7 +349,7 @@ class TestEmitSASTFindings:
         ]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event"
+            "aragora.events.dispatcher.dispatch_event"
         ) as mock_dispatch:
             count = bridge.emit_sast_findings(findings)
 
@@ -368,7 +368,7 @@ class TestStatsTracking:
             _BugFinding(confidence=0.5),  # filtered
         ]
 
-        with patch("aragora.analysis.codebase.event_bridge.dispatch_event"):
+        with patch("aragora.events.dispatcher.dispatch_event"):
             bridge.emit_bug_findings(findings)
 
         assert bridge.stats["findings_processed"] == 2
@@ -380,7 +380,7 @@ class TestStatsTracking:
             _BugFinding(confidence=0.5),
         ]
 
-        with patch("aragora.analysis.codebase.event_bridge.dispatch_event"):
+        with patch("aragora.events.dispatcher.dispatch_event"):
             bridge.emit_bug_findings(findings)
 
         assert bridge.stats["events_emitted"] == 1
@@ -388,7 +388,7 @@ class TestStatsTracking:
     def test_stats_accumulate_across_calls(self) -> None:
         bridge = AnalysisEventBridge(min_confidence=0.5)
 
-        with patch("aragora.analysis.codebase.event_bridge.dispatch_event"):
+        with patch("aragora.events.dispatcher.dispatch_event"):
             bridge.emit_bug_findings([_BugFinding(confidence=0.9)])
             bridge.emit_secret_findings([_SecretFinding()])
             bridge.emit_sast_findings(
@@ -402,7 +402,7 @@ class TestStatsTracking:
         bridge = AnalysisEventBridge()
         findings = [_SASTFinding(severity=_SASTSeverity.INFO)]
 
-        with patch("aragora.analysis.codebase.event_bridge.dispatch_event"):
+        with patch("aragora.events.dispatcher.dispatch_event"):
             bridge.emit_sast_findings(findings)
 
         assert bridge.stats["findings_processed"] == 1
@@ -417,7 +417,7 @@ class TestGracefulDegradation:
         findings = [_BugFinding(confidence=0.9)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event",
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=ImportError("no module"),
         ):
             count = bridge.emit_bug_findings(findings)
@@ -432,7 +432,7 @@ class TestGracefulDegradation:
         findings = [_SecretFinding()]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event",
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=RuntimeError("dispatcher not ready"),
         ):
             count = bridge.emit_secret_findings(findings)
@@ -445,7 +445,7 @@ class TestGracefulDegradation:
         findings = [_SASTFinding(severity=_SASTSeverity.CRITICAL)]
 
         with patch(
-            "aragora.analysis.codebase.event_bridge.dispatch_event",
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=AttributeError("missing attribute"),
         ):
             count = bridge.emit_sast_findings(findings)
