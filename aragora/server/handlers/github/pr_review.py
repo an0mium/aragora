@@ -757,7 +757,7 @@ async def _perform_review(
 
                     generator = TestGeneratorAgent()
                     gaps = generator.analyze_coverage_gaps(
-                        code=patch_content,
+                        code=patch,
                         existing_tests="",
                         file_path=filename,
                     )
