@@ -228,6 +228,11 @@ class MemoryHandler(
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._get_critiques(query_params)
 
+        if path == "/api/v1/memory/unified/stats":
+            if not _stats_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._get_unified_stats()
+
         return None
 
     @require_permission("memory:manage")
@@ -261,6 +266,11 @@ class MemoryHandler(
             if not auth_ctx.is_authenticated:
                 return error_response("Authentication required", 401)
             return self._trigger_cleanup(query_params)
+
+        if path == "/api/v1/memory/unified/search":
+            if not _retrieve_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._unified_search(query_params, handler)
 
         return None
 
@@ -407,3 +417,50 @@ class MemoryHandler(
         if not text:
             return 0
         return max(1, int(math.ceil(len(text) / 4)))
+
+    # =========================================================================
+    # Unified Memory Gateway Endpoints
+    # =========================================================================
+
+    def _get_unified_handler(self):
+        """Get or create UnifiedMemoryHandler."""
+        if not hasattr(self, "_unified_handler"):
+            try:
+                from .unified_handler import UnifiedMemoryHandler
+
+                gateway = getattr(self, "_memory_gateway", None)
+                self._unified_handler = UnifiedMemoryHandler(gateway=gateway)
+            except ImportError:
+                self._unified_handler = None
+        return self._unified_handler
+
+    def _unified_search(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        """Handle POST /api/v1/memory/unified/search."""
+        uh = self._get_unified_handler()
+        if not uh:
+            return error_response("Unified memory handler not available", 501)
+
+        from aragora.utils.async_utils import run_async
+
+        try:
+            body = getattr(handler, "_request_body", None) or query_params
+            result = run_async(uh.handle_search(body))
+            return HandlerResult(data=result)
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Unified search failed: %s", e)
+            return error_response(str(e), 500)
+
+    def _get_unified_stats(self) -> HandlerResult:
+        """Handle GET /api/v1/memory/unified/stats."""
+        uh = self._get_unified_handler()
+        if not uh:
+            return error_response("Unified memory handler not available", 501)
+
+        from aragora.utils.async_utils import run_async
+
+        try:
+            result = run_async(uh.handle_stats())
+            return HandlerResult(data=result)
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Unified stats failed: %s", e)
+            return error_response(str(e), 500)

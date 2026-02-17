@@ -661,9 +661,6 @@ class Arena(ArenaDelegatesMixin):
             breakpoint_manager=cfg.breakpoint_manager,
             checkpoint_manager=cfg.checkpoint_manager,
             enable_checkpointing=cfg.enable_checkpointing,
-            codebase_path=cfg.codebase_path,
-            enable_codebase_grounding=cfg.enable_codebase_grounding,
-            codebase_persist_to_km=cfg.codebase_persist_to_km,
             performance_monitor=cfg.performance_monitor,
             enable_performance_monitor=cfg.enable_performance_monitor,
             enable_telemetry=cfg.enable_telemetry,
@@ -695,6 +692,11 @@ class Arena(ArenaDelegatesMixin):
         # Pass autotune_config to core for BudgetCoordinator integration
         core.autotune_config = getattr(cfg, "autotune_config", None)
         _init_apply_core_components(self, core)
+
+        # Codebase grounding (opt-in, stored directly on Arena)
+        self.codebase_path = cfg.codebase_path
+        self.enable_codebase_grounding = cfg.enable_codebase_grounding
+        self.codebase_persist_to_km = cfg.codebase_persist_to_km
 
         # Channel integration (initialized per debate run)
         self._channel_integration = None
