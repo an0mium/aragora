@@ -351,7 +351,7 @@ class RedisStoreMixin:
                 try:
                     # Redis-specific implementation
                     ...
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - graceful Redis fallback on any error
                     self._log_redis_fallback("my_domain_method", e)
                     return await self._fallback.my_domain_method()
 

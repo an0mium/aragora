@@ -592,7 +592,7 @@ class PostgresCircuitBreaker:
         try:
             result = execute_db_operation()
             breaker.record_success()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - circuit breaker must track all failures
             breaker.record_failure(e)
             raise
     """
