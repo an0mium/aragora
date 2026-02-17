@@ -433,6 +433,11 @@ class HandlerRegistryMixin:
                 result = _run_handler_coroutine(result)
 
             if result:
+                # Log successful handler dispatch at debug level
+                logger.debug(
+                    "[handlers] %s %s -> %s (status=%d)",
+                    method, path, handler.__class__.__name__, result.status_code,
+                )
                 self.send_response(result.status_code)
                 self.send_header("Content-Type", result.content_type)
 
@@ -468,6 +473,7 @@ class HandlerRegistryMixin:
             AttributeError,
             PermissionError,
             LookupError,
+            TimeoutError,
         ) as e:
             # Check for permission-related errors
             error_msg = str(e)
@@ -503,6 +509,13 @@ class HandlerRegistryMixin:
             )
             return True
 
+        # Handler was found but returned a falsy result — log this for debugging.
+        # Common cause: async handler returned None (no path/method match inside handle()).
+        if route_match is not None:
+            logger.warning(
+                "[handlers] Handler %s matched %s %s but returned falsy result: %r",
+                handler.__class__.__name__, method, path, result,
+            )
         return False
 
     def _get_handler_stats(self) -> dict[str, Any]:

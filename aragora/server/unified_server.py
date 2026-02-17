@@ -523,13 +523,12 @@ class UnifiedHandler(  # type: ignore[misc]
                 return
 
         # Route all /api/* requests through modular handlers
+        # NOTE: No try/except wrapper here — _try_modular_handler has its own
+        # internal exception handling that returns proper 500 responses.
+        # A previous try/except here was masking handler exceptions as 404s.
         if path.startswith("/api/"):
-            try:
-                if self._try_modular_handler(path, {}):
-                    return
-            except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
-                logger.exception(f"Modular handler failed for {path}: {e}")
-                # Fall through to 404
+            if self._try_modular_handler(path, {}):
+                return
 
         # Debug endpoint for POST testing
         if path == "/api/debug/post-test":
