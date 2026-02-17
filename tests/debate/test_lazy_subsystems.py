@@ -207,3 +207,45 @@ class TestLazyFactories:
 
         result = create_lazy_cross_debate_memory(arena_mock)
         assert result is None
+
+    def test_create_lazy_memory_gateway_disabled(self):
+        """Should return None when unified memory disabled."""
+        from aragora.debate.lazy_subsystems import create_lazy_memory_gateway
+
+        arena_mock = MagicMock()
+        arena_mock.enable_unified_memory = False
+
+        result = create_lazy_memory_gateway(arena_mock)
+        assert result is None
+
+    def test_create_lazy_memory_gateway_enabled(self):
+        """Should create MemoryGateway when unified memory enabled."""
+        from aragora.debate.lazy_subsystems import create_lazy_memory_gateway
+
+        arena_mock = MagicMock()
+        arena_mock.enable_unified_memory = True
+        arena_mock.enable_retention_gate = False
+        arena_mock.continuum_memory = MagicMock()
+        arena_mock.knowledge_mound = MagicMock()
+        arena_mock.supermemory_adapter = None
+
+        result = create_lazy_memory_gateway(arena_mock)
+        assert result is not None
+        sources = result._available_sources()
+        assert "continuum" in sources
+        assert "km" in sources
+
+    def test_create_lazy_memory_gateway_with_retention_gate(self):
+        """Should wire RetentionGate when both flags enabled."""
+        from aragora.debate.lazy_subsystems import create_lazy_memory_gateway
+
+        arena_mock = MagicMock()
+        arena_mock.enable_unified_memory = True
+        arena_mock.enable_retention_gate = True
+        arena_mock.continuum_memory = None
+        arena_mock.knowledge_mound = None
+        arena_mock.supermemory_adapter = None
+
+        result = create_lazy_memory_gateway(arena_mock)
+        assert result is not None
+        assert result.retention_gate is not None
