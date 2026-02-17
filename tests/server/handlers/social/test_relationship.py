@@ -338,9 +338,11 @@ class TestRBACPermission:
         h = RelationshipHandler(ctx={})
         mock_http = MockHTTPHandler()
 
-        # Calling handle without AuthorizationContext should raise
-        with pytest.raises(PermissionDeniedError):
-            h.handle("/api/v1/relationships/summary", {}, mock_http)
+        # Calling handle without AuthorizationContext should raise when auth is enabled
+        with patch("aragora.server.auth.auth_config") as mock_auth:
+            mock_auth.enabled = True
+            with pytest.raises(PermissionDeniedError):
+                h.handle("/api/v1/relationships/summary", {}, mock_http)
 
 
 # ---- GET /api/v1/relationships/summary ----
