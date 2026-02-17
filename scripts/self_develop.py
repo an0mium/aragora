@@ -523,6 +523,12 @@ Examples:
         help="Run outcome feedback cycle after execution to detect systematic errors and queue improvements",
     )
     parser.add_argument(
+        "--self-improve",
+        action="store_true",
+        help="Use the unified SelfImprovePipeline (Plan→Execute→Verify→Learn) "
+        "with Claude Code dispatch and worktree isolation",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -544,8 +550,8 @@ Examples:
     for noisy in ("botocore", "boto3", "urllib3", "asyncio", "websockets"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    # Dry run: just show decomposition
-    if args.dry_run:
+    # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
+    if args.dry_run and not args.self_improve:
         if args.debate:
             # Use debate-based decomposition (async)
             try:
@@ -566,6 +572,63 @@ Examples:
 
     # Resolve repo path (used by both pipeline and orchestration modes)
     resolved_repo = Path(args.repo).resolve() if args.repo else None
+
+    # Self-improve mode: unified pipeline with Claude Code dispatch
+    if args.self_improve:
+        try:
+            from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
+
+            config = SelfImproveConfig(
+                use_meta_planner=args.meta_plan or args.debate,
+                quick_mode=not args.debate,
+                use_worktrees=args.worktree or args.parallel,
+                max_parallel=args.max_parallel,
+                budget_limit_usd=args.budget_limit or 10.0,
+                require_approval=args.require_approval,
+                run_tests=True,
+                run_review=not args.no_gauntlet,
+                capture_metrics=args.metrics,
+                persist_outcomes=True,
+                auto_revert_on_regression=True,
+            )
+            pipeline = SelfImprovePipeline(config)
+
+            if args.dry_run:
+                plan = asyncio.run(pipeline.dry_run(args.goal))
+                print_header("SELF-IMPROVE DRY RUN")
+                print(f"Objective: {plan['objective']}")
+                print(f"\nGoals ({len(plan['goals'])}):")
+                for i, g in enumerate(plan["goals"]):
+                    print(f"  [{i+1}] {g['description'][:80]}")
+                    print(f"      Track: {g['track']}  Priority: {g['priority']}")
+                print(f"\nSubtasks ({len(plan['subtasks'])}):")
+                for i, s in enumerate(plan["subtasks"]):
+                    title = s.get("title", s.get("description", "???"))
+                    print(f"  [{i+1}] {str(title)[:80]}")
+                    if s.get("file_hints"):
+                        print(f"      Files: {', '.join(s['file_hints'][:3])}")
+                print(f"\nConfig: worktrees={config.use_worktrees} parallel={config.max_parallel} budget=${config.budget_limit_usd}")
+                return 0
+
+            result = asyncio.run(pipeline.run(args.goal))
+            print_header("SELF-IMPROVE RESULT")
+            print(f"Cycle: {result.cycle_id}")
+            print(f"Objective: {result.objective}")
+            print(f"Goals planned: {result.goals_planned}")
+            print(f"Subtasks: {result.subtasks_completed}/{result.subtasks_total} completed")
+            print(f"Files changed: {len(result.files_changed)}")
+            print(f"Tests: {result.tests_passed} passed, {result.tests_failed} failed")
+            print(f"Regressions: {'YES' if result.regressions_detected else 'none'}")
+            print(f"Duration: {result.duration_seconds:.1f}s")
+            return 0 if result.subtasks_failed == 0 else 1
+
+        except KeyboardInterrupt:
+            print("\n\nSelf-improve cancelled by user.")
+            return 130
+        except (ImportError, RuntimeError, ValueError) as e:
+            logger.exception("Self-improve pipeline failed")
+            print(f"\nError: {e}")
+            return 1
 
     # Pipeline mode: decompose then execute via DecisionPlan pipeline
     if args.use_pipeline:

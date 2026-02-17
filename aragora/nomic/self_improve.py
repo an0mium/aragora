@@ -207,6 +207,8 @@ class SelfImprovePipeline:
             ],
             "subtasks": [
                 {
+                    "title": getattr(s, "title", None)
+                    or getattr(s, "original_task", str(s)),
                     "description": getattr(s, "description", str(s)),
                     "scope": getattr(s, "scope", "unknown"),
                     "file_hints": getattr(s, "file_scope", []),
