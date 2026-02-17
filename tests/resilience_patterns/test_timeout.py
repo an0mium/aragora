@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 # Mark entire module as slow (contains asyncio.sleep calls for timing-sensitive tests)
-pytestmark = [pytest.mark.slow, pytest.mark.asyncio]
+pytestmark = [pytest.mark.slow]
 
 from aragora.resilience.timeout import (
     TimeoutConfig,
