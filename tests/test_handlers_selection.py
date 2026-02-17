@@ -188,7 +188,7 @@ class TestGetScorer:
         defaults = json.loads(defaults_result.body)
         scorer_name = defaults["scorer"]
 
-        result = selection_handler.handle(f"/api/selection/scorers/{scorer_name}", {}, mock_handler)
+        result = selection_handler.handle(f"/api/v1/selection/scorers/{scorer_name}", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -198,7 +198,7 @@ class TestGetScorer:
     def test_get_scorer_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown scorer."""
         result = selection_handler.handle(
-            "/api/selection/scorers/nonexistent-scorer", {}, mock_handler
+            "/api/v1/selection/scorers/nonexistent-scorer", {}, mock_handler
         )
 
         assert result is not None
@@ -224,7 +224,7 @@ class TestGetTeamSelector:
         selector_name = defaults["team_selector"]
 
         result = selection_handler.handle(
-            f"/api/selection/team-selectors/{selector_name}", {}, mock_handler
+            f"/api/v1/selection/team-selectors/{selector_name}", {}, mock_handler
         )
 
         assert result is not None
@@ -235,7 +235,7 @@ class TestGetTeamSelector:
     def test_get_team_selector_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown team selector."""
         result = selection_handler.handle(
-            "/api/selection/team-selectors/nonexistent", {}, mock_handler
+            "/api/v1/selection/team-selectors/nonexistent", {}, mock_handler
         )
 
         assert result is not None
@@ -260,7 +260,7 @@ class TestGetRoleAssigner:
         assigner_name = defaults["role_assigner"]
 
         result = selection_handler.handle(
-            f"/api/selection/role-assigners/{assigner_name}", {}, mock_handler
+            f"/api/v1/selection/role-assigners/{assigner_name}", {}, mock_handler
         )
 
         assert result is not None
@@ -271,7 +271,7 @@ class TestGetRoleAssigner:
     def test_get_role_assigner_not_found(self, selection_handler, mock_handler):
         """Returns 404 for unknown role assigner."""
         result = selection_handler.handle(
-            "/api/selection/role-assigners/nonexistent", {}, mock_handler
+            "/api/v1/selection/role-assigners/nonexistent", {}, mock_handler
         )
 
         assert result is not None
@@ -294,7 +294,7 @@ class TestScoreAgents:
             {"task_description": "Build a REST API with authentication"}
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -323,7 +323,7 @@ class TestScoreAgents:
             }
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -334,7 +334,7 @@ class TestScoreAgents:
         """Returns 400 when task_description is missing."""
         handler = mock_handler_with_body({})
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -346,7 +346,7 @@ class TestScoreAgents:
         """Returns 400 for invalid JSON body."""
         mock_handler.request_body = b"not valid json"
 
-        result = selection_handler.handle_post("/api/selection/score", {}, mock_handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -359,7 +359,7 @@ class TestScoreAgents:
             {"task_description": "Test task", "scorer": "nonexistent-scorer"}
         )
 
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -381,7 +381,7 @@ class TestSelectTeam:
             {"task_description": "Design a distributed system for real-time analytics"}
         )
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -419,7 +419,7 @@ class TestSelectTeam:
             }
         )
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -437,7 +437,7 @@ class TestSelectTeam:
         """Returns 400 when task_description is missing."""
         handler = mock_handler_with_body({"min_agents": 3})
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -449,7 +449,7 @@ class TestSelectTeam:
         """Returns 400 for invalid JSON body."""
         mock_handler.request_body = b"{invalid json"
 
-        result = selection_handler.handle_post("/api/selection/team", {}, mock_handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -462,7 +462,7 @@ class TestSelectTeam:
             {"task_description": "Test task", "team_selector": "nonexistent-selector"}
         )
 
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -529,13 +529,13 @@ class TestHandlerRouting:
     def test_handle_post_routes_to_score(self, selection_handler, mock_handler_with_body):
         """POST /api/selection/score routes correctly."""
         handler = mock_handler_with_body({"task_description": "Test"})
-        result = selection_handler.handle_post("/api/selection/score", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/score", {}, handler)
         assert result is not None
 
     def test_handle_post_routes_to_team(self, selection_handler, mock_handler_with_body):
         """POST /api/selection/team routes correctly."""
         handler = mock_handler_with_body({"task_description": "Test"})
-        result = selection_handler.handle_post("/api/selection/team", {}, handler)
+        result = selection_handler.handle_post("/api/v1/selection/team", {}, handler)
         assert result is not None
 
 

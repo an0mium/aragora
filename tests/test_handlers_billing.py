@@ -182,7 +182,7 @@ class TestGetPlans:
     """Tests for get plans endpoint."""
 
     @patch("aragora.server.handlers.billing.core.TIER_LIMITS")
-    @patch("aragora.server.handlers.billing.SubscriptionTier")
+    @patch("aragora.server.handlers.billing.core.SubscriptionTier")
     def test_get_plans_returns_all_tiers(self, mock_tier_enum, mock_limits, billing_handler):
         """Test that all subscription tiers are returned."""
         # Mock the tier enum
@@ -353,8 +353,8 @@ class TestGetSubscription:
 class TestCreateCheckout:
     """Tests for create checkout session endpoint."""
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.server.handlers.billing.SubscriptionTier")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.SubscriptionTier")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_create_checkout_success(
         self, mock_extract, mock_tier_enum, mock_stripe, billing_handler, mock_handler
@@ -595,7 +595,7 @@ class TestSecurityMeasures:
         # Plans should not require authentication
         with (
             patch("aragora.server.handlers.billing.core.TIER_LIMITS") as mock_limits,
-            patch("aragora.server.handlers.billing.SubscriptionTier") as mock_tier,
+            patch("aragora.server.handlers.billing.core.SubscriptionTier") as mock_tier,
         ):
             mock_tier.__iter__ = Mock(return_value=iter([]))
             result = billing_handler._get_plans()
@@ -658,7 +658,7 @@ class TestStripeExceptionHandling:
     since the decorator imports extract_user_from_request at runtime.
     """
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_subscription_handles_stripe_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
@@ -685,8 +685,8 @@ class TestStripeExceptionHandling:
         assert "subscription" in data
         # The Stripe-specific fields won't be populated
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
     def test_get_invoices_handles_stripe_config_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -707,15 +707,15 @@ class TestStripeExceptionHandling:
 
         mock_stripe.return_value.list_invoices.side_effect = StripeConfigError("Not configured")
 
-        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 503
         data = json.loads(result.body)
         assert "unavailable" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
     def test_get_invoices_handles_stripe_api_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -734,15 +734,15 @@ class TestStripeExceptionHandling:
             "API error", code="api_error"
         )
 
-        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 502
         data = json.loads(result.body)
         assert "payment provider" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
-    @patch("aragora.server.handlers.billing.extract_user_from_request")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
     def test_get_invoices_handles_generic_stripe_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -759,14 +759,14 @@ class TestStripeExceptionHandling:
 
         mock_stripe.return_value.list_invoices.side_effect = StripeError("Unknown error")
 
-        with patch("aragora.server.handlers.billing.get_string_param", return_value="10"):
+        with patch("aragora.server.handlers.billing.core_reporting.get_string_param", return_value="10"):
             result = billing_handler._get_invoices(mock_handler)
 
         assert result.status_code == 500
         data = json.loads(result.body)
         assert "error" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_cancel_subscription_handles_stripe_config_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
@@ -792,7 +792,7 @@ class TestStripeExceptionHandling:
         data = json.loads(result.body)
         assert "unavailable" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_cancel_subscription_handles_stripe_api_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
@@ -818,7 +818,7 @@ class TestStripeExceptionHandling:
         data = json.loads(result.body)
         assert "payment provider" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_stripe_config_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
@@ -844,7 +844,7 @@ class TestStripeExceptionHandling:
         data = json.loads(result.body)
         assert "unavailable" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_stripe_api_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
@@ -870,7 +870,7 @@ class TestStripeExceptionHandling:
         data = json.loads(result.body)
         assert "payment provider" in data["error"].lower()
 
-    @patch("aragora.server.handlers.billing.get_stripe_client")
+    @patch("aragora.server.handlers.billing.core.get_stripe_client")
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_subscription_handles_generic_stripe_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org

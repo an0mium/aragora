@@ -87,18 +87,28 @@ class TestSelfDevelopRepoFlag:
 
         target_repo = Path("/tmp/pipeline-repo")
 
-        with patch("scripts.self_develop.NomicPipelineBridge") as mock_bridge_cls:
-            mock_bridge = MagicMock()
-            mock_bridge.build_decision_plan.return_value = MagicMock(
-                id="test", status=MagicMock(value="planned"),
-                risk_register=None, verification_plan=None, implement_plan=None,
-            )
-            mock_bridge.execute_via_pipeline = AsyncMock(
-                return_value=MagicMock(success=True, tasks_completed=0, tasks_total=0)
-            )
-            mock_bridge_cls.return_value = mock_bridge
+        mock_bridge = MagicMock()
+        mock_bridge.build_decision_plan.return_value = MagicMock(
+            id="test", status=MagicMock(value="planned"),
+            risk_register=None, verification_plan=None, implement_plan=None,
+        )
+        mock_bridge.execute_via_pipeline = AsyncMock(
+            return_value=MagicMock(success=True, tasks_completed=0, tasks_total=0)
+        )
 
-            with patch(
+        mock_bridge_cls = MagicMock(return_value=mock_bridge)
+
+        with (
+            patch(
+                "aragora.nomic.pipeline_bridge.NomicPipelineBridge",
+                mock_bridge_cls,
+            ),
+            patch.dict("sys.modules", {
+                "aragora.nomic.pipeline_bridge": MagicMock(
+                    NomicPipelineBridge=mock_bridge_cls,
+                ),
+            }),
+            patch(
                 "scripts.self_develop.run_heuristic_decomposition",
                 return_value=MagicMock(
                     original_task="test",
@@ -114,14 +124,15 @@ class TestSelfDevelopRepoFlag:
                         dependencies=[],
                     )],
                 ),
-            ):
-                import asyncio
-                asyncio.run(
-                    run_pipeline_execution(
-                        goal="Fix bugs",
-                        repo_path=target_repo,
-                    )
+            ),
+        ):
+            import asyncio
+            asyncio.run(
+                run_pipeline_execution(
+                    goal="Fix bugs",
+                    repo_path=target_repo,
                 )
+            )
 
         # Verify repo_path was passed to NomicPipelineBridge
         call_kwargs = mock_bridge_cls.call_args.kwargs
@@ -198,8 +209,8 @@ class TestNomicStagedRepoFlag:
         mock_result.success = True
         mock_result.to_dict.return_value = {"success": True}
 
-        mock_executor = MagicMock()
-        mock_executor.execute_task = AsyncMock(return_value=mock_result)
+        mock_executor_instance = MagicMock()
+        mock_executor_instance.execute_task = AsyncMock(return_value=mock_result)
 
         design_data = {
             "design": "Implement caching layer",
@@ -211,27 +222,32 @@ class TestNomicStagedRepoFlag:
             staged.DATA_DIR = Path("/tmp/staged-data")
             staged.DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+            # Create mock module for the local import inside phase_implement
+            mock_executor_cls = MagicMock(return_value=mock_executor_instance)
+            mock_impl_module = MagicMock()
+            mock_impl_module.HybridExecutor = mock_executor_cls
+            mock_impl_module.ImplementTask = MagicMock()
+            mock_impl_module.TaskResult = MagicMock()
+
+            mock_types_module = MagicMock()
+            mock_types_module.ImplementTask = MagicMock()
+            mock_types_module.TaskResult = MagicMock()
+
             with (
                 patch.object(staged, "load_phase", return_value=design_data),
                 patch.object(staged, "save_phase") as mock_save,
-                patch(
-                    "aragora.implement.executor.HybridExecutor",
-                    return_value=mock_executor,
-                ) as mock_cls,
+                patch.dict("sys.modules", {
+                    "aragora.implement.executor": mock_impl_module,
+                    "aragora.implement.types": mock_types_module,
+                }),
             ):
                 import asyncio
                 asyncio.run(staged.phase_implement())
 
             # Verify HybridExecutor was created with the external repo path
-            call_kwargs = mock_cls.call_args.kwargs if mock_cls.call_args.kwargs else {}
-            call_args = mock_cls.call_args.args if mock_cls.call_args.args else ()
-
-            # repo_path is passed as kwarg
-            if "repo_path" in call_kwargs:
-                assert call_kwargs["repo_path"] == str(target)
-            else:
-                # Check positional args
-                assert str(target) in str(call_args)
+            assert mock_executor_cls.called
+            call_kwargs = mock_executor_cls.call_args.kwargs if mock_executor_cls.call_args.kwargs else {}
+            assert call_kwargs.get("repo_path") == str(target)
 
         finally:
             staged.ARAGORA_PATH = original_path
