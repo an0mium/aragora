@@ -1,8 +1,9 @@
 /**
  * Canvas Namespace API
  *
- * Provides endpoints for live canvas collaboration including
- * canvas CRUD, node/edge management, and action execution.
+ * Provides endpoints for live canvas collaboration and the
+ * idea-to-execution pipeline including canvas CRUD, node/edge
+ * management, pipeline orchestration, and format conversion.
  */
 
 import type { AragoraClient } from '../client';
@@ -49,17 +50,42 @@ export interface CanvasActionRequest {
   params?: Record<string, unknown>;
 }
 
+/** Pipeline stage type */
+export type PipelineStage = 'ideas' | 'goals' | 'actions' | 'orchestration';
+
+/** Pipeline result from idea-to-execution */
+export interface PipelineResult {
+  pipeline_id: string;
+  ideas_canvas?: Record<string, unknown>;
+  goal_graph?: Record<string, unknown>;
+  actions_canvas?: Record<string, unknown>;
+  orchestration_canvas?: Record<string, unknown>;
+  stage_status: Record<string, string>;
+  transitions?: Record<string, unknown>[];
+  provenance?: Record<string, unknown>[];
+}
+
 /**
- * Canvas namespace for visual collaboration boards.
+ * Canvas namespace for visual collaboration boards and
+ * the idea-to-execution pipeline.
  *
  * @example
  * ```typescript
+ * // Canvas CRUD
  * const canvases = await client.canvas.list();
  * const canvas = await client.canvas.get(canvases[0].id);
+ *
+ * // Pipeline from debate
+ * const result = await client.canvas.runFromDebate(cartographerData);
+ * const stage = await client.canvas.getStage(result.pipeline_id, 'goals');
  * ```
  */
 export class CanvasNamespace {
   constructor(private client: AragoraClient) {}
+
+  // -----------------------------------------------------------------------
+  // Canvas CRUD
+  // -----------------------------------------------------------------------
 
   /** List all canvases. */
   async list(options?: { limit?: number; offset?: number }): Promise<Canvas[]> {
@@ -98,6 +124,116 @@ export class CanvasNamespace {
     return this.client.request<{ success: boolean }>(
       'DELETE',
       `/api/v1/canvas/${encodeURIComponent(canvasId)}`
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Idea-to-Execution Pipeline
+  // -----------------------------------------------------------------------
+
+  /**
+   * Run full pipeline from an ArgumentCartographer debate export.
+   *
+   * Transforms debate argument graphs into actionable execution plans
+   * through 4 stages: ideas → goals → actions → orchestration.
+   */
+  async runFromDebate(
+    cartographerData: Record<string, unknown>,
+    autoAdvance: boolean = true,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-debate',
+      {
+        body: {
+          cartographer_data: cartographerData,
+          auto_advance: autoAdvance,
+        },
+      }
+    );
+  }
+
+  /**
+   * Run full pipeline from raw idea strings.
+   *
+   * Simpler entry point that skips debate graph parsing.
+   */
+  async runFromIdeas(
+    ideas: string[],
+    autoAdvance: boolean = true,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-ideas',
+      {
+        body: {
+          ideas,
+          auto_advance: autoAdvance,
+        },
+      }
+    );
+  }
+
+  /**
+   * Advance pipeline to the next stage after human review.
+   *
+   * Used for human-in-the-loop workflows where each stage
+   * requires approval before proceeding.
+   */
+  async advanceStage(
+    pipelineId: string,
+    targetStage: PipelineStage,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/advance',
+      {
+        body: {
+          pipeline_id: pipelineId,
+          target_stage: targetStage,
+        },
+      }
+    );
+  }
+
+  /** Get complete pipeline result by ID. */
+  async getPipeline(pipelineId: string): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}`
+    );
+  }
+
+  /** Get a specific stage canvas from a pipeline. */
+  async getStage(
+    pipelineId: string,
+    stage: PipelineStage,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/stage/${encodeURIComponent(stage)}`
+    );
+  }
+
+  /** Convert debate argument graph to ideas canvas (React Flow format). */
+  async convertDebate(
+    cartographerData: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/convert/debate',
+      { body: { cartographer_data: cartographerData } }
+    );
+  }
+
+  /** Convert workflow definition to actions canvas (React Flow format). */
+  async convertWorkflow(
+    workflowData: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/convert/workflow',
+      { body: { workflow_data: workflowData } }
     );
   }
 }

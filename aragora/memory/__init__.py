@@ -57,6 +57,12 @@ from aragora.memory.surprise import (
     calculate_surprise_from_db_row,
     update_surprise_ema,
 )
+from aragora.memory.titans_controller import TitansMemoryController
+from aragora.memory.triggers import (
+    MemoryTrigger,
+    MemoryTriggerEngine,
+    TriggerResult,
+)
 from aragora.memory.tier_analytics import (
     MemoryAnalytics,
     MemoryUsageEvent,
@@ -118,4 +124,10 @@ __all__ = [
     "calculate_combined_surprise",
     "calculate_surprise_from_db_row",
     "update_surprise_ema",
+    # Titans Controller
+    "TitansMemoryController",
+    # Memory Triggers
+    "MemoryTriggerEngine",
+    "MemoryTrigger",
+    "TriggerResult",
 ]

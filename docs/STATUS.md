@@ -1,8 +1,55 @@
 # Aragora Project Status
 
-*Last updated: February 16, 2026*
+*Last updated: February 17, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Integration & Pipeline Wiring (February 17, 2026)
+
+### Summary
+Major integration sprint connecting isolated subsystems into end-to-end pipelines. Canvas idea-to-execution pipeline wired into PostDebateCoordinator (Step 8.5), memory trigger engine actions implemented with real subsystem calls, SDK canvas parity achieved across Python (14 methods) and TypeScript (12 methods), outcome feedback bridge wired into self-develop CLI, and GoalExtractor test coverage added (46 tests).
+
+### Canvas → Debate Pipeline Trigger
+- **PostDebateCoordinator Step 8.5**: After execution bridge, optionally triggers canvas pipeline
+- `auto_trigger_canvas` + `canvas_min_confidence` config on `PostDebateConfig`
+- Builds `ArgumentCartographer` graph from debate messages → `IdeaToExecutionPipeline.from_debate()`
+- `canvas_result` field on `PostDebateResult` captures pipeline output
+- Graceful degradation on import error (7 tests)
+
+### Memory Trigger Engine Actions
+- **5 stub actions replaced** with real subsystem calls:
+  - `_log_high_surprise`: Reports to `AnomalyDetector` + dispatches `memory.high_surprise` event
+  - `_mark_for_revalidation`: Calls `ConfidenceDecayManager.apply_decay()` + dispatches `memory.stale_revalidation`
+  - `_create_debate_topic`: Enqueues `ImprovementSuggestion` to improvement queue + dispatches `memory.contradiction_detected`
+  - `_merge_summaries`: Dispatches `memory.consolidation_merge` event
+  - `_extract_pattern`: Dispatches `memory.pattern_emerged` event
+- All actions use `try/except ImportError` for graceful degradation (20 tests)
+
+### SDK Canvas Parity
+- **Python SDK**: `CanvasAPI` (7 sync) + `AsyncCanvasAPI` (7 async) methods — CRUD + pipeline
+- **TypeScript SDK**: 5 CRUD + 7 pipeline methods with full TypeScript types (`PipelineStage`, `PipelineResult`)
+- Routes: `run_from_debate`, `run_from_ideas`, `advance_stage`, `get_pipeline`, `get_stage`, `convert_debate`, `convert_workflow`
+
+### Goal Extractor Test Coverage (46 tests)
+- **Structural extraction**: priority assignment, provenance links, transition records, max goals cap
+- **Type mapping**: cluster→GOAL, constraint→PRINCIPLE, question→MILESTONE, insight→STRATEGY
+- **Raw ideas**: keyword linking, label truncation, single/multiple ideas
+- **Internal methods**: scoring formula, type bonuses, title synthesis, description synthesis
+
+### Outcome Feedback Bridge
+- `OutcomeFeedbackBridge.run_feedback_cycle()` wired into `scripts/self_develop.py`
+- Runs after pipeline execution, detects systematic agent errors
+- `--feedback` CLI flag for orchestration mode runs
+
+### Files
+| Category | Files |
+|----------|-------|
+| Modified production | `post_debate_coordinator.py`, `triggers.py`, `memory/__init__.py`, `self_develop.py` |
+| New/rewritten SDK | `sdk/python/.../canvas.py`, `sdk/typescript/.../canvas.ts` |
+| New tests | `test_canvas_trigger.py` (7), `test_trigger_actions.py` (20), `test_extractor.py` (46) |
+| Config | `contract_matrix_py_budget.json` |
+
+---
 
 ## Unified Memory Architecture (February 16, 2026)
 
