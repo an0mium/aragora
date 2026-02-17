@@ -465,7 +465,7 @@ class TestCompareExplanations:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_post_request)
+        result = asyncio.run(handler._handle_compare(mock_post_request))
         response_body, status = parse_handler_result(result)
 
         assert status == 400
@@ -477,7 +477,7 @@ class TestCompareExplanations:
         mock_post_request.rfile.read = Mock(return_value=json.dumps(body).encode())
         mock_post_request.headers["Content-Length"] = len(json.dumps(body))
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_post_request)
+        result = asyncio.run(handler._handle_compare(mock_post_request))
         response_body, status = parse_handler_result(result)
 
         assert status == 400
@@ -488,7 +488,7 @@ class TestCompareExplanations:
         mock_post_request.rfile.read = Mock(return_value=b"invalid json")
         mock_post_request.headers["Content-Length"] = 12
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_post_request)
+        result = asyncio.run(handler._handle_compare(mock_post_request))
         response_body, status = parse_handler_result(result)
 
         assert status == 400
