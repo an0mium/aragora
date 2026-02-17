@@ -399,6 +399,160 @@ class TestHandlerRoutes:
                 )
 
 
+class TestTierFiltering:
+    """Test handler tier filtering logic."""
+
+    def test_get_active_tiers_default(self):
+        """Default tiers should include all for backward compatibility."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "core" in tiers
+        assert "extended" in tiers
+        assert "optional" in tiers
+        assert "enterprise" in tiers
+        assert "experimental" in tiers
+
+    def test_get_active_tiers_explicit_filter(self):
+        """Explicit ARAGORA_HANDLER_TIERS should filter tiers."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {"ARAGORA_HANDLER_TIERS": "extended,optional"}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "core" in tiers  # Always included
+        assert "extended" in tiers
+        assert "optional" in tiers
+        assert "enterprise" not in tiers
+        assert "experimental" not in tiers
+
+    def test_get_active_tiers_core_always_included(self):
+        """Core tier is always included even when not listed."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {"ARAGORA_HANDLER_TIERS": "enterprise"}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "core" in tiers
+        assert "enterprise" in tiers
+        assert "extended" not in tiers
+
+    def test_get_active_tiers_enterprise_flag(self):
+        """ARAGORA_ENTERPRISE=1 should enable enterprise tier."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {"ARAGORA_ENTERPRISE": "1"}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "enterprise" in tiers
+        assert "core" in tiers
+
+    def test_get_active_tiers_experimental_flag(self):
+        """ARAGORA_EXPERIMENTAL=true should enable experimental tier."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {"ARAGORA_EXPERIMENTAL": "true"}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "experimental" in tiers
+        assert "core" in tiers
+
+    def test_get_active_tiers_whitespace_handling(self):
+        """Whitespace in tier list should be stripped."""
+        from aragora.server.handler_registry.core import get_active_tiers
+
+        with patch.dict("os.environ", {"ARAGORA_HANDLER_TIERS": " core , extended , "}, clear=True):
+            tiers = get_active_tiers()
+
+        assert "core" in tiers
+        assert "extended" in tiers
+        assert "" not in tiers
+
+    def test_filter_registry_by_tier_core_only(self):
+        """Core-only filter should exclude non-core handlers."""
+        from aragora.server.handler_registry.core import filter_registry_by_tier
+
+        registry = [
+            ("_health_handler", MagicMock()),  # core
+            ("_genesis_handler", MagicMock()),  # experimental
+            ("_admin_handler", MagicMock()),  # enterprise
+            ("_belief_handler", MagicMock()),  # extended
+        ]
+
+        filtered = filter_registry_by_tier(registry, active_tiers={"core"})
+
+        attr_names = [name for name, _ in filtered]
+        assert "_health_handler" in attr_names
+        assert "_genesis_handler" not in attr_names
+        assert "_admin_handler" not in attr_names
+        assert "_belief_handler" not in attr_names
+
+    def test_filter_registry_by_tier_unknown_defaults_to_extended(self):
+        """Handlers not in HANDLER_TIERS should default to 'extended'."""
+        from aragora.server.handler_registry.core import filter_registry_by_tier
+
+        registry = [
+            ("_unknown_handler", MagicMock()),  # not in HANDLER_TIERS → defaults to extended
+        ]
+
+        filtered = filter_registry_by_tier(registry, active_tiers={"extended"})
+        assert len(filtered) == 1
+
+        filtered = filter_registry_by_tier(registry, active_tiers={"core"})
+        assert len(filtered) == 0
+
+    def test_filter_registry_preserves_order(self):
+        """Filtering should preserve registry order."""
+        from aragora.server.handler_registry.core import filter_registry_by_tier
+
+        registry = [
+            ("_health_handler", MagicMock()),  # core
+            ("_debates_handler", MagicMock()),  # core
+            ("_agents_handler", MagicMock()),  # core
+        ]
+
+        filtered = filter_registry_by_tier(registry, active_tiers={"core"})
+        names = [name for name, _ in filtered]
+        assert names == ["_health_handler", "_debates_handler", "_agents_handler"]
+
+    def test_filter_registry_enterprise_excluded_by_default_tier_env(self):
+        """Enterprise handlers excluded when only core+extended tiers active."""
+        from aragora.server.handler_registry.core import filter_registry_by_tier
+
+        registry = [
+            ("_health_handler", MagicMock()),  # core
+            ("_admin_handler", MagicMock()),  # enterprise
+            ("_gateway_handler", MagicMock()),  # optional
+        ]
+
+        filtered = filter_registry_by_tier(
+            registry, active_tiers={"core", "extended", "optional"}
+        )
+        names = [name for name, _ in filtered]
+        assert "_health_handler" in names
+        assert "_gateway_handler" in names
+        assert "_admin_handler" not in names
+
+    def test_handler_tiers_all_valid(self):
+        """All HANDLER_TIERS values should be valid tier names."""
+        from aragora.server.handler_registry.core import HANDLER_TIERS
+
+        valid_tiers = {"core", "extended", "enterprise", "experimental", "optional"}
+        for attr_name, tier in HANDLER_TIERS.items():
+            assert tier in valid_tiers, f"{attr_name} has invalid tier '{tier}'"
+
+    def test_handler_tiers_covers_core_handlers(self):
+        """Core handlers should be listed in HANDLER_TIERS."""
+        from aragora.server.handler_registry.core import HANDLER_TIERS
+
+        core_handlers = [k for k, v in HANDLER_TIERS.items() if v == "core"]
+        assert len(core_handlers) >= 5, "Should have at least 5 core handlers"
+        assert "_health_handler" in core_handlers
+        assert "_debates_handler" in core_handlers
+
+
 class TestHandlerInstantiation:
     """Test handler instantiation with context."""
 
