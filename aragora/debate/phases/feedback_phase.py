@@ -738,7 +738,12 @@ class FeedbackPhase:
             return
 
         # Fire-and-forget workflow to not block debate completion
-        asyncio.create_task(self._run_workflow_async(ctx))
+        _wf_task = asyncio.create_task(self._run_workflow_async(ctx))
+        _wf_task.add_done_callback(
+            lambda t: logger.warning(f"[workflow] Post-debate workflow failed: {t.exception()}")
+            if not t.cancelled() and t.exception()
+            else None
+        )
         ctx.post_debate_workflow_triggered = True  # type: ignore[attr-defined]
         logger.info(
             "[workflow] Triggered post-debate workflow for debate %s (confidence=%.2f)",
@@ -1322,7 +1327,12 @@ class FeedbackPhase:
             return
 
         # Fire-and-forget broadcast to not block debate completion
-        asyncio.create_task(self._broadcast_async(ctx))
+        _broadcast_task = asyncio.create_task(self._broadcast_async(ctx))
+        _broadcast_task.add_done_callback(
+            lambda t: logger.warning(f"[broadcast] Auto-broadcast failed: {t.exception()}")
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info(
             "[broadcast] Triggered auto-broadcast for debate %s (confidence=%.2f)",
             ctx.debate_id,

@@ -801,7 +801,14 @@ async def handle_debate_completion(
                     except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as wf_err:
                         logger.debug(f"Post-debate workflow fallback failed: {wf_err}")
 
-                _asyncio.create_task(_run_fallback_workflow())
+                _fallback_task = _asyncio.create_task(_run_fallback_workflow())
+                _fallback_task.add_done_callback(
+                    lambda t: logger.warning(
+                        f"[workflow-fallback] Background workflow failed: {t.exception()}"
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
                 logger.info(
                     f"[workflow-fallback] Triggered post-debate workflow for debate {state.debate_id}"
                 )

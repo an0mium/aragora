@@ -757,7 +757,12 @@ class HookHandlerRegistry:
                 # Run async delivery
                 try:
                     asyncio.get_running_loop()
-                    asyncio.create_task(deliver_all())
+                    _delivery_task = asyncio.create_task(deliver_all())
+                    _delivery_task.add_done_callback(
+                        lambda t: logger.warning(f"Webhook delivery failed: {t.exception()}")
+                        if not t.cancelled() and t.exception()
+                        else None
+                    )
                 except RuntimeError:
                     # No event loop, create one
                     asyncio.run(deliver_all())
@@ -820,7 +825,12 @@ class HookHandlerRegistry:
 
                 try:
                     asyncio.get_running_loop()
-                    asyncio.create_task(deliver_all())
+                    _consensus_task = asyncio.create_task(deliver_all())
+                    _consensus_task.add_done_callback(
+                        lambda t: logger.warning(f"Webhook consensus delivery failed: {t.exception()}")
+                        if not t.cancelled() and t.exception()
+                        else None
+                    )
                 except RuntimeError:
                     asyncio.run(deliver_all())
 
@@ -1155,7 +1165,12 @@ class HookHandlerRegistry:
 
                 try:
                     asyncio.get_running_loop()  # Check if loop exists
-                    asyncio.create_task(_enrich_plan_async())
+                    _enrich_task = asyncio.create_task(_enrich_plan_async())
+                    _enrich_task.add_done_callback(
+                        lambda t: logger.warning(f"Plan enrichment failed: {t.exception()}")
+                        if not t.cancelled() and t.exception()
+                        else None
+                    )
                 except RuntimeError:
                     # No running event loop - skip enrichment
                     logger.debug("No event loop for plan enrichment")

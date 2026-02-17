@@ -259,7 +259,12 @@ class EvolutionFeedback:
             # Evolve every 5 debates
             if len(history) % 5 == 0:
                 # Fire-and-forget evolution
-                asyncio.create_task(self._evolve_async(population))
+                _evolve_task = asyncio.create_task(self._evolve_async(population))
+                _evolve_task.add_done_callback(
+                    lambda t: logger.warning(f"[genesis] Evolution failed: {t.exception()}")
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
                 logger.info(
                     "[genesis] Triggered evolution after %d debates (confidence=%.2f)",
                     len(history),

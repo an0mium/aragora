@@ -552,6 +552,13 @@ class AutonomicExecutor:
                     pass
 
             progress_task = asyncio.create_task(_report_progress())
+            progress_task.add_done_callback(
+                lambda t: logger.debug(
+                    f"[Autonomic] Progress monitoring error: {t.exception()}"
+                )
+                if not t.cancelled() and t.exception()
+                else None
+            )
 
         try:
             if self._should_power_sample(agent, phase):

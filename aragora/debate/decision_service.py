@@ -633,11 +633,15 @@ class AsyncDecisionService:
     def _make_round_callback(self, debate_id: str, state: DebateState) -> Callable[[int], None]:
         """Create callback for round start events."""
 
+        def _log_task_error(t: asyncio.Task) -> None:
+            if not t.cancelled() and t.exception():
+                logger.warning(f"[decision_service] Background task failed: {t.exception()}")
+
         def on_round_start(round_num: int) -> None:
             state.current_round = round_num
             state.progress = round_num / state.total_rounds
             # Schedule async save and publish
-            asyncio.create_task(self._store.save(state))
+            asyncio.create_task(self._store.save(state)).add_done_callback(_log_task_error)
             asyncio.create_task(
                 self._event_bus.publish(
                     DebateEvent(
@@ -646,7 +650,7 @@ class AsyncDecisionService:
                         data={"round": round_num},
                     )
                 )
-            )
+            ).add_done_callback(_log_task_error)
 
         return on_round_start
 
@@ -662,6 +666,10 @@ class AsyncDecisionService:
                         data={"agent": agent, "message": message[:500]},  # Truncate
                     )
                 )
+            ).add_done_callback(
+                lambda t: logger.warning(f"[decision_service] Event publish failed: {t.exception()}")
+                if not t.cancelled() and t.exception()
+                else None
             )
 
         return on_agent_message
@@ -678,6 +686,10 @@ class AsyncDecisionService:
                         data={"decision": decision, "confidence": confidence},
                     )
                 )
+            ).add_done_callback(
+                lambda t: logger.warning(f"[decision_service] Consensus publish failed: {t.exception()}")
+                if not t.cancelled() and t.exception()
+                else None
             )
 
         return on_consensus
