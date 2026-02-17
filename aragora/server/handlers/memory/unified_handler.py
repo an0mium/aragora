@@ -9,18 +9,26 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.secure import SecureHandler
+
 logger = logging.getLogger(__name__)
 
+# Permissions for unified memory endpoints
+MEMORY_READ_PERMISSION = "memory:read"
 
-class UnifiedMemoryHandler:
+
+class UnifiedMemoryHandler(SecureHandler):
     """HTTP handler for unified memory operations.
 
     Wraps MemoryGateway to expose cross-system search via REST API.
     """
 
-    def __init__(self, gateway: Any = None) -> None:
+    def __init__(self, gateway: Any = None, ctx: dict[str, Any] | None = None) -> None:
         self._gateway = gateway
+        self.ctx = ctx or {}
 
+    @require_permission(MEMORY_READ_PERMISSION)
     async def handle_search(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """Handle POST /api/v1/memory/unified/search.
 
@@ -86,6 +94,7 @@ class UnifiedMemoryHandler:
                 "results": [],
             }
 
+    @require_permission(MEMORY_READ_PERMISSION)
     async def handle_stats(self) -> dict[str, Any]:
         """Handle GET /api/v1/memory/unified/stats.
 
