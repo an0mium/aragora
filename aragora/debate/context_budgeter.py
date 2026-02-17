@@ -87,6 +87,9 @@ DEFAULT_SECTION_LIMITS: dict[str, int] = {
     "evidence": 600,
     "trending": 200,
     "audience": 200,
+    "codebase": 500,
+    "claude_mem": 400,
+    "memory_fabric": 600,
 }
 
 SECTION_LIMITS = {

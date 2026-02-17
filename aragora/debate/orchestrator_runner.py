@@ -679,9 +679,34 @@ async def handle_debate_completion(
             logger.debug(f"Post-debate workflow fallback setup failed: {e}")
 
     # Run post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
-    from aragora.debate.post_debate_coordinator import DEFAULT_POST_DEBATE_CONFIG
+    from aragora.debate.post_debate_coordinator import DEFAULT_POST_DEBATE_CONFIG, PostDebateConfig
     post_debate_config = getattr(arena, "post_debate_config", None)
     effective_config = post_debate_config if post_debate_config is not None else DEFAULT_POST_DEBATE_CONFIG
+
+    # Bridge AutoExecutionConfig → PostDebateConfig: when enable_auto_execution
+    # is set on the Arena, propagate it to the PostDebateConfig so that the
+    # coordinator can actually execute plans and create PRs.
+    if getattr(arena, "enable_auto_execution", False) and isinstance(effective_config, PostDebateConfig):
+        auto_mode = getattr(arena, "auto_approval_mode", "risk_based")
+        auto_risk = getattr(arena, "auto_max_risk", "low")
+        effective_config = PostDebateConfig(
+            auto_explain=effective_config.auto_explain,
+            auto_create_plan=True,
+            auto_notify=effective_config.auto_notify,
+            auto_execute_plan=True,
+            auto_create_pr=True,
+            pr_min_confidence=effective_config.pr_min_confidence,
+            auto_build_integrity_package=True,
+            auto_persist_receipt=effective_config.auto_persist_receipt,
+            auto_gauntlet_validate=effective_config.auto_gauntlet_validate,
+            gauntlet_min_confidence=effective_config.gauntlet_min_confidence,
+            auto_queue_improvement=True,
+            improvement_min_confidence=effective_config.improvement_min_confidence,
+            plan_min_confidence=effective_config.plan_min_confidence,
+            plan_approval_mode=auto_mode,
+            auto_execution_bridge=effective_config.auto_execution_bridge,
+            execution_bridge_min_confidence=effective_config.execution_bridge_min_confidence,
+        )
     if not getattr(arena, "disable_post_debate_pipeline", False) and ctx.result:
         try:
             from aragora.debate.post_debate_coordinator import PostDebateCoordinator

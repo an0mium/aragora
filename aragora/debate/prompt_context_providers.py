@@ -466,6 +466,30 @@ class PromptContextMixin:
         if item_ids is not None:
             self._km_item_ids = list(item_ids)
 
+    def get_codebase_context(self) -> str:
+        """Get codebase context for code-grounded debate prompt injection.
+
+        Returns the codebase structure context that was set via
+        set_codebase_context(). This is injected as a dedicated prompt
+        section so agents can reference actual code during debates.
+
+        Returns:
+            Formatted codebase context string, or empty string if not set.
+        """
+        return self._codebase_context
+
+    def set_codebase_context(self, context: str) -> None:
+        """Set codebase context for code-grounded debate prompt injection.
+
+        This allows the context initializer to provide codebase structure
+        as a dedicated prompt section. Agents will see a "Codebase Context"
+        header with file paths, symbols, and dependency information.
+
+        Args:
+            context: The codebase context string to inject into prompts.
+        """
+        self._codebase_context = context or ""
+
     def get_prior_claims_context(self, limit: int = 5) -> str:
         """Get prior claims related to the current topic for context injection.
 

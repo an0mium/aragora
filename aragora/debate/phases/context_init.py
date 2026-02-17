@@ -106,6 +106,10 @@ class ContextInitializer:
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
         rlm_agent_call: Callable[[str, str], str] | None = None,  # Agent callback for compression
+        # Codebase grounding (code-aware debates)
+        codebase_path: str | None = None,  # Path to repo for code-grounded debates
+        enable_codebase_grounding: bool = False,  # Inject codebase context
+        codebase_persist_to_km: bool = False,  # Persist codebase to KM
         # Callbacks for orchestrator methods
         fetch_historical_context: Callable | None = None,
         format_patterns_for_prompt: Callable | None = None,
@@ -159,6 +163,11 @@ class ContextInitializer:
         # Skills system for extensible evidence collection
         self.skill_registry = skill_registry
         self.enable_skills = enable_skills
+
+        # Codebase grounding
+        self.codebase_path = codebase_path
+        self.enable_codebase_grounding = enable_codebase_grounding
+        self.codebase_persist_to_km = codebase_persist_to_km
 
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
@@ -272,6 +281,9 @@ class ContextInitializer:
         # 9c. Inject past debate knowledge from KM flywheel
         await self._inject_debate_knowledge(ctx)
 
+        # 9d. Cross-adapter KM synthesis (unified query across multiple adapters)
+        await self._inject_cross_adapter_synthesis(ctx)
+
         # 10. Inject learned patterns from InsightStore (async)
         await self._inject_insight_patterns(ctx)
 
@@ -313,6 +325,46 @@ class ContextInitializer:
         # Uses TRUE RLM when available, compression fallback otherwise
         if self.enable_rlm_compression and self._rlm and ctx.env.context:
             await self._compress_context_with_rlm(ctx)
+
+        # 16. Inject codebase context for code-grounded debates
+        if self.enable_codebase_grounding and self.codebase_path:
+            await self._inject_codebase_context(ctx)
+
+    async def _inject_codebase_context(self, ctx: DebateContext) -> None:
+        """Inject codebase structure context for code-grounded debates.
+
+        Uses CodebaseContextProvider to build a cached codebase summary
+        and sets it on the prompt builder as a dedicated section.
+        Gracefully falls back to empty context on timeout or error.
+        """
+        try:
+            from aragora.debate.codebase_context import (
+                CodebaseContextConfig,
+                CodebaseContextProvider,
+            )
+
+            config = CodebaseContextConfig(
+                codebase_path=self.codebase_path,
+                persist_to_km=self.codebase_persist_to_km,
+            )
+            provider = CodebaseContextProvider(config=config)
+
+            context = await asyncio.wait_for(
+                provider.build_context(ctx.env.task),
+                timeout=30.0,
+            )
+
+            if context and hasattr(ctx, "_prompt_builder") and ctx._prompt_builder:
+                summary = provider.get_summary(max_tokens=500)
+                ctx._prompt_builder.set_codebase_context(summary)
+                logger.info(
+                    "codebase_context_injected",
+                    extra={"path": self.codebase_path, "chars": len(summary)},
+                )
+        except asyncio.TimeoutError:
+            logger.warning("Codebase context injection timed out after 30s")
+        except (ImportError, RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning("Codebase context injection failed: %s", e)
 
     def _inject_fork_history(self, ctx: DebateContext) -> None:
         """Inject fork debate history into partial messages."""
@@ -582,6 +634,43 @@ class ContextInitializer:
                 )
         except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as e:
             logger.debug("[knowledge_injection] Failed: %s", e)
+
+    async def _inject_cross_adapter_synthesis(self, ctx: DebateContext) -> None:
+        """Inject cross-adapter synthesized knowledge from KnowledgeBridgeHub.
+
+        Queries multiple KM adapters (Consensus, Evidence, Performance, Pulse,
+        Belief, Compliance) and injects a unified context block. This is the
+        cross-adapter synthesis layer that turns 33 write-heavy adapters into
+        a coherent read-back system for debate enrichment.
+        """
+        if not self.knowledge_mound:
+            return
+
+        try:
+            from aragora.knowledge.bridges import KnowledgeBridgeHub
+
+            hub = KnowledgeBridgeHub(self.knowledge_mound)
+            topic = ctx.env.task if ctx.env else ""
+            domain = getattr(ctx, "domain", "general") or "general"
+
+            synthesis = await asyncio.wait_for(
+                hub.synthesize_for_debate(topic, domain=domain, max_items=8),
+                timeout=8.0,
+            )
+
+            if synthesis:
+                if ctx.env.context:
+                    ctx.env.context += "\n\n" + synthesis
+                else:
+                    ctx.env.context = synthesis
+                logger.info(
+                    "[km_synthesis] Injected cross-adapter synthesis (%d chars)",
+                    len(synthesis),
+                )
+        except asyncio.TimeoutError:
+            logger.warning("[km_synthesis] Cross-adapter synthesis timed out")
+        except (ImportError, RuntimeError, AttributeError, TypeError, ValueError) as e:
+            logger.debug("[km_synthesis] Cross-adapter synthesis failed: %s", e)
 
     def _get_cached_knowledge(self, query_hash: str) -> str | None:
         """Get cached knowledge context if still valid.

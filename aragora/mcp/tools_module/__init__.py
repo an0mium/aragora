@@ -137,6 +137,16 @@ from aragora.mcp.tools_module.chat_actions import (
     create_thread_tool,
     stream_progress_tool,
 )
+from aragora.mcp.tools_module.codebase import (
+    search_codebase_tool,
+    get_symbol_tool,
+    get_dependencies_tool,
+    get_codebase_structure_tool,
+)
+from aragora.mcp.tools_module.business_memory import (
+    store_business_knowledge_tool,
+    query_business_knowledge_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -249,4 +259,12 @@ __all__ = [
     "add_reaction_tool",
     "create_thread_tool",
     "stream_progress_tool",
+    # Codebase tools
+    "search_codebase_tool",
+    "get_symbol_tool",
+    "get_dependencies_tool",
+    "get_codebase_structure_tool",
+    # Business memory tools
+    "store_business_knowledge_tool",
+    "query_business_knowledge_tool",
 ]

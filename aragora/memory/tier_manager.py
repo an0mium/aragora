@@ -352,6 +352,47 @@ class TierManager:
         """Reset transition metrics."""
         self._metrics.reset()
 
+    def apply_retention_decision(
+        self,
+        entry_tier: MemoryTier,
+        decision_action: str,
+    ) -> tuple[MemoryTier | None, str]:
+        """Map a RetentionDecision action to a tier transition.
+
+        Args:
+            entry_tier: Current tier of the memory entry
+            decision_action: Action from RetentionDecision ("retain", "demote", "forget", "consolidate")
+
+        Returns:
+            Tuple of (new_tier_or_None, reason_string).
+            None means no tier change.
+        """
+        if decision_action == "consolidate":
+            # Promote to faster tier
+            new_tier = self.get_next_tier(entry_tier, "faster")
+            if new_tier:
+                self.record_promotion(entry_tier, new_tier)
+                return new_tier, f"Consolidated: promoted from {entry_tier.value} to {new_tier.value}"
+            return None, f"Already at fastest tier ({entry_tier.value})"
+
+        elif decision_action == "demote":
+            # Demote to slower tier
+            new_tier = self.get_next_tier(entry_tier, "slower")
+            if new_tier:
+                self.record_demotion(entry_tier, new_tier)
+                return new_tier, f"Demoted from {entry_tier.value} to {new_tier.value}"
+            return None, f"Already at slowest tier ({entry_tier.value})"
+
+        elif decision_action == "forget":
+            # Demote to glacial (lowest) for eventual cleanup
+            if entry_tier != MemoryTier.GLACIAL:
+                self.record_demotion(entry_tier, MemoryTier.GLACIAL)
+                return MemoryTier.GLACIAL, f"Forgotten: demoted from {entry_tier.value} to glacial"
+            return None, "Already at glacial tier"
+
+        else:  # "retain"
+            return None, "Retained at current tier"
+
     @property
     def promotion_cooldown_hours(self) -> float:
         """Get promotion cooldown in hours."""

@@ -25,6 +25,8 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from collections.abc import Callable, Awaitable
 
+from aragora.memory.surprise import ContentSurpriseScorer
+
 if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.debate.context import DebateContext
@@ -313,6 +315,9 @@ class CoordinatorOptions:
     # Supermemory-specific options
     supermemory_container_tag: str | None = None  # Optional container tag override
 
+    # Retention gate integration
+    enable_retention_gate: bool = False
+
 
 @dataclass
 class CoordinatorMetrics:
@@ -365,6 +370,8 @@ class MemoryCoordinator:
         knowledge_mound: KnowledgeMound | None = None,
         supermemory_adapter: SupermemoryAdapter | None = None,
         options: CoordinatorOptions | None = None,
+        surprise_scorer: ContentSurpriseScorer | None = None,
+        retention_gate: Any | None = None,
     ):
         """
         Initialize the memory coordinator.
@@ -376,6 +383,8 @@ class MemoryCoordinator:
             knowledge_mound: KnowledgeMound for unified knowledge
             supermemory_adapter: SupermemoryAdapter for external memory persistence
             options: Default coordinator options
+            surprise_scorer: Titans-inspired surprise scorer for gating writes
+            retention_gate: RetentionGate instance for surprise-driven retention
         """
         self.continuum_memory = continuum_memory
         self.consensus_memory = consensus_memory
@@ -384,6 +393,8 @@ class MemoryCoordinator:
         self.supermemory_adapter = supermemory_adapter
         self.options = options or CoordinatorOptions()
         self.metrics = CoordinatorMetrics()
+        self.surprise_scorer = surprise_scorer or ContentSurpriseScorer()
+        self.retention_gate = retention_gate
 
         # Supermemory entries marked for deletion (processed on next sync)
         self._supermemory_rollback_markers: list[SupermemoryRollbackMarker] = []
@@ -617,6 +628,19 @@ class MemoryCoordinator:
         if not result:
             logger.warning("Cannot commit outcome: no result in context")
             return transaction
+
+        # Score surprise BEFORE writing to decide which systems to target
+        surprise = self.surprise_scorer.score_debate_outcome(
+            conclusion=result.final_answer or "",
+            domain=ctx.domain,
+            confidence=result.confidence,
+        )
+        logger.info(
+            "Surprise score for debate %s: combined=%.3f should_store=%s",
+            ctx.debate_id,
+            surprise.combined,
+            surprise.should_store,
+        )
 
         # Build operations based on options (returns both operations and skipped)
         operations, skipped = self._build_operations(ctx, result, opts)
@@ -1069,6 +1093,41 @@ class MemoryCoordinator:
                 self.metrics.writes_per_target[op.target] = (
                     self.metrics.writes_per_target.get(op.target, 0) + 1
                 )
+
+    async def evaluate_retention(
+        self,
+        transaction: MemoryTransaction,
+    ) -> list[Any] | None:
+        """Post-write hook: evaluate retention for committed items.
+
+        If retention_gate is configured, evaluates all successful writes
+        and returns RetentionDecision list for downstream processing.
+
+        Args:
+            transaction: Completed transaction to evaluate
+
+        Returns:
+            List of RetentionDecision objects, or None if gate not configured.
+        """
+        if not self.retention_gate or not self.options.enable_retention_gate:
+            return None
+
+        decisions = []
+        for op in transaction.get_successful_operations():
+            if op.result and op.target in ("continuum", "mound"):
+                confidence = op.data.get("confidence", 0.5)
+                content = op.data.get("task", "") or op.data.get("conclusion", "")
+
+                decision = self.retention_gate.evaluate(
+                    item_id=str(op.result),
+                    source=op.target,
+                    content=content,
+                    outcome_surprise=0.5,  # Default; callers can override
+                    current_confidence=confidence,
+                )
+                decisions.append(decision)
+
+        return decisions if decisions else None
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current coordinator metrics."""

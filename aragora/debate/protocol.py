@@ -551,6 +551,10 @@ class DebateProtocol:
     enable_knowledge_injection: bool = False  # Opt-in: requires Knowledge Mound
     knowledge_injection_max_receipts: int = 3  # Max past receipts to inject
 
+    # Codebase grounding: Inject codebase structure into debate context
+    # Enables code-aware debates where agents can reference actual file paths and symbols
+    enable_codebase_grounding: bool = False  # Opt-in: requires codebase_path in MemoryConfig
+
     # Content moderation: Run spam/quality check on debate task before execution
     # Blocks debates with spam/low-quality prompts before burning API tokens
     enable_content_moderation: bool = False  # Opt-in: uses SpamModerationIntegration

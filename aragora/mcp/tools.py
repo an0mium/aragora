@@ -94,6 +94,12 @@ from aragora.mcp.tools_module import (
     canvas_list_tool,
     canvas_delete_node_tool,
 )
+from aragora.mcp.tools_module.codebase import (
+    search_codebase_tool,
+    get_symbol_tool,
+    get_dependencies_tool,
+    get_codebase_structure_tool,
+)
 from aragora.config.settings import AgentSettings, DebateSettings
 
 logger = logging.getLogger(__name__)
@@ -805,6 +811,47 @@ TOOLS_METADATA = [
             "node_id": {"type": "string", "required": True},
         },
     },
+    # Codebase tools
+    {
+        "name": "search_codebase",
+        "description": "Search a codebase for symbols, patterns, or content",
+        "function": search_codebase_tool,
+        "parameters": {
+            "query": {"type": "string", "required": True},
+            "codebase_path": {"type": "string", "default": "."},
+            "file_types": {"type": "string", "default": ""},
+            "limit": {"type": "integer", "default": 20},
+        },
+    },
+    {
+        "name": "get_symbol",
+        "description": "Look up a specific symbol (function, class) in the codebase",
+        "function": get_symbol_tool,
+        "parameters": {
+            "symbol_name": {"type": "string", "required": True},
+            "codebase_path": {"type": "string", "default": "."},
+            "include_source": {"type": "boolean", "default": False},
+        },
+    },
+    {
+        "name": "get_dependencies",
+        "description": "Get the import/dependency graph for a file",
+        "function": get_dependencies_tool,
+        "parameters": {
+            "file_path": {"type": "string", "required": True},
+            "codebase_path": {"type": "string", "default": "."},
+            "direction": {"type": "string", "default": "outgoing"},
+        },
+    },
+    {
+        "name": "get_codebase_structure",
+        "description": "Get directory structure overview of a codebase",
+        "function": get_codebase_structure_tool,
+        "parameters": {
+            "codebase_path": {"type": "string", "default": "."},
+            "max_depth": {"type": "integer", "default": 3},
+        },
+    },
 ]
 
 
@@ -889,5 +936,10 @@ __all__ = [
     "canvas_execute_action_tool",
     "canvas_list_tool",
     "canvas_delete_node_tool",
+    # Codebase tools
+    "search_codebase_tool",
+    "get_symbol_tool",
+    "get_dependencies_tool",
+    "get_codebase_structure_tool",
     "TOOLS_METADATA",
 ]

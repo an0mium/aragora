@@ -48,6 +48,7 @@ class PromptAssemblyMixin:
     get_continuum_context: Any
     get_supermemory_context: Any
     get_knowledge_mound_context: Any
+    get_codebase_context: Any
     get_prior_claims_context: Any
     format_pulse_context: Any
     get_language_constraint: Any
@@ -166,6 +167,12 @@ class PromptAssemblyMixin:
         if km_context:
             km_section = f"## Organizational Knowledge\n{km_context}"
 
+        # Codebase context for code-grounded debates
+        codebase_section = ""
+        codebase_ctx = self.get_codebase_context()
+        if codebase_ctx:
+            codebase_section = f"## Codebase Context\n{codebase_ctx}"
+
         belief_section = ""
         belief_context = self._inject_belief_context(limit=3)
         if belief_context:
@@ -258,6 +265,7 @@ class PromptAssemblyMixin:
             ContextSection("continuum", continuum_section.strip()),
             ContextSection("supermemory", supermemory_section.strip()),
             ContextSection("knowledge_mound", km_section.strip()),
+            ContextSection("codebase", codebase_section.strip()),
             ContextSection("belief", belief_section.strip()),
             ContextSection("dissent", dissent_section.strip()),
             ContextSection("patterns", patterns_section.strip()),
@@ -339,6 +347,12 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if km_context:
             km_section = f"## Organizational Knowledge\n{km_context}"
 
+        # Codebase context for code-grounded debates
+        codebase_section = ""
+        codebase_ctx = self.get_codebase_context()
+        if codebase_ctx:
+            codebase_section = f"## Codebase Context\n{codebase_ctx}"
+
         belief_section = ""
         belief_context = self._inject_belief_context(limit=2)
         if belief_context:
@@ -382,6 +396,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
 
         sections = [
             ContextSection("knowledge_mound", km_section.strip()),
+            ContextSection("codebase", codebase_section.strip()),
             ContextSection("patterns", patterns_section.strip()),
             ContextSection("belief", belief_section.strip()),
             ContextSection("calibration", calibration_section.strip()),

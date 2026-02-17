@@ -103,6 +103,9 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     arena.evidence_collector = core.evidence_collector
     arena.breakpoint_manager = core.breakpoint_manager
     arena.agent_selector = core.agent_selector
+    # Wire pulse_manager into TeamSelector for trending-topic-aware agent scoring
+    if arena.pulse_manager and hasattr(arena.agent_selector, "pulse_manager"):
+        arena.agent_selector.pulse_manager = arena.pulse_manager
     arena.use_performance_selection = core.use_performance_selection
     arena.checkpoint_manager = core.checkpoint_manager
     arena.org_id = core.org_id

@@ -149,6 +149,9 @@ class TeamSelectionConfig:
     # ContinuumMemory-informed selection
     memory_weight: float = 0.15  # Weight for memory-based score contribution
     enable_memory_selection: bool = True  # Enable ContinuumMemory-based agent scoring
+    # Pulse (trending topic) relevance scoring
+    enable_pulse_selection: bool = True  # Boost agents with expertise matching trending topics
+    pulse_weight: float = 0.1  # Weight for pulse relevance contribution
 
 
 class TeamSelector:
@@ -222,6 +225,7 @@ class TeamSelector:
         self.performance_adapter = performance_adapter
         self.feedback_loop = feedback_loop
         self.continuum_memory = continuum_memory
+        self.pulse_manager: Any = None  # Set externally or via Arena
         self.specialist_registry: Any = None  # Set externally or via Arena
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
@@ -1014,6 +1018,88 @@ class TeamSelector:
             logger.debug(f"Memory score failed for {getattr(agent, 'name', agent)}: {e}")
             return 0.0
 
+    def _compute_pulse_relevance(
+        self,
+        agent: Any,
+        task: str,
+        domain: str | None = None,
+    ) -> float:
+        """Score bonus for agents with expertise matching trending pulse topics.
+
+        When a debate task relates to a trending topic tracked by the Pulse
+        system, agents whose expertise aligns with that topic receive a score
+        boost. This makes the team composition responsive to real-world trends.
+
+        Args:
+            agent: Agent to score
+            task: Task description to match against trending topics
+            domain: Optional domain for additional context
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on pulse topic relevance
+        """
+        if not self.pulse_manager or not self.config.enable_pulse_selection:
+            return 0.0
+
+        try:
+            # Get trending topics from pulse manager
+            topics = []
+            if hasattr(self.pulse_manager, "get_trending_topics"):
+                topics = self.pulse_manager.get_trending_topics(limit=10) or []
+            elif hasattr(self.pulse_manager, "trending_topics"):
+                topics = self.pulse_manager.trending_topics or []
+
+            if not topics:
+                return 0.0
+
+            # Check if task relates to any trending topic
+            task_lower = task.lower()
+            matching_topics = []
+            for topic in topics:
+                topic_text = ""
+                if isinstance(topic, str):
+                    topic_text = topic.lower()
+                elif hasattr(topic, "title"):
+                    topic_text = topic.title.lower()
+                elif hasattr(topic, "name"):
+                    topic_text = topic.name.lower()
+
+                if not topic_text:
+                    continue
+
+                # Simple keyword overlap check
+                topic_words = set(topic_text.split())
+                task_words = set(task_lower.split())
+                overlap = len(topic_words & task_words)
+                if overlap >= 2 or any(w in task_lower for w in topic_words if len(w) > 4):
+                    freshness = getattr(topic, "freshness_score", 0.5)
+                    matching_topics.append(freshness)
+
+            if not matching_topics:
+                return 0.0
+
+            # Agent expertise alignment: boost agents whose domain/expertise
+            # matches the trending topic
+            agent_name = getattr(agent, "name", str(agent))
+            expertise = getattr(agent, "expertise", []) or []
+            if isinstance(expertise, str):
+                expertise = [expertise]
+
+            expertise_bonus = 0.0
+            if domain and expertise:
+                for exp in expertise:
+                    if isinstance(exp, str) and domain.lower() in exp.lower():
+                        expertise_bonus = 0.3
+                        break
+
+            # Combine: topic freshness * match quality + expertise alignment
+            topic_score = max(matching_topics)  # Best matching topic's freshness
+            return min(1.0, topic_score * 0.7 + expertise_bonus)
+
+        except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
+            logger.debug(f"Pulse relevance score failed for {getattr(agent, 'name', agent)}: {e}")
+            return 0.0
+
     async def _warm_culture_cache(self, cache_key: str, task_type: str) -> None:
         """Warm culture recommendation cache from async context.
 
@@ -1555,6 +1641,11 @@ class TeamSelector:
         if self.continuum_memory and self.config.enable_memory_selection and domain:
             memory_score = self._compute_memory_score(agent, domain, task)
             score += memory_score * self.config.memory_weight
+
+        # Pulse (trending topic) relevance (agents with expertise in trending areas get a boost)
+        if self.pulse_manager and self.config.enable_pulse_selection and task:
+            pulse_score = self._compute_pulse_relevance(agent, task, domain)
+            score += pulse_score * self.config.pulse_weight
 
         # Soft domain filter penalty (non-preferred agents get penalized)
         if agent.name in self._domain_non_preferred:

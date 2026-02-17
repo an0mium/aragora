@@ -324,6 +324,178 @@ def calculate_surprise_from_db_row(
     return update_surprise_ema(old_surprise, new_surprise, alpha)
 
 
+# ---------------------------------------------------------------------------
+# Titans-inspired content surprise scoring for unified memory writes
+# ---------------------------------------------------------------------------
+
+import re
+from collections import deque
+
+
+@dataclass(frozen=True)
+class ContentSurpriseScore:
+    """Result of Titans-inspired surprise scoring for a memory write candidate."""
+
+    novelty: float  # 0-1, how unexpected vs current memory state
+    momentum: float  # 0-1, how connected to recent surprise chain
+    combined: float  # weighted: 0.7*novelty + 0.3*momentum
+    should_store: bool  # combined >= threshold
+    reason: str  # human-readable explanation
+
+
+def _extract_keywords(text: str) -> set[str]:
+    """Extract lowercase keyword tokens from text."""
+    return {w for w in re.findall(r"[a-z]{3,}", text.lower()) if len(w) >= 3}
+
+
+class ContentSurpriseScorer:
+    """Titans-inspired surprise scoring for memory writes.
+
+    Scores how novel/surprising a piece of information is relative
+    to what the system already knows. High-surprise items get stored;
+    routine items are discarded or stored at lower tiers.
+
+    Reference: arXiv:2501.00663 - Titans: Learning to Memorize at Test Time
+    """
+
+    NOVELTY_WEIGHT = 0.7
+    MOMENTUM_WEIGHT = 0.3
+
+    def __init__(self, threshold: float = 0.3, momentum_window: int = 100):
+        self._threshold = threshold
+        self._recent_topics: deque[str] = deque(maxlen=momentum_window)
+        self._recent_surprises: deque[float] = deque(maxlen=momentum_window)
+
+    @property
+    def threshold(self) -> float:
+        return self._threshold
+
+    def score(
+        self,
+        content: str,
+        source: str,
+        existing_context: str = "",
+    ) -> ContentSurpriseScore:
+        """Score surprise using keyword overlap as a lightweight proxy.
+
+        Args:
+            content: The new content to evaluate.
+            source: Where this content came from (e.g. "debate", "document").
+            existing_context: What the system already knows about this topic.
+
+        Returns:
+            ContentSurpriseScore with novelty, momentum, and combined score.
+        """
+        content_kw = _extract_keywords(content)
+        if not content_kw:
+            return ContentSurpriseScore(
+                novelty=0.0,
+                momentum=0.0,
+                combined=0.0,
+                should_store=False,
+                reason="No extractable keywords",
+            )
+
+        # --- Novelty ---
+        if existing_context:
+            context_kw = _extract_keywords(existing_context)
+            if context_kw:
+                overlap = len(content_kw & context_kw)
+                novelty = 1.0 - (overlap / max(len(content_kw), 1))
+            else:
+                novelty = 1.0  # no prior context → fully novel
+        else:
+            novelty = 1.0
+
+        # --- Momentum ---
+        momentum = self._compute_momentum(content_kw)
+
+        # --- Combined ---
+        combined = round(
+            self.NOVELTY_WEIGHT * novelty + self.MOMENTUM_WEIGHT * momentum,
+            4,
+        )
+        should_store = combined >= self._threshold
+
+        # Build reason
+        if combined >= 0.7:
+            reason = f"High surprise ({combined:.2f}): novel content from {source}"
+        elif should_store:
+            reason = f"Moderate surprise ({combined:.2f}): worth storing from {source}"
+        else:
+            reason = f"Low surprise ({combined:.2f}): routine content from {source}"
+
+        # Track for momentum
+        self._recent_topics.append(" ".join(sorted(content_kw)[:10]))
+        self._recent_surprises.append(combined)
+
+        return ContentSurpriseScore(
+            novelty=round(novelty, 4),
+            momentum=round(momentum, 4),
+            combined=combined,
+            should_store=should_store,
+            reason=reason,
+        )
+
+    def score_debate_outcome(
+        self,
+        conclusion: str,
+        domain: str,
+        confidence: float,
+        prior_conclusions: list[str] | None = None,
+    ) -> ContentSurpriseScore:
+        """Specialised scorer for debate outcomes.
+
+        High surprise if: conclusion contradicts prior consensus, new domain,
+        or unanimous agreement on previously contentious topic.
+        """
+        prior_text = "\n".join(prior_conclusions) if prior_conclusions else ""
+        base = self.score(
+            content=f"[{domain}] {conclusion} (confidence={confidence:.2f})",
+            source="debate",
+            existing_context=prior_text,
+        )
+
+        # Boost novelty for high-confidence outcomes in new territory
+        novelty = base.novelty
+        if not prior_conclusions:
+            novelty = min(1.0, novelty + 0.2)
+        elif confidence >= 0.9 and novelty > 0.4:
+            novelty = min(1.0, novelty + 0.1)
+
+        combined = round(
+            self.NOVELTY_WEIGHT * novelty + self.MOMENTUM_WEIGHT * base.momentum,
+            4,
+        )
+        return ContentSurpriseScore(
+            novelty=round(novelty, 4),
+            momentum=base.momentum,
+            combined=combined,
+            should_store=combined >= self._threshold,
+            reason=base.reason,
+        )
+
+    def _compute_momentum(self, content_kw: set[str]) -> float:
+        """Momentum = how related to recent *surprising* topics."""
+        if not self._recent_topics or not self._recent_surprises:
+            return 0.5  # neutral when no history
+
+        recent_kw: set[str] = set()
+        for topic in list(self._recent_topics)[-20:]:
+            recent_kw.update(topic.split())
+
+        if not recent_kw:
+            return 0.5
+
+        overlap = len(content_kw & recent_kw)
+        relatedness = overlap / max(len(content_kw), 1)
+
+        recent = list(self._recent_surprises)[-10:]
+        avg_surprise = sum(recent) / len(recent) if recent else 0.5
+
+        return min(1.0, relatedness * 0.6 + avg_surprise * 0.4)
+
+
 # Type alias for custom base rate calculators
 BaseRateCalculator = Callable[[str], float]
 

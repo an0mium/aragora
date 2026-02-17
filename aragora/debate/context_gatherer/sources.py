@@ -692,6 +692,9 @@ class SourceGatheringMixin:
         except (RuntimeError, TypeError) as e:
             logger.warning("[knowledge] Unexpected error in Knowledge Mound query: %s", e)
             return None
+        except Exception as e:
+            logger.warning("[knowledge] Knowledge Mound query error: %s", e)
+            return None
 
     async def gather_belief_crux_context(
         self,

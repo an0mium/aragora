@@ -355,8 +355,8 @@ SHARE_UPDATE_SCHEMA = {
         "max_value": 8760,
         "required": False,
     },  # Max 1 year
-    "allow_comments": {"type": "string", "max_length": 10, "required": False},  # bool as string
-    "allow_forking": {"type": "string", "max_length": 10, "required": False},  # bool as string
+    "allow_comments": {"type": "bool", "required": False},
+    "allow_forking": {"type": "bool", "required": False},
 }
 
 # Email configuration schema

@@ -333,6 +333,11 @@ class MemoryConfig:
     supermemory_enable_resilience: bool = True  # Retry on transient failures
     supermemory_enable_km_adapter: bool = False  # Auto-enable KM adapter
 
+    # Codebase grounding (code-aware debates)
+    codebase_path: str | None = None  # Path to repository for code-grounded debates
+    enable_codebase_grounding: bool = False  # Inject codebase structure into debate context
+    codebase_persist_to_km: bool = False  # Persist codebase structures to Knowledge Mound
+
     # Checkpointing
     checkpoint_manager: Any | None = None  # CheckpointManager for resume
     enable_checkpointing: bool = True  # Auto-create CheckpointManager

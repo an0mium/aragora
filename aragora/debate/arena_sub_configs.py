@@ -625,6 +625,44 @@ class AutoExecutionConfig:
     auto_max_risk: str = "low"
 
 
+@dataclass
+class UnifiedMemorySubConfig:
+    """Unified Memory Gateway configuration.
+
+    Groups parameters for the cross-system memory gateway that provides
+    fan-out queries, deduplication, and ranking across all memory systems
+    (ContinuumMemory, Knowledge Mound, Supermemory, claude-mem).
+
+    When enabled, the gateway provides a single query/store API with
+    Titans/MIRAS-inspired retention decisions via the RetentionGate.
+
+    Example::
+
+        um_cfg = UnifiedMemorySubConfig(
+            enable_unified_memory=True,
+            enable_retention_gate=True,
+        )
+    """
+
+    # Master switch (opt-in, disabled by default)
+    enable_unified_memory: bool = False
+
+    # Enable Titans-inspired surprise-driven retention decisions
+    enable_retention_gate: bool = False
+
+    # Query timeout for individual memory sources (seconds)
+    query_timeout_seconds: float = 15.0
+
+    # Dedup similarity threshold (0-1, higher = stricter matching)
+    dedup_threshold: float = 0.95
+
+    # Default sources to query (None = all available)
+    default_sources: list[str] | None = None
+
+    # Whether to run source queries in parallel
+    parallel_queries: bool = True
+
+
 __all__ = [
     "HookConfig",
     "TrackingConfig",
@@ -642,4 +680,5 @@ __all__ = [
     "BudgetSubConfig",
     "PowerSamplingConfig",
     "AutoExecutionConfig",
+    "UnifiedMemorySubConfig",
 ]

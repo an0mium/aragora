@@ -379,6 +379,12 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self._knowledge_context: str = knowledge_context or ""
         self._km_item_ids: list[str] = []
 
+        # Codebase context for code-grounded debates
+        self._codebase_context: str = ""
+
+        # MemoryFabric unified query (set externally via set_memory_fabric)
+        self._memory_fabric: Any | None = None
+
         # Mode-based phase prompts (set externally by Arena via mode_sequence)
         self.mode_sequence: list[str] | None = None
         self._active_mode_name: str | None = None
@@ -427,6 +433,10 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         except ImportError:
             logger.debug("Modes module not available for phase prompts")
         return ""
+
+    def set_memory_fabric(self, fabric: Any) -> None:
+        """Set the MemoryFabric for unified cross-system context retrieval."""
+        self._memory_fabric = fabric
 
     def clear_caches(self) -> None:
         """Clear all caches. Call at session boundaries (e.g., debate end)."""

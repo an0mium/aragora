@@ -1,0 +1,159 @@
+"""
+CodebaseContextProvider - Thin wrapper that builds cached codebase context for debates.
+
+Uses NomicContextBuilder (existing) for actual indexing/summarization, and optionally
+syncs to Knowledge Mound via CodebaseAdapter. Manages crawl caching across debate rounds.
+
+Usage:
+    provider = CodebaseContextProvider(
+        config=CodebaseContextConfig(codebase_path=".", max_context_tokens=500)
+    )
+    context = await provider.build_context("Refactor the debate module")
+    summary = provider.get_summary(max_tokens=500)
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CodebaseContextConfig:
+    """Configuration for codebase context injection into debates."""
+
+    codebase_path: str | None = None
+    max_context_tokens: int = 500
+    persist_to_km: bool = False
+    include_tests: bool = False
+    cache_ttl_seconds: float = 300.0  # 5 minutes
+
+
+@dataclass
+class _CacheEntry:
+    """Internal cache entry for built context."""
+
+    context: str
+    built_at: float = field(default_factory=time.monotonic)
+
+
+class CodebaseContextProvider:
+    """
+    Builds and caches codebase context for debate agents.
+
+    First call builds an index via NomicContextBuilder (existing).
+    Subsequent calls return cached results. Optionally syncs to KM.
+    """
+
+    def __init__(self, config: CodebaseContextConfig | None = None):
+        self._config = config or CodebaseContextConfig()
+        self._cache: _CacheEntry | None = None
+        self._builder: Any | None = None
+        self._km_adapter: Any | None = None
+
+    @property
+    def config(self) -> CodebaseContextConfig:
+        return self._config
+
+    async def build_context(self, task: str) -> str:
+        """
+        Build codebase context for a debate task.
+
+        On first call, creates an index via NomicContextBuilder and
+        optionally syncs to Knowledge Mound. Subsequent calls within
+        the cache TTL return the cached result.
+
+        Args:
+            task: The debate task/question for context relevance
+
+        Returns:
+            Structured codebase context string
+        """
+        if not self._config.codebase_path:
+            return ""
+
+        # Check cache
+        if self._cache is not None:
+            age = time.monotonic() - self._cache.built_at
+            if age < self._config.cache_ttl_seconds:
+                return self._cache.context
+
+        try:
+            context = await self._build_fresh_context(task)
+            self._cache = _CacheEntry(context=context)
+
+            # Optionally sync to Knowledge Mound
+            if self._config.persist_to_km:
+                await self._sync_to_km()
+
+            return context
+        except (RuntimeError, ValueError, OSError, ImportError) as e:
+            logger.warning("Failed to build codebase context: %s", e)
+            return ""
+
+    def get_summary(self, max_tokens: int | None = None) -> str:
+        """
+        Get a truncated summary of the codebase context.
+
+        Args:
+            max_tokens: Maximum tokens for the summary (defaults to config)
+
+        Returns:
+            Truncated context string suitable for prompt injection
+        """
+        if self._cache is None:
+            return ""
+
+        limit = max_tokens or self._config.max_context_tokens
+        max_chars = limit * 4  # ~4 chars per token heuristic
+
+        context = self._cache.context
+        if len(context) <= max_chars:
+            return context
+
+        return context[:max_chars].rstrip() + "\n...[truncated]"
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the cached context, forcing rebuild on next call."""
+        self._cache = None
+
+    async def _build_fresh_context(self, task: str) -> str:
+        """Build fresh context using NomicContextBuilder."""
+        from aragora.nomic.context_builder import NomicContextBuilder
+
+        path = Path(self._config.codebase_path)  # type: ignore[arg-type]
+        if not path.exists():
+            logger.warning("Codebase path does not exist: %s", path)
+            return ""
+
+        self._builder = NomicContextBuilder(
+            aragora_path=path,
+            include_tests=self._config.include_tests,
+        )
+
+        context = await self._builder.build_debate_context()
+        return context
+
+    async def _sync_to_km(self) -> None:
+        """Sync codebase structures to Knowledge Mound via CodebaseAdapter."""
+        try:
+            from aragora.knowledge.mound.adapters.codebase_adapter import CodebaseAdapter
+
+            if self._km_adapter is None:
+                self._km_adapter = CodebaseAdapter()
+
+            if self._config.codebase_path:
+                await self._km_adapter.crawl_and_sync(self._config.codebase_path)
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.debug("KM sync skipped: %s", e)
+
+
+__all__ = [
+    "CodebaseContextConfig",
+    "CodebaseContextProvider",
+]
