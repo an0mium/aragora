@@ -430,6 +430,44 @@ class UnifiedHandler(  # type: ignore[misc]
                     logger.debug("Failed to send error response: %s", send_err)
             return
 
+        # Handler diagnostics endpoint (reveals route index state for debugging)
+        if path == "/api/debug/handlers":
+            try:
+                import json as _json
+                from aragora.server.handler_registry import HANDLERS_AVAILABLE, HANDLER_REGISTRY
+                from aragora.server.handler_registry.core import get_route_index
+
+                route_index = get_route_index()
+                auth_routes = [
+                    r for r in route_index._exact_routes
+                    if "/auth/" in r
+                ]
+                diag = {
+                    "handlers_available": HANDLERS_AVAILABLE,
+                    "handlers_initialized": getattr(self.__class__, "_handlers_initialized", "unknown"),
+                    "registry_count": len(HANDLER_REGISTRY),
+                    "exact_route_count": len(route_index._exact_routes),
+                    "prefix_route_count": len(route_index._prefix_routes),
+                    "auth_routes": sorted(auth_routes),
+                    "auth_handler_attr": hasattr(self, "_auth_handler"),
+                    "auth_handler_type": type(getattr(self, "_auth_handler", None)).__name__,
+                    "sample_routes": sorted(list(route_index._exact_routes.keys()))[:20],
+                }
+                content = _json.dumps(diag, default=str).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:  # noqa: BLE001
+                err = f'{{"error": "{type(e).__name__}: {e}"}}'.encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err)))
+                self.end_headers()
+                self.wfile.write(err)
+            return
+
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
@@ -533,6 +571,49 @@ class UnifiedHandler(  # type: ignore[misc]
         # Debug endpoint for POST testing
         if path == "/api/debug/post-test":
             self._send_json({"status": "ok", "message": "POST handling works"})
+        elif path == "/api/debug/post-trace":
+            # Trace why _try_modular_handler returned False
+            try:
+                import json as _json
+                from aragora.server.handler_registry import HANDLERS_AVAILABLE, HANDLER_REGISTRY
+                from aragora.server.handler_registry.core import get_route_index
+                from aragora.server.versioning import strip_version_prefix
+
+                test_path = "/api/v1/auth/login"
+                route_index = get_route_index()
+                normalized = strip_version_prefix(test_path)
+                exact_match = test_path in route_index._exact_routes
+                normalized_match = normalized in route_index._exact_routes
+
+                # Check handler directly
+                auth_handler = getattr(self, "_auth_handler", None)
+                can_handle = auth_handler.can_handle(normalized) if auth_handler else None
+
+                diag = {
+                    "handlers_available": HANDLERS_AVAILABLE,
+                    "handlers_initialized": getattr(self.__class__, "_handlers_initialized", "unknown"),
+                    "test_path": test_path,
+                    "normalized_path": normalized,
+                    "exact_match": exact_match,
+                    "normalized_match": normalized_match,
+                    "route_count": len(route_index._exact_routes),
+                    "auth_handler_exists": auth_handler is not None,
+                    "auth_handler_can_handle": can_handle,
+                    "auth_handler_type": type(auth_handler).__name__ if auth_handler else None,
+                }
+                content = _json.dumps(diag, default=str).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:  # noqa: BLE001
+                err = f'{{"error": "{type(e).__name__}: {e}"}}'.encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err)))
+                self.end_headers()
+                self.wfile.write(err)
         else:
             self.send_error(404, f"Unknown POST endpoint: {path}")
 
