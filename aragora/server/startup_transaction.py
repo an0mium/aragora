@@ -213,8 +213,8 @@ class StartupTransaction:
             self.mark_initialized(component)
             return result
         except (
-            Exception
-        ):  # Intentionally broad: startup transaction records all failures before re-raising
+            Exception  # noqa: BLE001 - startup transaction records all failures before re-raising
+        ):
             self.mark_failed(component)
             raise
 
@@ -251,8 +251,8 @@ class StartupTransaction:
                     if asyncio.iscoroutine(result):
                         await result
             except (
-                Exception
-            ) as e:  # Intentionally broad: cleanup must continue even if one cleanup fails
+                Exception  # noqa: BLE001 - cleanup must continue even if one cleanup fails
+            ) as e:
                 logger.exception(f"Cleanup failed for {component}: {e}")
 
         logger.info("Startup rollback complete")

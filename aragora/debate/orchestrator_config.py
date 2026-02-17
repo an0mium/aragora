@@ -94,6 +94,9 @@ class MergedConfig:
         "rlm_compression_round_threshold",
         "checkpoint_manager",
         "enable_checkpointing",
+        "codebase_path",
+        "enable_codebase_grounding",
+        "codebase_persist_to_km",
         "event_hooks",
         "hook_manager",
         "event_emitter",
@@ -211,6 +214,9 @@ class MergedConfig:
     rlm_compression_round_threshold: int
     checkpoint_manager: Any
     enable_checkpointing: bool
+    codebase_path: str | None
+    enable_codebase_grounding: bool
+    codebase_persist_to_km: bool
     event_hooks: Any
     hook_manager: Any
     event_emitter: Any
@@ -340,6 +346,9 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     rlm_compression_round_threshold: int,
     checkpoint_manager: Any,
     enable_checkpointing: bool,
+    codebase_path: str | None,
+    enable_codebase_grounding: bool,
+    codebase_persist_to_km: bool,
     event_hooks: Any,
     hook_manager: Any,
     event_emitter: Any,
@@ -460,6 +469,10 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         rlm_compression_round_threshold = memory_config.rlm_compression_round_threshold
         checkpoint_manager = memory_config.checkpoint_manager or checkpoint_manager
         enable_checkpointing = memory_config.enable_checkpointing
+        # Codebase grounding params from MemoryConfig
+        codebase_path = memory_config.codebase_path or codebase_path
+        enable_codebase_grounding = memory_config.enable_codebase_grounding
+        codebase_persist_to_km = memory_config.codebase_persist_to_km
         # Supermemory params from MemoryConfig
         if hasattr(memory_config, "enable_supermemory"):
             enable_supermemory = memory_config.enable_supermemory
@@ -725,6 +738,9 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.rlm_compression_round_threshold = rlm_compression_round_threshold
     cfg.checkpoint_manager = checkpoint_manager
     cfg.enable_checkpointing = enable_checkpointing
+    cfg.codebase_path = codebase_path
+    cfg.enable_codebase_grounding = enable_codebase_grounding
+    cfg.codebase_persist_to_km = codebase_persist_to_km
     cfg.event_hooks = event_hooks
     cfg.hook_manager = hook_manager
     cfg.event_emitter = event_emitter

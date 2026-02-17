@@ -316,7 +316,7 @@ class LiveExplainabilityStream:
                 agreement = 0.0
 
             trend = "stable"
-            if len(self._snapshots) >= 2:
+            if len(self._snapshots) >= 1:
                 prev_agreement = self._snapshots[-1].agent_agreement
                 if agreement > prev_agreement + 0.05:
                     trend = "rising"
