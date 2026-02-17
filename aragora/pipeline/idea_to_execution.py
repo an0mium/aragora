@@ -180,6 +180,21 @@ class IdeaToExecutionPipeline:
         self._goal_extractor = goal_extractor or GoalExtractor(agent=agent)
         self._agent = agent
 
+    @classmethod
+    def from_demo(cls) -> PipelineResult:
+        """Create a pre-built demo pipeline with example data.
+
+        Useful for frontend development and demonstrations.
+        """
+        pipeline = cls()
+        ideas = [
+            "Build a rate limiter for API endpoints",
+            "Add Redis-backed caching for frequently accessed data",
+            "Improve API docs with OpenAPI interactive playground",
+            "Set up end-to-end performance monitoring",
+        ]
+        return pipeline.from_ideas(ideas, auto_advance=True)
+
     def from_debate(
         self,
         cartographer_data: dict[str, Any],

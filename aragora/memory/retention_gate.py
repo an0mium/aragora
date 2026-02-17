@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aragora.memory.surprise import (
+    ContentSurpriseScorer,
     SurpriseScorer,
     calculate_surprise,
     update_surprise_ema,
@@ -66,9 +67,11 @@ class RetentionGate:
         self,
         config: RetentionGateConfig | None = None,
         scorer: SurpriseScorer | None = None,
+        content_scorer: ContentSurpriseScorer | None = None,
     ):
         self.config = config or RetentionGateConfig()
         self.scorer = scorer or SurpriseScorer(alpha=self.config.surprise_alpha)
+        self._content_scorer = content_scorer
         self._decisions: list[RetentionDecision] = []
 
     def evaluate(
@@ -164,6 +167,24 @@ class RetentionGate:
             + surprise_factor * (self.config.max_decay_rate - self.config.min_decay_rate)
         )
         return decay_rate
+
+    def score_content_surprise(
+        self, content: str, source: str, existing_context: str = ""
+    ) -> float:
+        """Score content novelty using the ContentSurpriseScorer if available.
+
+        Falls back to 0.5 (neutral) if no content scorer is configured.
+        This enables the MemoryCoordinator to get per-item content-aware
+        surprise scores rather than using the debate-level score for all items.
+        """
+        if self._content_scorer is None:
+            return 0.5
+        try:
+            score = self._content_scorer.score(content, source, existing_context)
+            return score.combined
+        except (RuntimeError, ValueError, AttributeError) as e:
+            logger.warning("Content surprise scoring failed: %s", e)
+            return 0.5
 
     def batch_evaluate(self, items: list[dict[str, Any]]) -> list[RetentionDecision]:
         """Evaluate a batch of items.

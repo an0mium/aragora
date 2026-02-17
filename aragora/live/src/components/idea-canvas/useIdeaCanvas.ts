@@ -18,8 +18,8 @@ const API_BASE = '/api/v1/ideas';
  * Core state management hook for the Idea Canvas.
  */
 export function useIdeaCanvas(canvasId: string | null) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [canvasMeta, setCanvasMeta] = useState<IdeaCanvasMeta | null>(null);
   const [loading, setLoading] = useState(false);

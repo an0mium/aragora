@@ -154,12 +154,24 @@ class GoalExtractor:
         4. Assign priority from support/evidence counts
         5. Create provenance links
 
+        If an AI agent is available, uses AI synthesis for richer goals.
+        Falls back to structural extraction if agent is None or fails.
+
         Args:
             idea_canvas_data: Canvas.to_dict() from Stage 1
 
         Returns:
             GoalGraph with extracted goals and provenance
         """
+        # Try AI-assisted extraction first if agent is available
+        if self._agent is not None:
+            try:
+                result = self._extract_with_ai(idea_canvas_data)
+                if result and result.goals:
+                    return result
+            except Exception:
+                logger.warning("AI goal synthesis failed, falling back to structural")
+
         nodes = idea_canvas_data.get("nodes", [])
         edges = idea_canvas_data.get("edges", [])
 
@@ -476,6 +488,165 @@ class GoalExtractor:
             goals=goals,
             provenance=provenance_links,
             transition=transition,
+        )
+
+    # =========================================================================
+    # AI-assisted extraction
+    # =========================================================================
+
+    def _extract_with_ai(
+        self,
+        idea_canvas_data: dict[str, Any],
+    ) -> GoalGraph | None:
+        """Use an AI agent to synthesize goals from idea clusters.
+
+        Prompts the agent with idea summaries and asks it to derive
+        SMART goals with priorities, dependencies, and measurability.
+
+        Returns None if the agent response cannot be parsed.
+        """
+        nodes = idea_canvas_data.get("nodes", [])
+        if not nodes:
+            return None
+
+        # Build a summary of ideas for the prompt
+        idea_summaries = []
+        for node in nodes:
+            label = node.get("label", "")
+            data = node.get("data", {})
+            idea_type = data.get("idea_type", "concept")
+            full_content = data.get("full_content", label)
+            idea_summaries.append(
+                f"- [{idea_type}] {full_content}"
+            )
+
+        prompt = (
+            "Given these ideas from a structured brainstorming session, "
+            "synthesize SMART goals (Specific, Measurable, Achievable, "
+            "Relevant, Time-bound).\n\n"
+            "Ideas:\n" + "\n".join(idea_summaries) + "\n\n"
+            "For each goal, provide:\n"
+            "1. title: An actionable goal title starting with a verb\n"
+            "2. description: One-sentence explanation\n"
+            "3. type: One of goal/principle/strategy/milestone/metric/risk\n"
+            "4. priority: One of critical/high/medium/low\n"
+            "5. measurable: How to measure success\n"
+            "6. source_ideas: Which idea numbers (0-indexed) this derives from\n\n"
+            "Return as JSON array of objects. Return ONLY the JSON array."
+        )
+
+        try:
+            # Use agent's generate method (standard Aragora agent interface)
+            if hasattr(self._agent, "generate"):
+                response = self._agent.generate(prompt)
+            elif hasattr(self._agent, "complete"):
+                response = self._agent.complete(prompt)
+            elif callable(self._agent):
+                response = self._agent(prompt)
+            else:
+                logger.warning("Agent has no generate/complete/callable interface")
+                return None
+
+            # Extract text from response
+            text = response if isinstance(response, str) else str(response)
+
+            # Parse JSON from response
+            parsed = self._parse_ai_goals(text, nodes)
+            return parsed
+        except Exception as e:
+            logger.warning("AI goal extraction failed: %s", e)
+            return None
+
+    def _parse_ai_goals(
+        self,
+        response_text: str,
+        source_nodes: list[dict[str, Any]],
+    ) -> GoalGraph | None:
+        """Parse AI response into a GoalGraph."""
+        # Try to extract JSON array from response
+        text = response_text.strip()
+        # Find JSON array boundaries
+        start = text.find("[")
+        end = text.rfind("]")
+        if start == -1 or end == -1:
+            return None
+
+        try:
+            goal_dicts = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            return None
+
+        if not isinstance(goal_dicts, list) or not goal_dicts:
+            return None
+
+        goals: list[GoalNode] = []
+        provenance_links: list[ProvenanceLink] = []
+
+        for i, gd in enumerate(goal_dicts):
+            if not isinstance(gd, dict):
+                continue
+
+            goal_type_str = gd.get("type", "goal")
+            try:
+                goal_type = GoalNodeType(goal_type_str)
+            except ValueError:
+                goal_type = GoalNodeType.GOAL
+
+            # Map source_ideas indices to node IDs
+            source_indices = gd.get("source_ideas", [])
+            source_ids = []
+            for idx in source_indices:
+                if isinstance(idx, int) and 0 <= idx < len(source_nodes):
+                    source_ids.append(source_nodes[idx].get("id", f"idea-{idx}"))
+
+            goal = GoalNode(
+                id=f"goal-ai-{uuid.uuid4().hex[:8]}",
+                title=gd.get("title", f"Goal {i + 1}"),
+                description=gd.get("description", ""),
+                goal_type=goal_type,
+                priority=gd.get("priority", "medium"),
+                measurable=gd.get("measurable", ""),
+                source_idea_ids=source_ids,
+                confidence=0.8,  # AI-generated goals get 0.8 baseline
+                metadata={"extraction_method": "ai_synthesis"},
+            )
+            goals.append(goal)
+
+            # Create provenance links
+            for src_id in source_ids:
+                provenance_links.append(
+                    ProvenanceLink(
+                        source_node_id=src_id,
+                        source_stage=PipelineStage.IDEAS,
+                        target_node_id=goal.id,
+                        target_stage=PipelineStage.GOALS,
+                        content_hash=content_hash(goal.title),
+                        method="ai_synthesis",
+                    )
+                )
+
+        if not goals:
+            return None
+
+        transition = StageTransition(
+            id=f"trans-ideas-goals-ai-{uuid.uuid4().hex[:8]}",
+            from_stage=PipelineStage.IDEAS,
+            to_stage=PipelineStage.GOALS,
+            provenance=provenance_links,
+            status="pending",
+            confidence=0.8,
+            ai_rationale=(
+                f"AI synthesized {len(goals)} SMART goals from "
+                f"{len(source_nodes)} ideas"
+            ),
+        )
+
+        return GoalGraph(
+            id=f"goals-ai-{uuid.uuid4().hex[:8]}",
+            goals=goals,
+            provenance=provenance_links,
+            transition=transition,
+            metadata={"extraction_method": "ai_synthesis"},
         )
 
     # =========================================================================

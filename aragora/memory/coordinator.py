@@ -721,6 +721,10 @@ class MemoryCoordinator:
 
             self._update_write_metrics(transaction)
 
+            # Post-write: evaluate retention and propagate contradictions
+            if transaction.success:
+                await self._post_write_retention(transaction, surprise)
+
         except asyncio.TimeoutError:
             logger.error("Transaction %s timed out", transaction.id)
             for op in transaction.operations:
@@ -1177,9 +1181,49 @@ class MemoryCoordinator:
                     self.metrics.writes_per_target.get(op.target, 0) + 1
                 )
 
+    async def _post_write_retention(
+        self,
+        transaction: MemoryTransaction,
+        surprise: Any,
+    ) -> None:
+        """Post-write hook: run retention evaluation and contradiction propagation.
+
+        Called automatically after a successful commit_debate_outcome.
+        Failures here are logged but never bubble up to the caller.
+        """
+        try:
+            decisions = await self.evaluate_retention(transaction, surprise_score=surprise.combined)
+            if not decisions:
+                return
+
+            # Check for high-confidence items that should be forgotten
+            # (indicates contradiction — a previously confident belief is now wrong)
+            for decision in decisions:
+                if (
+                    decision.action == "forget"
+                    and self.options.enable_contradiction_propagation
+                ):
+                    content = ""
+                    for op in transaction.get_successful_operations():
+                        if str(op.result) == decision.item_id:
+                            content = op.data.get("task", "") or op.data.get("conclusion", "")
+                            break
+
+                    if content:
+                        await self.propagate_contradiction_effects(
+                            contradicted_item_id=decision.item_id,
+                            source_system=decision.source_system,
+                            contradiction_confidence=1.0 - decision.surprise_score,
+                            related_content=content,
+                        )
+
+        except (RuntimeError, ValueError, AttributeError, OSError) as e:
+            logger.debug("Post-write retention evaluation failed: %s", e)
+
     async def evaluate_retention(
         self,
         transaction: MemoryTransaction,
+        surprise_score: float = 0.5,
     ) -> list[Any] | None:
         """Post-write hook: evaluate retention for committed items.
 
@@ -1188,6 +1232,7 @@ class MemoryCoordinator:
 
         Args:
             transaction: Completed transaction to evaluate
+            surprise_score: Debate-level surprise score from the surprise scorer.
 
         Returns:
             List of RetentionDecision objects, or None if gate not configured.
@@ -1201,11 +1246,19 @@ class MemoryCoordinator:
                 confidence = op.data.get("confidence", 0.5)
                 content = op.data.get("task", "") or op.data.get("conclusion", "")
 
+                # Use content-aware surprise if available
+                if hasattr(self.retention_gate, "score_content_surprise"):
+                    item_surprise = self.retention_gate.score_content_surprise(
+                        content, op.target
+                    )
+                else:
+                    item_surprise = surprise_score
+
                 decision = self.retention_gate.evaluate(
                     item_id=str(op.result),
                     source=op.target,
                     content=content,
-                    outcome_surprise=0.5,  # Default; callers can override
+                    outcome_surprise=item_surprise,
                     current_confidence=confidence,
                 )
                 decisions.append(decision)

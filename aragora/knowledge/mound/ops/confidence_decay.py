@@ -390,8 +390,17 @@ class ConfidenceDecayManager:
             if topics:
                 domain = topics[0].lower() if topics[0] else None
 
+            # Extract surprise score from item metadata if available
+            item_surprise: float | None = None
+            item_meta = getattr(item, "metadata", None) or {}
+            if isinstance(item_meta, dict):
+                item_surprise = item_meta.get("surprise_score")
+
             # Calculate new confidence
-            new_confidence = self.calculate_decay(old_confidence, age_days, domain)
+            new_confidence = self.calculate_decay(
+                old_confidence, age_days, domain,
+                surprise_score=item_surprise,
+            )
 
             # Only record if changed
             if abs(new_confidence - old_confidence) > 0.001:
@@ -402,7 +411,7 @@ class ConfidenceDecayManager:
                     old_confidence=old_confidence,
                     new_confidence=new_confidence,
                     reason=f"Time-based decay after {age_days:.1f} days",
-                    metadata={"age_days": age_days, "domain": domain},
+                    metadata={"age_days": age_days, "domain": domain, "surprise_score": item_surprise},
                 )
                 adjustments.append(adjustment)
 
