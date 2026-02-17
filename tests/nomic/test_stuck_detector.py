@@ -468,8 +468,23 @@ class TestStuckDetectorActionDetermination:
         action = detector._determine_action(item)
         assert action == RecoveryAction.NOTIFY
 
-    def test_action_red_is_reassign(self, detector):
-        """Should return REASSIGN for RED items."""
+    def test_action_red_first_attempt_is_retry(self, detector):
+        """Should return RETRY for RED items on first recovery attempt."""
+        item = StuckWorkItem(
+            id="item-001",
+            work_type="bead",
+            title="Test",
+            agent_id="agent-001",
+            age=WorkAge.RED,
+            last_update=_now(),
+            time_since_update=timedelta(minutes=15),
+        )
+        action = detector._determine_action(item)
+        assert action == RecoveryAction.RETRY
+
+    def test_action_red_subsequent_is_reassign(self, detector):
+        """Should return REASSIGN for RED items after first retry."""
+        detector._recovery_counts["item-001"] = 1
         item = StuckWorkItem(
             id="item-001",
             work_type="bead",
@@ -517,9 +532,10 @@ class TestStuckDetectorActionDetermination:
         assert action == RecoveryAction.CANCEL
 
     def test_action_escalate_when_auto_reassign_disabled(self, default_config):
-        """Should ESCALATE when auto_reassign_on_red is False."""
+        """Should ESCALATE when auto_reassign_on_red is False and retry already done."""
         default_config.auto_reassign_on_red = False
         detector = StuckDetector(config=default_config)
+        detector._recovery_counts["item-001"] = 1  # Past first retry
 
         item = StuckWorkItem(
             id="item-001",
@@ -1116,3 +1132,98 @@ class TestRecoveryCountTracking:
 
         action = detector._determine_action(item)
         assert action == RecoveryAction.CANCEL
+
+
+# ============================================================================
+# Test Retry Recovery Action
+# ============================================================================
+
+
+class TestRetryRecoveryAction:
+    """Tests for the RETRY recovery action in _determine_action and _do_retry."""
+
+    @pytest.fixture
+    def detector_with_stores(self, default_config):
+        """Create a detector with mock stores."""
+        bead_store = AsyncMock()
+        coordinator = MagicMock()
+        coordinator._assignments = {}
+        return StuckDetector(
+            bead_store=bead_store,
+            coordinator=coordinator,
+            config=default_config,
+        )
+
+    def test_first_red_recovery_is_retry(self, detector_with_stores):
+        """First recovery attempt on RED item should be RETRY."""
+        item = StuckWorkItem(
+            id="bead-retry-001",
+            work_type="bead",
+            title="Test",
+            agent_id="agent-001",
+            age=WorkAge.RED,
+            last_update=_now(),
+            time_since_update=timedelta(minutes=15),
+        )
+
+        action = detector_with_stores._determine_action(item)
+        assert action == RecoveryAction.RETRY
+
+    def test_second_red_recovery_is_reassign(self, detector_with_stores):
+        """Second recovery attempt should escalate to REASSIGN."""
+        detector_with_stores._recovery_counts["bead-002"] = 1
+
+        item = StuckWorkItem(
+            id="bead-002",
+            work_type="bead",
+            title="Test",
+            agent_id="agent-001",
+            age=WorkAge.RED,
+            last_update=_now(),
+            time_since_update=timedelta(minutes=15),
+        )
+
+        action = detector_with_stores._determine_action(item)
+        assert action == RecoveryAction.REASSIGN
+
+    @pytest.mark.asyncio
+    async def test_do_retry_resets_bead_to_pending(self, detector_with_stores):
+        """_do_retry should reset bead status to pending."""
+        mock_bead = MagicMock()
+        mock_bead.id = "bead-retry-001"
+        mock_bead.status = "in_progress"
+        detector_with_stores.bead_store.get = AsyncMock(return_value=mock_bead)
+        detector_with_stores.bead_store.update = AsyncMock()
+
+        item = StuckWorkItem(
+            id="bead-retry-001",
+            work_type="bead",
+            title="Test",
+            agent_id="agent-001",
+            age=WorkAge.RED,
+            last_update=_now(),
+            time_since_update=timedelta(minutes=15),
+        )
+
+        result = await detector_with_stores._do_retry(item)
+        assert result is True
+        assert mock_bead.status == "pending"
+        detector_with_stores.bead_store.update.assert_called_once_with(mock_bead)
+
+    @pytest.mark.asyncio
+    async def test_do_retry_no_store_returns_false(self, default_config):
+        """_do_retry with no bead_store returns False."""
+        detector = StuckDetector(config=default_config)
+
+        item = StuckWorkItem(
+            id="bead-nostore",
+            work_type="bead",
+            title="Test",
+            agent_id="agent-001",
+            age=WorkAge.RED,
+            last_update=_now(),
+            time_since_update=timedelta(minutes=15),
+        )
+
+        result = await detector._do_retry(item)
+        assert result is False

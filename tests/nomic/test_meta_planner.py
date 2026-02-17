@@ -923,3 +923,194 @@ class TestPrioritizedGoalExtended:
 
         assert len(goal.focus_areas) == 3
         assert "navigation" in goal.focus_areas
+
+
+class TestOutcomeFeedbackIntegration:
+    """Tests that NomicOutcomeTracker regressions flow into MetaPlanner planning context."""
+
+    @pytest.mark.asyncio
+    async def test_regressions_injected_into_context(self):
+        """When get_regression_history returns data, it should appear in past_failures_to_avoid."""
+        planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
+        context = PlanningContext()
+
+        regressions = [
+            {
+                "cycle_id": "cycle_abc12345",
+                "regressed_metrics": ["consensus_rate", "avg_tokens"],
+                "recommendation": "revert",
+            },
+            {
+                "cycle_id": "cycle_def67890",
+                "regressed_metrics": ["calibration_spread"],
+                "recommendation": "review",
+            },
+        ]
+
+        with (
+            patch(
+                "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+                side_effect=ImportError("skip KM"),
+            ) if False else patch(
+                "aragora.nomic.outcome_tracker.NomicOutcomeTracker.get_regression_history",
+                return_value=regressions,
+            ) as mock_reg,
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                side_effect=ImportError("skip KM"),
+            ),
+            patch(
+                "aragora.pipeline.plan_store.get_plan_store",
+                side_effect=ImportError("skip plan store"),
+            ),
+            patch(
+                "aragora.ranking.elo.get_elo_store",
+                side_effect=ImportError("skip elo"),
+            ),
+        ):
+            enriched = await planner._enrich_context_with_history(
+                objective="Test objective",
+                tracks=[Track.SME],
+                context=context,
+            )
+
+        mock_reg.assert_called_once_with(limit=5)
+
+        # Check that regressions were injected
+        regression_entries = [
+            f for f in enriched.past_failures_to_avoid
+            if "[outcome_regression]" in f
+        ]
+        assert len(regression_entries) == 2
+
+        # First regression entry should reference the cycle and metrics
+        assert "cycle_ab" in regression_entries[0]
+        assert "consensus_rate" in regression_entries[0]
+        assert "avg_tokens" in regression_entries[0]
+        assert "revert" in regression_entries[0]
+
+        # Second regression entry
+        assert "cycle_de" in regression_entries[1]
+        assert "calibration_spread" in regression_entries[1]
+        assert "review" in regression_entries[1]
+
+    @pytest.mark.asyncio
+    async def test_no_regressions_no_entries(self):
+        """When get_regression_history returns empty, no regression entries added."""
+        planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
+        context = PlanningContext()
+
+        with (
+            patch(
+                "aragora.nomic.outcome_tracker.NomicOutcomeTracker.get_regression_history",
+                return_value=[],
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                side_effect=ImportError("skip KM"),
+            ),
+            patch(
+                "aragora.pipeline.plan_store.get_plan_store",
+                side_effect=ImportError("skip plan store"),
+            ),
+            patch(
+                "aragora.ranking.elo.get_elo_store",
+                side_effect=ImportError("skip elo"),
+            ),
+        ):
+            enriched = await planner._enrich_context_with_history(
+                objective="Test objective",
+                tracks=[Track.QA],
+                context=context,
+            )
+
+        regression_entries = [
+            f for f in enriched.past_failures_to_avoid
+            if "[outcome_regression]" in f
+        ]
+        assert len(regression_entries) == 0
+
+    @pytest.mark.asyncio
+    async def test_import_error_gracefully_handled(self):
+        """ImportError from outcome tracker should not break enrichment."""
+        planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
+        context = PlanningContext()
+
+        # Simulate the case where outcome_tracker cannot be imported
+        with (
+            patch.dict("sys.modules", {"aragora.nomic.outcome_tracker": None}),
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                side_effect=ImportError("skip KM"),
+            ),
+            patch(
+                "aragora.pipeline.plan_store.get_plan_store",
+                side_effect=ImportError("skip plan store"),
+            ),
+            patch(
+                "aragora.ranking.elo.get_elo_store",
+                side_effect=ImportError("skip elo"),
+            ),
+        ):
+            enriched = await planner._enrich_context_with_history(
+                objective="Test objective",
+                tracks=[Track.CORE],
+                context=context,
+            )
+
+        # Should still return context without crashing
+        assert isinstance(enriched, PlanningContext)
+
+    @pytest.mark.asyncio
+    async def test_runtime_error_gracefully_handled(self):
+        """RuntimeError from get_regression_history should not break enrichment."""
+        planner = MetaPlanner(MetaPlannerConfig(enable_cross_cycle_learning=True))
+        context = PlanningContext()
+
+        with (
+            patch(
+                "aragora.nomic.outcome_tracker.NomicOutcomeTracker.get_regression_history",
+                side_effect=RuntimeError("store corrupted"),
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                side_effect=ImportError("skip KM"),
+            ),
+            patch(
+                "aragora.pipeline.plan_store.get_plan_store",
+                side_effect=ImportError("skip plan store"),
+            ),
+            patch(
+                "aragora.ranking.elo.get_elo_store",
+                side_effect=ImportError("skip elo"),
+            ),
+        ):
+            enriched = await planner._enrich_context_with_history(
+                objective="Test objective",
+                tracks=[Track.SECURITY],
+                context=context,
+            )
+
+        # Should still return context without crashing
+        assert isinstance(enriched, PlanningContext)
+
+    def test_regressions_appear_in_debate_topic(self):
+        """Regression entries should flow through to the debate topic text."""
+        planner = MetaPlanner()
+        context = PlanningContext(
+            past_failures_to_avoid=[
+                "[outcome_regression] Cycle cycle_ab regressed: consensus_rate, avg_tokens "
+                "(recommendation: revert)"
+            ],
+        )
+
+        topic = planner._build_debate_topic(
+            objective="Improve quality",
+            tracks=[Track.CORE],
+            constraints=[],
+            context=context,
+        )
+
+        assert "outcome_regression" in topic
+        assert "consensus_rate" in topic
+        assert "PAST FAILURES TO AVOID" in topic

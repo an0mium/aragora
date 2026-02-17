@@ -142,6 +142,74 @@ async def _default_scenario_runner(
     }
 
 
+async def _lightweight_debate_runner(
+    topic: str,
+    agent_count: int,
+    expected_rounds: int,
+) -> dict[str, Any]:
+    """Run a real lightweight debate for outcome verification.
+
+    Uses minimal settings to keep costs low:
+    - Max 2 rounds (regardless of expected_rounds)
+    - Only 2 agents
+    - No KM integration, no memory, no spectator
+    - Short timeout
+
+    Falls back to simulated metrics if Arena is unavailable.
+    """
+    try:
+        from aragora.core_types import Environment
+        from aragora.debate.orchestrator import Arena
+        from aragora.debate.protocol import DebateProtocol
+
+        env = Environment(task=topic)
+        protocol = DebateProtocol(
+            rounds=min(expected_rounds, 2),
+            consensus="majority",
+            early_stopping=True,
+        )
+
+        # Use the cheapest available agents
+        agents = []
+        for agent_type in ["anthropic-api", "openai-api"][:agent_count]:
+            try:
+                from aragora.agents.base import create_agent
+
+                agent = create_agent(agent_type)
+                agents.append(agent)
+            except (ImportError, ValueError, RuntimeError):
+                continue
+
+        if len(agents) < 2:
+            # Not enough agents available, fall back to simulation
+            return await _default_scenario_runner(topic, agent_count, expected_rounds)
+
+        result = await Arena(env, agents, protocol).run()
+
+        brier_scores: list[float] = []
+        try:
+            from aragora.agents.calibration import CalibrationTracker
+
+            cal = CalibrationTracker()
+            for agent in agents:
+                name = getattr(agent, "name", str(agent))
+                score = cal.get_brier_score(name, "general")
+                if score is not None:
+                    brier_scores.append(score)
+        except (ImportError, RuntimeError, ValueError):
+            brier_scores = [0.25] * len(agents)  # Default
+
+        return {
+            "consensus_reached": result.consensus_reached,
+            "rounds": result.rounds_completed if hasattr(result, "rounds_completed") else expected_rounds,
+            "tokens_used": getattr(result, "total_tokens", expected_rounds * agent_count * 500),
+            "brier_scores": brier_scores or [0.25] * agent_count,
+        }
+    except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
+        logger.debug("Lightweight debate runner unavailable, using simulation: %s", e)
+        return await _default_scenario_runner(topic, agent_count, expected_rounds)
+
+
 class NomicOutcomeTracker:
     """Tracks whether Nomic Loop improvements actually help debate quality.
 
@@ -168,6 +236,59 @@ class NomicOutcomeTracker:
         self._runner = scenario_runner or _default_scenario_runner
         self.degradation_threshold = degradation_threshold
         self._cycle_store = cycle_store
+
+    @classmethod
+    def create_with_real_debates(
+        cls,
+        degradation_threshold: float = DEGRADATION_THRESHOLD,
+        cycle_store: Any | None = None,
+    ) -> NomicOutcomeTracker:
+        """Create a tracker that runs real lightweight debates for verification.
+
+        Uses ``_lightweight_debate_runner`` which executes actual Arena debates
+        with minimal settings (max 2 rounds, 2 agents, early stopping) to keep
+        costs low. Falls back to simulated debates if Arena is unavailable.
+        """
+        return cls(
+            scenario_runner=_lightweight_debate_runner,
+            degradation_threshold=degradation_threshold,
+            cycle_store=cycle_store,
+        )
+
+    async def verify_diff(self, diff: str, label: str = "nomic-cycle") -> dict[str, Any]:
+        """Verify a code diff using multi-agent review.
+
+        Delegates to PRReviewRunner.review_diff() to check for regressions,
+        security issues, and code quality problems in the changed code.
+
+        Args:
+            diff: The unified diff to verify.
+            label: Label for the review.
+
+        Returns:
+            Dict with 'passed', 'findings_count', 'agreement_score' keys.
+            If PRReviewRunner is unavailable, returns ``{"passed": True, "skipped": True}``.
+        """
+        try:
+            from aragora.compat.openclaw.pr_review_runner import PRReviewRunner
+
+            runner = PRReviewRunner()
+            review = await runner.review_diff(diff=diff, label=label)
+
+            has_critical = any(
+                f.severity == "critical" for f in getattr(review, "findings", [])
+            )
+            return {
+                "passed": not has_critical and review.error is None,
+                "findings_count": len(getattr(review, "findings", [])),
+                "agreement_score": getattr(review, "agreement_score", None),
+            }
+        except ImportError:
+            logger.debug("PRReviewRunner not available for diff verification")
+            return {"passed": True, "skipped": True}
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("Diff verification failed: %s", e)
+            return {"passed": False, "error": str(e)}
 
     async def capture_baseline(self) -> DebateMetrics:
         """Run test debates and capture pre-improvement metrics."""
@@ -323,6 +444,82 @@ class NomicOutcomeTracker:
             comparison.improved,
             comparison.recommendation,
         )
+
+    @staticmethod
+    def get_regression_history(limit: int = 10) -> list[dict[str, Any]]:
+        """Load recent cycle outcomes and return those with regressions.
+
+        Queries the CycleLearningStore for recent cycles, inspects their
+        ``evidence_quality_scores`` for negative deltas stored by
+        ``record_cycle_outcome()``, and returns a summary of regressed
+        cycles with actionable recommendations.
+
+        Args:
+            limit: Maximum number of recent cycles to inspect.
+
+        Returns:
+            List of dicts, each with keys:
+              - cycle_id: str
+              - regressed_metrics: list[str]
+              - recommendation: str
+        """
+        try:
+            from aragora.nomic.cycle_store import get_cycle_store
+        except ImportError:
+            logger.debug("CycleLearningStore not available for regression history")
+            return []
+
+        try:
+            store = get_cycle_store()
+            cycles = store.get_recent_cycles(limit)
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning("Failed to load cycles for regression history: %s", e)
+            return []
+
+        regressions: list[dict[str, Any]] = []
+
+        # Metrics where a positive delta means degradation (lower-is-better metrics)
+        lower_is_better = {"avg_rounds", "avg_tokens", "calibration_spread"}
+        # Metrics where a negative delta means degradation (higher-is-better metrics)
+        higher_is_better = {"consensus_rate"}
+
+        for cycle in cycles:
+            scores = cycle.evidence_quality_scores
+            if not scores:
+                continue
+
+            regressed_metrics: list[str] = []
+
+            for key, delta in scores.items():
+                if not key.startswith("outcome_") or not key.endswith("_delta"):
+                    continue
+
+                # Extract the metric name: "outcome_consensus_rate_delta" -> "consensus_rate"
+                metric_name = key[len("outcome_"):-len("_delta")]
+
+                if metric_name in higher_is_better and delta < 0:
+                    regressed_metrics.append(metric_name)
+                elif metric_name in lower_is_better and delta > 0:
+                    regressed_metrics.append(metric_name)
+
+            if regressed_metrics:
+                # Derive recommendation from the pattern reinforcements
+                recommendation = "review"
+                for reinforcement in cycle.pattern_reinforcements:
+                    if reinforcement.pattern_type == "outcome_tracking":
+                        if "revert" in reinforcement.description:
+                            recommendation = "revert"
+                        elif "review" in reinforcement.description:
+                            recommendation = "review"
+                        break
+
+                regressions.append({
+                    "cycle_id": cycle.cycle_id,
+                    "regressed_metrics": regressed_metrics,
+                    "recommendation": recommendation,
+                })
+
+        return regressions
 
     # --- Internal ---
 

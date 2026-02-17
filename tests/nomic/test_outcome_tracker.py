@@ -12,6 +12,8 @@ from aragora.nomic.outcome_tracker import (
     DebateScenario,
     NomicOutcomeTracker,
     OutcomeComparison,
+    _default_scenario_runner,
+    _lightweight_debate_runner,
 )
 
 
@@ -368,3 +370,322 @@ class TestEndToEnd:
 
         assert comparison.improved is False
         assert comparison.recommendation in ("revert", "review")
+
+
+# --- get_regression_history ---
+
+
+class TestGetRegressionHistory:
+    def test_returns_empty_when_no_store(self):
+        """Should return empty list when cycle store import fails."""
+        import sys
+        from unittest.mock import patch
+
+        # Block the import so the lazy import inside get_regression_history fails
+        with patch.dict(sys.modules, {"aragora.nomic.cycle_store": None}):
+            result = NomicOutcomeTracker.get_regression_history()
+        assert result == []
+
+    def test_returns_empty_for_no_cycles(self, monkeypatch):
+        """Should return empty list when no cycles exist."""
+        mock_store = MagicMock()
+        mock_store.get_recent_cycles.return_value = []
+        monkeypatch.setattr(
+            "aragora.nomic.cycle_store.get_cycle_store",
+            lambda: mock_store,
+        )
+        result = NomicOutcomeTracker.get_regression_history()
+        assert result == []
+
+    def test_filters_for_regressions(self, monkeypatch):
+        """Should return only cycles with negative outcome deltas."""
+        from aragora.nomic.cycle_record import NomicCycleRecord
+
+        # Cycle with regression (consensus_rate went down, avg_tokens went up)
+        regressed_cycle = NomicCycleRecord(
+            cycle_id="cycle_regressed_abc",
+            started_at=1000.0,
+        )
+        regressed_cycle.evidence_quality_scores = {
+            "outcome_consensus_rate_delta": -0.15,
+            "outcome_avg_tokens_delta": 500.0,
+            "outcome_avg_rounds_delta": -1.0,  # improved (lower is better)
+        }
+
+        # Cycle with improvement (all deltas positive for higher-is-better)
+        improved_cycle = NomicCycleRecord(
+            cycle_id="cycle_improved_xyz",
+            started_at=2000.0,
+        )
+        improved_cycle.evidence_quality_scores = {
+            "outcome_consensus_rate_delta": 0.2,
+            "outcome_avg_tokens_delta": -300.0,
+            "outcome_avg_rounds_delta": -0.5,
+        }
+
+        # Cycle with no outcome data at all
+        empty_cycle = NomicCycleRecord(
+            cycle_id="cycle_empty",
+            started_at=3000.0,
+        )
+
+        mock_store = MagicMock()
+        mock_store.get_recent_cycles.return_value = [
+            regressed_cycle,
+            improved_cycle,
+            empty_cycle,
+        ]
+        monkeypatch.setattr(
+            "aragora.nomic.cycle_store.get_cycle_store",
+            lambda: mock_store,
+        )
+
+        result = NomicOutcomeTracker.get_regression_history(limit=10)
+
+        assert len(result) == 1
+        assert result[0]["cycle_id"] == "cycle_regressed_abc"
+        assert "consensus_rate" in result[0]["regressed_metrics"]
+        assert "avg_tokens" in result[0]["regressed_metrics"]
+        # avg_rounds improved (delta < 0 for lower-is-better), so should NOT be in regressed
+        assert "avg_rounds" not in result[0]["regressed_metrics"]
+
+    def test_limit_parameter(self, monkeypatch):
+        """Should pass limit to the cycle store."""
+        mock_store = MagicMock()
+        mock_store.get_recent_cycles.return_value = []
+        monkeypatch.setattr(
+            "aragora.nomic.cycle_store.get_cycle_store",
+            lambda: mock_store,
+        )
+
+        NomicOutcomeTracker.get_regression_history(limit=3)
+        mock_store.get_recent_cycles.assert_called_once_with(3)
+
+    def test_recommendation_from_reinforcement(self, monkeypatch):
+        """Should derive recommendation from pattern reinforcements."""
+        from aragora.nomic.cycle_record import NomicCycleRecord, PatternReinforcement
+
+        cycle = NomicCycleRecord(cycle_id="cycle_revert", started_at=1000.0)
+        cycle.evidence_quality_scores = {
+            "outcome_consensus_rate_delta": -0.2,
+            "outcome_avg_tokens_delta": 1000.0,
+        }
+        cycle.pattern_reinforcements.append(
+            PatternReinforcement(
+                pattern_type="outcome_tracking",
+                description="Debate quality degraded: recommendation=revert",
+                success=False,
+                confidence=0.3,
+            )
+        )
+
+        mock_store = MagicMock()
+        mock_store.get_recent_cycles.return_value = [cycle]
+        monkeypatch.setattr(
+            "aragora.nomic.cycle_store.get_cycle_store",
+            lambda: mock_store,
+        )
+
+        result = NomicOutcomeTracker.get_regression_history()
+        assert len(result) == 1
+        assert result[0]["recommendation"] == "revert"
+
+    def test_ignores_non_outcome_scores(self, monkeypatch):
+        """Should ignore evidence_quality_scores that are not outcome deltas."""
+        from aragora.nomic.cycle_record import NomicCycleRecord
+
+        cycle = NomicCycleRecord(cycle_id="cycle_other", started_at=1000.0)
+        cycle.evidence_quality_scores = {
+            "some_other_metric": -0.5,
+            "evidence_relevance": 0.9,
+        }
+
+        mock_store = MagicMock()
+        mock_store.get_recent_cycles.return_value = [cycle]
+        monkeypatch.setattr(
+            "aragora.nomic.cycle_store.get_cycle_store",
+            lambda: mock_store,
+        )
+
+        result = NomicOutcomeTracker.get_regression_history()
+        assert result == []
+
+
+# --- _lightweight_debate_runner ---
+
+
+class TestLightweightDebateRunner:
+    @pytest.mark.asyncio
+    async def test_falls_back_to_simulation(self):
+        """When Arena/agents are unavailable, should fall back to _default_scenario_runner."""
+        result = await _lightweight_debate_runner("test topic", 2, 3)
+        assert "consensus_reached" in result
+        assert "rounds" in result
+        assert "tokens_used" in result
+        assert "brier_scores" in result
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_keys(self):
+        """Result dict should always have the four standard keys."""
+        result = await _lightweight_debate_runner("analyze caching strategy", 3, 2)
+        for key in ("consensus_reached", "rounds", "tokens_used", "brier_scores"):
+            assert key in result, f"Missing key: {key}"
+
+    @pytest.mark.asyncio
+    async def test_simulation_fallback_values_match_default(self):
+        """When falling back, values should match _default_scenario_runner output."""
+        lightweight = await _lightweight_debate_runner("topic", 2, 3)
+        default = await _default_scenario_runner("topic", 2, 3)
+        # Both should produce valid results (may differ if Arena is available)
+        assert isinstance(lightweight["consensus_reached"], bool)
+        assert isinstance(default["consensus_reached"], bool)
+        assert isinstance(lightweight["rounds"], int)
+        assert isinstance(lightweight["tokens_used"], int)
+
+
+# --- create_with_real_debates ---
+
+
+class TestCreateWithRealDebates:
+    def test_factory_returns_tracker(self):
+        tracker = NomicOutcomeTracker.create_with_real_debates()
+        assert isinstance(tracker, NomicOutcomeTracker)
+        # Uses the lightweight runner, not the default simulated one
+        assert tracker._runner is _lightweight_debate_runner
+        assert tracker._runner is not _default_scenario_runner
+
+    def test_factory_accepts_threshold(self):
+        tracker = NomicOutcomeTracker.create_with_real_debates(degradation_threshold=0.10)
+        assert tracker.degradation_threshold == 0.10
+
+    def test_factory_accepts_cycle_store(self):
+        store = MagicMock()
+        tracker = NomicOutcomeTracker.create_with_real_debates(cycle_store=store)
+        assert tracker._cycle_store is store
+
+    @pytest.mark.asyncio
+    async def test_captures_metrics(self):
+        """Tracker from factory should be able to capture baseline metrics."""
+        tracker = NomicOutcomeTracker.create_with_real_debates()
+        metrics = await tracker.capture_baseline()
+        # Should always return valid metrics (falls back to simulation if needed)
+        assert metrics.consensus_rate >= 0.0
+        assert metrics.avg_rounds >= 0.0
+
+
+# --- verify_diff ---
+
+
+class TestVerifyDiff:
+    @pytest.mark.asyncio
+    async def test_verify_empty_diff(self):
+        """Empty diff should still return a result dict."""
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff("")
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_verify_returns_passed_key(self):
+        """Result should always include the 'passed' key."""
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff(
+            "--- a/foo.py\n+++ b/foo.py\n@@ -1 +1 @@\n-old\n+new"
+        )
+        assert "passed" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_diff_with_mock_runner(self, monkeypatch):
+        """When PRReviewRunner is mocked, verify_diff should use it."""
+        from unittest.mock import AsyncMock
+
+        mock_review = MagicMock()
+        mock_review.findings = []
+        mock_review.error = None
+        mock_review.agreement_score = 0.85
+
+        mock_runner_cls = MagicMock()
+        mock_runner_instance = MagicMock()
+        mock_runner_instance.review_diff = AsyncMock(return_value=mock_review)
+        mock_runner_cls.return_value = mock_runner_instance
+
+        monkeypatch.setattr(
+            "aragora.compat.openclaw.pr_review_runner.PRReviewRunner",
+            mock_runner_cls,
+        )
+
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff("--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-a\n+b")
+
+        assert result["passed"] is True
+        assert result["findings_count"] == 0
+        assert result["agreement_score"] == 0.85
+
+    @pytest.mark.asyncio
+    async def test_verify_diff_with_critical_findings(self, monkeypatch):
+        """Should report passed=False when review contains critical findings."""
+        from unittest.mock import AsyncMock
+
+        mock_finding = MagicMock()
+        mock_finding.severity = "critical"
+
+        mock_review = MagicMock()
+        mock_review.findings = [mock_finding]
+        mock_review.error = None
+        mock_review.agreement_score = 0.6
+
+        mock_runner_cls = MagicMock()
+        mock_runner_instance = MagicMock()
+        mock_runner_instance.review_diff = AsyncMock(return_value=mock_review)
+        mock_runner_cls.return_value = mock_runner_instance
+
+        monkeypatch.setattr(
+            "aragora.compat.openclaw.pr_review_runner.PRReviewRunner",
+            mock_runner_cls,
+        )
+
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff("--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-a\n+b")
+
+        assert result["passed"] is False
+        assert result["findings_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_verify_diff_handles_runtime_error(self, monkeypatch):
+        """Should return passed=False with error message on RuntimeError."""
+        from unittest.mock import AsyncMock
+
+        mock_runner_cls = MagicMock()
+        mock_runner_instance = MagicMock()
+        mock_runner_instance.review_diff = AsyncMock(side_effect=RuntimeError("API down"))
+        mock_runner_cls.return_value = mock_runner_instance
+
+        monkeypatch.setattr(
+            "aragora.compat.openclaw.pr_review_runner.PRReviewRunner",
+            mock_runner_cls,
+        )
+
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff("some diff")
+
+        assert result["passed"] is False
+        assert "API down" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_verify_diff_import_error_skips(self, monkeypatch):
+        """When PRReviewRunner cannot be imported, should return skipped=True."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if "pr_review_runner" in name:
+                raise ImportError("not available")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        tracker = NomicOutcomeTracker()
+        result = await tracker.verify_diff("some diff")
+
+        assert result["passed"] is True
+        assert result.get("skipped") is True

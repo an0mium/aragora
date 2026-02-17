@@ -260,11 +260,14 @@ class StuckDetector:
         if item.age == WorkAge.YELLOW:
             return RecoveryAction.NOTIFY
 
-        # RED status
+        # RED status — progressive recovery: retry → reassign → escalate → cancel
         if recovery_count >= self.config.cancel_after_recoveries:
             return RecoveryAction.CANCEL
         elif recovery_count >= self.config.escalate_after_recoveries:
             return RecoveryAction.ESCALATE
+        elif recovery_count == 0:
+            # First recovery attempt: try retrying from checkpoint
+            return RecoveryAction.RETRY
         elif self.config.auto_reassign_on_red:
             return RecoveryAction.REASSIGN
         else:
@@ -489,9 +492,33 @@ class StuckDetector:
         return False
 
     async def _do_retry(self, item: StuckWorkItem) -> bool:
-        """Retry stuck work from checkpoint."""
-        # This would integrate with molecule checkpointing
-        logger.info(f"Would retry {item.id} from checkpoint")
+        """Retry stuck work by resetting it to pending status.
+
+        For beads, resets status to 'pending' so a convoy can re-claim it.
+        For assignments, resets the assignment to allow the same agent to retry.
+        """
+        if item.work_type == "bead" and self.bead_store:
+            bead = await self.bead_store.get(item.id)
+            if bead and hasattr(bead, "status"):
+                bead.status = "pending"
+                await self.bead_store.update(bead)
+                logger.info(f"Reset stuck bead {item.id} to pending for retry")
+                return True
+
+        elif item.work_type == "assignment" and self.coordinator:
+            assignment = self.coordinator._assignments.get(item.id)
+            if assignment and hasattr(assignment, "status"):
+                from aragora.nomic.convoy_coordinator import AssignmentStatus
+
+                await self.coordinator.update_assignment_status(
+                    assignment.bead_id,
+                    AssignmentStatus.PENDING,
+                    "Retrying after stuck detection",
+                )
+                logger.info(f"Reset stuck assignment {item.id} to pending for retry")
+                return True
+
+        logger.info(f"Cannot retry {item.id} ({item.work_type}): no store available")
         return False
 
     async def check_item(self, item_id: str, work_type: str) -> StuckWorkItem | None:

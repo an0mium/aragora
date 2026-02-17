@@ -363,6 +363,24 @@ class MetaPlanner:
         except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Failed to load pipeline outcomes: {e}")
 
+        # Outcome tracker feedback: inject regression data from past cycles
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regressions = NomicOutcomeTracker.get_regression_history(limit=5)
+            for reg in regressions:
+                regressed = ", ".join(reg["regressed_metrics"])
+                context.past_failures_to_avoid.append(
+                    f"[outcome_regression] Cycle {reg['cycle_id'][:8]} regressed: {regressed} "
+                    f"(recommendation: {reg['recommendation']})"
+                )
+            if regressions:
+                logger.info("outcome_feedback loaded=%d regressions for planning", len(regressions))
+        except ImportError:
+            logger.debug("OutcomeTracker not available, skipping regression feedback")
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning(f"Failed to load outcome regressions: {e}")
+
         # --- Calibration data enrichment ---
         try:
             from aragora.ranking.elo import get_elo_store

@@ -258,6 +258,20 @@ from aragora.nomic.outcome_tracker import (
     OutcomeComparison,
 )
 
+# Self-improvement pipeline
+from aragora.nomic.self_improve import (
+    SelfImproveConfig,
+    SelfImprovePipeline,
+    SelfImproveResult,
+)
+
+# Codebase indexer (searchable code structure for planning agents)
+from aragora.nomic.codebase_indexer import (
+    CodebaseIndexer,
+    IndexStats,
+    ModuleInfo,
+)
+
 # Cross-cycle learning
 from aragora.nomic.cycle_record import (
     AgentContribution,
@@ -356,6 +370,37 @@ def __getattr__(name):
         from aragora.nomic.pipeline_bridge import NomicPipelineBridge
 
         return NomicPipelineBridge
+    elif name in {
+        "OutcomeFeedbackBridge",
+        "FeedbackGoal",
+    }:
+        from aragora.nomic.outcome_feedback import (
+            OutcomeFeedbackBridge as _OFB,
+            FeedbackGoal as _FG,
+        )
+
+        _ofb_map = {
+            "OutcomeFeedbackBridge": _OFB,
+            "FeedbackGoal": _FG,
+        }
+        return _ofb_map[name]
+    elif name in {
+        "ExecutionBridge",
+        "ExecutionInstruction",
+        "ExecutionResult",
+    }:
+        from aragora.nomic.execution_bridge import (
+            ExecutionBridge as _EB,
+            ExecutionInstruction as _EI,
+            ExecutionResult as _ER,
+        )
+
+        _map = {
+            "ExecutionBridge": _EB,
+            "ExecutionInstruction": _EI,
+            "ExecutionResult": _ER,
+        }
+        return _map[name]
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -583,6 +628,14 @@ __all__ = [
     "WorkStatus",
     "WorkType",
     "reset_global_work_queue",
+    # Self-improvement pipeline
+    "SelfImprovePipeline",
+    "SelfImproveConfig",
+    "SelfImproveResult",
+    # Codebase indexer
+    "CodebaseIndexer",
+    "ModuleInfo",
+    "IndexStats",
     # Self-correction
     "SelfCorrectionEngine",
     "SelfCorrectionConfig",
@@ -598,4 +651,11 @@ __all__ = [
     "CurriculumAwareFeedbackLoop",
     "CurriculumConfig",
     "integrate_curriculum_with_orchestrator",
+    # Outcome Feedback (lazy-loaded)
+    "OutcomeFeedbackBridge",
+    "FeedbackGoal",
+    # Execution Bridge (lazy-loaded)
+    "ExecutionBridge",
+    "ExecutionInstruction",
+    "ExecutionResult",
 ]
