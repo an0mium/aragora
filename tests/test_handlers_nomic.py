@@ -343,7 +343,7 @@ class TestRiskRegister:
 
     def test_risk_register_no_file(self, nomic_handler, mock_nomic_dir):
         """Returns empty risks when risk file doesn't exist."""
-        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None))
 
         assert result is not None
         assert result.status_code == 200
@@ -363,7 +363,7 @@ class TestRiskRegister:
         content = "\n".join([json.dumps(r) for r in risks])
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None))
 
         assert result is not None
         assert result.status_code == 200
@@ -381,7 +381,7 @@ class TestRiskRegister:
         content = "\n".join([json.dumps(r) for r in risks])
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {"limit": "3"}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {"limit": "3"}, None))
 
         assert result is not None
         assert result.status_code == 200
@@ -394,7 +394,7 @@ class TestRiskRegister:
         content = '{"id": 1, "severity": "low"}\nnot valid json\n{"id": 2, "severity": "high"}\n'
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None))
 
         assert result is not None
         assert result.status_code == 200
@@ -413,7 +413,7 @@ class TestModes:
 
     def test_modes_returns_builtin_modes(self, nomic_handler):
         """Returns builtin modes list."""
-        result = run_async(nomic_handler.handle("/api/modes", {}, None)
+        result = run_async(nomic_handler.handle("/api/modes", {}, None))
 
         assert result is not None
         assert result.status_code == 200
@@ -444,7 +444,7 @@ class TestModes:
             return original_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
-            result = run_async(nomic_handler.handle("/api/modes", {}, None)
+            result = run_async(nomic_handler.handle("/api/modes", {}, None))
 
             assert result is not None
             assert result.status_code == 200

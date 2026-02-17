@@ -765,8 +765,21 @@ Phases:
         choices=["debate", "design", "implement", "verify", "commit", "all"],
         help="Phase to run",
     )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Path to target repository (default: aragora project root). "
+        "Enables running staged phases on external codebases.",
+    )
 
     args = parser.parse_args()
+
+    # Override ARAGORA_PATH and DATA_DIR if --repo is provided
+    if args.repo:
+        global ARAGORA_PATH, DATA_DIR
+        ARAGORA_PATH = Path(args.repo).resolve()
+        DATA_DIR = ARAGORA_PATH / ".nomic"
 
     if args.phase == "debate":
         await phase_debate()
