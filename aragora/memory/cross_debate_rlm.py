@@ -217,13 +217,24 @@ class CrossDebateMemory:
     automatically managing memory tiers and compression.
     """
 
-    def __init__(self, config: CrossDebateConfig | None = None):
-        """Initialize cross-debate memory."""
+    def __init__(
+        self,
+        config: CrossDebateConfig | None = None,
+        continuum_memory: Any | None = None,
+    ):
+        """Initialize cross-debate memory.
+
+        Args:
+            config: Configuration for cross-debate memory.
+            continuum_memory: Optional ContinuumMemory for bridging
+                institutional knowledge to the slow tier.
+        """
         self.config = config or CrossDebateConfig()
         self._entries: dict[str, DebateMemoryEntry] = {}
         self._compressor: Any = None
         self._rlm: Any = None  # Official RLM instance (preferred over compression)
         self._km_debate_adapter: Any = None  # DebateAdapter for KM integration
+        self._continuum_memory = continuum_memory
         self._lock = asyncio.Lock()
         self._initialized = False
 
@@ -434,6 +445,31 @@ class CrossDebateMemory:
 
             self._entries[debate_id] = entry
 
+            # Bridge: write institutional knowledge to Continuum slow tier
+            if self._continuum_memory:
+                try:
+                    continuum_content = f"Debate conclusion [{domain}]: {final_answer}"
+                    if hasattr(self._continuum_memory, "store_pattern"):
+                        self._continuum_memory.store_pattern(
+                            content=continuum_content,
+                            importance=0.6 if consensus_reached else 0.3,
+                            metadata={
+                                "debate_id": debate_id,
+                                "domain": domain,
+                                "source": "cross_debate_bridge",
+                                "tier_hint": "slow",
+                            },
+                        )
+                    elif hasattr(self._continuum_memory, "add"):
+                        self._continuum_memory.add(
+                            id=f"xdebate_{debate_id}",
+                            content=continuum_content,
+                            importance=0.6 if consensus_reached else 0.3,
+                            metadata={"debate_id": debate_id, "source": "cross_debate_bridge"},
+                        )
+                except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+                    logger.warning("Continuum bridge write failed: %s", exc)
+
             # Manage memory limits
             await self._manage_memory_limits()
 
@@ -509,6 +545,31 @@ class CrossDebateMemory:
             )
 
             self._entries[debate_id] = entry
+
+            # Bridge: write institutional knowledge to Continuum slow tier
+            if self._continuum_memory:
+                try:
+                    continuum_content = f"Debate conclusion [{domain}]: {consensus}"
+                    if hasattr(self._continuum_memory, "store_pattern"):
+                        self._continuum_memory.store_pattern(
+                            content=continuum_content,
+                            importance=0.6,
+                            metadata={
+                                "debate_id": debate_id,
+                                "domain": domain,
+                                "source": "cross_debate_bridge",
+                                "tier_hint": "slow",
+                            },
+                        )
+                    elif hasattr(self._continuum_memory, "add"):
+                        self._continuum_memory.add(
+                            id=f"xdebate_{debate_id}",
+                            content=continuum_content,
+                            importance=0.6,
+                            metadata={"debate_id": debate_id, "source": "cross_debate_bridge"},
+                        )
+                except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+                    logger.warning("Continuum bridge write failed: %s", exc)
 
             # Manage memory limits
             await self._manage_memory_limits()

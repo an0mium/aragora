@@ -31,9 +31,17 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import functools
+import hashlib
 import logging
+import math
 from dataclasses import dataclass, field
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.core.embeddings.service import UnifiedEmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +337,8 @@ def calculate_surprise_from_db_row(
 # ---------------------------------------------------------------------------
 
 import re
+import time as _time
+import uuid as _uuid
 from collections import deque
 
 
@@ -341,6 +351,144 @@ class ContentSurpriseScore:
     combined: float  # weighted: 0.7*novelty + 0.3*momentum
     should_store: bool  # combined >= threshold
     reason: str  # human-readable explanation
+
+
+@dataclass
+class SurpriseChainConfig:
+    """Configuration for surprise chain tracking."""
+
+    chain_ttl_seconds: float = 300.0  # 5 minutes — chain expires after this
+    relatedness_threshold: float = 0.3  # keyword overlap to consider "related"
+    chain_bonus_per_link: float = 0.05  # bonus per related surprising item
+    max_chain_bonus: float = 0.25  # cap on chain amplification
+    min_surprise_to_chain: float = 0.4  # only chain items above this surprise
+
+
+@dataclass(frozen=True)
+class EnrichedSurpriseScore(ContentSurpriseScore):
+    """Extended surprise score with chain context."""
+
+    chain_length: int = 0
+    chain_bonus: float = 0.0
+    chain_id: str | None = None
+
+
+@dataclass
+class _SurpriseChain:
+    """Internal chain state."""
+
+    id: str
+    keywords: set[str]
+    length: int = 1
+    last_updated: float = 0.0
+
+
+class SurpriseChainTracker:
+    """Tracks chains of related surprising items for momentum amplification.
+
+    When several surprising items arrive in quick succession on the same
+    topic, the chain bonus amplifies the combined surprise signal — the
+    "momentum" aspect of Titans.
+    """
+
+    def __init__(self, config: SurpriseChainConfig | None = None):
+        self.config = config or SurpriseChainConfig()
+        self._chains: list[_SurpriseChain] = []
+
+    def enrich(
+        self, score: ContentSurpriseScore, content_keywords: set[str]
+    ) -> EnrichedSurpriseScore:
+        """Enrich a base score with chain context.
+
+        If the item is surprising enough (>= min_surprise_to_chain) and
+        relates to an active chain, the chain bonus is applied.
+        """
+        self._expire_chains()
+
+        # Below minimum surprise — don't start or extend chains
+        if score.combined < self.config.min_surprise_to_chain:
+            return EnrichedSurpriseScore(
+                novelty=score.novelty,
+                momentum=score.momentum,
+                combined=score.combined,
+                should_store=score.should_store,
+                reason=score.reason,
+            )
+
+        chain = self._find_matching_chain(content_keywords)
+        now = _time.monotonic()
+
+        if chain is not None:
+            # Extend existing chain
+            chain.length += 1
+            chain.keywords |= content_keywords
+            chain.last_updated = now
+
+            bonus = min(
+                self.config.max_chain_bonus,
+                (chain.length - 1) * self.config.chain_bonus_per_link,
+            )
+            enriched_combined = min(1.0, round(score.combined + bonus, 4))
+            return EnrichedSurpriseScore(
+                novelty=score.novelty,
+                momentum=score.momentum,
+                combined=enriched_combined,
+                should_store=enriched_combined >= score.combined or score.should_store,
+                reason=score.reason,
+                chain_length=chain.length,
+                chain_bonus=round(bonus, 4),
+                chain_id=chain.id,
+            )
+
+        # Start new chain
+        new_chain = _SurpriseChain(
+            id=str(_uuid.uuid4()),
+            keywords=set(content_keywords),
+            length=1,
+            last_updated=now,
+        )
+        self._chains.append(new_chain)
+
+        return EnrichedSurpriseScore(
+            novelty=score.novelty,
+            momentum=score.momentum,
+            combined=score.combined,
+            should_store=score.should_store,
+            reason=score.reason,
+            chain_length=1,
+            chain_bonus=0.0,
+            chain_id=new_chain.id,
+        )
+
+    def _find_matching_chain(self, keywords: set[str]) -> _SurpriseChain | None:
+        """Find the best matching active chain by keyword overlap."""
+        best: _SurpriseChain | None = None
+        best_overlap = 0.0
+
+        for chain in self._chains:
+            if not keywords or not chain.keywords:
+                continue
+            overlap = len(keywords & chain.keywords) / max(len(keywords), 1)
+            if overlap >= self.config.relatedness_threshold and overlap > best_overlap:
+                best = chain
+                best_overlap = overlap
+
+        return best
+
+    def _expire_chains(self) -> None:
+        """Remove chains that have exceeded their TTL."""
+        now = _time.monotonic()
+        self._chains = [
+            c
+            for c in self._chains
+            if (now - c.last_updated) < self.config.chain_ttl_seconds
+        ]
+
+    @property
+    def active_chain_count(self) -> int:
+        """Number of active (non-expired) chains."""
+        self._expire_chains()
+        return len(self._chains)
 
 
 def _extract_keywords(text: str) -> set[str]:
@@ -361,10 +509,18 @@ class ContentSurpriseScorer:
     NOVELTY_WEIGHT = 0.7
     MOMENTUM_WEIGHT = 0.3
 
-    def __init__(self, threshold: float = 0.3, momentum_window: int = 100):
+    def __init__(
+        self,
+        threshold: float = 0.3,
+        momentum_window: int = 100,
+        chain_config: SurpriseChainConfig | None = None,
+    ):
         self._threshold = threshold
         self._recent_topics: deque[str] = deque(maxlen=momentum_window)
         self._recent_surprises: deque[float] = deque(maxlen=momentum_window)
+        self._chain_tracker: SurpriseChainTracker | None = (
+            SurpriseChainTracker(chain_config) if chain_config is not None else None
+        )
 
     @property
     def threshold(self) -> float:
@@ -429,13 +585,19 @@ class ContentSurpriseScorer:
         self._recent_topics.append(" ".join(sorted(content_kw)[:10]))
         self._recent_surprises.append(combined)
 
-        return ContentSurpriseScore(
+        base_score = ContentSurpriseScore(
             novelty=round(novelty, 4),
             momentum=round(momentum, 4),
             combined=combined,
             should_store=should_store,
             reason=reason,
         )
+
+        # Enrich with chain tracking if configured
+        if self._chain_tracker is not None:
+            return self._chain_tracker.enrich(base_score, content_kw)
+
+        return base_score
 
     def score_debate_outcome(
         self,
@@ -494,6 +656,165 @@ class ContentSurpriseScorer:
         avg_surprise = sum(recent) / len(recent) if recent else 0.5
 
         return min(1.0, relatedness * 0.6 + avg_surprise * 0.4)
+
+
+class EmbeddingSurpriseScorer(ContentSurpriseScorer):
+    """Semantic surprise scorer using embedding cosine distance.
+
+    Replaces keyword overlap with embedding similarity for more
+    accurate novelty detection (catches paraphrases, synonyms).
+    Falls back to keyword-based scoring if embedding fails.
+    """
+
+    def __init__(
+        self,
+        threshold: float = 0.3,
+        momentum_window: int = 100,
+        embedding_service: UnifiedEmbeddingService | None = None,
+        embedding_cache_size: int = 1000,
+        chain_config: SurpriseChainConfig | None = None,
+    ):
+        super().__init__(
+            threshold=threshold,
+            momentum_window=momentum_window,
+            chain_config=chain_config,
+        )
+        self._embedding_service = embedding_service
+        self._embedding_cache: dict[str, list[float]] = {}
+        self._embedding_cache_size = embedding_cache_size
+
+    def score(
+        self,
+        content: str,
+        source: str,
+        existing_context: str = "",
+    ) -> ContentSurpriseScore:
+        """Score surprise using embedding similarity when possible.
+
+        Falls back to keyword-based scoring on embedding failure.
+        """
+        # Try embedding-based novelty
+        embedding_novelty = self._compute_embedding_novelty(content, existing_context)
+
+        if embedding_novelty is None:
+            # Fallback to keyword-based
+            return super().score(content, source, existing_context)
+
+        content_kw = _extract_keywords(content)
+
+        # Use embedding novelty instead of keyword overlap
+        novelty = embedding_novelty
+
+        # Momentum is still keyword-based (topic relatedness, not novelty precision)
+        momentum = self._compute_momentum(content_kw) if content_kw else 0.5
+
+        combined = round(
+            self.NOVELTY_WEIGHT * novelty + self.MOMENTUM_WEIGHT * momentum,
+            4,
+        )
+        should_store = combined >= self._threshold
+
+        if combined >= 0.7:
+            reason = f"High surprise ({combined:.2f}): novel content from {source} [embedding]"
+        elif should_store:
+            reason = f"Moderate surprise ({combined:.2f}): worth storing from {source} [embedding]"
+        else:
+            reason = f"Low surprise ({combined:.2f}): routine content from {source} [embedding]"
+
+        # Track for momentum
+        if content_kw:
+            self._recent_topics.append(" ".join(sorted(content_kw)[:10]))
+        self._recent_surprises.append(combined)
+
+        base_score = ContentSurpriseScore(
+            novelty=round(novelty, 4),
+            momentum=round(momentum, 4),
+            combined=combined,
+            should_store=should_store,
+            reason=reason,
+        )
+
+        # Enrich with chain tracking if configured
+        if self._chain_tracker is not None and content_kw:
+            return self._chain_tracker.enrich(base_score, content_kw)
+
+        return base_score
+
+    def _compute_embedding_novelty(
+        self, content: str, context: str
+    ) -> float | None:
+        """Compute novelty as cosine distance between embeddings.
+
+        Returns None on failure (no service, error, etc.).
+        """
+        if not self._embedding_service or not context:
+            return None
+
+        try:
+            content_emb = self._get_embedding(content)
+            context_emb = self._get_embedding(context)
+
+            if content_emb is None or context_emb is None:
+                return None
+
+            # Cosine similarity
+            dot = sum(a * b for a, b in zip(content_emb, context_emb))
+            norm_a = math.sqrt(sum(a * a for a in content_emb))
+            norm_b = math.sqrt(sum(b * b for b in context_emb))
+
+            if norm_a < 1e-10 or norm_b < 1e-10:
+                return 1.0  # Zero vector → fully novel
+
+            similarity = dot / (norm_a * norm_b)
+            # Novelty = 1 - similarity (cosine distance)
+            return max(0.0, min(1.0, 1.0 - similarity))
+
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
+            logger.warning("Embedding novelty computation failed: %s", e)
+            return None
+
+    def _get_embedding(self, text: str) -> list[float] | None:
+        """Get embedding for text, with caching.
+
+        Uses a sync wrapper around the async embed service.
+        """
+        # Cache key: hash of first 200 chars
+        cache_key = hashlib.sha256(text[:200].encode("utf-8", errors="ignore")).hexdigest()[:16]
+
+        if cache_key in self._embedding_cache:
+            return self._embedding_cache[cache_key]
+
+        try:
+            # Sync wrapper — run the async embed in a new event loop if needed
+            loop: asyncio.AbstractEventLoop | None = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+            if loop is not None and loop.is_running():
+                # Already in an async context — can't nest; use thread
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, self._embedding_service.embed(text))
+                    result = future.result(timeout=10)
+            else:
+                result = asyncio.run(self._embedding_service.embed(text))
+
+            embedding = result.embedding
+
+            # Evict oldest if cache full
+            if len(self._embedding_cache) >= self._embedding_cache_size:
+                oldest_key = next(iter(self._embedding_cache))
+                del self._embedding_cache[oldest_key]
+
+            self._embedding_cache[cache_key] = embedding
+            return embedding
+
+        except (RuntimeError, ValueError, TypeError, OSError, TimeoutError) as e:
+            logger.warning("Failed to get embedding: %s", e)
+            return None
 
 
 # Type alias for custom base rate calculators

@@ -62,15 +62,23 @@ class MemoryFabric:
         self,
         surprise_scorer: ContentSurpriseScorer | None = None,
         backends: dict[str, Any] | None = None,
+        titans_controller: Any | None = None,
     ):
         """Initialise with optional backends keyed by system name.
 
         Backends should implement a ``search(query, limit) -> list[dict]``
         method.  Each dict should contain at least ``"content"`` and
         optionally ``"id"``, ``"relevance"``, ``"created_at"`` (unix ts).
+
+        Args:
+            surprise_scorer: ContentSurpriseScorer for novelty scoring.
+            backends: Dict of name -> searchable backend.
+            titans_controller: Optional TitansMemoryController for active
+                sweep hooks (on_query / on_write).
         """
         self._scorer = surprise_scorer or ContentSurpriseScorer()
         self._backends: dict[str, Any] = backends or {}
+        self._titans_controller = titans_controller
 
     # ------------------------------------------------------------------
     # Registration
@@ -124,7 +132,13 @@ class MemoryFabric:
         # Sort by composite score (relevance * recency)
         filtered.sort(key=lambda r: r.relevance * max(r.recency, 0.1), reverse=True)
 
-        return filtered[:limit]
+        results = filtered[:limit]
+        if self._titans_controller:
+            try:
+                await self._titans_controller.on_query(query, results)
+            except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+                logger.warning("Titans controller on_query failed: %s", exc)
+        return results
 
     async def remember(
         self,
@@ -160,12 +174,22 @@ class MemoryFabric:
                 if name in self._backends:
                     systems_written.append(name)
 
-        return RememberResult(
+        result = RememberResult(
             stored=True,
             systems_written=systems_written,
             surprise_combined=score.combined,
             reason=score.reason,
         )
+        if result.stored and self._titans_controller:
+            try:
+                await self._titans_controller.on_write(
+                    item_id=f"{source}_{hash(content) % 10**8}",
+                    source=source,
+                    content=content,
+                )
+            except (RuntimeError, ValueError, OSError, AttributeError, TypeError) as exc:
+                logger.warning("Titans controller on_write failed: %s", exc)
+        return result
 
     async def context_for_debate(
         self,

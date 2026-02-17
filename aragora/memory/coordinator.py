@@ -25,7 +25,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from collections.abc import Callable, Awaitable
 
-from aragora.memory.surprise import ContentSurpriseScorer
+from aragora.memory.surprise import (
+    ContentSurpriseScorer,
+    EmbeddingSurpriseScorer,
+    _extract_keywords,
+)
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -300,6 +304,7 @@ class CoordinatorOptions:
     write_critique: bool = True
     write_mound: bool = True
     write_supermemory: bool = False  # External memory (opt-in, disabled by default)
+    write_rlm: bool = False  # RLM backend (opt-in)
 
     # Behavior
     rollback_on_failure: bool = True
@@ -317,6 +322,12 @@ class CoordinatorOptions:
 
     # Retention gate integration
     enable_retention_gate: bool = False
+
+    # Contradiction propagation
+    enable_contradiction_propagation: bool = False  # Opt-in
+    contradiction_propagation_penalty: float = 0.1  # Confidence penalty for related items
+    contradiction_similarity_threshold: float = 0.6  # Min keyword similarity to propagate
+    max_propagation_targets: int = 10  # Cap on affected items per system
 
 
 @dataclass
@@ -372,6 +383,8 @@ class MemoryCoordinator:
         options: CoordinatorOptions | None = None,
         surprise_scorer: ContentSurpriseScorer | None = None,
         retention_gate: Any | None = None,
+        rlm_backend: Any | None = None,
+        use_embedding_surprise: bool = False,
     ):
         """
         Initialize the memory coordinator.
@@ -385,16 +398,27 @@ class MemoryCoordinator:
             options: Default coordinator options
             surprise_scorer: Titans-inspired surprise scorer for gating writes
             retention_gate: RetentionGate instance for surprise-driven retention
+            rlm_backend: Optional AragoraRLM backend for compression
         """
         self.continuum_memory = continuum_memory
         self.consensus_memory = consensus_memory
         self.critique_store = critique_store
         self.knowledge_mound = knowledge_mound
         self.supermemory_adapter = supermemory_adapter
+        self.rlm_backend = rlm_backend
         self.options = options or CoordinatorOptions()
         self.metrics = CoordinatorMetrics()
-        self.surprise_scorer = surprise_scorer or ContentSurpriseScorer()
+        if surprise_scorer is not None:
+            self.surprise_scorer = surprise_scorer
+        elif use_embedding_surprise:
+            self.surprise_scorer: ContentSurpriseScorer = EmbeddingSurpriseScorer()
+        else:
+            self.surprise_scorer = ContentSurpriseScorer()
         self.retention_gate = retention_gate
+
+        # Content hash dedup tracking
+        self._content_hashes: dict[str, set[str]] = {}  # target -> set of content hashes
+        self._dedup_stats = {"checked": 0, "skipped": 0}
 
         # Supermemory entries marked for deletion (processed on next sync)
         self._supermemory_rollback_markers: list[SupermemoryRollbackMarker] = []
@@ -802,6 +826,21 @@ class MemoryCoordinator:
                     )
                 )
 
+        # Write to RLM backend if enabled
+        if opts.write_rlm and self.rlm_backend:
+            operations.append(
+                WriteOperation(
+                    id=str(uuid.uuid4()),
+                    target="rlm",
+                    data={
+                        "debate_id": ctx.debate_id,
+                        "task": ctx.env.task,
+                        "conclusion": result.final_answer or "",
+                        "confidence": result.confidence,
+                    },
+                )
+            )
+
         # Write to Supermemory only if enabled and confidence meets threshold
         if opts.write_supermemory and self.supermemory_adapter:
             if result.confidence >= opts.min_confidence_for_supermemory:
@@ -869,6 +908,8 @@ class MemoryCoordinator:
                     result = await self._write_critique(op.data)
                 elif op.target == "mound":
                     result = await self._write_mound(op.data)
+                elif op.target == "rlm":
+                    result = await self._write_rlm(op.data)
                 elif op.target == "supermemory":
                     result = await self._write_supermemory(op.data)
                 else:
@@ -893,6 +934,9 @@ class MemoryCoordinator:
             raise ValueError("ContinuumMemory not configured")
 
         content = f"Debate: {data['task']}\nConclusion: {data['final_answer']}"
+        if self._check_dedup(content, "continuum"):
+            logger.debug("[coordinator] Dedup: skipping duplicate continuum write")
+            return f"dedup_{data['debate_id']}"
         importance = data["confidence"]
         metadata = {
             "debate_id": data["debate_id"],
@@ -918,6 +962,8 @@ class MemoryCoordinator:
             )
             entry_id = entry.id
 
+        # Record successful write for future dedup
+        self._record_dedup(content, "continuum")
         logger.debug("[coordinator] Stored in continuum: %s", entry_id)
         return entry_id
 
@@ -1054,6 +1100,43 @@ class MemoryCoordinator:
             logger.debug("[coordinator] Supermemory sync skipped: %s", sync_result.error)
             return None
 
+    def _check_dedup(self, content: str, target: str) -> bool:
+        """Check if content has already been written to target. Returns True if duplicate.
+
+        Only marks content as seen if it IS a duplicate (i.e., was previously
+        recorded via _record_dedup). This avoids false dedup on retries after
+        transient failures.
+        """
+        import hashlib
+
+        content_hash = hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()[:16]
+        self._dedup_stats["checked"] += 1
+        if target not in self._content_hashes:
+            self._content_hashes[target] = set()
+        if content_hash in self._content_hashes[target]:
+            self._dedup_stats["skipped"] += 1
+            return True
+        return False
+
+    def _record_dedup(self, content: str, target: str) -> None:
+        """Record content as written to target for future dedup checks."""
+        import hashlib
+
+        content_hash = hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()[:16]
+        if target not in self._content_hashes:
+            self._content_hashes[target] = set()
+        self._content_hashes[target].add(content_hash)
+
+    async def _write_rlm(self, data: dict[str, Any]) -> str | None:
+        """Write to RLM backend for compression."""
+        if not self.rlm_backend:
+            raise ValueError("RLM backend not configured")
+        content = f"{data.get('task', '')}\n\nConclusion: {data.get('conclusion', data.get('final_answer', ''))}"
+        if hasattr(self.rlm_backend, "build_context"):
+            await self.rlm_backend.build_context(content, source_type="coordinator")
+            return f"rlm_{data.get('debate_id', 'unknown')}"
+        return None
+
     async def _rollback_successful(self, transaction: MemoryTransaction) -> None:
         """Roll back successful operations after a partial failure."""
         successful = transaction.get_successful_operations()
@@ -1128,6 +1211,179 @@ class MemoryCoordinator:
                 decisions.append(decision)
 
         return decisions if decisions else None
+
+    async def propagate_contradiction_effects(
+        self,
+        contradicted_item_id: str,
+        source_system: str,
+        contradiction_confidence: float,
+        related_content: str = "",
+    ) -> dict[str, list[str]]:
+        """Propagate contradiction effects across memory systems.
+
+        When a KM entry is contradicted, find related entries in other
+        systems and apply confidence penalties.
+
+        Args:
+            contradicted_item_id: ID of the contradicted item.
+            source_system: Which system the contradiction was detected in.
+            contradiction_confidence: How confident we are in the contradiction (0-1).
+            related_content: Content of the contradicted item for keyword matching.
+
+        Returns:
+            Dict mapping system name to list of affected item IDs.
+        """
+        if not self.options.enable_contradiction_propagation:
+            return {}
+
+        affected: dict[str, list[str]] = {}
+        content_keywords = _extract_keywords(related_content)
+
+        if not content_keywords:
+            return {}
+
+        penalty = self.options.contradiction_propagation_penalty * contradiction_confidence
+        threshold = self.options.contradiction_similarity_threshold
+        max_targets = self.options.max_propagation_targets
+
+        # Propagate to KnowledgeMound
+        if (
+            self.knowledge_mound
+            and source_system != "mound"
+            and hasattr(self.knowledge_mound, "query")
+        ):
+            try:
+                km_affected = await self._propagate_to_km(
+                    content_keywords, penalty, threshold, max_targets
+                )
+                if km_affected:
+                    affected["mound"] = km_affected
+            except (RuntimeError, ValueError, AttributeError, OSError) as e:
+                logger.warning("Contradiction propagation to KM failed: %s", e)
+
+        # Propagate to ContinuumMemory
+        if (
+            self.continuum_memory
+            and source_system != "continuum"
+            and hasattr(self.continuum_memory, "search")
+        ):
+            try:
+                cm_affected = self._propagate_to_continuum(
+                    content_keywords, penalty, threshold, max_targets
+                )
+                if cm_affected:
+                    affected["continuum"] = cm_affected
+            except (RuntimeError, ValueError, AttributeError, OSError) as e:
+                logger.warning("Contradiction propagation to continuum failed: %s", e)
+
+        if affected:
+            logger.info(
+                "Contradiction propagation from %s/%s affected %d items across %d systems",
+                source_system,
+                contradicted_item_id,
+                sum(len(v) for v in affected.values()),
+                len(affected),
+            )
+
+        return affected
+
+    async def _propagate_to_km(
+        self,
+        content_keywords: set[str],
+        penalty: float,
+        threshold: float,
+        max_targets: int,
+    ) -> list[str]:
+        """Find and penalize related KM entries."""
+        from aragora.knowledge.mound.ops.confidence_decay import ConfidenceEvent
+
+        # Query KM for items matching the content keywords
+        query_text = " ".join(list(content_keywords)[:10])
+        result = await self.knowledge_mound.query(query=query_text, limit=max_targets * 2)
+        items = result.items if hasattr(result, "items") else []
+
+        affected_ids: list[str] = []
+
+        for item in items:
+            if len(affected_ids) >= max_targets:
+                break
+
+            # Check keyword similarity
+            item_text = getattr(item, "content", "") or getattr(item, "summary", "") or ""
+            item_kw = _extract_keywords(item_text)
+            if not item_kw:
+                continue
+
+            overlap = len(content_keywords & item_kw) / max(len(content_keywords), 1)
+            if overlap < threshold:
+                continue
+
+            # Apply penalty
+            old_confidence = getattr(item, "confidence", 0.5) or 0.5
+            new_confidence = max(0.1, old_confidence - penalty)
+
+            if abs(new_confidence - old_confidence) < 0.001:
+                continue
+
+            try:
+                if hasattr(self.knowledge_mound, "update_confidence"):
+                    await self.knowledge_mound.update_confidence(item.id, new_confidence)
+                    affected_ids.append(item.id)
+            except (RuntimeError, ValueError, AttributeError) as e:
+                logger.warning("Failed to apply contradiction penalty to KM %s: %s", item.id, e)
+
+        return affected_ids
+
+    def _propagate_to_continuum(
+        self,
+        content_keywords: set[str],
+        penalty: float,
+        threshold: float,
+        max_targets: int,
+    ) -> list[str]:
+        """Find and penalize related ContinuumMemory entries."""
+        # Search continuum for matching entries
+        query = " ".join(list(content_keywords)[:10])
+
+        try:
+            results = self.continuum_memory.search(query=query, limit=max_targets * 2)
+        except (TypeError, AttributeError):
+            return []
+
+        if not results:
+            return []
+
+        affected_ids: list[str] = []
+
+        for entry in results:
+            if len(affected_ids) >= max_targets:
+                break
+
+            entry_content = getattr(entry, "content", "") or ""
+            entry_kw = _extract_keywords(entry_content)
+            if not entry_kw:
+                continue
+
+            overlap = len(content_keywords & entry_kw) / max(len(content_keywords), 1)
+            if overlap < threshold:
+                continue
+
+            # Apply penalty via importance reduction
+            old_importance = getattr(entry, "importance", 0.5) or 0.5
+            new_importance = max(0.0, old_importance - penalty)
+
+            if abs(new_importance - old_importance) < 0.001:
+                continue
+
+            try:
+                entry_id = getattr(entry, "id", None)
+                if entry_id and hasattr(self.continuum_memory, "update_importance"):
+                    self.continuum_memory.update_importance(entry_id, new_importance)
+                    affected_ids.append(entry_id)
+            except (RuntimeError, ValueError, AttributeError) as e:
+                logger.warning("Failed to apply contradiction penalty to continuum %s: %s", entry_id, e)
+
+        return affected_ids
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current coordinator metrics."""
