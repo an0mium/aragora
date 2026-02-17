@@ -253,6 +253,12 @@ class TestOAuthState:
 class TestRedirectUrlValidation:
     """Tests for redirect URL validation."""
 
+    @pytest.fixture(autouse=True)
+    def clean_oauth_env(self, monkeypatch):
+        """Prevent env pollution from other tests affecting OAuth config."""
+        monkeypatch.delenv("OAUTH_ALLOWED_REDIRECT_HOSTS", raising=False)
+        monkeypatch.delenv("ARAGORA_ENV", raising=False)
+
     def test_allows_localhost(self):
         """Allows localhost redirects for development."""
         assert _validate_redirect_url("http://localhost:3000/callback")
