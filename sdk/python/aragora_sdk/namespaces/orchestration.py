@@ -16,13 +16,14 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
 TeamStrategy = Literal["specified", "best_for_domain", "diverse", "fast", "random"]
 OutputFormat = Literal["standard", "decision_receipt", "summary", "github_review", "slack_message"]
+
 
 class OrchestrationAPI:
     """
@@ -35,13 +36,11 @@ class OrchestrationAPI:
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
-        >>> # Async deliberation
         >>> result = client.orchestration.deliberate(
         ...     question="Should we migrate to Kubernetes?",
         ...     knowledge_sources=["confluence:12345", "slack:C123456"],
         ...     output_channels=["slack:C789"],
         ... )
-        >>> # Check status
         >>> status = client.orchestration.get_status(result["request_id"])
     """
 
@@ -50,6 +49,46 @@ class OrchestrationAPI:
 
     # =========================================================================
     # Deliberation
+    # =========================================================================
+
+    def deliberate(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit an asynchronous deliberation request."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+
+    def deliberate_sync(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit a synchronous deliberation request (blocks until complete)."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return self._client.request("POST", "/api/v1/orchestration/deliberate/sync", json=body)
+
+    def get_status(self, request_id: str) -> dict[str, Any]:
+        """Get the status of a deliberation request."""
+        return self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+
+    def list_templates(self) -> dict[str, Any]:
+        """List available orchestration templates."""
+        return self._client.request("GET", "/api/v1/orchestration/templates")
+
 
 class AsyncOrchestrationAPI:
     """Asynchronous Orchestration API."""
@@ -59,4 +98,42 @@ class AsyncOrchestrationAPI:
 
     # =========================================================================
     # Deliberation
+    # =========================================================================
 
+    async def deliberate(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit an asynchronous deliberation request."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return await self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+
+    async def deliberate_sync(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit a synchronous deliberation request."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return await self._client.request("POST", "/api/v1/orchestration/deliberate/sync", json=body)
+
+    async def get_status(self, request_id: str) -> dict[str, Any]:
+        """Get the status of a deliberation request."""
+        return await self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+
+    async def list_templates(self) -> dict[str, Any]:
+        """List available orchestration templates."""
+        return await self._client.request("GET", "/api/v1/orchestration/templates")

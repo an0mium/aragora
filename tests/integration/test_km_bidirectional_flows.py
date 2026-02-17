@@ -540,10 +540,9 @@ class TestHandlerKMWiring:
         from aragora.server.handlers.belief import (
             BeliefHandler,
             BELIEF_NETWORK_AVAILABLE,
-            BeliefNetwork,
         )
 
-        if not BELIEF_NETWORK_AVAILABLE or BeliefNetwork is None:
+        if not BELIEF_NETWORK_AVAILABLE:
             pytest.skip("BeliefNetwork not available")
 
         ctx = {}

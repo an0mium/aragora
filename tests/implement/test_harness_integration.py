@@ -151,11 +151,11 @@ class TestAdaptToImplementResult:
 class TestHybridExecutorHarnessFlag:
     """Test that use_harness flag is stored correctly."""
 
-    def test_default_false(self, tmp_path):
+    def test_default_true(self, tmp_path):
         from aragora.implement.executor import HybridExecutor
 
         executor = HybridExecutor(repo_path=tmp_path)
-        assert executor.use_harness is False
+        assert executor.use_harness is True
 
     def test_set_true(self, tmp_path):
         from aragora.implement.executor import HybridExecutor

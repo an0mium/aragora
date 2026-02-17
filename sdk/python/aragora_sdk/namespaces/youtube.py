@@ -15,10 +15,11 @@ Features:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
+
 
 class YouTubeAPI:
     """
@@ -39,6 +40,19 @@ class YouTubeAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
+    def get_auth(self) -> dict[str, Any]:
+        """Get YouTube OAuth authorization URL."""
+        return self._client.request("GET", "/api/v1/youtube/auth")
+
+    def get_callback(self) -> dict[str, Any]:
+        """Handle YouTube OAuth callback."""
+        return self._client.request("GET", "/api/v1/youtube/callback")
+
+    def get_status(self) -> dict[str, Any]:
+        """Get YouTube integration status."""
+        return self._client.request("GET", "/api/v1/youtube/status")
+
+
 class AsyncYouTubeAPI:
     """
     Asynchronous YouTube API.
@@ -52,3 +66,14 @@ class AsyncYouTubeAPI:
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
 
+    async def get_auth(self) -> dict[str, Any]:
+        """Get YouTube OAuth authorization URL."""
+        return await self._client.request("GET", "/api/v1/youtube/auth")
+
+    async def get_callback(self) -> dict[str, Any]:
+        """Handle YouTube OAuth callback."""
+        return await self._client.request("GET", "/api/v1/youtube/callback")
+
+    async def get_status(self) -> dict[str, Any]:
+        """Get YouTube integration status."""
+        return await self._client.request("GET", "/api/v1/youtube/status")
