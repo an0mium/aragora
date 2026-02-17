@@ -70,6 +70,17 @@ def _ensure_clean_run_async():
         "aragora.server.handlers.knowledge_base.mound.sharing._run_async",
         "aragora.server.handlers.knowledge_base.mound.handler._run_async",
         "aragora.server.handlers.knowledge_base.mound.routing._run_async",
+        "aragora.server.handlers.knowledge_base.mound.curation._run_async",
+        "aragora.server.handlers.knowledge_base.mound.graph._run_async",
+        "aragora.server.handlers.knowledge_base.mound.export._run_async",
+        "aragora.server.handlers.knowledge_base.mound.culture._run_async",
+        "aragora.server.handlers.knowledge_base.mound.staleness._run_async",
+        "aragora.server.handlers.knowledge_base.mound.relationships._run_async",
+        "aragora.server.handlers.knowledge_base.mound.federation._run_async",
+        "aragora.server.handlers.knowledge_base.mound.global_knowledge._run_async",
+        "aragora.server.handlers.knowledge_base.mound.nodes._run_async",
+        "aragora.server.handlers.knowledge_base.mound.visibility._run_async",
+        "aragora.server.handlers.knowledge_base.mound.sync._run_async",
     ):
         try:
             p = patch(mod_path, side_effect=_safe_run_async)

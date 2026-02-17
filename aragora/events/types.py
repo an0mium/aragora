@@ -387,6 +387,17 @@ class StreamEventType(Enum):
     TESTFIXER_BUG_CHECK = "testfixer_bug_check"  # Post-fix bug check result
     TESTFIXER_IMPACT_CHECK = "testfixer_impact_check"  # Cross-test impact analysis result
 
+    # Pipeline (Idea-to-Execution) Events
+    PIPELINE_STARTED = "pipeline_started"  # Full pipeline run started
+    PIPELINE_STAGE_STARTED = "pipeline_stage_started"  # Individual stage began
+    PIPELINE_STAGE_COMPLETED = "pipeline_stage_completed"  # Individual stage finished
+    PIPELINE_GRAPH_UPDATED = "pipeline_graph_updated"  # React Flow graph update
+    PIPELINE_GOAL_EXTRACTED = "pipeline_goal_extracted"  # Goal extracted from debate
+    PIPELINE_WORKFLOW_GENERATED = "pipeline_workflow_generated"  # Workflow generated
+    PIPELINE_STEP_PROGRESS = "pipeline_step_progress"  # Step-level progress
+    PIPELINE_COMPLETED = "pipeline_completed"  # Full pipeline completed
+    PIPELINE_FAILED = "pipeline_failed"  # Pipeline failed
+
 
 @dataclass
 class StreamEvent:

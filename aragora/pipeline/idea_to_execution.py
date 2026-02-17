@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -48,9 +49,49 @@ from aragora.canvas.stages import (
     StageTransition,
     content_hash,
 )
-from aragora.goals.extractor import GoalExtractor, GoalGraph, GoalNode
+from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph, GoalNode
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineConfig:
+    """Configuration for async pipeline execution."""
+
+    stages_to_run: list[str] = field(
+        default_factory=lambda: ["ideation", "goals", "workflow", "orchestration"]
+    )
+    debate_rounds: int = 3
+    goal_extraction_config: GoalExtractionConfig | None = None
+    workflow_mode: str = "quick"  # "quick" or "debate"
+    orchestration_tracks: list[str] | None = None
+    max_orchestration_cycles: int = 5
+    dry_run: bool = False
+    enable_receipts: bool = True
+    event_callback: Any | None = None  # callable(event_type: str, data: dict)
+
+
+@dataclass
+class StageResult:
+    """Result of a single pipeline stage."""
+
+    stage_name: str
+    status: str = "pending"  # pending, running, completed, failed, skipped
+    output: Any = None
+    duration: float = 0.0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "stage_name": self.stage_name,
+            "status": self.status,
+            "duration": self.duration,
+        }
+        if self.error:
+            result["error"] = self.error
+        if self.output is not None and hasattr(self.output, "to_dict"):
+            result["output_summary"] = {"type": type(self.output).__name__}
+        return result
 
 
 @dataclass
@@ -73,9 +114,15 @@ class PipelineResult:
     provenance: list[ProvenanceLink] = field(default_factory=list)
     # Human review status per stage
     stage_status: dict[str, str] = field(default_factory=dict)
+    # Async pipeline fields
+    stage_results: list[StageResult] = field(default_factory=list)
+    final_workflow: dict[str, Any] | None = None
+    orchestration_result: dict[str, Any] | None = None
+    receipt: dict[str, Any] | None = None
+    duration: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "pipeline_id": self.pipeline_id,
             "ideas": to_react_flow(self.ideas_canvas) if self.ideas_canvas else None,
             "goals": self.goal_graph.to_dict() if self.goal_graph else None,
@@ -90,6 +137,17 @@ class PipelineResult:
             "stage_status": self.stage_status,
             "integrity_hash": self._compute_integrity_hash(),
         }
+        if self.stage_results:
+            result["stage_results"] = [sr.to_dict() for sr in self.stage_results]
+        if self.final_workflow is not None:
+            result["final_workflow"] = self.final_workflow
+        if self.orchestration_result is not None:
+            result["orchestration_result"] = self.orchestration_result
+        if self.receipt is not None:
+            result["receipt"] = self.receipt
+        if self.duration > 0:
+            result["duration"] = self.duration
+        return result
 
     def _compute_integrity_hash(self) -> str:
         """Compute a pipeline-wide integrity hash."""
@@ -245,7 +303,367 @@ class IdeaToExecutionPipeline:
         return result
 
     # =========================================================================
-    # Stage transition methods
+    # Async pipeline execution
+    # =========================================================================
+
+    async def run(
+        self,
+        input_text: str,
+        config: PipelineConfig | None = None,
+    ) -> PipelineResult:
+        """Run the full async pipeline from input text.
+
+        Executes each configured stage in sequence, emitting events via
+        config.event_callback at each stage boundary. Supports dry_run
+        mode (skips orchestration) and receipt generation.
+
+        Args:
+            input_text: The input idea/question/problem statement
+            config: Pipeline configuration
+
+        Returns:
+            PipelineResult with all stage outputs
+        """
+        cfg = config or PipelineConfig()
+        pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
+        start_time = time.monotonic()
+
+        result = PipelineResult(
+            pipeline_id=pipeline_id,
+            stage_status={s.value: "pending" for s in PipelineStage},
+        )
+
+        self._emit(cfg, "started", {"pipeline_id": pipeline_id, "stages": cfg.stages_to_run})
+
+        try:
+            # Stage 1: Ideation
+            if "ideation" in cfg.stages_to_run:
+                sr = await self._run_ideation(pipeline_id, input_text, cfg)
+                result.stage_results.append(sr)
+                if sr.status == "completed" and sr.output:
+                    result.ideas_canvas = sr.output.get("canvas")
+                    result.stage_status[PipelineStage.IDEAS.value] = "complete"
+                elif sr.status == "failed":
+                    result.stage_status[PipelineStage.IDEAS.value] = "failed"
+
+            # Stage 2: Goal extraction
+            if "goals" in cfg.stages_to_run:
+                debate_output = (
+                    result.stage_results[0].output if result.stage_results else None
+                )
+                sr = await self._run_goal_extraction(pipeline_id, debate_output, cfg)
+                result.stage_results.append(sr)
+                if sr.status == "completed" and sr.output:
+                    goal_graph = sr.output.get("goal_graph")
+                    if goal_graph:
+                        result.goal_graph = goal_graph
+                        if goal_graph.transition:
+                            result.transitions.append(goal_graph.transition)
+                        result.provenance.extend(goal_graph.provenance)
+                    result.stage_status[PipelineStage.GOALS.value] = "complete"
+                elif sr.status == "failed":
+                    result.stage_status[PipelineStage.GOALS.value] = "failed"
+
+            # Stage 3: Workflow generation
+            if "workflow" in cfg.stages_to_run:
+                sr = await self._run_workflow_generation(pipeline_id, result.goal_graph, cfg)
+                result.stage_results.append(sr)
+                if sr.status == "completed" and sr.output:
+                    result.final_workflow = sr.output.get("workflow")
+                    # Also advance canvas pipeline
+                    if result.goal_graph:
+                        result = self._advance_to_actions(result)
+                    result.stage_status[PipelineStage.ACTIONS.value] = "complete"
+                elif sr.status == "failed":
+                    result.stage_status[PipelineStage.ACTIONS.value] = "failed"
+
+            # Stage 4: Orchestration
+            if "orchestration" in cfg.stages_to_run:
+                if cfg.dry_run:
+                    sr = StageResult(stage_name="orchestration", status="skipped")
+                    result.stage_results.append(sr)
+                else:
+                    sr = await self._run_orchestration(
+                        pipeline_id, result.final_workflow, result.goal_graph, cfg,
+                    )
+                    result.stage_results.append(sr)
+                    if sr.status == "completed" and sr.output:
+                        result.orchestration_result = sr.output.get("orchestration")
+                        if result.actions_canvas:
+                            result = self._advance_to_orchestration(result)
+                        result.stage_status[PipelineStage.ORCHESTRATION.value] = "complete"
+
+            # Generate receipt
+            if cfg.enable_receipts and not cfg.dry_run:
+                result.receipt = self._generate_receipt(result)
+
+            result.duration = time.monotonic() - start_time
+            self._emit(cfg, "completed", {
+                "pipeline_id": pipeline_id,
+                "duration": result.duration,
+                "receipt": result.receipt,
+            })
+
+        except Exception as exc:
+            result.duration = time.monotonic() - start_time
+            logger.warning("Pipeline %s failed: %s", pipeline_id, exc)
+            self._emit(cfg, "failed", {
+                "pipeline_id": pipeline_id,
+                "error": "Pipeline execution failed",
+            })
+
+        return result
+
+    async def _run_ideation(
+        self,
+        pipeline_id: str,
+        input_text: str,
+        cfg: PipelineConfig,
+    ) -> StageResult:
+        """Stage 1: Run debate or extract raw ideas."""
+        sr = StageResult(stage_name="ideation", status="running")
+        start = time.monotonic()
+        self._emit(cfg, "stage_started", {"stage": "ideation"})
+
+        try:
+            # Try to run a debate for richer ideation
+            canvas = None
+            debate_data: dict[str, Any] = {}
+            try:
+                from aragora.debate.orchestrator import Arena
+                from aragora.debate.models import DebateProtocol, Environment
+
+                env = Environment(task=input_text)
+                protocol = DebateProtocol(rounds=cfg.debate_rounds)
+                arena = Arena(env, [], protocol)
+                debate_result = await arena.run()
+                debate_data = {
+                    "debate_result": debate_result,
+                    "nodes": getattr(debate_result, "argument_graph", {}).get("nodes", []),
+                }
+                canvas = debate_to_ideas_canvas(
+                    debate_data, canvas_name="Ideas from Debate",
+                )
+            except (ImportError, Exception):
+                # Fallback: extract ideas from raw text
+                ideas = [s.strip() for s in input_text.split(".") if s.strip()]
+                if not ideas:
+                    ideas = [input_text]
+                goal_graph = self._goal_extractor.extract_from_raw_ideas(ideas)
+                debate_data = {"raw_ideas": ideas, "goal_graph_preview": goal_graph}
+
+                from aragora.canvas.models import Canvas as CanvasModel
+                canvas = CanvasModel(
+                    id=f"ideas-{uuid.uuid4().hex[:8]}",
+                    name="Ideas from Text",
+                    metadata={"stage": PipelineStage.IDEAS.value, "source": "text"},
+                )
+
+            sr.output = {"canvas": canvas, **debate_data}
+            sr.status = "completed"
+            sr.duration = time.monotonic() - start
+            self._emit(cfg, "stage_completed", {
+                "stage": "ideation",
+                "summary": {"source": "debate" if "debate_result" in debate_data else "text"},
+            })
+        except Exception as exc:
+            sr.status = "failed"
+            sr.error = "Ideation stage failed"
+            sr.duration = time.monotonic() - start
+            logger.warning("Ideation failed: %s", exc)
+
+        return sr
+
+    async def _run_goal_extraction(
+        self,
+        pipeline_id: str,
+        debate_output: dict[str, Any] | None,
+        cfg: PipelineConfig,
+    ) -> StageResult:
+        """Stage 2: Extract goals from debate analysis."""
+        sr = StageResult(stage_name="goals", status="running")
+        start = time.monotonic()
+        self._emit(cfg, "stage_started", {"stage": "goals"})
+
+        try:
+            goal_graph = None
+
+            # If we have debate data with argument nodes, use debate analysis
+            if debate_output and debate_output.get("nodes"):
+                cartographer_data = {"nodes": debate_output["nodes"]}
+                goal_graph = self._goal_extractor.extract_from_debate_analysis(
+                    cartographer_data,
+                    config=cfg.goal_extraction_config,
+                )
+            elif debate_output and debate_output.get("goal_graph_preview"):
+                # Already extracted via raw ideas
+                goal_graph = debate_output["goal_graph_preview"]
+            elif debate_output and debate_output.get("canvas"):
+                # Use canvas data for structural extraction
+                canvas = debate_output["canvas"]
+                canvas_data = canvas.to_dict() if hasattr(canvas, "to_dict") else {}
+                goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
+            else:
+                goal_graph = GoalGraph(id=f"goals-{uuid.uuid4().hex[:8]}")
+
+            # Emit individual goals
+            if goal_graph:
+                for goal in goal_graph.goals:
+                    self._emit(cfg, "goal_extracted", {"goal": goal.to_dict()})
+
+            sr.output = {"goal_graph": goal_graph}
+            sr.status = "completed"
+            sr.duration = time.monotonic() - start
+            self._emit(cfg, "stage_completed", {
+                "stage": "goals",
+                "summary": {"goal_count": len(goal_graph.goals) if goal_graph else 0},
+            })
+        except Exception as exc:
+            sr.status = "failed"
+            sr.error = "Goal extraction failed"
+            sr.duration = time.monotonic() - start
+            logger.warning("Goal extraction failed: %s", exc)
+
+        return sr
+
+    async def _run_workflow_generation(
+        self,
+        pipeline_id: str,
+        goal_graph: GoalGraph | None,
+        cfg: PipelineConfig,
+    ) -> StageResult:
+        """Stage 3: Generate workflow from goals."""
+        sr = StageResult(stage_name="workflow", status="running")
+        start = time.monotonic()
+        self._emit(cfg, "stage_started", {"stage": "workflow"})
+
+        try:
+            workflow: dict[str, Any] | None = None
+
+            if goal_graph and goal_graph.goals:
+                # Try NLWorkflowBuilder
+                try:
+                    from aragora.workflow.nl_builder import NLWorkflowBuilder
+
+                    builder = NLWorkflowBuilder()
+                    goal_texts = [g.title for g in goal_graph.goals]
+                    nl_input = ". ".join(goal_texts)
+
+                    if cfg.workflow_mode == "quick":
+                        nl_result = builder.build_quick(nl_input)
+                    else:
+                        nl_result = await builder.build(nl_input)
+
+                    workflow = (
+                        nl_result.to_dict()
+                        if hasattr(nl_result, "to_dict")
+                        else {"steps": [], "name": "generated"}
+                    )
+                except (ImportError, Exception):
+                    # Fallback: use internal goal-to-workflow conversion
+                    workflow = self._goals_to_workflow(goal_graph)
+
+                self._emit(cfg, "workflow_generated", {"workflow": workflow})
+            else:
+                workflow = {"steps": [], "name": "empty"}
+
+            sr.output = {"workflow": workflow}
+            sr.status = "completed"
+            sr.duration = time.monotonic() - start
+            self._emit(cfg, "stage_completed", {
+                "stage": "workflow",
+                "summary": {"step_count": len(workflow.get("steps", []))},
+            })
+        except Exception as exc:
+            sr.status = "failed"
+            sr.error = "Workflow generation failed"
+            sr.duration = time.monotonic() - start
+            logger.warning("Workflow generation failed: %s", exc)
+
+        return sr
+
+    async def _run_orchestration(
+        self,
+        pipeline_id: str,
+        workflow: dict[str, Any] | None,
+        goal_graph: GoalGraph | None,
+        cfg: PipelineConfig,
+    ) -> StageResult:
+        """Stage 4: Run orchestration on workflow."""
+        sr = StageResult(stage_name="orchestration", status="running")
+        start = time.monotonic()
+        self._emit(cfg, "stage_started", {"stage": "orchestration"})
+
+        try:
+            orch_result: dict[str, Any] = {}
+
+            try:
+                from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+                orchestrator = AutonomousOrchestrator()
+                tracks = cfg.orchestration_tracks or ["core"]
+
+                if goal_graph and goal_graph.goals:
+                    goal_dict = goal_graph.goals[0].to_prioritized_goal(tracks[0])
+                    result = await orchestrator.execute_goal(
+                        goal_dict,
+                        max_cycles=cfg.max_orchestration_cycles,
+                    )
+                    orch_result = (
+                        result.to_dict() if hasattr(result, "to_dict") else {"status": "completed"}
+                    )
+                else:
+                    orch_result = {"status": "skipped", "reason": "no goals"}
+            except (ImportError, Exception):
+                orch_result = {"status": "fallback", "reason": "orchestrator unavailable"}
+
+            sr.output = {"orchestration": orch_result}
+            sr.status = "completed"
+            sr.duration = time.monotonic() - start
+            self._emit(cfg, "stage_completed", {
+                "stage": "orchestration",
+                "summary": orch_result,
+            })
+        except Exception as exc:
+            sr.status = "failed"
+            sr.error = "Orchestration failed"
+            sr.duration = time.monotonic() - start
+            logger.warning("Orchestration failed: %s", exc)
+
+        return sr
+
+    def _emit(self, cfg: PipelineConfig, event_type: str, data: dict[str, Any]) -> None:
+        """Emit an event via the configured callback."""
+        if cfg.event_callback:
+            try:
+                cfg.event_callback(event_type, data)
+            except Exception:
+                pass
+
+    def _generate_receipt(self, result: PipelineResult) -> dict[str, Any] | None:
+        """Generate a DecisionReceipt for the completed pipeline."""
+        try:
+            from aragora.gauntlet.receipts import DecisionReceipt
+
+            receipt = DecisionReceipt(
+                decision_id=result.pipeline_id,
+                decision_summary=f"Pipeline completed with {len(result.stage_results)} stages",
+                confidence=result.transitions[-1].confidence if result.transitions else 0.5,
+                participants=[],
+                evidence=[],
+            )
+            return receipt.to_dict()
+        except (ImportError, Exception):
+            return {
+                "pipeline_id": result.pipeline_id,
+                "integrity_hash": result._compute_integrity_hash(),
+                "stages_completed": sum(
+                    1 for sr in result.stage_results if sr.status == "completed"
+                ),
+            }
+
+    # =========================================================================
+    # Stage transition methods (sync, for from_debate/from_ideas)
     # =========================================================================
 
     def _advance_to_goals(self, result: PipelineResult) -> PipelineResult:

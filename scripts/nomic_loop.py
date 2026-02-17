@@ -254,7 +254,7 @@ NOMIC_AUTO_CHECKPOINT = os.environ.get("NOMIC_AUTO_CHECKPOINT", "1") == "1"
 # TESTFIXER FLAGS - Automated test repair loop integration
 # =============================================================================
 
-NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "0") == "1"
+NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "1") == "1"
 NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
     "NOMIC_TESTFIXER_TEST_COMMAND", "pytest tests/ -q --maxfail=1"
 )
@@ -302,7 +302,7 @@ NOMIC_TESTFIXER_REDTEAM_ATTACKS_PER_ROUND = int(
 NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS = float(
     os.environ.get("NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS", "0.6")
 )
-NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "0") == "1"
+NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "1") == "1"
 NOMIC_TESTFIXER_PATTERN_STORE = os.environ.get("NOMIC_TESTFIXER_PATTERN_STORE", "")
 NOMIC_TESTFIXER_GENERATION_TIMEOUT = float(
     os.environ.get("NOMIC_TESTFIXER_GENERATION_TIMEOUT", "600")
@@ -3588,6 +3588,24 @@ The most valuable proposals combine deep analysis with actionable implementation
             ),
         )
 
+    def _create_memory_gateway(self):
+        """Create a MemoryGateway from available subsystems for implementation context."""
+        try:
+            from aragora.memory.gateway import MemoryGateway
+            from aragora.memory.gateway_config import MemoryGatewayConfig
+
+            km = getattr(self, "knowledge_mound", None)
+            if km is None:
+                return None
+
+            return MemoryGateway(
+                config=MemoryGatewayConfig(enabled=True),
+                knowledge_mound=km,
+            )
+        except Exception as exc:
+            self._log(f"  [memory] Gateway creation failed: {exc}")
+            return None
+
     def _create_implement_phase(self) -> "ImplementPhase":
         """Create an extracted ImplementPhase instance.
 
@@ -3680,6 +3698,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             ),
             save_state_fn=self.save_state if hasattr(self, "save_state") else None,
             constitution_verifier=self.constitution_verifier,
+            memory_gateway=self._create_memory_gateway(),
         )
 
     async def _generate_implement_plan(self, design: str, repo_path: Path):
@@ -10018,7 +10037,8 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 "duration_seconds": iteration_duration,
             }
 
-            if NOMIC_TESTFIXER_ENABLED and "testfixer" not in cycle_result:
+            # TestFixer runs FIRST on every iteration (primary fix mechanism)
+            if NOMIC_TESTFIXER_ENABLED:
                 self._log("\n  TestFixer running automated fix loop...", agent="testfixer")
                 testfixer_result = await self._run_testfixer_loop()
                 iteration_result["testfixer"] = testfixer_result

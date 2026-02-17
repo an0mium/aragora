@@ -207,7 +207,7 @@ class TestPipelineStages:
             assert "accent" in colors
 
     def test_idea_node_types(self):
-        assert len(IdeaNodeType) == 7
+        assert len(IdeaNodeType) == 9
         assert IdeaNodeType.CONCEPT.value == "concept"
         assert IdeaNodeType.CLUSTER.value == "cluster"
 
@@ -753,6 +753,136 @@ class TestCanvasPipelineHandler:
     async def test_get_stage_not_found(self, handler):
         result = await handler.handle_get_stage("nonexistent", "ideas")
         assert "error" in result
+
+    # =========================================================================
+    # Advance endpoint tests
+    # =========================================================================
+
+    @pytest.mark.asyncio
+    async def test_advance_to_goals(self, handler, sample_debate_data):
+        """Create pipeline with auto_advance=False, then advance to goals."""
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+
+        result = await handler.handle_advance({
+            "pipeline_id": pid,
+            "target_stage": "goals",
+        })
+        assert result["pipeline_id"] == pid
+        assert result["advanced_to"] == "goals"
+        assert result["stage_status"]["goals"] == "complete"
+
+    @pytest.mark.asyncio
+    async def test_advance_to_actions(self, handler, sample_debate_data):
+        """Advance from goals to actions."""
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+
+        # First advance to goals
+        await handler.handle_advance({
+            "pipeline_id": pid,
+            "target_stage": "goals",
+        })
+        # Then advance to actions
+        result = await handler.handle_advance({
+            "pipeline_id": pid,
+            "target_stage": "actions",
+        })
+        assert result["advanced_to"] == "actions"
+        assert result["stage_status"]["actions"] == "complete"
+
+    @pytest.mark.asyncio
+    async def test_advance_to_orchestration(self, handler, sample_debate_data):
+        """Full stage-by-stage advance to orchestration."""
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+
+        for stage in ["goals", "actions", "orchestration"]:
+            await handler.handle_advance({
+                "pipeline_id": pid,
+                "target_stage": stage,
+            })
+
+        result = await handler.handle_get_pipeline(pid)
+        assert result["stage_status"]["orchestration"] == "complete"
+
+    @pytest.mark.asyncio
+    async def test_advance_missing_pipeline_id(self, handler):
+        result = await handler.handle_advance({"target_stage": "goals"})
+        assert "error" in result
+        assert "pipeline_id" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_advance_invalid_stage(self, handler, sample_debate_data):
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+        result = await handler.handle_advance({
+            "pipeline_id": pid,
+            "target_stage": "nonexistent_stage",
+        })
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_advance_not_found(self, handler):
+        result = await handler.handle_advance({
+            "pipeline_id": "pipe-doesnotexist",
+            "target_stage": "goals",
+        })
+        assert "error" in result
+        assert "not found" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_advance_preserves_provenance(self, handler, sample_debate_data):
+        """Advancing should maintain provenance chain integrity."""
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+
+        result = await handler.handle_advance({
+            "pipeline_id": pid,
+            "target_stage": "goals",
+        })
+        pipeline_data = result["result"]
+        assert pipeline_data["provenance_count"] > 0
+
+    @pytest.mark.asyncio
+    async def test_advance_full_sequence(self, handler, sample_debate_data):
+        """Advance through all 4 stages sequentially and verify final state."""
+        create_result = await handler.handle_from_debate({
+            "cartographer_data": sample_debate_data,
+            "auto_advance": False,
+        })
+        pid = create_result["pipeline_id"]
+        assert create_result["stage_status"]["ideas"] == "complete"
+        assert create_result["stage_status"]["goals"] == "pending"
+
+        for stage in ["goals", "actions", "orchestration"]:
+            result = await handler.handle_advance({
+                "pipeline_id": pid,
+                "target_stage": stage,
+            })
+            assert result["advanced_to"] == stage
+            assert result["stage_status"][stage] == "complete"
+
+        final = await handler.handle_get_pipeline(pid)
+        for stage_val in ["ideas", "goals", "actions", "orchestration"]:
+            assert final["stage_status"][stage_val] == "complete"
+        assert final["integrity_hash"]
+        assert len(final["integrity_hash"]) == 16
 
 
 # Import handler for test

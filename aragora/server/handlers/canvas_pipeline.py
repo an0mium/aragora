@@ -14,6 +14,7 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -23,6 +24,10 @@ logger = logging.getLogger(__name__)
 _pipeline_results: dict[str, Any] = {}
 # Live PipelineResult objects for advance_stage()
 _pipeline_objects: dict[str, Any] = {}
+# Async pipeline tasks
+_pipeline_tasks: dict[str, asyncio.Task[Any]] = {}
+# Pipeline receipts
+_pipeline_receipts: dict[str, dict[str, Any]] = {}
 
 
 class CanvasPipelineHandler:
@@ -32,8 +37,12 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/from-debate",
         "POST /api/v1/canvas/pipeline/from-ideas",
         "POST /api/v1/canvas/pipeline/advance",
+        "POST /api/v1/canvas/pipeline/run",
         "GET /api/v1/canvas/pipeline/{id}",
+        "GET /api/v1/canvas/pipeline/{id}/status",
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
+        "GET /api/v1/canvas/pipeline/{id}/graph",
+        "GET /api/v1/canvas/pipeline/{id}/receipt",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
     ]
@@ -249,3 +258,196 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Convert workflow failed: %s", e)
             return {"error": "Conversion failed"}
+
+    # =========================================================================
+    # Async pipeline endpoints (run/status/graph/receipt)
+    # =========================================================================
+
+    async def handle_run(self, request_data: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/canvas/pipeline/run
+
+        Start an async pipeline execution. Returns immediately with pipeline_id.
+
+        Body:
+            input_text: str — The idea/problem statement
+            stages: list[str] (optional) — Stages to run
+            debate_rounds: int (default 3)
+            workflow_mode: str (default "quick")
+            dry_run: bool (default False)
+            enable_receipts: bool (default True)
+        """
+        try:
+            from aragora.pipeline.idea_to_execution import (
+                IdeaToExecutionPipeline,
+                PipelineConfig,
+            )
+
+            input_text = request_data.get("input_text", "")
+            if not input_text:
+                return {"error": "Missing required field: input_text"}
+
+            config = PipelineConfig(
+                stages_to_run=request_data.get("stages", [
+                    "ideation", "goals", "workflow", "orchestration",
+                ]),
+                debate_rounds=request_data.get("debate_rounds", 3),
+                workflow_mode=request_data.get("workflow_mode", "quick"),
+                dry_run=request_data.get("dry_run", False),
+                enable_receipts=request_data.get("enable_receipts", True),
+            )
+
+            # Set up stream emitter as event callback
+            try:
+                from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+                emitter = get_pipeline_emitter()
+            except ImportError:
+                emitter = None
+
+            pipeline = IdeaToExecutionPipeline()
+
+            async def _run_pipeline() -> None:
+                if emitter:
+                    config.event_callback = emitter.as_event_callback(pipeline_id)
+                result = await pipeline.run(input_text, config)
+                result_dict = result.to_dict()
+                _pipeline_results[result.pipeline_id] = result_dict
+                _pipeline_objects[result.pipeline_id] = result
+                if result.receipt:
+                    _pipeline_receipts[result.pipeline_id] = result.receipt
+
+            # Generate pipeline_id before launching task
+            import uuid
+            pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
+            # Store placeholder so status queries work immediately
+            _pipeline_results[pipeline_id] = {
+                "pipeline_id": pipeline_id,
+                "stage_status": {"ideas": "pending", "goals": "pending", "actions": "pending", "orchestration": "pending"},
+                "status": "running",
+            }
+
+            task = asyncio.create_task(_run_pipeline())
+            _pipeline_tasks[pipeline_id] = task
+
+            return {
+                "pipeline_id": pipeline_id,
+                "status": "running",
+                "stages": config.stages_to_run,
+            }
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("Pipeline run failed: %s", e)
+            return {"error": "Pipeline execution failed"}
+
+    async def handle_status(self, pipeline_id: str) -> dict[str, Any]:
+        """GET /api/v1/canvas/pipeline/{id}/status
+
+        Get per-stage status for a pipeline.
+        """
+        result = _pipeline_results.get(pipeline_id)
+        if not result:
+            return {"error": f"Pipeline {pipeline_id} not found"}
+
+        # Check if async task is still running
+        task = _pipeline_tasks.get(pipeline_id)
+        is_running = task is not None and not task.done()
+
+        status_info: dict[str, Any] = {
+            "pipeline_id": pipeline_id,
+            "status": "running" if is_running else "completed",
+            "stage_status": result.get("stage_status", {}),
+        }
+
+        if result.get("stage_results"):
+            status_info["stage_results"] = result["stage_results"]
+        if result.get("duration"):
+            status_info["duration"] = result["duration"]
+
+        return status_info
+
+    async def handle_graph(
+        self, pipeline_id: str, request_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """GET /api/v1/canvas/pipeline/{id}/graph
+
+        Get React Flow JSON for any stage of the pipeline.
+
+        Query params (via request_data):
+            stage: str (optional) — specific stage (ideas, goals, actions, orchestration)
+        """
+        result = _pipeline_results.get(pipeline_id)
+        if not result:
+            return {"error": f"Pipeline {pipeline_id} not found"}
+
+        stage = (request_data or {}).get("stage", "")
+
+        graphs: dict[str, Any] = {}
+        if not stage or stage == "ideas":
+            if result.get("ideas"):
+                graphs["ideas"] = result["ideas"]
+        if not stage or stage == "goals":
+            if result.get("goals"):
+                # Convert goals to React Flow nodes
+                goals_data = result["goals"]
+                rf_nodes = []
+                rf_edges = []
+                for i, goal in enumerate(goals_data.get("goals", [])):
+                    rf_nodes.append({
+                        "id": goal.get("id", f"goal-{i}"),
+                        "type": "goalNode",
+                        "position": {"x": 100, "y": i * 120},
+                        "data": goal,
+                    })
+                    for dep in goal.get("dependencies", []):
+                        rf_edges.append({
+                            "id": f"dep-{dep}-{goal['id']}",
+                            "source": dep,
+                            "target": goal["id"],
+                        })
+                graphs["goals"] = {"nodes": rf_nodes, "edges": rf_edges}
+        if not stage or stage == "actions":
+            if result.get("actions"):
+                graphs["actions"] = result["actions"]
+        if not stage or stage == "orchestration":
+            if result.get("orchestration"):
+                graphs["orchestration"] = result["orchestration"]
+
+        # If final_workflow present, add it
+        if not stage or stage == "workflow":
+            wf = result.get("final_workflow")
+            if wf:
+                rf_nodes = []
+                rf_edges = []
+                for i, step in enumerate(wf.get("steps", [])):
+                    rf_nodes.append({
+                        "id": step.get("id", f"step-{i}"),
+                        "type": "workflowStep",
+                        "position": {"x": 200, "y": i * 100},
+                        "data": step,
+                    })
+                for trans in wf.get("transitions", []):
+                    rf_edges.append({
+                        "id": trans.get("id", ""),
+                        "source": trans.get("from_step", ""),
+                        "target": trans.get("to_step", ""),
+                    })
+                graphs["workflow"] = {"nodes": rf_nodes, "edges": rf_edges}
+
+        return {"pipeline_id": pipeline_id, "graphs": graphs}
+
+    async def handle_receipt(self, pipeline_id: str) -> dict[str, Any]:
+        """GET /api/v1/canvas/pipeline/{id}/receipt
+
+        Get the DecisionReceipt for a completed pipeline.
+        """
+        receipt = _pipeline_receipts.get(pipeline_id)
+        if receipt:
+            return {"pipeline_id": pipeline_id, "receipt": receipt}
+
+        # Check if pipeline result has a receipt
+        result = _pipeline_results.get(pipeline_id)
+        if not result:
+            return {"error": f"Pipeline {pipeline_id} not found"}
+
+        if result.get("receipt"):
+            return {"pipeline_id": pipeline_id, "receipt": result["receipt"]}
+
+        return {"error": f"No receipt available for pipeline {pipeline_id}"}

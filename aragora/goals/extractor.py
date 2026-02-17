@@ -18,9 +18,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.canvas.stages import (
     GoalNodeType,
@@ -30,7 +31,21 @@ from aragora.canvas.stages import (
     content_hash,
 )
 
+if TYPE_CHECKING:
+    from aragora.reasoning.belief import PropagationResult
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GoalExtractionConfig:
+    """Configuration for debate-analysis-based goal extraction."""
+
+    confidence_threshold: float = 0.6
+    max_goals: int = 10
+    require_consensus: bool = True
+    smart_scoring: bool = True
+    min_centrality: float = 0.0
 
 
 @dataclass
@@ -60,6 +75,29 @@ class GoalNode:
             "source_idea_ids": self.source_idea_ids,
             "confidence": self.confidence,
             "metadata": self.metadata,
+        }
+
+    def to_prioritized_goal(self, track: str = "core") -> dict[str, Any]:
+        """Convert to MetaPlanner-compatible PrioritizedGoal dict."""
+        priority_score = {
+            "critical": 1.0,
+            "high": 0.75,
+            "medium": 0.5,
+            "low": 0.25,
+        }.get(self.priority, 0.5)
+
+        return {
+            "goal": self.title,
+            "description": self.description,
+            "priority": priority_score,
+            "track": track,
+            "confidence": self.confidence,
+            "source_goal_id": self.id,
+            "metadata": {
+                "goal_type": self.goal_type.value,
+                "measurable": self.measurable,
+                "source_idea_ids": self.source_idea_ids,
+            },
         }
 
 
@@ -281,6 +319,165 @@ class GoalExtractor:
         canvas_data = {"nodes": nodes, "edges": edges}
         return self.extract_from_ideas(canvas_data)
 
+    def extract_from_debate_analysis(
+        self,
+        cartographer_output: dict[str, Any],
+        belief_result: PropagationResult | None = None,
+        config: GoalExtractionConfig | None = None,
+    ) -> GoalGraph:
+        """Extract goals from ArgumentCartographer + BeliefNetwork output.
+
+        Bridges debate analysis (argument mapping + belief propagation) into
+        actionable goals by finding consensus/vote nodes and ranking by
+        centrality from the belief network.
+
+        Args:
+            cartographer_output: ArgumentCartographer.to_dict() output
+            belief_result: Optional PropagationResult from BeliefNetwork
+            config: Extraction configuration
+
+        Returns:
+            GoalGraph with debate-derived goals
+        """
+        cfg = config or GoalExtractionConfig()
+        nodes = cartographer_output.get("nodes", [])
+
+        if not nodes:
+            return GoalGraph(id=f"goals-{uuid.uuid4().hex[:8]}")
+
+        # Build centrality lookup from belief result
+        centralities: dict[str, float] = {}
+        if belief_result is not None:
+            centralities = getattr(belief_result, "centralities", None) or {}
+
+        # Step 1: Find consensus/vote nodes (high-signal debate outcomes)
+        candidates: list[tuple[dict[str, Any], float]] = []
+        for node in nodes:
+            node_type = node.get("node_type", node.get("type", ""))
+            node_id = node.get("id", "")
+
+            # Accept consensus, vote, and claim nodes
+            if cfg.require_consensus and node_type not in (
+                "consensus", "vote", "claim", "synthesis",
+            ):
+                continue
+
+            # Base score from node attributes
+            score = node.get("weight", 0.5)
+            if isinstance(node.get("data"), dict):
+                score = max(score, node["data"].get("confidence", 0.0))
+
+            # Cross-reference with belief centralities
+            centrality = centralities.get(node_id, 0.0)
+            if centrality < cfg.min_centrality:
+                continue
+            score = score * 0.6 + centrality * 0.4 if centralities else score
+
+            # Filter by confidence threshold
+            if score < cfg.confidence_threshold:
+                continue
+
+            candidates.append((node, score))
+
+        # If require_consensus yielded nothing, fall back to all nodes
+        if not candidates and cfg.require_consensus:
+            return self.extract_from_debate_analysis(
+                cartographer_output,
+                belief_result,
+                GoalExtractionConfig(
+                    confidence_threshold=cfg.confidence_threshold,
+                    max_goals=cfg.max_goals,
+                    require_consensus=False,
+                    smart_scoring=cfg.smart_scoring,
+                    min_centrality=cfg.min_centrality,
+                ),
+            )
+
+        # Sort by score descending and limit
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        candidates = candidates[: cfg.max_goals]
+
+        # Step 2: Create goals from candidates
+        goals: list[GoalNode] = []
+        provenance_links: list[ProvenanceLink] = []
+
+        for rank, (node, score) in enumerate(candidates):
+            node_id = node.get("id", "")
+            label = node.get("label", node.get("content", ""))
+            node_type = node.get("node_type", node.get("type", ""))
+
+            # Map debate node types to goal types
+            goal_type = {
+                "consensus": GoalNodeType.GOAL,
+                "vote": GoalNodeType.MILESTONE,
+                "claim": GoalNodeType.STRATEGY,
+                "synthesis": GoalNodeType.GOAL,
+            }.get(node_type, GoalNodeType.GOAL)
+
+            # Priority from score
+            priority = (
+                "critical" if score >= 0.9
+                else "high" if score >= 0.7
+                else "medium" if score >= 0.4
+                else "low"
+            )
+
+            # SMART scoring
+            smart_meta: dict[str, Any] = {"rank": rank, "debate_score": score}
+            measurable = ""
+            if cfg.smart_scoring:
+                specificity = _score_specificity(label)
+                measurability = _score_measurability(label)
+                smart_meta["specificity"] = specificity
+                smart_meta["measurability"] = measurability
+                if measurability > 0.5:
+                    measurable = f"Score: {measurability:.1f} (auto-detected metrics)"
+
+            goal = GoalNode(
+                id=f"goal-{uuid.uuid4().hex[:8]}",
+                title=self._synthesize_goal_title(label, goal_type),
+                description=label,
+                goal_type=goal_type,
+                priority=priority,
+                measurable=measurable,
+                source_idea_ids=[node_id],
+                confidence=min(1.0, score),
+                metadata=smart_meta,
+            )
+            goals.append(goal)
+
+            provenance_links.append(
+                ProvenanceLink(
+                    source_node_id=node_id,
+                    source_stage=PipelineStage.IDEAS,
+                    target_node_id=goal.id,
+                    target_stage=PipelineStage.GOALS,
+                    content_hash=content_hash(label),
+                    method="debate_analysis",
+                )
+            )
+
+        transition = StageTransition(
+            id=f"trans-debate-goals-{uuid.uuid4().hex[:8]}",
+            from_stage=PipelineStage.IDEAS,
+            to_stage=PipelineStage.GOALS,
+            provenance=provenance_links,
+            status="pending",
+            confidence=sum(g.confidence for g in goals) / max(len(goals), 1),
+            ai_rationale=(
+                f"Extracted {len(goals)} goals from debate analysis "
+                f"({len(nodes)} argument nodes, "
+                f"{'with' if belief_result else 'without'} belief propagation)"
+            ),
+        )
+
+        return GoalGraph(
+            id=f"goals-{uuid.uuid4().hex[:8]}",
+            goals=goals,
+            provenance=provenance_links,
+            transition=transition,
+        )
+
     # =========================================================================
     # Internal methods
     # =========================================================================
@@ -377,6 +574,42 @@ class GoalExtractor:
             parts.append(f"Originally proposed by {agent}.")
 
         return " ".join(parts)
+
+
+# =========================================================================
+# SMART scoring helpers
+# =========================================================================
+
+_SPECIFICITY_PATTERNS = [
+    re.compile(r"\b\d+%?\b"),  # Numbers/percentages
+    re.compile(r"\b(implement|build|create|deploy|add|remove|fix|update)\b", re.I),
+    re.compile(r"\b(api|database|server|client|module|service|endpoint)\b", re.I),
+    re.compile(r"\b(by|within|before|after|during)\s+\w+", re.I),
+]
+
+_MEASURABILITY_PATTERNS = [
+    re.compile(r"\b\d+\s*%", re.I),  # Percentages
+    re.compile(r"\b(reduce|increase|improve|decrease|achieve)\s+\w+\s+by\b", re.I),
+    re.compile(r"\b(metric|measure|kpi|target|benchmark|score|rate)\b", re.I),
+    re.compile(r"\b(latency|throughput|uptime|coverage|accuracy)\b", re.I),
+    re.compile(r"\b\d+\s*(ms|seconds?|minutes?|hours?|days?)\b", re.I),
+]
+
+
+def _score_specificity(text: str) -> float:
+    """Score how specific/actionable a text is (0.0 to 1.0)."""
+    if not text:
+        return 0.0
+    matches = sum(1 for p in _SPECIFICITY_PATTERNS if p.search(text))
+    return min(1.0, matches / len(_SPECIFICITY_PATTERNS))
+
+
+def _score_measurability(text: str) -> float:
+    """Score how measurable a text is (0.0 to 1.0)."""
+    if not text:
+        return 0.0
+    matches = sum(1 for p in _MEASURABILITY_PATTERNS if p.search(text))
+    return min(1.0, matches / len(_MEASURABILITY_PATTERNS))
 
 
 # Common English stop words to exclude from keyword matching

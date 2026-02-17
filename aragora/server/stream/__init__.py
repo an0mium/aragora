@@ -196,6 +196,23 @@ _EXPORTS = {
         "aragora.server.stream.inbox_sync",
         "get_inbox_sync_emitter",
     ),
+    # Pipeline stream (Idea-to-Execution)
+    "PipelineStreamEmitter": (
+        "aragora.server.stream.pipeline_stream",
+        "PipelineStreamEmitter",
+    ),
+    "PipelineStreamClient": (
+        "aragora.server.stream.pipeline_stream",
+        "PipelineStreamClient",
+    ),
+    "get_pipeline_emitter": (
+        "aragora.server.stream.pipeline_stream",
+        "get_pipeline_emitter",
+    ),
+    "set_pipeline_emitter": (
+        "aragora.server.stream.pipeline_stream",
+        "set_pipeline_emitter",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -288,6 +305,11 @@ __all__ = [
     "InboxSyncEvent",
     "InboxSyncEventType",
     "get_inbox_sync_emitter",
+    # Pipeline stream (Idea-to-Execution)
+    "PipelineStreamEmitter",
+    "PipelineStreamClient",
+    "get_pipeline_emitter",
+    "set_pipeline_emitter",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

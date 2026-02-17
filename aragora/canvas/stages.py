@@ -40,6 +40,8 @@ class IdeaNodeType(str, Enum):
     EVIDENCE = "evidence"
     ASSUMPTION = "assumption"
     CONSTRAINT = "constraint"
+    OBSERVATION = "observation"  # Empirical observation or data point
+    HYPOTHESIS = "hypothesis"  # Testable prediction or theory
 
 
 class GoalNodeType(str, Enum):
@@ -86,6 +88,11 @@ class StageEdgeType(str, Enum):
     DECOMPOSES_INTO = "decomposes_into"
     BLOCKS = "blocks"
     FOLLOWS = "follows"
+    # Idea-specific relationships
+    INSPIRES = "inspires"
+    REFINES = "refines"
+    CHALLENGES = "challenges"
+    EXEMPLIFIES = "exemplifies"
     # Cross-stage provenance
     DERIVED_FROM = "derived_from"  # Goal derived from idea cluster
     IMPLEMENTS = "implements"  # Action implements a goal
@@ -193,6 +200,8 @@ NODE_TYPE_COLORS: dict[str, str] = {
     "evidence": "#7c3aed",
     "assumption": "#c4b5fd",
     "constraint": "#ddd6fe",
+    "observation": "#34d399",  # Emerald (empirical)
+    "hypothesis": "#c084fc",  # Purple (theoretical)
     # Goals
     "goal": "#34d399",
     "principle": "#10b981",

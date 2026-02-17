@@ -175,28 +175,45 @@ class VerifyPhase:
         )
 
     async def _check_syntax(self) -> dict:
-        """Check Python syntax."""
+        """Check Python syntax of all changed .py files."""
         self._log("  Checking syntax...")
         try:
-            proc = await asyncio.create_subprocess_exec(
-                "python",
-                "-m",
-                "py_compile",
-                "aragora/__init__.py",
-                cwd=self.aragora_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
-            passed = proc.returncode == 0
-            stderr_text = stderr.decode() if stderr else ""
+            # Get changed Python files from git diff
+            changed_files = await self._get_changed_files()
+            py_files = [f for f in changed_files if f.endswith(".py")]
+
+            # Fallback to aragora/__init__.py when no changes detected
+            if not py_files:
+                py_files = ["aragora/__init__.py"]
+
+            self._log(f"    Checking {len(py_files)} file(s)...")
+
+            all_errors: list[str] = []
+            for py_file in py_files:
+                proc = await asyncio.create_subprocess_exec(
+                    "python",
+                    "-m",
+                    "py_compile",
+                    py_file,
+                    cwd=self.aragora_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+                if proc.returncode != 0:
+                    stderr_text = stderr.decode() if stderr else ""
+                    all_errors.append(f"{py_file}: {stderr_text}")
+
+            passed = len(all_errors) == 0
+            output = "\n".join(all_errors) if all_errors else ""
             check = {
                 "check": "syntax",
                 "passed": passed,
-                "output": stderr_text,
+                "output": output,
+                "files_checked": len(py_files),
             }
-            self._log(f"    {'passed' if passed else 'FAILED'} syntax")
-            self._stream_emit("on_verification_result", "syntax", passed, stderr_text)
+            self._log(f"    {'passed' if passed else 'FAILED'} syntax ({len(py_files)} files)")
+            self._stream_emit("on_verification_result", "syntax", passed, output)
             return check
         except asyncio.TimeoutError:
             proc.kill()

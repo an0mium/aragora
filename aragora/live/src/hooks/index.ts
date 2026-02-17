@@ -87,6 +87,7 @@ export { usePolicies } from './usePolicies';
 export { useWorkflowBuilder } from './useWorkflowBuilder';
 export { useWorkflowExecution } from './useWorkflowExecution';
 export { useWorkflowWebSocket } from './useWorkflowWebSocket';
+export { usePipeline } from './usePipeline';
 
 // =============================================================================
 // Monitoring & Analytics

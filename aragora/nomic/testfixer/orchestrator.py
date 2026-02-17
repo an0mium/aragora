@@ -435,6 +435,18 @@ class TestFixerOrchestrator:
 
                 # Analyze failure
                 analysis = await self.analyzer.analyze(failure)
+
+                # Enrich analysis with pattern learner suggestions
+                if self.pattern_learner:
+                    try:
+                        suggestion = self.pattern_learner.suggest_heuristic(analysis)
+                    except (RuntimeError, ValueError, OSError) as exc:
+                        logger.warning("testfixer.pattern_suggest_error error=%s", exc)
+                        suggestion = None
+                    if suggestion:
+                        analysis.suggested_approach = f"{analysis.suggested_approach}\n\n{suggestion}"
+                        analysis.analysis_notes.append("pattern_suggestion")
+
                 logger.info(
                     "testfixer.analysis run_id=%s iteration=%s category=%s fix_target=%s confidence=%.2f root_file=%s",
                     self.run_id,
@@ -612,8 +624,15 @@ class TestFixerOrchestrator:
 
                 self._applied_patches.append((proposal, self.repo_path))
 
-                # Retest
-                retest_result = await self.runner.run()
+                # Retest — targeted first, then full suite only if targeted passes
+                targeted_test_id = f"{failure.test_file}::{failure.test_name}"
+                targeted_result = await self.runner.run_single_test(targeted_test_id)
+
+                if targeted_result.success:
+                    retest_result = await self.runner.run()  # full suite for regressions
+                else:
+                    retest_result = targeted_result  # skip full suite — fix didn't work
+
                 logger.info(
                     "testfixer.retest run_id=%s iteration=%s summary=%s",
                     self.run_id,

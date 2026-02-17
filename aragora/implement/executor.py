@@ -46,6 +46,9 @@ TASK_PROMPT_TEMPLATE = """Implement this task in the codebase:
 ## Files to Create/Modify
 {files}
 
+## Historical Context
+{memory_context}
+
 ## Repository
 Working directory: {repo_path}
 
@@ -115,16 +118,23 @@ class HybridExecutor:
         complexity_router: dict[str, str] | None = None,
         task_type_router: dict[str, str] | None = None,
         capability_router: dict[str, str] | None = None,
-        use_harness: bool = False,
+        use_harness: bool = True,
         sandbox_mode: bool = True,
         sandbox_image: str = "python:3.11-slim",
         sandbox_memory_mb: int = 2048,
+        memory_gateway: Any | None = None,
     ):
         self.repo_path = repo_path
+
+        # Allow env var override for use_harness (backwards compatibility)
+        env_use_harness = os.environ.get("IMPL_USE_HARNESS")
+        if env_use_harness is not None:
+            use_harness = env_use_harness == "1"
         self.use_harness = use_harness
         self.sandbox_mode = sandbox_mode
         self.sandbox_image = sandbox_image
         self.sandbox_memory_mb = sandbox_memory_mb
+        self._memory_gateway = memory_gateway
 
         # Initialize agents lazily (created on first use)
         self._claude: ClaudeAgent | None = None
@@ -456,7 +466,40 @@ Follow existing code style and tests.""",
 
         return min(base + file_bonus, 1800)  # Cap at 30 min
 
-    def _build_prompt(self, task: ImplementTask, feedback: str | None = None) -> str:
+    async def _fetch_memory_context(self, description: str) -> str:
+        """Fetch relevant historical context from the unified memory gateway.
+
+        Returns formatted context string or placeholder if unavailable.
+        """
+        if self._memory_gateway is None:
+            return "(No historical context available)"
+
+        try:
+            from aragora.memory.gateway import UnifiedMemoryQuery
+
+            response = await asyncio.wait_for(
+                self._memory_gateway.query(
+                    UnifiedMemoryQuery(query=description, limit=5, min_confidence=0.3)
+                ),
+                timeout=10.0,
+            )
+            if not response.results:
+                return "(No relevant historical context found)"
+
+            lines = []
+            for r in response.results:
+                source = getattr(r, "source", "unknown")
+                confidence = getattr(r, "confidence", 0.0)
+                content = getattr(r, "content", str(r))
+                lines.append(f"[{source}, {confidence:.0%}] {content}")
+            return "\n".join(lines)
+        except Exception as exc:
+            logger.debug("Memory context fetch failed: %s", exc)
+            return "(No historical context available)"
+
+    def _build_prompt(
+        self, task: ImplementTask, feedback: str | None = None, memory_context: str = ""
+    ) -> str:
         """Build the implementation prompt for a task."""
         files_str = (
             "\n".join(f"- {f}" for f in task.files)
@@ -468,6 +511,7 @@ Follow existing code style and tests.""",
             description=task.description,
             files=files_str,
             repo_path=str(self.repo_path),
+            memory_context=memory_context or "(No historical context available)",
         )
 
         if feedback:
@@ -571,7 +615,8 @@ Follow existing code style and tests.""",
         config = ClaudeCodeConfig(timeout_seconds=timeout)
         harness = ClaudeCodeHarness(config=config)
 
-        prompt = self._build_prompt(task)
+        memory_context = await self._fetch_memory_context(task.description)
+        prompt = self._build_prompt(task, memory_context=memory_context)
 
         logger.info(
             f"  Executing [{task.complexity}] {task.id} via harness implementation mode (timeout {timeout}s)..."
@@ -633,9 +678,16 @@ Follow existing code style and tests.""",
         if self.use_harness and attempt == 1 and agent_override is None and not use_fallback:
             return await self._execute_via_harness(task)
 
-        # Delegate to sandbox when enabled (first attempt, no overrides)
-        if self.sandbox_mode and attempt == 1 and agent_override is None and not use_fallback:
-            prompt = self._build_prompt(task, feedback=feedback)
+        # Delegate to sandbox when enabled (first attempt, no overrides, harness not active)
+        if (
+            self.sandbox_mode
+            and not self.use_harness
+            and attempt == 1
+            and agent_override is None
+            and not use_fallback
+        ):
+            memory_context = await self._fetch_memory_context(task.description)
+            prompt = self._build_prompt(task, feedback=feedback, memory_context=memory_context)
             timeout = self._get_task_timeout(task)
             return await self._execute_in_sandbox(task, prompt, timeout)
 
@@ -664,7 +716,8 @@ Follow existing code style and tests.""",
                 f"  Executing [{task.complexity}] {task.id} with {model_name} (timeout {getattr(agent, 'timeout', base_timeout)}s)..."
             )
 
-        prompt = self._build_prompt(task, feedback=feedback)
+        memory_context = await self._fetch_memory_context(task.description)
+        prompt = self._build_prompt(task, feedback=feedback, memory_context=memory_context)
         start_time = time.time()
 
         try:
