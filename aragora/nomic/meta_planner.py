@@ -170,6 +170,40 @@ class MetaPlanner:
         except ImportError:
             pass
 
+        # Auto-discover actionable items from codebase signals
+        try:
+            from aragora.compat.openclaw.next_steps_runner import NextStepsRunner
+
+            runner = NextStepsRunner(
+                repo_path=".",
+                scan_code=True,
+                scan_issues=False,  # Skip GitHub API calls
+                scan_prs=False,
+                scan_tests=False,
+                scan_deps=False,
+                scan_docs=True,
+                limit=20,
+            )
+            scan_result = await runner.scan()
+            if scan_result.steps:
+                # Feed high-priority items into planning context
+                for step in scan_result.steps[:10]:
+                    if step.priority in ("critical", "high"):
+                        if step.source == "test-failure" and step.title not in context.test_failures:
+                            context.test_failures.append(step.title)
+                        elif step.title not in context.recent_issues:
+                            context.recent_issues.append(
+                                f"[{step.category}] {step.title}"
+                            )
+                logger.info(
+                    "meta_planner_injected_next_steps count=%d",
+                    min(len(scan_result.steps), 10),
+                )
+        except ImportError:
+            pass
+        except (OSError, RuntimeError, ValueError) as e:
+            logger.debug(f"NextStepsRunner scan skipped: {e}")
+
         try:
             from aragora.debate.orchestrator import Arena, DebateProtocol
             from aragora.core import Environment
