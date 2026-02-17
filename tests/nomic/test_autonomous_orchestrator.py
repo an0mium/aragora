@@ -1462,3 +1462,215 @@ class TestPreflightIntegration:
 
         assert result.success is True
         assert result.completed_subtasks == 1
+
+
+class TestStuckDetectorIntegration:
+    """Tests for stuck detector integration in the orchestrator."""
+
+    def test_stuck_detection_disabled_by_default(self):
+        """Stuck detection should be off by default."""
+        orchestrator = AutonomousOrchestrator()
+        assert orchestrator.enable_stuck_detection is False
+        assert orchestrator._stuck_detector is None
+
+    def test_stuck_detection_enabled_creates_detector(self):
+        """Enabling stuck detection should create a StuckDetector."""
+        orchestrator = AutonomousOrchestrator(enable_stuck_detection=True)
+        assert orchestrator.enable_stuck_detection is True
+        assert orchestrator._stuck_detector is not None
+
+    def test_stuck_detection_custom_detector(self):
+        """Custom detector should be used when provided."""
+        mock_detector = MagicMock()
+        orchestrator = AutonomousOrchestrator(
+            enable_stuck_detection=True,
+            stuck_detector=mock_detector,
+        )
+        assert orchestrator._stuck_detector is mock_detector
+
+    @pytest.mark.asyncio
+    async def test_stuck_detection_starts_and_stops(self):
+        """Stuck detector should start monitoring during execution and stop after."""
+        mock_detector = MagicMock()
+        mock_detector.initialize = AsyncMock()
+        mock_detector.start_monitoring = AsyncMock()
+        mock_detector.stop_monitoring = AsyncMock()
+        mock_detector.get_health_summary = AsyncMock(
+            return_value=MagicMock(
+                red_count=0,
+                yellow_count=0,
+                total_items=3,
+                health_percentage=100.0,
+                recovered_count=0,
+            )
+        )
+
+        engine = MagicMock()
+        engine.execute = AsyncMock(
+            return_value=MagicMock(success=True, final_output={}, error=None)
+        )
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test",
+                complexity_score=3,
+                complexity_level="low",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(id="1", title="Task", description="Do thing", file_scope=["x.py"]),
+                ],
+            )
+        )
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=engine,
+            task_decomposer=decomposer,
+            enable_stuck_detection=True,
+            stuck_detector=mock_detector,
+        )
+
+        result = await orchestrator.execute_goal(goal="Test", max_cycles=1)
+
+        assert result.success is True
+        mock_detector.initialize.assert_awaited_once()
+        mock_detector.start_monitoring.assert_awaited_once()
+        mock_detector.stop_monitoring.assert_awaited_once()
+        mock_detector.get_health_summary.assert_awaited_once()
+
+
+class TestCIFeedbackIntegration:
+    """Tests for CI feedback integration in the merge flow."""
+
+    @pytest.mark.asyncio
+    async def test_ci_check_before_merge(self):
+        """CI result should be checked before merging a branch."""
+        from aragora.nomic.ci_feedback import CIResult
+
+        mock_ci_result = CIResult(
+            workflow_run_id=123,
+            branch="dev/sme-test",
+            commit_sha="abc123",
+            conclusion="success",
+        )
+
+        mock_coordinator = MagicMock()
+        mock_coordinator._worktree_paths = {"dev/sme-test": "/tmp/sme"}
+        mock_coordinator.config = MagicMock(base_branch="main")
+        mock_coordinator.safe_merge = AsyncMock(
+            return_value=MagicMock(success=True, commit_sha="merged123")
+        )
+        mock_coordinator.cleanup_worktrees = MagicMock(return_value=0)
+
+        orchestrator = AutonomousOrchestrator(
+            branch_coordinator=mock_coordinator,
+        )
+
+        assignments = [
+            AgentAssignment(
+                subtask=SubTask(id="1", title="Test", description="Do thing", file_scope=[]),
+                track=Track.SME,
+                agent_type="claude",
+                status="completed",
+            ),
+        ]
+
+        with patch(
+            "aragora.nomic.ci_feedback.CIResultCollector.get_latest_result",
+            return_value=mock_ci_result,
+        ):
+            await orchestrator._merge_and_cleanup(assignments)
+
+        mock_coordinator.safe_merge.assert_awaited_once()
+
+
+class TestGatesIntegration:
+    """Tests for approval gate wiring in the nomic loop handlers."""
+
+    def test_gates_module_exports(self):
+        """Gates module should export all expected classes."""
+        from aragora.nomic.gates import (
+            DesignGate,
+            TestQualityGate,
+            CommitGate,
+            create_standard_gates,
+            GateType,
+        )
+
+        gates = create_standard_gates(dev_mode=True)
+        assert GateType.DESIGN in gates
+        assert GateType.TEST_QUALITY in gates
+        assert GateType.COMMIT in gates
+        assert isinstance(gates[GateType.DESIGN], DesignGate)
+        assert isinstance(gates[GateType.TEST_QUALITY], TestQualityGate)
+        assert isinstance(gates[GateType.COMMIT], CommitGate)
+
+    @pytest.mark.asyncio
+    async def test_design_gate_auto_approve_dev_mode(self):
+        """DesignGate should auto-approve in dev mode."""
+        from aragora.nomic.gates import DesignGate, ApprovalStatus
+        import os
+
+        gate = DesignGate(enabled=True, auto_approve_dev=True)
+
+        with patch.dict(os.environ, {"ARAGORA_DEV_MODE": "1"}):
+            decision = await gate.require_approval(
+                "Design: refactor auth.py",
+                context={"complexity_score": 0.5, "files_affected": ["auth.py"]},
+            )
+
+        assert decision.status == ApprovalStatus.APPROVED
+        assert decision.approver == "auto_dev"
+
+    @pytest.mark.asyncio
+    async def test_design_gate_rejects_high_complexity(self):
+        """DesignGate should reject designs with complexity above threshold."""
+        from aragora.nomic.gates import DesignGate, ApprovalRequired
+
+        gate = DesignGate(enabled=True, max_complexity_score=0.5)
+
+        with pytest.raises(ApprovalRequired):
+            await gate.require_approval(
+                "Complex design",
+                context={"complexity_score": 0.9, "files_affected": ["a.py"]},
+            )
+
+    @pytest.mark.asyncio
+    async def test_test_quality_gate_passes_on_all_green(self):
+        """TestQualityGate should pass when all tests pass."""
+        from aragora.nomic.gates import TestQualityGate, ApprovalStatus
+
+        gate = TestQualityGate(enabled=True, require_all_tests_pass=True)
+
+        decision = await gate.require_approval(
+            "All 42 tests passed",
+            context={"tests_passed": True, "coverage": 85.0, "warnings_count": 0},
+        )
+
+        assert decision.status == ApprovalStatus.APPROVED
+
+    @pytest.mark.asyncio
+    async def test_test_quality_gate_rejects_failures(self):
+        """TestQualityGate should reject when tests fail."""
+        from aragora.nomic.gates import TestQualityGate, ApprovalRequired
+
+        gate = TestQualityGate(enabled=True, require_all_tests_pass=True)
+
+        with pytest.raises(ApprovalRequired):
+            await gate.require_approval(
+                "3 tests failed",
+                context={"tests_passed": False, "coverage": 60.0, "warnings_count": 0},
+            )
+
+    @pytest.mark.asyncio
+    async def test_gate_skipped_when_disabled(self):
+        """Gates should skip when disabled."""
+        from aragora.nomic.gates import DesignGate, ApprovalStatus
+
+        gate = DesignGate(enabled=False)
+
+        decision = await gate.require_approval(
+            "Design",
+            context={},
+        )
+
+        assert decision.status == ApprovalStatus.SKIPPED

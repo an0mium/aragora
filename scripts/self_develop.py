@@ -290,6 +290,7 @@ async def run_orchestration(
     repo_path: Path | None = None,
     enable_metrics: bool = False,
     enable_preflight: bool = False,
+    enable_stuck_detection: bool = False,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration.
 
@@ -304,6 +305,7 @@ async def run_orchestration(
         "use_debate_decomposition": use_debate,
         "enable_metrics": enable_metrics,
         "enable_preflight": enable_preflight,
+        "enable_stuck_detection": enable_stuck_detection,
     }
     if repo_path is not None:
         common_kwargs["aragora_path"] = repo_path
@@ -494,6 +496,11 @@ Examples:
         help="Run preflight health checks (API keys, circuit breakers) before execution",
     )
     parser.add_argument(
+        "--stuck-detection",
+        action="store_true",
+        help="Monitor running tasks for stalls and auto-recover stuck work",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -590,6 +597,7 @@ Examples:
                 repo_path=resolved_repo,
                 enable_metrics=args.metrics,
                 enable_preflight=args.preflight,
+                enable_stuck_detection=args.stuck_detection,
             )
         )
         print_result(result)

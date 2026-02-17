@@ -875,6 +875,33 @@ def create_handlers(
                 log_fn(f"  [implement] Plan generation failed, using fallback: {exc}")
             return create_single_task_plan(design, repo_path)
 
+    # Create approval gates when not auto-committing
+    design_gate = None
+    test_quality_gate = None
+    commit_gate = None
+    if not auto_commit:
+        try:
+            from aragora.nomic.gates import (
+                DesignGate,
+                TestQualityGate,
+                CommitGate,
+            )
+
+            design_gate = DesignGate(
+                enabled=True,
+                auto_approve_dev=os.environ.get("ARAGORA_DEV_MODE", "0") == "1",
+            )
+            test_quality_gate = TestQualityGate(
+                enabled=True,
+                require_all_tests_pass=True,
+            )
+            commit_gate = CommitGate(
+                enabled=True,
+                aragora_path=aragora_path,
+            )
+        except ImportError:
+            pass
+
     implement_phase = ImplementPhase(
         aragora_path=aragora_path,
         plan_generator=_generate_implement_plan,
@@ -883,6 +910,7 @@ def create_handlers(
         log_fn=log_fn,
         stream_emit_fn=stream_emit_fn,
         record_replay_fn=record_replay_fn,
+        design_gate=design_gate,
     )
 
     verify_phase = VerifyPhase(
@@ -893,6 +921,7 @@ def create_handlers(
         log_fn=log_fn,
         stream_emit_fn=stream_emit_fn,
         record_replay_fn=record_replay_fn,
+        test_quality_gate=test_quality_gate,
     )
 
     commit_phase = CommitPhase(
@@ -902,6 +931,7 @@ def create_handlers(
         cycle_count=cycle_count,
         log_fn=log_fn,
         stream_emit_fn=stream_emit_fn,
+        commit_gate=commit_gate,
     )
 
     sica_agents: list[Any] = []

@@ -556,6 +556,8 @@ class AutonomousOrchestrator:
         enable_metrics: bool = False,
         metrics_collector: Any | None = None,
         enable_preflight: bool = False,
+        enable_stuck_detection: bool = False,
+        stuck_detector: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -599,6 +601,12 @@ class AutonomousOrchestrator:
             enable_preflight: Run preflight health checks (API key validation,
                 circuit breaker state, agent availability) before execution
                 to fail fast instead of wasting budget on doomed runs.
+            enable_stuck_detection: Monitor running tasks for stalls during
+                execution and trigger automatic recovery (reassign, escalate,
+                or cancel) based on configurable time thresholds.
+            stuck_detector: Optional StuckDetector instance. Created
+                automatically when enable_stuck_detection is True and no
+                detector is provided.
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -683,6 +691,17 @@ class AutonomousOrchestrator:
                 self._metrics_collector = MetricsCollector()
             except ImportError:
                 logger.debug("MetricsCollector unavailable")
+
+        # Stuck detection for hung tasks
+        self.enable_stuck_detection = enable_stuck_detection
+        self._stuck_detector = stuck_detector
+        if enable_stuck_detection and stuck_detector is None:
+            try:
+                from aragora.nomic.stuck_detector import StuckDetector
+
+                self._stuck_detector = StuckDetector()
+            except ImportError:
+                logger.debug("StuckDetector unavailable")
 
         # Convoy/bead IDs for tracking (populated when convoy tracking enabled)
         self._convoy_id: str | None = None
@@ -1022,6 +1041,15 @@ class AutonomousOrchestrator:
         if self.branch_coordinator is not None:
             await self._create_branches_for_assignments(assignments)
 
+        # Start stuck detection monitoring if enabled
+        if self.enable_stuck_detection and self._stuck_detector is not None:
+            try:
+                await self._stuck_detector.initialize()
+                await self._stuck_detector.start_monitoring()
+                logger.info("stuck_detection_started")
+            except (RuntimeError, OSError, ValueError) as e:
+                logger.debug(f"stuck_detection_start_failed: {e}")
+
         pending = list(assignments)
         running: list[asyncio.Task] = []
 
@@ -1079,6 +1107,24 @@ class AutonomousOrchestrator:
                     await task
                 except (RuntimeError, OSError, ValueError) as e:
                     logger.exception(f"Task failed: {e}")
+
+        # Stop stuck detection monitoring
+        if self.enable_stuck_detection and self._stuck_detector is not None:
+            try:
+                await self._stuck_detector.stop_monitoring()
+                health = await self._stuck_detector.get_health_summary()
+                if health.red_count > 0:
+                    logger.warning(
+                        f"stuck_detection_summary red={health.red_count} "
+                        f"yellow={health.yellow_count} recovered={health.recovered_count}"
+                    )
+                else:
+                    logger.info(
+                        f"stuck_detection_clean total={health.total_items} "
+                        f"health={health.health_percentage:.0f}%"
+                    )
+            except (RuntimeError, OSError, ValueError) as e:
+                logger.debug(f"stuck_detection_shutdown_failed: {e}")
 
         # Merge completed branches and cleanup worktrees
         if self.branch_coordinator is not None:
@@ -1935,6 +1981,24 @@ class AutonomousOrchestrator:
                                 logger.info(f"scope_violation branch={branch} {v.message}")
                 except (ImportError, OSError, ValueError) as e:
                     logger.debug(f"scope_guard_skipped: {e}")
+
+                # CI feedback: check latest CI result for the branch before merging
+                try:
+                    from aragora.nomic.ci_feedback import CIResultCollector
+
+                    ci_collector = CIResultCollector()
+                    ci_result = ci_collector.get_latest_result(branch)
+                    if ci_result is not None:
+                        if ci_result.conclusion == "success":
+                            logger.info(f"ci_check_passed branch={branch}")
+                        else:
+                            logger.warning(
+                                f"ci_check_failed branch={branch} "
+                                f"conclusion={ci_result.conclusion}"
+                            )
+                            # Don't block merge on CI — just warn
+                except (ImportError, OSError, RuntimeError) as e:
+                    logger.debug(f"ci_check_skipped: {e}")
 
                 merge_result = await self.branch_coordinator.safe_merge(branch)
                 if merge_result.success:

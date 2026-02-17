@@ -200,6 +200,20 @@ def cmd_merge(args: argparse.Namespace) -> int:
             return 1
         print("Tests passed.\n")
 
+    # Check CI status if gh CLI is available
+    try:
+        from aragora.nomic.ci_feedback import CIResultCollector
+
+        ci_collector = CIResultCollector()
+        ci_result = ci_collector.get_latest_result(branch)
+        if ci_result is not None:
+            if ci_result.conclusion == "success":
+                print(f"CI check passed for '{branch}'.")
+            else:
+                print(f"WARNING: CI {ci_result.conclusion} for '{branch}'.")
+    except ImportError:
+        pass
+
     action = "Dry-run merge" if dry_run else "Merging"
     print(f"{action}: {branch} -> {base_branch}")
 
