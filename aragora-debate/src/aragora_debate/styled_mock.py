@@ -77,6 +77,24 @@ PROPOSALS: dict[str, list[str]] = {
         "dangerous. If we can't defend the mainstream proposal against serious "
         "objections, it's not ready for adoption. Here's my strongest counter-argument.",
     ],
+    # Hollow consensus style: agents agree using vague, evidence-free language.
+    # All templates share similar structure/wording to produce high convergence
+    # similarity while containing zero citations, data, or concrete examples.
+    "hollow": [
+        "I think the first option is generally better for most teams. "
+        "It is typically the right choice in various situations and usually "
+        "leads to good outcomes. The important aspects make it a solid approach "
+        "that many organizations would benefit from. Overall this seems like "
+        "the common approach and industry standard that best practices recommend.",
+        "The first option is generally the way to go. It usually works well "
+        "in many situations and typically delivers good results. The key elements "
+        "of this approach align with common best practices and the significant impact "
+        "it could potentially have makes it a strong choice for most teams.",
+        "Generally speaking, the first option is the better path forward. "
+        "It is typically recommended and usually considered the industry standard. "
+        "Various factors suggest it might be the right approach for most scenarios "
+        "and many considerations point to it being a solid, common choice overall.",
+    ],
 }
 
 CRITIQUE_TEMPLATES: dict[str, dict[str, list[str]]] = {
@@ -124,6 +142,14 @@ CRITIQUE_TEMPLATES: dict[str, dict[str, list[str]]] = {
             "Delay the decision by one round to stress-test assumptions",
         ],
     },
+    "hollow": {
+        "issues": [
+            "Could benefit from some additional considerations",
+        ],
+        "suggestions": [
+            "Maybe think about a few more things",
+        ],
+    },
 }
 
 SEVERITY_RANGES: dict[str, tuple[float, float]] = {
@@ -131,9 +157,10 @@ SEVERITY_RANGES: dict[str, tuple[float, float]] = {
     "critical": (6.0, 9.0),
     "balanced": (4.0, 6.0),
     "contrarian": (5.0, 8.0),
+    "hollow": (1.0, 3.0),
 }
 
-Style = Literal["supportive", "critical", "balanced", "contrarian"]
+Style = Literal["supportive", "critical", "balanced", "contrarian", "hollow"]
 
 
 class StyledMockAgent(Agent):
@@ -229,6 +256,9 @@ class StyledMockAgent(Agent):
         elif self.style == "contrarian":
             # Picks the last agent (minority voice)
             choice = names[-1]
+        elif self.style == "hollow":
+            # Hollow agents always follow the majority -- pick first agent
+            choice = names[0]
         else:
             # balanced / critical: pick randomly
             choice = random.choice(names)
@@ -239,6 +269,7 @@ class StyledMockAgent(Agent):
             "critical": 0.60,
             "balanced": 0.70,
             "contrarian": 0.50,
+            "hollow": 0.90,  # High confidence despite no evidence
         }.get(self.style, 0.7)
         confidence = round(
             max(0.1, min(1.0, base_confidence + random.uniform(-0.05, 0.05))), 2
@@ -265,6 +296,10 @@ class StyledMockAgent(Agent):
             "contrarian": [
                 f"Reluctantly voting for {choice} -- their view on '{topic_snippet}' at least considers the downsides",
                 f"None of the proposals fully satisfy my concerns, but {choice}'s position on '{topic_snippet}' is least risky",
+            ],
+            "hollow": [
+                f"I agree with {choice} on '{topic_snippet}' -- it generally seems like the right approach",
+                f"{choice}'s take on '{topic_snippet}' is typically what most people would recommend",
             ],
         }
         reasoning = random.choice(reasoning_templates.get(self.style, [f"Selected {choice}"]))

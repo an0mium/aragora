@@ -1,7 +1,7 @@
 # Trickster A/B Benchmark Results
 
-**Generated:** 2026-02-16 20:11 UTC
-**Total duration:** 0.1s
+**Generated:** 2026-02-17 00:45 UTC
+**Total duration:** 0.3s
 **Test cases:** 15
 **Rounds per debate:** 2
 **Agents:** Advocate (supportive), Skeptic (critical), Mediator (balanced)
@@ -15,11 +15,11 @@
 | 3 | Should we use TypeScript or JavaScript for a new Rea... | clear-answer | 0.40 | 0.40 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
 | 4 | Is Redis or Memcached better for session caching? | clear-answer | 0.74 | 0.74 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
 | 5 | Should we use pytest or unittest for our Python test... | clear-answer | 0.72 | 0.72 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
-| 6 | Is AI good for society? | ambiguous | 0.60 | 0.60 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
-| 7 | Should we adopt microservices? | ambiguous | 0.73 | 0.73 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
-| 8 | Is remote work better than in-office for engineering... | ambiguous | 0.40 | 0.40 | 0.000 | 0 | unchanged | 0.02 | 0.02 |
-| 9 | Should startups prioritize growth or profitability? | ambiguous | 0.73 | 0.73 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
-| 10 | Is open source a better strategy than proprietary fo... | ambiguous | 0.72 | 0.72 | 0.000 | 0 | unchanged | 0.02 | 0.02 |
+| 6 | Is AI good for society? | ambiguous | 0.56 | 0.66 | -0.100 | 2 | unchanged | 0.35 | 0.35 |
+| 7 | Should we adopt microservices? | ambiguous | 0.63 | 0.68 | -0.050 | 1 | unchanged | 0.35 | 0.35 |
+| 8 | Is remote work better than in-office for engineering... | ambiguous | 0.57 | 0.67 | -0.100 | 2 | unchanged | 0.35 | 0.35 |
+| 9 | Should startups prioritize growth or profitability? | ambiguous | 0.56 | 0.66 | -0.100 | 2 | unchanged | 0.35 | 0.35 |
+| 10 | Is open source a better strategy than proprietary fo... | ambiguous | 0.62 | 0.67 | -0.050 | 1 | unchanged | 0.04 | 0.04 |
 | 11 | Should we use Kubernetes or ECS for container orches... | domain-specific | 0.61 | 0.61 | 0.000 | 0 | unchanged | 0.02 | 0.02 |
 | 12 | Is GraphQL better than REST for our mobile API? | domain-specific | 0.73 | 0.73 | 0.000 | 0 | unchanged | 0.03 | 0.03 |
 | 13 | Should we use Kafka or RabbitMQ for our event bus? | domain-specific | 0.40 | 0.40 | 0.000 | 0 | unchanged | 0.04 | 0.04 |
@@ -35,11 +35,11 @@
 | 3 | Should we use TypeScript or JavaScript for a new Rea... | 0.30 | 0.30 | 269 | 269 | 2 | 2 |
 | 4 | Is Redis or Memcached better for session caching? | 0.22 | 0.22 | 263 | 263 | 1 | 1 |
 | 5 | Should we use pytest or unittest for our Python test... | 0.30 | 0.30 | 240 | 240 | 1 | 1 |
-| 6 | Is AI good for society? | 0.30 | 0.30 | 259 | 259 | 1 | 1 |
-| 7 | Should we adopt microservices? | 0.20 | 0.20 | 281 | 281 | 1 | 1 |
-| 8 | Is remote work better than in-office for engineering... | 0.20 | 0.20 | 272 | 272 | 2 | 2 |
-| 9 | Should startups prioritize growth or profitability? | 0.20 | 0.20 | 262 | 262 | 1 | 1 |
-| 10 | Is open source a better strategy than proprietary fo... | 0.20 | 0.20 | 272 | 272 | 1 | 1 |
+| 6 | Is AI good for society? | 0.08 | 0.08 | 284 | 284 | 1 | 1 |
+| 7 | Should we adopt microservices? | 0.08 | 0.08 | 320 | 320 | 1 | 1 |
+| 8 | Is remote work better than in-office for engineering... | 0.08 | 0.08 | 284 | 284 | 1 | 1 |
+| 9 | Should startups prioritize growth or profitability? | 0.08 | 0.08 | 320 | 320 | 1 | 1 |
+| 10 | Is open source a better strategy than proprietary fo... | 0.08 | 0.08 | 303 | 303 | 1 | 1 |
 | 11 | Should we use Kubernetes or ECS for container orches... | 0.20 | 0.20 | 291 | 291 | 1 | 1 |
 | 12 | Is GraphQL better than REST for our mobile API? | 0.20 | 0.20 | 281 | 281 | 1 | 1 |
 | 13 | Should we use Kafka or RabbitMQ for our event bus? | 0.25 | 0.25 | 252 | 252 | 2 | 2 |
@@ -50,13 +50,13 @@
 
 | Metric | With Trickster | Without Trickster | Delta |
 |--------|----------------|-------------------|-------|
-| Avg confidence | 0.61 | 0.61 | 0.000 |
-| Consensus rate | 11/15 (73%) | 11/15 (73%) | 0.000 |
-| Total interventions | 0 | 0 | +0 |
-| Cases with intervention | 0/15 (0%) | 0/0 | -- |
-| Avg evidence quality | 0.24 | 0.24 | 0.000 |
-| Avg final similarity | 0.03 | 0.03 | 0.000 |
-| Avg debate duration | 0.004s | 0.003s | +0.001s |
+| Avg confidence | 0.59 | 0.62 | -0.027 |
+| Consensus rate | 12/15 (80%) | 12/15 (80%) | 0.000 |
+| Total interventions | 8 | 0 | +8 |
+| Cases with intervention | 5/15 (33%) | 0/0 | -- |
+| Avg evidence quality | 0.19 | 0.19 | 0.000 |
+| Avg final similarity | 0.12 | 0.12 | 0.000 |
+| Avg debate duration | 0.010s | 0.005s | +0.005s |
 
 ## Per-Category Breakdown
 
@@ -71,12 +71,12 @@
 
 ### Ambiguous (5 questions)
 
-- **Avg confidence with trickster:** 0.64
-- **Avg confidence without trickster:** 0.64
-- **Confidence delta:** 0.000
-- **Consensus rate (with):** 4/5
-- **Consensus rate (without):** 4/5
-- **Total trickster interventions:** 0
+- **Avg confidence with trickster:** 0.59
+- **Avg confidence without trickster:** 0.67
+- **Confidence delta:** -0.080
+- **Consensus rate (with):** 5/5
+- **Consensus rate (without):** 5/5
+- **Total trickster interventions:** 8
 
 ### Domain Specific (5 questions)
 
@@ -91,8 +91,8 @@
 
 The Trickster system is designed to detect and challenge *hollow consensus* -- situations where agents converge on an answer without substantive evidence. Key observations from this benchmark:
 
-- The Trickster did not intervene in any debates. This may indicate that the mock agents' canned responses contain enough specificity to avoid triggering hollow consensus detection, or that the sensitivity threshold needs adjustment.
-- Average confidence was nearly identical between conditions, indicating the Trickster did not significantly alter debate outcomes for these mock agent configurations.
+- The Trickster intervened in **5/15** debates (33%), injecting a total of **8** challenges.
+- Debates with the Trickster had **lower** average confidence (-0.027), suggesting the challenges appropriately tempered consensus quality.
 
 ---
 

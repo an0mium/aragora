@@ -419,7 +419,7 @@ class HollowConsensusDetector:
         Returns:
             HollowConsensusAlert with detection result
         """
-        if convergence_similarity < 0.5:
+        if convergence_similarity < 0.15:
             return HollowConsensusAlert(
                 detected=False,
                 severity=0.0,
@@ -464,11 +464,29 @@ class HollowConsensusDetector:
                 ("high_variance", min(1.0, variance / self.quality_variance_threshold))
             )
 
+        no_citation_agents = []
+        vague_agents = []
         for agent, score in quality_scores.items():
             if score.citation_density < 0.2:
                 issues.append(f"{agent} lacks citations")
+                no_citation_agents.append(agent)
             if score.specificity_score < 0.3:
                 issues.append(f"{agent} uses vague language")
+                vague_agents.append(agent)
+
+        # Add severity for widespread citation absence
+        if no_citation_agents:
+            ratio = len(no_citation_agents) / len(quality_scores)
+            severity_components.append(
+                ("no_citations", ratio)
+            )
+
+        # Add severity for widespread vague language
+        if vague_agents:
+            ratio = len(vague_agents) / len(quality_scores)
+            severity_components.append(
+                ("vague_language", ratio)
+            )
 
         severity = 0.0
         for component, value in severity_components:
@@ -477,7 +495,14 @@ class HollowConsensusDetector:
 
         challenges = self._generate_challenges(quality_scores, issues)
 
-        detected = severity > 0.3 and convergence_similarity > 0.7
+        # Hollow consensus can be detected at lower convergence if evidence
+        # quality is very poor (agents agree on nothing substantive).  Scale
+        # the convergence bar down proportionally to how bad the quality is:
+        #   avg_quality >= threshold  -> need convergence > 0.7  (original)
+        #   avg_quality == 0          -> need convergence > 0.15
+        quality_ratio = min(1.0, avg_quality / self.min_quality_threshold) if self.min_quality_threshold > 0 else 1.0
+        convergence_bar = 0.15 + 0.55 * quality_ratio  # range [0.15, 0.70]
+        detected = severity > 0.1 and convergence_similarity > convergence_bar
         reason = "; ".join(issues) if issues else "Evidence quality acceptable"
 
         alert = HollowConsensusAlert(

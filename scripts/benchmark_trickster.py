@@ -61,6 +61,7 @@ class TestCase:
     question: str
     category: str
     context: str = ""
+    hollow: bool = False  # Use hollow-consensus agents for this case
 
 
 ALL_TEST_CASES: list[TestCase] = [
@@ -90,31 +91,39 @@ ALL_TEST_CASES: list[TestCase] = [
         category=CATEGORY_CLEAR,
         context="New project with 200+ modules, need fixtures, parameterization, and CI.",
     ),
-    # Ambiguous questions (where hollow consensus is likely)
+    # Ambiguous questions (where hollow consensus is likely).
+    # These use hollow agents to simulate the pattern where everyone agrees
+    # but nobody provides real evidence — the exact scenario the Trickster
+    # should detect and challenge.
     TestCase(
         question="Is AI good for society?",
         category=CATEGORY_AMBIGUOUS,
         context="Consider economic, social, ethical, and existential dimensions.",
+        hollow=True,
     ),
     TestCase(
         question="Should we adopt microservices?",
         category=CATEGORY_AMBIGUOUS,
         context="Mid-size monolith, 15 engineers, growing but not yet at scale.",
+        hollow=True,
     ),
     TestCase(
         question="Is remote work better than in-office for engineering teams?",
         category=CATEGORY_AMBIGUOUS,
         context="50-person engineering org, mix of senior and junior developers.",
+        hollow=True,
     ),
     TestCase(
         question="Should startups prioritize growth or profitability?",
         category=CATEGORY_AMBIGUOUS,
         context="Series A SaaS company, $2M ARR, 18 months of runway.",
+        hollow=True,
     ),
     TestCase(
         question="Is open source a better strategy than proprietary for developer tools?",
         category=CATEGORY_AMBIGUOUS,
         context="Developer tooling startup competing against established players.",
+        hollow=True,
     ),
     # Domain-specific questions
     TestCase(
@@ -145,9 +154,10 @@ ALL_TEST_CASES: list[TestCase] = [
 ]
 
 QUICK_TEST_CASES: list[TestCase] = [
-    ALL_TEST_CASES[0],  # Clear: Python vs JS for scraping
-    ALL_TEST_CASES[6],  # Ambiguous: microservices
-    ALL_TEST_CASES[10], # Domain: K8s vs ECS
+    ALL_TEST_CASES[0],  # Clear: Python vs JS for scraping (diverse agents)
+    ALL_TEST_CASES[5],  # Ambiguous: AI good for society (hollow agents)
+    ALL_TEST_CASES[6],  # Ambiguous: microservices (hollow agents)
+    ALL_TEST_CASES[10], # Domain: K8s vs ECS (diverse agents)
 ]
 
 # ---------------------------------------------------------------------------
@@ -195,14 +205,24 @@ class ABResult:
 # Agent factory
 # ---------------------------------------------------------------------------
 
-def create_agents(seed: int) -> list[StyledMockAgent]:
+def create_agents(seed: int, *, hollow: bool = False) -> list[StyledMockAgent]:
     """Create a reproducible set of 3 styled mock agents.
 
     Uses a fixed random seed so both A and B runs see the same agent
     configuration (though response selection within StyledMockAgent has
     its own randomness).
+
+    When *hollow* is True the agents all use the ``"hollow"`` style,
+    producing similar evidence-free responses that should trigger the
+    Trickster's hollow consensus detection.
     """
     random.seed(seed)
+    if hollow:
+        return [
+            StyledMockAgent("Advocate", style="hollow"),
+            StyledMockAgent("Skeptic", style="hollow"),
+            StyledMockAgent("Mediator", style="hollow"),
+        ]
     return [
         StyledMockAgent("Advocate", style="supportive"),
         StyledMockAgent("Skeptic", style="critical"),
@@ -221,7 +241,7 @@ async def run_debate(
     rounds: int = 2,
 ) -> tuple[DebateResult, RunMetrics]:
     """Run a single debate and extract metrics."""
-    agents = create_agents(seed)
+    agents = create_agents(seed, hollow=test_case.hollow)
 
     config = DebateConfig(
         rounds=rounds,

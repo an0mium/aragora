@@ -197,9 +197,22 @@ class EvidencePoweredTrickster:
         if self.on_alert and alert.detected:
             self.on_alert(alert)
 
-        # Cross-proposal analysis for converging responses
+        # Cross-proposal analysis — run when responses show any convergence OR
+        # when evidence quality is poor enough to warrant proactive checking.
+        # The original gate of 0.6 was too strict: mock/canned agents produce
+        # low SequenceMatcher similarity even when reaching voting consensus.
+        # We now also run cross-analysis whenever average evidence quality is
+        # below the configured threshold (the whole point of the Trickster).
         cross_analysis: CrossProposalAnalysis | None = None
-        if convergence_similarity > 0.6:
+        avg_quality = (
+            sum(s.overall_quality for s in quality_scores.values()) / len(quality_scores)
+            if quality_scores else 1.0
+        )
+        should_cross_analyze = (
+            convergence_similarity > 0.6
+            or avg_quality < self.config.min_quality_threshold
+        )
+        if should_cross_analyze:
             cross_analysis = self._cross_analyzer.analyze(responses)
 
             # Check for evidence gaps
@@ -247,16 +260,24 @@ class EvidencePoweredTrickster:
         self,
         intervention: TricksterIntervention,
         round_num: int,
-    ) -> TricksterIntervention:
-        """Record an intervention and update state."""
+    ) -> TricksterIntervention | None:
+        """Record an intervention and update state.
+
+        Returns the intervention if it was recorded, or ``None`` if it was
+        suppressed by cooldown or max-intervention limits.
+        """
         # Check cooldown
         rounds_since = round_num - self._state.last_intervention_round
         if rounds_since < self.config.intervention_cooldown_rounds:
-            return intervention
+            logger.debug("trickster_cooldown round=%d rounds_since=%d", round_num, rounds_since)
+            return None
 
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
-            return intervention
+            logger.debug(
+                "trickster_limit round=%d total=%d", round_num, self._state.total_interventions,
+            )
+            return None
 
         self._state.interventions.append(intervention)
         self._state.last_intervention_round = round_num

@@ -214,11 +214,26 @@ class Arena:
         winning_agent = self._pick_winner(consensus)
         final_answer = self._proposals.get(winning_agent, Proposal(agent="", content="")).content
 
+        # Apply confidence penalty when the Trickster detected hollow
+        # consensus.  Each intervention reduces confidence by 5%, capped so
+        # confidence never drops below 10%.  This correctly reflects that a
+        # consensus built on thin evidence should carry less weight.
+        raw_confidence = consensus.confidence if consensus else 0.0
+        if trickster_interventions > 0:
+            penalty = 0.05 * trickster_interventions
+            adjusted_confidence = max(0.10, raw_confidence - penalty)
+            logger.info(
+                "Trickster confidence adjustment: %.3f -> %.3f (%d interventions)",
+                raw_confidence, adjusted_confidence, trickster_interventions,
+            )
+        else:
+            adjusted_confidence = raw_confidence
+
         result = DebateResult(
             id=debate_id,
             task=self.question,
             final_answer=final_answer,
-            confidence=consensus.confidence if consensus else 0.0,
+            confidence=adjusted_confidence,
             consensus_reached=consensus.reached if consensus else False,
             consensus=consensus,
             rounds_used=rounds_used,

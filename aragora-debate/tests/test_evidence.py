@@ -179,9 +179,18 @@ class TestHollowConsensusDetector:
 
     def test_not_converging(self):
         responses = {"agent1": "Some text", "agent2": "Other text"}
-        alert = self.detector.check(responses, convergence_similarity=0.3)
+        # Very low convergence (<0.15) should return early with "Not converging"
+        alert = self.detector.check(responses, convergence_similarity=0.1)
         assert alert.detected is False
         assert alert.reason == "Not converging yet"
+
+    def test_low_convergence_still_analyzed(self):
+        """Even at moderate convergence, responses are analyzed for quality."""
+        responses = {"agent1": "Some text", "agent2": "Other text"}
+        alert = self.detector.check(responses, convergence_similarity=0.3)
+        assert alert.detected is False
+        # Quality analysis ran (not early-exit), so reason reflects findings
+        assert "Not converging yet" not in alert.reason
 
     def test_hollow_consensus_detected(self):
         responses = {
