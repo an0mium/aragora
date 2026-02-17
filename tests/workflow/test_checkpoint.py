@@ -919,7 +919,7 @@ class TestErrorHandling:
             store._redis = mock_redis
 
             # Simulate timeout
-            mock_redis.setex.side_effect = type("TimeoutError", (Exception,), {})("timeout")
+            mock_redis.setex.side_effect = TimeoutError("timeout")
 
             with pytest.raises(ConnectionTimeoutError, match="timeout"):
                 await store.save(create_checkpoint())
@@ -939,7 +939,7 @@ class TestErrorHandling:
             store = RedisCheckpointStore()
             store._redis = mock_redis
 
-            mock_redis.get.side_effect = type("ConnectionError", (Exception,), {})("refused")
+            mock_redis.get.side_effect = ConnectionError("refused")
 
             with pytest.raises(ConnectionTimeoutError, match="refused"):
                 await store.load("cp-123")

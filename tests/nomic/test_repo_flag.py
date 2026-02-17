@@ -207,6 +207,8 @@ class TestNomicStagedRepoFlag:
 
         mock_result = MagicMock()
         mock_result.success = True
+        mock_result.duration_seconds = 0.5
+        mock_result.diff = ""
         mock_result.to_dict.return_value = {"success": True}
 
         mock_executor_instance = MagicMock()

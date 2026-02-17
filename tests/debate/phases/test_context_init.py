@@ -1560,3 +1560,154 @@ class TestStructuredDissentInjection:
         result = init._build_structured_dissent_context("test topic", None)
 
         assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# Codebase grounding (Piece 6)
+# ---------------------------------------------------------------------------
+
+
+class TestCodebaseGrounding:
+    """Tests for codebase context injection in ContextInitializer."""
+
+    def test_codebase_params_stored(self):
+        """Verify codebase params are stored on the initializer."""
+        init = ContextInitializer(
+            codebase_path="/repo",
+            enable_codebase_grounding=True,
+            codebase_persist_to_km=True,
+        )
+        assert init.codebase_path == "/repo"
+        assert init.enable_codebase_grounding is True
+        assert init.codebase_persist_to_km is True
+
+    def test_codebase_defaults(self):
+        """Verify codebase params default to disabled."""
+        init = ContextInitializer()
+        assert init.codebase_path is None
+        assert init.enable_codebase_grounding is False
+        assert init.codebase_persist_to_km is False
+
+    @pytest.mark.asyncio
+    async def test_inject_codebase_context_disabled(self):
+        """When disabled, codebase context injection is skipped."""
+        init = ContextInitializer(enable_codebase_grounding=False, codebase_path="/repo")
+        ctx = MagicMock()
+        ctx.env.task = "test"
+
+        # Should not be called in initialize() since enable_codebase_grounding is False
+        # We verify the method exists and handles gracefully
+        await init._inject_codebase_context(ctx)
+        # No error raised
+
+    @pytest.mark.asyncio
+    async def test_inject_codebase_context_success(self):
+        """Verify codebase context is set on prompt builder."""
+        init = ContextInitializer(
+            enable_codebase_grounding=True,
+            codebase_path="/repo",
+        )
+
+        mock_prompt_builder = MagicMock()
+        mock_prompt_builder.set_codebase_context = MagicMock()
+
+        ctx = MagicMock()
+        ctx.env.task = "refactor debate module"
+        ctx._prompt_builder = mock_prompt_builder
+
+        mock_provider = AsyncMock()
+        mock_provider.build_context = AsyncMock(return_value="codebase summary")
+        mock_provider.get_summary = MagicMock(return_value="truncated summary")
+
+        with patch(
+            "aragora.debate.codebase_context.CodebaseContextProvider",
+            return_value=mock_provider,
+        ), patch(
+            "aragora.debate.codebase_context.CodebaseContextConfig",
+        ):
+            await init._inject_codebase_context(ctx)
+
+        mock_prompt_builder.set_codebase_context.assert_called_once_with("truncated summary")
+
+    @pytest.mark.asyncio
+    async def test_inject_codebase_context_timeout(self):
+        """Verify timeout is handled gracefully."""
+        import asyncio
+
+        init = ContextInitializer(
+            enable_codebase_grounding=True,
+            codebase_path="/repo",
+        )
+
+        ctx = MagicMock()
+        ctx.env.task = "test"
+        ctx._prompt_builder = MagicMock()
+
+        async def slow_build(*args, **kwargs):
+            await asyncio.sleep(100)
+            return "never reached"
+
+        mock_provider = AsyncMock()
+        mock_provider.build_context = slow_build
+        mock_provider.get_summary = MagicMock(return_value="")
+
+        with patch(
+            "aragora.debate.codebase_context.CodebaseContextProvider",
+            return_value=mock_provider,
+        ), patch(
+            "aragora.debate.codebase_context.CodebaseContextConfig",
+        ), patch(
+            "aragora.debate.phases.context_init.asyncio.wait_for",
+            side_effect=asyncio.TimeoutError,
+        ):
+            # Should not raise
+            await init._inject_codebase_context(ctx)
+
+        ctx._prompt_builder.set_codebase_context.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_inject_codebase_context_import_error(self):
+        """Verify import error is handled gracefully."""
+        init = ContextInitializer(
+            enable_codebase_grounding=True,
+            codebase_path="/repo",
+        )
+
+        ctx = MagicMock()
+        ctx.env.task = "test"
+        ctx._prompt_builder = MagicMock()
+
+        with patch(
+            "aragora.debate.codebase_context.CodebaseContextProvider",
+            side_effect=ImportError("not available"),
+        ), patch(
+            "aragora.debate.codebase_context.CodebaseContextConfig",
+            side_effect=ImportError("not available"),
+        ):
+            # Should not raise
+            await init._inject_codebase_context(ctx)
+
+    @pytest.mark.asyncio
+    async def test_inject_codebase_no_prompt_builder(self):
+        """Verify no error when prompt builder is not set."""
+        init = ContextInitializer(
+            enable_codebase_grounding=True,
+            codebase_path="/repo",
+        )
+
+        ctx = MagicMock()
+        ctx.env.task = "test"
+        ctx._prompt_builder = None
+
+        mock_provider = AsyncMock()
+        mock_provider.build_context = AsyncMock(return_value="context")
+        mock_provider.get_summary = MagicMock(return_value="summary")
+
+        with patch(
+            "aragora.debate.codebase_context.CodebaseContextProvider",
+            return_value=mock_provider,
+        ), patch(
+            "aragora.debate.codebase_context.CodebaseContextConfig",
+        ):
+            # Should not raise even though prompt_builder is None
+            await init._inject_codebase_context(ctx)

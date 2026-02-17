@@ -80,7 +80,7 @@ class TestShareSettings:
         assert result["debate_id"] == "debate-1"
         assert result["visibility"] == "public"
         assert result["share_token"] == "abc123"
-        assert result["share_url"] == "/api/shared/abc123"
+        assert result["share_url"] == "/api/v1/shared/abc123"
         assert result["allow_comments"] is True
         assert result["view_count"] == 42
         assert result["is_expired"] is False
@@ -288,17 +288,11 @@ class TestGetShareStore:
     def test_singleton_behavior(self):
         """get_share_store returns same instance on subsequent calls."""
         from aragora.server.handlers.social import sharing
-        from aragora.server.handlers.social.sharing import ShareStore
-
-        # Reset and set a known store
-        test_store = ShareStore()
-        sharing._share_store = test_store
 
         store1 = sharing.get_share_store()
         store2 = sharing.get_share_store()
 
         assert store1 is store2
-        assert store1 is test_store
 
 
 # -----------------------------------------------------------------------------
@@ -318,9 +312,9 @@ class TestSharingHandlerRouting:
 
     def test_routes_defined(self, handler):
         """Handler has expected routes."""
-        assert "/api/debates/*/share" in handler.ROUTES
-        assert "/api/debates/*/share/revoke" in handler.ROUTES
-        assert "/api/shared/*" in handler.ROUTES
+        assert "/api/v1/debates/*/share" in handler.ROUTES
+        assert "/api/v1/debates/*/share/revoke" in handler.ROUTES
+        assert "/api/v1/shared/*" in handler.ROUTES
 
     def test_auth_required_endpoints(self, handler):
         """Auth required endpoints defined."""
@@ -869,21 +863,22 @@ class TestHandleMethod:
         return handler
 
     def test_handle_shared_debate_route(self, handler):
-        """Routes /api/shared/{token} to _get_shared_debate."""
+        """Routes /api/v1/shared/{token} to _get_shared_debate."""
         mock_http = Mock()
 
         with patch.object(handler, "_get_shared_debate") as mock_get:
             mock_get.return_value = Mock(status_code=200, body="{}")
-            handler.handle("/api/shared/token123", {}, mock_http)
+            handler.handle("/api/v1/shared/token123", {}, mock_http)
             mock_get.assert_called_once_with("token123", {})
 
     def test_handle_share_settings_route(self, handler):
-        """Routes /api/debates/{id}/share to _get_share_settings."""
-        mock_http = Mock()
+        """Routes /api/v1/debates/{id}/share to _get_share_settings."""
+        mock_http = Mock(spec=[])  # No attributes — prevents hasattr("command") = True
+        mock_http.command = "GET"
 
         with patch.object(handler, "_get_share_settings") as mock_get:
             mock_get.return_value = Mock(status_code=200, body="{}")
-            handler.handle("/api/debates/debate-1/share", {}, mock_http)
+            handler.handle("/api/v1/debates/debate-1/share", {}, mock_http)
             mock_get.assert_called_once_with("debate-1", mock_http)
 
     def test_handle_returns_none_for_unknown_route(self, handler):

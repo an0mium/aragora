@@ -270,6 +270,7 @@ class TestGetUsage:
         assert data["usage"]["tokens_used"] == 50000
         assert data["usage"]["estimated_cost_usd"] == 2.50
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_usage_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test usage requires authentication."""
@@ -335,6 +336,7 @@ class TestGetSubscription:
         data = json.loads(result.body)
         assert data["subscription"]["tier"] == "free"
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_subscription_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test subscription requires authentication."""
@@ -437,6 +439,7 @@ class TestCreateCheckout:
         # Schema validation requires success_url and cancel_url
         assert "required" in data["error"].lower() or "success_url" in data["error"]
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_create_checkout_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test checkout requires authentication."""
@@ -498,6 +501,7 @@ class TestCreatePortal:
         data = json.loads(result.body)
         assert "url" in data["error"].lower()
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_create_portal_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test portal requires authentication."""
@@ -516,6 +520,7 @@ class TestCreatePortal:
 class TestCancelSubscription:
     """Tests for cancel subscription endpoint."""
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_cancel_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test cancel requires authentication."""
@@ -525,7 +530,7 @@ class TestCancelSubscription:
         mock_handler.command = "POST"
         billing_handler.read_json_body = Mock(return_value={})
 
-        result = billing_handler.handle("/api/billing/cancel", {}, mock_handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/cancel", {}, mock_handler, "POST")
 
         assert result.status_code == 401
 
@@ -533,6 +538,7 @@ class TestCancelSubscription:
 class TestResumeSubscription:
     """Tests for resume subscription endpoint."""
 
+    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_resume_not_authenticated(self, mock_extract, billing_handler, mock_handler):
         """Test resume requires authentication."""
@@ -541,7 +547,7 @@ class TestResumeSubscription:
         mock_handler.command = "POST"
         billing_handler.read_json_body = Mock(return_value={})
 
-        result = billing_handler.handle("/api/billing/resume", {}, mock_handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/resume", {}, mock_handler, "POST")
 
         assert result.status_code == 401
 
@@ -567,15 +573,16 @@ class TestStripeWebhook:
 class TestSecurityMeasures:
     """Tests for security measures in billing handler."""
 
+    @pytest.mark.no_auto_auth
     def test_all_endpoints_check_authentication(self, billing_handler, mock_handler):
         """Test that all user-specific endpoints require authentication."""
         auth_required_endpoints = [
-            ("/api/billing/usage", "GET"),
-            ("/api/billing/subscription", "GET"),
-            ("/api/billing/checkout", "POST"),
-            ("/api/billing/portal", "POST"),
-            ("/api/billing/cancel", "POST"),
-            ("/api/billing/resume", "POST"),
+            ("/api/v1/billing/usage", "GET"),
+            ("/api/v1/billing/subscription", "GET"),
+            ("/api/v1/billing/checkout", "POST"),
+            ("/api/v1/billing/portal", "POST"),
+            ("/api/v1/billing/cancel", "POST"),
+            ("/api/v1/billing/resume", "POST"),
         ]
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
@@ -686,7 +693,7 @@ class TestStripeExceptionHandling:
         # The Stripe-specific fields won't be populated
 
     @patch("aragora.server.handlers.billing.core.get_stripe_client")
-    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_invoices_handles_stripe_config_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -715,7 +722,7 @@ class TestStripeExceptionHandling:
         assert "unavailable" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.core.get_stripe_client")
-    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_invoices_handles_stripe_api_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):
@@ -742,7 +749,7 @@ class TestStripeExceptionHandling:
         assert "payment provider" in data["error"].lower()
 
     @patch("aragora.server.handlers.billing.core.get_stripe_client")
-    @patch("aragora.server.handlers.billing.core.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_get_invoices_handles_generic_stripe_error(
         self, mock_extract, mock_stripe, billing_handler, mock_handler, mock_org
     ):

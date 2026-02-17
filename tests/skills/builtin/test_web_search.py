@@ -335,7 +335,7 @@ class TestDuckDuckGoProvider:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
         mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text = MagicMock(side_effect=Exception("API error"))
+        mock_ddgs.text = MagicMock(side_effect=RuntimeError("API error"))
 
         with patch(
             "duckduckgo_search.DDGS",
@@ -408,13 +408,19 @@ class TestTavilyProvider:
     @pytest.mark.asyncio
     async def test_tavily_api_error_fallback(self, skill: WebSearchSkill):
         """Test Tavily falls back to DuckDuckGo on API error."""
-        with patch.dict("os.environ", {"TAVILY_API_KEY": "test_key"}):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__ = AsyncMock(
-                    return_value=MagicMock(post=AsyncMock(side_effect=Exception("API error")))
-                )
-                mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_pool = MagicMock()
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
+        mock_client.aclose = AsyncMock()
+        mock_pool.get_session = MagicMock()
+        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
 
+        with patch.dict("os.environ", {"TAVILY_API_KEY": "test_key"}):
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 with patch.object(skill, "_search_duckduckgo", new_callable=AsyncMock) as mock_ddg:
                     mock_ddg.return_value = []
 
@@ -534,6 +540,14 @@ class TestGoogleProvider:
     @pytest.mark.asyncio
     async def test_google_api_error_fallback(self, skill: WebSearchSkill):
         """Test Google falls back to DuckDuckGo on API error."""
+        mock_pool = MagicMock()
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=RuntimeError("API error"))
+        mock_client.aclose = AsyncMock()
+        mock_pool.get_session = MagicMock()
+        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+
         with patch.dict(
             "os.environ",
             {
@@ -541,12 +555,10 @@ class TestGoogleProvider:
                 "GOOGLE_SEARCH_CX": "test_cx",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__ = AsyncMock(
-                    return_value=MagicMock(get=AsyncMock(side_effect=Exception("API error")))
-                )
-                mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 with patch.object(skill, "_search_duckduckgo", new_callable=AsyncMock) as mock_ddg:
                     mock_ddg.return_value = []
 

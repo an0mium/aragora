@@ -499,13 +499,14 @@ class TestCapabilityProbe:
         """Test capability probe requires admin:audit permission."""
         mock_handler = MockHandler(body={"agent_name": "test-agent"})
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-            # Member role lacks admin:audit permission
-            mock_extract.return_value = self.make_auth_context("user_1", "member")
+        with patch("aragora.server.handlers.auditing.PROBER_AVAILABLE", True):
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                # Member role lacks admin:audit permission
+                mock_extract.return_value = self.make_auth_context("user_1", "member")
 
-            result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
+                result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
-            assert result.status_code == 403
+                assert result.status_code == 403
 
     def test_capability_probe_prober_unavailable(self, auditing_handler):
         """Test capability probe returns 503 when prober unavailable."""

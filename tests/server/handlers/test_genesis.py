@@ -198,23 +198,41 @@ class TestRBACPermissions:
     def test_handle_raises_without_auth_context(self, handler, http_handler):
         """Without auth context the RBAC decorator should raise PermissionDeniedError."""
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
-        with pytest.raises(PermissionDeniedError):
-            handler.handle("/api/genesis/stats", {}, http_handler)
+        orig = auth_config.enabled
+        auth_config.enabled = True
+        try:
+            with pytest.raises(PermissionDeniedError):
+                handler.handle("/api/genesis/stats", {}, http_handler)
+        finally:
+            auth_config.enabled = orig
 
     @pytest.mark.no_auto_auth
     def test_handle_raises_for_events_without_auth(self, handler, http_handler):
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
-        with pytest.raises(PermissionDeniedError):
-            handler.handle("/api/genesis/events", {}, http_handler)
+        orig = auth_config.enabled
+        auth_config.enabled = True
+        try:
+            with pytest.raises(PermissionDeniedError):
+                handler.handle("/api/genesis/events", {}, http_handler)
+        finally:
+            auth_config.enabled = orig
 
     @pytest.mark.no_auto_auth
     def test_handle_raises_for_genomes_without_auth(self, handler, http_handler):
         from aragora.rbac.decorators import PermissionDeniedError
+        from aragora.server.auth import auth_config
 
-        with pytest.raises(PermissionDeniedError):
-            handler.handle("/api/genesis/genomes", {}, http_handler)
+        orig = auth_config.enabled
+        auth_config.enabled = True
+        try:
+            with pytest.raises(PermissionDeniedError):
+                handler.handle("/api/genesis/genomes", {}, http_handler)
+        finally:
+            auth_config.enabled = orig
 
 
 # ===========================================================================

@@ -113,7 +113,7 @@ class TestApprovalPersistence:
         _pending_approvals[request.id] = request
 
         mock_store = MagicMock()
-        mock_store.update_approval_status.side_effect = Exception("DB error")
+        mock_store.update_approval_status.side_effect = RuntimeError("DB error")
 
         with patch(
             "aragora.workflow.nodes.human_checkpoint._get_governance_store", return_value=mock_store
@@ -448,7 +448,7 @@ class TestApprovalRecovery:
     def test_recover_handles_store_error(self):
         """Recovery handles store errors gracefully."""
         mock_store = MagicMock()
-        mock_store.list_approvals.side_effect = Exception("DB connection failed")
+        mock_store.list_approvals.side_effect = RuntimeError("DB connection failed")
 
         with patch(
             "aragora.workflow.nodes.human_checkpoint._get_governance_store", return_value=mock_store

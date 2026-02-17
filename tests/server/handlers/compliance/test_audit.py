@@ -270,8 +270,20 @@ class TestAuditVerification:
 
         with (
             patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance.audit_verify.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
                 "aragora.server.handlers.compliance_handler.get_receipt_store",
                 return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.storage.audit_store.get_audit_store",
+                return_value=mock_audit_store,
             ),
             patch(
                 "aragora.server.handlers.compliance_handler.get_audit_store",

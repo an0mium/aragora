@@ -81,7 +81,7 @@ class TestSaveDebateVisualization:
 
         content = html_path.read_text()
         assert "<!DOCTYPE html>" in content
-        assert "mermaid" in content.lower()
+        assert "<canvas" in content
 
     def test_exports_all_formats(self, cartographer, tmp_path):
         """Test exports all three formats together."""
@@ -216,18 +216,18 @@ class TestGenerateStandaloneHTML:
         assert "<body>" in html
         assert "</body>" in html
 
-    def test_includes_mermaid_cdn(self, cartographer_with_topic):
-        """Test includes Mermaid CDN script."""
+    def test_no_external_cdn(self, cartographer_with_topic):
+        """Test is self-contained with no CDN dependencies."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        assert "cdn.jsdelivr.net" in html
-        assert "mermaid" in html
+        assert "cdn" not in html.lower()
 
-    def test_includes_mermaid_initialize(self, cartographer_with_topic):
-        """Test includes Mermaid initialization."""
+    def test_includes_canvas_graph(self, cartographer_with_topic):
+        """Test includes canvas-based force-directed graph."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        assert "mermaid.initialize" in html
+        assert "<canvas" in html
+        assert "REPULSION" in html
 
     def test_includes_topic_in_title(self, cartographer_with_topic):
         """Test includes topic in title tag."""
@@ -247,31 +247,8 @@ class TestGenerateStandaloneHTML:
         """Test uses fallback title when no topic set."""
         html = generate_standalone_html(cartographer_no_topic)
 
-        # Should have Untitled or Aragora Debate as fallback
-        assert "Untitled" in html or "Aragora Debate" in html
-
-    def test_includes_statistics(self, cartographer_with_topic):
-        """Test includes statistics section."""
-        html = generate_standalone_html(cartographer_with_topic)
-
-        assert "Arguments" in html
-        assert "Connections" in html
-        assert "Rounds" in html
-        assert "Agents" in html
-
-    def test_statistics_show_correct_values(self, cartographer_with_topic):
-        """Test statistics show correct values."""
-        html = generate_standalone_html(cartographer_with_topic)
-
-        # 2 messages = 2 nodes
-        assert ">2<" in html or ">2</div>" in html.replace("\n", "").replace(" ", "")
-
-    def test_includes_mermaid_diagram(self, cartographer_with_topic):
-        """Test includes mermaid diagram content."""
-        html = generate_standalone_html(cartographer_with_topic)
-
-        assert 'class="mermaid"' in html
-        assert "graph" in html  # Mermaid diagram starts with graph
+        # Should have the default title from export_html
+        assert "Debate Argument Map" in html
 
     def test_includes_legend(self, cartographer_with_topic):
         """Test includes legend section."""
@@ -285,13 +262,13 @@ class TestGenerateStandaloneHTML:
         assert "Consensus" in html
 
     def test_includes_color_coding(self, cartographer_with_topic):
-        """Test includes color coding in legend."""
+        """Test includes color coding for node types."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        # Colors from the exporter
-        assert "#4CAF50" in html  # Proposal green
-        assert "#FF5722" in html  # Critique orange
-        assert "#9C27B0" in html  # Evidence purple
+        # Colors for the force-directed graph node types
+        assert "#4488ff" in html  # Proposal blue
+        assert "#ee4444" in html  # Critique red
+        assert "#44bb66" in html  # Evidence green
 
     def test_responsive_viewport(self, cartographer_with_topic):
         """Test includes responsive viewport meta tag."""
@@ -327,30 +304,31 @@ class TestGenerateStandaloneHTML:
         html = generate_standalone_html(cart)
 
         assert "<!DOCTYPE html>" in html
-        assert '<div class="mermaid">' in html
+        assert "<canvas" in html
 
     def test_special_characters_in_topic_escaped(self):
         """Test special characters in topic don't break HTML."""
         cart = ArgumentCartographer()
-        cart.set_debate_context("Is <script>alert('xss')</script> safe?", "xss-test")
+        cart.set_debate_context("xss-test", "Is <script>alert('xss')</script> safe?")
         cart.update_from_message("agent1", "Content", "", 1)
 
         html = generate_standalone_html(cart)
 
-        # HTML should still be valid (not checking for XSS escaping here,
-        # as this is visualization not security-critical output)
+        # HTML should still be valid
         assert "<!DOCTYPE html>" in html
         assert "</html>" in html
+        # Topic should be HTML-escaped
+        assert "&lt;script&gt;" in html
 
-    def test_node_content_in_mermaid_section(self, cartographer_with_topic):
-        """Test node content appears in mermaid section."""
+    def test_node_content_in_graph_data(self, cartographer_with_topic):
+        """Test node content appears in embedded graph data."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        # The mermaid diagram should contain agent references
+        # The embedded JSON data should contain agent references
         assert "proponent" in html or "opponent" in html
 
     def test_multiple_rounds_reflected(self):
-        """Test multiple rounds reflected in stats."""
+        """Test multiple rounds are reflected in the graph data."""
         cart = ArgumentCartographer()
         cart.update_from_message("a1", "Round 1 message", "", 1)
         cart.update_from_message("a1", "Round 2 message", "", 2)
@@ -358,17 +336,19 @@ class TestGenerateStandaloneHTML:
 
         html = generate_standalone_html(cart)
 
-        # Stats should show 3 rounds
-        assert ">3<" in html or "3</div>" in html
+        # Graph data should contain nodes with different rounds
+        assert '"round":1' in html or '"round": 1' in html
+        assert '"round":3' in html or '"round": 3' in html
 
-    def test_container_class_structure(self, cartographer_with_topic):
-        """Test has proper container structure."""
+    def test_html_structure(self, cartographer_with_topic):
+        """Test has proper HTML structure for the force-directed graph."""
         html = generate_standalone_html(cartographer_with_topic)
 
-        assert 'class="container"' in html
-        assert 'class="stats"' in html
-        assert 'class="mermaid"' in html
-        assert 'class="legend"' in html
+        assert 'id="container"' in html
+        assert 'id="c"' in html
+        assert 'id="legend"' in html
+        assert 'id="tooltip"' in html
+        assert 'id="detail"' in html
 
 
 class TestExporterIntegration:

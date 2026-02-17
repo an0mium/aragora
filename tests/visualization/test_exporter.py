@@ -222,20 +222,18 @@ class TestGenerateStandaloneHtml:
         html = generate_standalone_html(cartographer)
         assert "Test topic" in html
 
-    def test_includes_mermaid_code(self, cartographer):
-        """Should include Mermaid diagram code."""
+    def test_includes_force_directed_graph(self, cartographer):
+        """Should include canvas-based force-directed graph code."""
         html = generate_standalone_html(cartographer)
 
-        assert "mermaid" in html.lower()
-        assert "graph" in html
+        assert "<canvas" in html
+        assert "REPULSION" in html
 
-    def test_includes_statistics(self, cartographer):
-        """Should include statistics display."""
+    def test_no_external_cdn(self, cartographer):
+        """Should be fully self-contained with no CDN dependencies."""
         html = generate_standalone_html(cartographer)
 
-        assert "Arguments" in html
-        assert "Connections" in html
-        assert "Rounds" in html
+        assert "cdn" not in html.lower()
 
     def test_includes_legend(self, cartographer):
         """Should include node type legend."""
@@ -245,12 +243,12 @@ class TestGenerateStandaloneHtml:
         assert "Critique" in html
         assert "legend" in html.lower()
 
-    def test_includes_mermaid_script(self, cartographer):
-        """Should include Mermaid.js script."""
+    def test_includes_inline_script(self, cartographer):
+        """Should include inline JavaScript for rendering."""
         html = generate_standalone_html(cartographer)
 
-        assert "mermaid" in html
         assert "<script" in html
+        assert "requestAnimationFrame" in html
 
 
 class TestExportCacheEviction:

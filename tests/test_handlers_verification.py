@@ -35,8 +35,8 @@ class TestVerificationStatusEndpoint:
 
     def test_status_when_unavailable(self, handler):
         """Returns unavailable status when formal verification not installed."""
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", False):
-            result = handler.handle("/api/verification/status", {}, None)
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", False):
+            result = handler.handle("/api/v1/verification/status", {}, None)
             assert result.status_code == 200
             data = json.loads(result.body)
             assert data["available"] is False
@@ -54,12 +54,12 @@ class TestVerificationStatusEndpoint:
             ],
         }
 
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", True):
             with patch(
-                "aragora.server.handlers.verification.get_formal_verification_manager",
+                "aragora.server.handlers.verification.verification.get_formal_verification_manager",
                 return_value=mock_manager,
             ):
-                result = handler.handle("/api/verification/status", {}, None)
+                result = handler.handle("/api/v1/verification/status", {}, None)
                 assert result.status_code == 200
                 data = json.loads(result.body)
                 assert data["available"] is True
@@ -71,12 +71,12 @@ class TestVerificationStatusEndpoint:
         def raise_error():
             raise RuntimeError("Backend error")
 
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", True):
             with patch(
-                "aragora.server.handlers.verification.get_formal_verification_manager",
+                "aragora.server.handlers.verification.verification.get_formal_verification_manager",
                 side_effect=raise_error,
             ):
-                result = handler.handle("/api/verification/status", {}, None)
+                result = handler.handle("/api/v1/verification/status", {}, None)
                 assert result.status_code == 500
                 data = json.loads(result.body)
                 assert "error" in data
@@ -108,8 +108,8 @@ class TestVerificationFormalVerifyEndpoint:
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b'{"claim": "test"}'
 
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", False):
-            result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", False):
+            result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
             assert result.status_code == 503
             data = json.loads(result.body)
             assert "error" in data
@@ -119,8 +119,8 @@ class TestVerificationFormalVerifyEndpoint:
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b"{}"
 
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
-            result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+            result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
             assert result.status_code == 400
             data = json.loads(result.body)
             assert "error" in data
@@ -150,12 +150,12 @@ class TestVerificationFormalVerifyEndpoint:
 
         mock_manager.attempt_formal_verification = mock_verify
 
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", True):
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", True):
             with patch(
-                "aragora.server.handlers.verification.get_formal_verification_manager",
+                "aragora.server.handlers.verification.verification.get_formal_verification_manager",
                 return_value=mock_manager,
             ):
-                result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+                result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
                 assert result.status_code == 200
                 data = json.loads(result.body)
                 assert data["status"] == "proof_found"

@@ -1506,7 +1506,7 @@ class TestErrorHandling:
         )
 
         mock_store = MagicMock()
-        mock_store.save_approval = MagicMock(side_effect=Exception("Store error"))
+        mock_store.save_approval = MagicMock(side_effect=RuntimeError("Store error"))
 
         step = HumanCheckpointStep(
             name="Store Failure",

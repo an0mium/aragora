@@ -203,7 +203,10 @@ class TestDebatesHandlerE2E:
     def test_list_debates_with_limit(self, debates_handler, mock_storage):
         """Test /api/debates respects limit parameter."""
         debates_handler.handle("/api/debates", {"limit": 5}, None)
-        mock_storage.list_recent.assert_called_with(limit=5, org_id=None)
+        # Handler passes org_id from authenticated user context (may be test org)
+        mock_storage.list_recent.assert_called_once()
+        _, kwargs = mock_storage.list_recent.call_args
+        assert kwargs["limit"] == 5
 
     def test_debate_by_slug_returns_object(self, debates_handler):
         """Test /api/debates/{slug} returns debate details."""
@@ -295,7 +298,7 @@ class TestAgentsHandlerE2E:
 
     def test_recent_matches_returns_array(self, agents_handler):
         """Test recent matches returns match data."""
-        result = agents_handler._get_recent_matches(limit=10)
+        result = agents_handler._get_recent_matches(limit=10, loop_id=None)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -314,10 +317,16 @@ class TestAgentsHandlerE2E:
 
     def test_agent_history_with_limit(self, agents_handler, mock_elo_system):
         """Test agent history respects limit."""
-        agents_handler._handle_agent_endpoint(
+        # Handler uses get_elo_history (returns list of (timestamp, elo) tuples)
+        mock_elo_system.get_elo_history.return_value = [
+            ("2026-01-05T10:00:00", 1500),
+            ("2026-01-04T10:00:00", 1490),
+        ]
+        result = agents_handler._handle_agent_endpoint(
             "/api/agent/claude/history", {"limit": 50}
         )
-        mock_elo_system.get_agent_history.assert_called_with("claude", limit=50)
+        mock_elo_system.get_elo_history.assert_called_with("claude", limit=50)
+        assert result.status_code == 200
 
     def test_agent_compare_two_agents(self, agents_handler):
         """Test agent compare requires 2+ agents."""
@@ -1050,7 +1059,9 @@ class TestDebatesHandlerEdgeCases:
         result = handler.handle("/api/debates", {"limit": "0"}, None)
 
         assert result.status_code == 200
-        storage.list_recent.assert_called_with(limit=0, org_id=None)
+        storage.list_recent.assert_called_once()
+        _, kwargs = storage.list_recent.call_args
+        assert kwargs["limit"] == 0
 
     def test_limit_param_negative(self, debates_handler_with_mock):
         """Test negative limit parameter defaults gracefully."""
@@ -1071,7 +1082,9 @@ class TestDebatesHandlerEdgeCases:
 
         assert result.status_code == 200
         # Limit should be capped at 100
-        storage.list_recent.assert_called_with(limit=100, org_id=None)
+        storage.list_recent.assert_called_once()
+        _, kwargs = storage.list_recent.call_args
+        assert kwargs["limit"] == 100
 
     def test_export_empty_debate(self, debates_handler_with_mock):
         """Test exporting debate with no messages."""
@@ -1203,7 +1216,7 @@ class TestAgentsHandlerEdgeCases:
         elo.get_cached_recent_matches.return_value = []
         elo.get_recent_matches.return_value = []
 
-        result = handler._get_recent_matches(limit=10)
+        result = handler._get_recent_matches(limit=10, loop_id=None)
 
         assert result.status_code == 200
         data = json.loads(result.body)

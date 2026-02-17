@@ -991,3 +991,96 @@ class TestEdgeCases:
         result = builder.build_proposal_prompt(agent=mock_agent)
 
         assert isinstance(result, str)
+
+
+# ---------------------------------------------------------------------------
+# Codebase context (Piece 4)
+# ---------------------------------------------------------------------------
+
+
+class TestCodebaseContext:
+    """Tests for codebase context in prompt builder."""
+
+    @pytest.fixture
+    def mock_agent(self):
+        return MockAgent()
+
+    def test_codebase_context_default_empty(self, mock_agent):
+        """Verify codebase context is empty by default."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Test"),
+        )
+        assert builder._codebase_context == ""
+
+    def test_set_codebase_context(self, mock_agent):
+        """Verify set_codebase_context stores the value."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Test"),
+        )
+        builder.set_codebase_context("## File: arena.py\nclass Arena: ...")
+        assert "arena.py" in builder._codebase_context
+
+    def test_get_codebase_context(self, mock_agent):
+        """Verify get_codebase_context returns stored value."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Test"),
+        )
+        builder.set_codebase_context("codebase info")
+        assert builder.get_codebase_context() == "codebase info"
+
+    def test_codebase_section_in_proposal_prompt(self, mock_agent):
+        """Verify codebase context appears in proposal prompts."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Refactor debate module"),
+        )
+        builder.set_codebase_context("aragora/debate/ - 50 files, Arena class")
+
+        result = builder.build_proposal_prompt(agent=mock_agent)
+        assert "Codebase Context" in result
+        assert "aragora/debate/" in result
+
+    def test_empty_codebase_not_in_prompt(self, mock_agent):
+        """Verify empty codebase context doesn't add section."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Test"),
+        )
+
+        result = builder.build_proposal_prompt(agent=mock_agent)
+        assert "Codebase Context" not in result
+
+    def test_set_codebase_context_none_becomes_empty(self, mock_agent):
+        """Verify setting None clears the context."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Test"),
+        )
+        builder.set_codebase_context("some content")
+        builder.set_codebase_context(None)
+        assert builder.get_codebase_context() == ""
+
+    def test_codebase_section_in_revision_prompt(self, mock_agent):
+        """Verify codebase context appears in revision prompts."""
+        builder = PromptBuilder(
+            protocol=MockProtocol(),
+            env=MockEnvironment(task="Improve error handling"),
+        )
+        builder.set_codebase_context("Error handling patterns in aragora/resilience/")
+
+        # Build revision prompt with a mock critique
+        mock_critique = MagicMock()
+        mock_critique.to_prompt.return_value = "Critique: missing circuit breaker"
+        mock_critique.agent = "reviewer"
+        mock_critique.issues = ["missing circuit breaker"]
+
+        result = builder.build_revision_prompt(
+            agent=mock_agent,
+            original="We should add circuit breakers.",
+            critiques=[mock_critique],
+        )
+        assert "Codebase Context" in result
+        assert "resilience" in result

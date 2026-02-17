@@ -119,6 +119,10 @@ class MockDecisionReceipt:
     def to_html(self):
         return f"<h1>Decision Receipt</h1><p>Verdict: {self.verdict}</p>"
 
+    def sign(self):
+        """Mock sign method - no-op for testing."""
+        self.signed = True
+
     @classmethod
     def from_mode_result(cls, result, input_hash=None):
         return cls(
@@ -368,6 +372,7 @@ class TestGauntletStatus:
         """Should return 404 for unknown gauntlet."""
         with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
+            mock_store.get_inflight.return_value = None
             mock_store.get.return_value = None
             mock_storage.return_value = mock_store
 
@@ -557,6 +562,9 @@ class TestGauntletDelete:
     def test_delete_from_memory(self, gauntlet_handler, mock_gauntlet_run):
         """Should delete from in-memory storage."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123", method="DELETE"
+        )
 
         with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
@@ -565,7 +573,7 @@ class TestGauntletDelete:
 
             result = run_async(
                 gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
+                    "/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler
                 )
             )
 
@@ -575,20 +583,25 @@ class TestGauntletDelete:
 
     def test_delete_not_found(self, gauntlet_handler):
         """Should return 404 for unknown gauntlet."""
+        handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-nonexistent-000000", method="DELETE"
+        )
+
         with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
             mock_store.delete.return_value = False
             mock_storage.return_value = mock_store
 
             result = run_async(
-                gauntlet_handler.handle("/api/gauntlet/gauntlet-nonexistent-000000", "DELETE", None)
+                gauntlet_handler.handle("/api/gauntlet/gauntlet-nonexistent-000000", {}, handler)
             )
 
             assert result.status_code == 404
 
     def test_delete_invalid_id(self, gauntlet_handler):
         """Should return 400 for invalid gauntlet ID."""
-        result = run_async(gauntlet_handler.handle("/api/gauntlet/invalid-format", "DELETE", None))
+        handler = mock_handler_with_query("/api/gauntlet/invalid-format", method="DELETE")
+        result = run_async(gauntlet_handler.handle("/api/gauntlet/invalid-format", {}, handler))
 
         assert result.status_code == 400
 
@@ -940,6 +953,7 @@ class TestStorageFallback:
 
         with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
+            mock_store.get_inflight.return_value = None
             mock_store.get.return_value = stored_result
             mock_storage.return_value = mock_store
 
@@ -954,6 +968,9 @@ class TestStorageFallback:
     def test_delete_removes_from_both_memory_and_storage(self, gauntlet_handler, mock_gauntlet_run):
         """Should delete from both memory and persistent storage."""
         gauntlet_module._gauntlet_runs["gauntlet-20260111120000-abc123"] = mock_gauntlet_run
+        handler = mock_handler_with_query(
+            "/api/gauntlet/gauntlet-20260111120000-abc123", method="DELETE"
+        )
 
         with patch.object(gauntlet_module, "_get_storage") as mock_storage:
             mock_store = Mock()
@@ -962,7 +979,7 @@ class TestStorageFallback:
 
             result = run_async(
                 gauntlet_handler.handle(
-                    "/api/gauntlet/gauntlet-20260111120000-abc123", "DELETE", None
+                    "/api/gauntlet/gauntlet-20260111120000-abc123", {}, handler
                 )
             )
 

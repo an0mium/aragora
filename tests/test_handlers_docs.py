@@ -99,7 +99,7 @@ class TestSwaggerUI:
 
     def test_swagger_ui_returns_html(self, docs_handler):
         """Returns HTML content for Swagger UI."""
-        result = docs_handler.handle("/api/docs", {}, None)
+        result = docs_handler.handle("/api/v1/docs", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -108,17 +108,17 @@ class TestSwaggerUI:
 
     def test_swagger_ui_contains_required_elements(self, docs_handler):
         """Swagger UI HTML contains necessary elements."""
-        result = docs_handler.handle("/api/docs", {}, None)
+        result = docs_handler.handle("/api/v1/docs", {}, None)
 
         html = result.body.decode("utf-8")
         assert "swagger-ui" in html
         assert "SwaggerUIBundle" in html
-        assert "/api/openapi.json" in html
+        assert "/api/v1/openapi.json" in html
         assert "Aragora API" in html
 
     def test_swagger_ui_trailing_slash(self, docs_handler):
         """Swagger UI works with trailing slash."""
-        result = docs_handler.handle("/api/docs/", {}, None)
+        result = docs_handler.handle("/api/v1/docs/", {}, None)
 
         assert result is not None
         assert result.status_code == 200
