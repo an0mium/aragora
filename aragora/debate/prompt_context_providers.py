@@ -262,6 +262,9 @@ class PromptContextMixin:
         except (RuntimeError, KeyError, OSError, ConnectionError) as e:
             logger.exception(f"Unexpected question classification error: {e}")
             return self._detect_question_domain_keywords(self.env.task)
+        except Exception as e:
+            logger.warning(f"Question classification failed (API or other error): {e}")
+            return self._detect_question_domain_keywords(self.env.task)
 
     def _detect_question_domain(self, question: str) -> str:
         """Detect question domain for persona selection."""

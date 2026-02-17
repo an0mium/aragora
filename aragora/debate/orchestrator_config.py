@@ -149,6 +149,7 @@ class MergedConfig:
         "auto_max_risk",
         "enable_unified_memory",
         "enable_retention_gate",
+        "enable_live_explainability",
     )
 
     # Type annotations for all slots (required by mypy for __slots__ classes)
@@ -270,6 +271,7 @@ class MergedConfig:
     auto_max_risk: str
     enable_unified_memory: bool
     enable_retention_gate: bool
+    enable_live_explainability: bool
 
 
 def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
@@ -404,6 +406,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     auto_max_risk: str = "low",
     enable_unified_memory: bool = False,
     enable_retention_gate: bool = False,
+    enable_live_explainability: bool = False,
 ) -> MergedConfig:
     """Merge config objects with individual parameters.
 
@@ -798,5 +801,6 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.auto_max_risk = auto_max_risk
     cfg.enable_unified_memory = enable_unified_memory
     cfg.enable_retention_gate = enable_retention_gate
+    cfg.enable_live_explainability = enable_live_explainability
 
     return cfg

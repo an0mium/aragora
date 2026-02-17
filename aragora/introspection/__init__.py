@@ -28,6 +28,12 @@ Usage:
     )
 """
 
+from .active import (
+    ActiveIntrospectionTracker,
+    IntrospectionGoals,
+    MetaReasoningEngine,
+    RoundMetrics,
+)
 from .api import format_introspection_section, get_agent_introspection
 from .cache import IntrospectionCache
 from .types import IntrospectionSnapshot
@@ -37,4 +43,9 @@ __all__ = [
     "IntrospectionCache",
     "get_agent_introspection",
     "format_introspection_section",
+    # Active introspection
+    "ActiveIntrospectionTracker",
+    "MetaReasoningEngine",
+    "IntrospectionGoals",
+    "RoundMetrics",
 ]

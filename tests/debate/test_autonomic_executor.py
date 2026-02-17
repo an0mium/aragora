@@ -2303,3 +2303,131 @@ class TestAllAgentsCircuitBroken:
         # Neither agent should have been called
         assert primary.generate_calls == 0
         assert fallback.generate_calls == 0
+
+
+# =============================================================================
+# Immune System Progress and Circuit Notification Tests
+# =============================================================================
+
+
+class TestImmuneSystemProgressAndCircuitWiring:
+    """Tests for agent_progress, circuit_opened, circuit_closed wiring."""
+
+    @pytest.fixture
+    def immune_system(self):
+        """Create a mock immune system."""
+        immune = MagicMock()
+        immune.agent_started = MagicMock()
+        immune.agent_progress = MagicMock()
+        immune.agent_completed = MagicMock()
+        immune.agent_failed = MagicMock()
+        immune.agent_timeout = MagicMock()
+        immune.circuit_opened = MagicMock()
+        immune.circuit_closed = MagicMock()
+        return immune
+
+    @pytest.mark.asyncio
+    async def test_circuit_opened_on_timeout_threshold(self, immune_system):
+        """Circuit breaker opening triggers immune_system.circuit_opened on timeout."""
+
+        class TimeoutRaisingAgent(MockAgent):
+            """Agent whose generate raises asyncio.TimeoutError (simulating external timeout wrapper)."""
+
+            async def generate(self, prompt: str, context: list = None) -> str:
+                self.generate_calls += 1
+                raise asyncio.TimeoutError("simulated timeout")
+
+        cb = CircuitBreaker(failure_threshold=1, cooldown_seconds=60)
+        executor = AutonomicExecutor(
+            circuit_breaker=cb,
+            immune_system=immune_system,
+        )
+
+        agent = TimeoutRaisingAgent(name="timeout-agent")
+        result = await executor.generate(agent, "test", [])
+
+        # generate() catches TimeoutError and calls immune_system.agent_timeout
+        immune_system.agent_timeout.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_progress_monitoring_during_generation(self, immune_system):
+        """agent_progress is called during long-running generation."""
+
+        class SlowAgent(MockAgent):
+            """Agent that responds after a delay."""
+
+            async def generate(self, prompt: str, context: list = None) -> str:
+                self.generate_calls += 1
+                await asyncio.sleep(6)
+                return "Delayed but successful response"
+
+        executor = AutonomicExecutor(
+            immune_system=immune_system,
+            default_timeout=30.0,
+        )
+
+        agent = SlowAgent(name="slow-agent")
+        result = await executor.generate(agent, "test prompt", [])
+
+        # agent_started should always be called
+        immune_system.agent_started.assert_called_once()
+        # agent_progress should have been called at least once (at 5s mark)
+        assert immune_system.agent_progress.call_count >= 1
+        # agent_completed should be called on success
+        immune_system.agent_completed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_progress_task_cancelled_on_success(self, immune_system):
+        """Progress monitoring task is cleaned up after successful generation."""
+        executor = AutonomicExecutor(
+            immune_system=immune_system,
+            default_timeout=30.0,
+        )
+
+        agent = MockAgent(name="fast-agent")  # Fast response
+        result = await executor.generate(agent, "test", [])
+
+        # Should complete cleanly without orphaned tasks
+        assert result is not None
+        immune_system.agent_started.assert_called_once()
+        immune_system.agent_completed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_progress_task_cancelled_on_error(self, immune_system):
+        """Progress monitoring task is cleaned up on agent error."""
+
+        class ErrorAgent(MockAgent):
+            """Agent that raises an error."""
+
+            async def generate(self, prompt: str, context: list = None) -> str:
+                self.generate_calls += 1
+                raise ConnectionError("test connection failure")
+
+        executor = AutonomicExecutor(
+            immune_system=immune_system,
+        )
+
+        agent = ErrorAgent(name="error-agent")
+        result = await executor.generate(agent, "test", [])
+
+        # Should return system message, not crash
+        assert "[System:" in result
+        immune_system.agent_started.assert_called_once()
+        immune_system.agent_failed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_empty_output_opens_circuit_notifies_immune(self, immune_system):
+        """Empty output failure triggers circuit_opened when threshold met."""
+        cb = CircuitBreaker(failure_threshold=1, cooldown_seconds=60)
+        executor = AutonomicExecutor(
+            circuit_breaker=cb,
+            immune_system=immune_system,
+        )
+
+        agent = EmptyOutputAgent(name="empty-agent")
+        await executor.generate(agent, "test", [])
+
+        # Agent failed should be called with empty output reason
+        immune_system.agent_failed.assert_called()
+        # circuit_opened should be called since threshold is 1
+        immune_system.circuit_opened.assert_called_once_with("empty-agent", "empty output")

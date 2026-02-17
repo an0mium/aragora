@@ -302,6 +302,8 @@ async def initialize_debate_context(
             logger.warning(f"Question classification failed with data error: {e}")
         except (RuntimeError, OSError, ImportError) as e:
             logger.exception(f"Unexpected question classification error: {e}")
+        except Exception as e:
+            logger.warning(f"Question classification failed (API or other error): {e}")
 
     # Apply performance-based agent selection if enabled
     if arena.use_performance_selection:
@@ -420,8 +422,136 @@ async def setup_debate_infrastructure(
         final_answer="",
     )
 
+    # Initialize LiveExplainabilityStream if enabled
+    if getattr(arena, "enable_live_explainability", False):
+        try:
+            from aragora.explainability.live_stream import LiveExplainabilityStream
+
+            stream = LiveExplainabilityStream(
+                event_emitter=getattr(arena, "_event_emitter", None),
+            )
+            arena.live_explainability_stream = stream
+
+            # Subscribe to EventBus events for real-time factor tracking
+            event_bus = getattr(arena, "event_bus", None)
+            if event_bus is not None:
+                _subscribe_live_explainability(event_bus, stream)
+                logger.info(
+                    f"live_explainability_initialized debate_id={state.debate_id}",
+                )
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug(f"LiveExplainabilityStream init failed (non-critical): {e}")
+            arena.live_explainability_stream = None
+
+    # Initialize ActiveIntrospectionTracker if enabled
+    if getattr(arena, "enable_introspection", False):
+        try:
+            from aragora.introspection.active import ActiveIntrospectionTracker
+
+            tracker = ActiveIntrospectionTracker()
+            arena.active_introspection_tracker = tracker
+
+            # Subscribe to EventBus events for real-time agent tracking
+            event_bus = getattr(arena, "event_bus", None)
+            if event_bus is not None:
+                _subscribe_active_introspection(event_bus, tracker)
+                logger.info(
+                    f"active_introspection_initialized debate_id={state.debate_id}",
+                )
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug(f"ActiveIntrospectionTracker init failed (non-critical): {e}")
+            arena.active_introspection_tracker = None
+
     # Record start time for metrics
     state.debate_start_time = time.perf_counter()
+
+
+def _subscribe_active_introspection(event_bus: Any, tracker: Any) -> None:
+    """Subscribe ActiveIntrospectionTracker handlers to EventBus events.
+
+    Maps debate event types to the tracker's methods for real-time
+    agent self-awareness tracking during active debates.
+    """
+    from aragora.debate.event_bus import DebateEvent
+    from aragora.introspection.active import RoundMetrics
+
+    def _on_agent_message(event: DebateEvent) -> None:
+        agent = event.data.get("agent", "unknown")
+        round_num = event.data.get("round_num", 0)
+        role = event.data.get("role", "")
+
+        # Track proposals and critiques as round metrics
+        metrics = RoundMetrics(round_number=round_num)
+        if role == "proposer":
+            metrics.proposals_made = 1
+        elif role == "critic":
+            metrics.critiques_given = 1
+
+        if metrics.proposals_made > 0 or metrics.critiques_given > 0:
+            tracker.update_round(agent, round_num, metrics)
+
+    def _on_round_start(event: DebateEvent) -> None:
+        # round_start is informational; no tracker action needed
+        pass
+
+    def _on_round_end(event: DebateEvent) -> None:
+        round_num = event.data.get("round_num", 0)
+        if hasattr(tracker, "update_round"):
+            # Record round completion for all tracked agents
+            for agent_name in list(tracker.get_all_summaries().keys()):
+                summary = tracker.get_summary(agent_name)
+                if summary and summary.rounds_completed < round_num:
+                    tracker.update_round(
+                        agent_name,
+                        round_num,
+                        RoundMetrics(round_number=round_num),
+                    )
+
+    event_bus.subscribe_sync("agent_message", _on_agent_message)
+    event_bus.subscribe_sync("round_start", _on_round_start)
+    event_bus.subscribe_sync("round_end", _on_round_end)
+
+
+def _subscribe_live_explainability(event_bus: Any, stream: Any) -> None:
+    """Subscribe LiveExplainabilityStream handlers to EventBus events.
+
+    Maps debate event types to the stream's on_* methods for real-time
+    factor decomposition during active debates.
+    """
+    from aragora.debate.event_bus import DebateEvent
+
+    def _on_agent_message(event: DebateEvent) -> None:
+        role = event.data.get("role", "proposer")
+        agent = event.data.get("agent", "unknown")
+        content = event.data.get("content", "")
+        round_num = event.data.get("round_num", 0)
+
+        if role == "proposer":
+            stream.on_proposal(agent, content, round_num=round_num)
+        elif role == "critic":
+            stream.on_critique(agent, content, round_num=round_num)
+        elif role in ("reviser", "refiner"):
+            stream.on_refinement(agent, content, round_num=round_num)
+
+    def _on_vote(event: DebateEvent) -> None:
+        agent = event.data.get("agent", "unknown")
+        choice = event.data.get("choice", "")
+        confidence = event.data.get("confidence", 0.5)
+        round_num = event.data.get("round_num", 0)
+        reasoning = event.data.get("reasoning", "")
+        stream.on_vote(
+            agent, choice, confidence=confidence,
+            round_num=round_num, reasoning=reasoning,
+        )
+
+    def _on_consensus(event: DebateEvent) -> None:
+        confidence = event.data.get("confidence", 0.0)
+        position = event.data.get("position", "")
+        stream.on_consensus(conclusion=position, confidence=confidence)
+
+    event_bus.subscribe_sync("agent_message", _on_agent_message)
+    event_bus.subscribe_sync("vote", _on_vote)
+    event_bus.subscribe_sync("consensus", _on_consensus)
 
 
 async def execute_debate_phases(
@@ -734,6 +864,46 @@ async def handle_debate_completion(
                 )
         except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Post-debate coordinator pipeline failed (non-critical): {e}")
+
+    # Attach active introspection summary to result
+    introspection_tracker = getattr(arena, "active_introspection_tracker", None)
+    if introspection_tracker is not None and ctx.result:
+        try:
+            all_summaries = introspection_tracker.get_all_summaries()
+            if all_summaries:
+                ctx.result.metadata["introspection"] = {
+                    agent_name: summary.to_dict()
+                    for agent_name, summary in all_summaries.items()
+                }
+                logger.info(
+                    f"introspection_attached debate_id={state.debate_id} agents={len(all_summaries)}",
+                )
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug(f"Introspection summary failed (non-critical): {e}")
+
+    # Attach live explainability snapshot to result
+    live_stream = getattr(arena, "live_explainability_stream", None)
+    if live_stream is not None and ctx.result:
+        try:
+            snapshot = live_stream.get_snapshot()
+            if snapshot is not None:
+                ctx.result.metadata["live_explainability"] = {
+                    "factors": snapshot.top_factors,
+                    "narrative": snapshot.narrative,
+                    "leading_position": snapshot.leading_position,
+                    "agent_agreement": snapshot.agent_agreement,
+                    "evidence_quality": snapshot.evidence_quality,
+                    "position_confidence": snapshot.position_confidence,
+                    "round_num": snapshot.round_num,
+                    "evidence_count": snapshot.evidence_count,
+                    "vote_count": snapshot.vote_count,
+                    "belief_shifts": snapshot.belief_shifts,
+                }
+                logger.info(
+                    f"live_explainability_attached debate_id={state.debate_id} factors={len(snapshot.top_factors)}",
+                )
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
+            logger.debug(f"Live explainability snapshot failed (non-critical): {e}")
 
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)

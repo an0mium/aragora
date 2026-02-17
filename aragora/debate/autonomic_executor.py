@@ -494,7 +494,9 @@ class AutonomicExecutor:
             return await asyncio.wait_for(coro, timeout=timeout)
         except asyncio.TimeoutError:
             if self.circuit_breaker:
-                self.circuit_breaker.record_failure(agent_name)
+                just_opened = self.circuit_breaker.record_failure(agent_name)
+                if just_opened and self.immune_system:
+                    self.immune_system.circuit_opened(agent_name, f"timeout after {timeout}s")
             logger.warning(f"Agent {agent_name} timed out after {timeout}s")
             raise TimeoutError(f"Agent {agent_name} timed out after {timeout}s")
 
@@ -535,6 +537,22 @@ class AutonomicExecutor:
         if self.immune_system:
             self.immune_system.agent_started(agent.name, task=prompt[:100])
 
+        # Progress monitoring task for immune system transparency
+        progress_task = None
+        if self.immune_system:
+
+            async def _report_progress() -> None:
+                """Periodically report agent progress to immune system."""
+                try:
+                    while True:
+                        await asyncio.sleep(5)
+                        elapsed = time.time() - start_time
+                        self.immune_system.agent_progress(agent.name, elapsed)
+                except asyncio.CancelledError:
+                    pass
+
+            progress_task = asyncio.create_task(_report_progress())
+
         try:
             if self._should_power_sample(agent, phase):
                 raw_output = await self._generate_with_power_sampling(agent, prompt, context)
@@ -545,6 +563,13 @@ class AutonomicExecutor:
             # Notify immune system of successful completion
             if self.immune_system:
                 self.immune_system.agent_completed(agent.name, response_ms, success=True)
+
+            # If circuit was open for this agent and it just succeeded, notify closure
+            if self.circuit_breaker and self.immune_system:
+                was_open = not self.circuit_breaker.is_available(agent.name)
+                self.circuit_breaker.record_success(agent.name)
+                if was_open and self.circuit_breaker.is_available(agent.name):
+                    self.immune_system.circuit_closed(agent.name)
 
             sanitized = OutputSanitizer.sanitize_agent_output(raw_output, agent.name)
             empty_output = sanitized == "(Agent produced empty output)"
@@ -572,7 +597,9 @@ class AutonomicExecutor:
                     )
 
                 if self.circuit_breaker:
-                    self.circuit_breaker.record_failure(agent.name)
+                    just_opened = self.circuit_breaker.record_failure(agent.name)
+                    if just_opened and self.immune_system:
+                        self.immune_system.circuit_opened(agent.name, "empty output")
 
                 if self.immune_system:
                     self.immune_system.agent_failed(agent.name, "empty output", recoverable=True)
@@ -725,6 +752,14 @@ class AutonomicExecutor:
             if self.chaos_director:
                 return self.chaos_director.internal_error_response(agent.name).message
             return f"[System: Agent {agent.name} encountered an error - skipping this turn]"
+        finally:
+            # Cancel progress monitoring task
+            if progress_task is not None:
+                progress_task.cancel()
+                try:
+                    await progress_task
+                except asyncio.CancelledError:
+                    pass
 
     async def critique(
         self,

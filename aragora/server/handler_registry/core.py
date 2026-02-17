@@ -91,6 +91,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_plans_handler": "extended",
     "_decision_pipeline_handler": "extended",
     "_unified_memory_handler": "extended",
+    "_canvas_pipeline_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",
@@ -368,6 +369,7 @@ class RouteIndex:
             "_tournament_handler": ["/api/tournaments/"],
             "_memory_handler": ["/api/memory/"],
             "_unified_memory_handler": ["/api/v1/memory/unified/"],
+            "_canvas_pipeline_handler": ["/api/v1/canvas/", "/api/canvas/"],
             "_document_handler": ["/api/documents/"],
             "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
             "_auditing_handler": [

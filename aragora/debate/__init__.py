@@ -104,6 +104,7 @@ _EXPORT_MAP = {
     "RhetoricalObservation": ("aragora.debate.rhetorical_observer", "RhetoricalObservation"),
     "RhetoricalPattern": ("aragora.debate.rhetorical_observer", "RhetoricalPattern"),
     "S3CheckpointStore": ("aragora.debate.checkpoint", "S3CheckpointStore"),
+    "StructuralAnalyzer": ("aragora.debate.rhetorical_observer", "StructuralAnalyzer"),
     "STRESS_BUDGETS": ("aragora.debate.cognitive_limiter", "STRESS_BUDGETS"),
     "Scenario": ("aragora.debate.scenarios", "Scenario"),
     "ScenarioComparator": ("aragora.debate.scenarios", "ScenarioComparator"),
@@ -384,6 +385,7 @@ __all__ = [
     "RhetoricalPattern",
     "get_rhetorical_observer",
     "reset_rhetorical_observer",
+    "StructuralAnalyzer",
     # Chaos Theater
     "ChaosDirector",
     "TheaterResponse",

@@ -348,6 +348,10 @@ class Arena(ArenaDelegatesMixin):
     enable_unified_memory: bool
     enable_retention_gate: bool
     memory_gateway: Any
+    enable_live_explainability: bool
+    live_explainability_stream: Any
+    enable_introspection: bool
+    active_introspection_tracker: Any
 
     def __init__(
         self,
@@ -491,6 +495,8 @@ class Arena(ArenaDelegatesMixin):
         # Unified Memory Gateway
         enable_unified_memory: bool = False,
         enable_retention_gate: bool = False,
+        # Live explainability stream (real-time factor decomposition)
+        enable_live_explainability: bool = False,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
         self.mode_sequence = mode_sequence
@@ -625,6 +631,7 @@ class Arena(ArenaDelegatesMixin):
             auto_max_risk=auto_max_risk,
             enable_unified_memory=enable_unified_memory,
             enable_retention_gate=enable_retention_gate,
+            enable_live_explainability=enable_live_explainability,
         )
 
         # Handle fabric integration - get agents from fabric pool if configured
