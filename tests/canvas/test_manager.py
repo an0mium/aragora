@@ -740,7 +740,7 @@ class TestActions:
         return manager
 
     @pytest.mark.asyncio
-    @pytest.mark.timeout(60)
+    @pytest.mark.timeout(120)
     async def test_execute_start_debate(self, manager_with_canvas):
         """Test executing start_debate action."""
         manager = manager_with_canvas

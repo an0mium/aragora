@@ -28,6 +28,14 @@ from .models import (
 )
 from .renderer import CanvasRenderer
 from .manager import CanvasStateManager, get_canvas_manager
+from .stages import PipelineStage, ProvenanceLink, StageTransition
+from .converters import (
+    debate_to_ideas_canvas,
+    goals_to_canvas,
+    workflow_to_actions_canvas,
+    execution_to_orchestration_canvas,
+    to_react_flow,
+)
 from .primitives import (
     AlertPrimitive,
     AlertSeverity,
@@ -78,4 +86,14 @@ __all__ = [
     "SelectPrimitive",
     "TableColumn",
     "TablePrimitive",
+    # Pipeline stages
+    "PipelineStage",
+    "ProvenanceLink",
+    "StageTransition",
+    # Converters
+    "debate_to_ideas_canvas",
+    "goals_to_canvas",
+    "workflow_to_actions_canvas",
+    "execution_to_orchestration_canvas",
+    "to_react_flow",
 ]
