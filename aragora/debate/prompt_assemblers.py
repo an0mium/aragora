@@ -33,6 +33,7 @@ class PromptAssemblyMixin:
 
     # Methods from PromptBuilder (available via MRO)
     _get_introspection_context: Any
+    _get_active_introspection_context: Any
     get_mode_prompt: Any
 
     # Methods from PromptContextMixin (available via MRO)
@@ -93,7 +94,7 @@ class PromptAssemblyMixin:
         except ImportError:
             logger.debug("Privacy anonymization module not available")
             return text
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning("Privacy anonymization failed, using original text: %s", e)
             return text
 
@@ -190,7 +191,7 @@ class PromptAssemblyMixin:
                         dissent_section = f"## Historical Minority Views\n{dissent_context[:600]}"
             except (AttributeError, TypeError, KeyError) as e:
                 logger.debug(f"Dissent retrieval error: {e}")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ConnectionError) as e:
                 logger.warning(f"Unexpected dissent retrieval error: {e}")
 
         patterns_section = ""
@@ -242,6 +243,11 @@ class PromptAssemblyMixin:
         if introspection_context:
             introspection_section = introspection_context
 
+        active_introspection_section = ""
+        active_context = self._get_active_introspection_context(agent.name)
+        if active_context:
+            active_introspection_section = active_context
+
         mode_section = ""
         mode_prompt = self.get_mode_prompt()
         if mode_prompt:
@@ -264,6 +270,7 @@ class PromptAssemblyMixin:
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
             ContextSection("introspection", introspection_section.strip()),
+            ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
         ]
 
@@ -363,6 +370,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if template_context:
             template_section = template_context
 
+        active_introspection_section = ""
+        active_context = self._get_active_introspection_context(agent.name)
+        if active_context:
+            active_introspection_section = active_context
+
         mode_section = ""
         mode_prompt = self.get_mode_prompt()
         if mode_prompt:
@@ -378,6 +390,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             ContextSection("trending", trending_section.strip()),
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
+            ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)

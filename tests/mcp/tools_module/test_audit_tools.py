@@ -47,7 +47,7 @@ class TestListAuditPresetsTool:
     async def test_list_presets_error(self):
         """Test preset listing when registry fails."""
         mock_registry = MagicMock()
-        mock_registry.auto_discover.side_effect = Exception("Registry error")
+        mock_registry.auto_discover.side_effect = RuntimeError("Registry error")
 
         mock_registry_module = MagicMock()
         mock_registry_module.audit_registry = mock_registry
@@ -237,7 +237,7 @@ class TestRunAuditTool:
     async def test_run_error(self):
         """Test audit run with error."""
         mock_auditor = AsyncMock()
-        mock_auditor.run_audit.side_effect = Exception("Audit failed")
+        mock_auditor.run_audit.side_effect = RuntimeError("Audit failed")
 
         mock_audit_module = MagicMock()
         mock_audit_module.DocumentAuditor = MagicMock(return_value=mock_auditor)

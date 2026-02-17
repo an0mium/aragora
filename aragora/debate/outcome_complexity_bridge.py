@@ -147,7 +147,7 @@ class OutcomeComplexityBridge:
             for outcome in outcomes:
                 self._process_outcome(outcome)
             logger.info(f"Loaded {len(outcomes)} historical outcomes")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
             logger.debug(f"Could not load historical outcomes: {e}")
 
     def _process_outcome(self, outcome: ConsensusOutcome) -> None:

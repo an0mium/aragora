@@ -227,7 +227,7 @@ class ResultFormatter:
                 frameworks_checked=[],
                 score=1.0,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
             logger.warning(f"Compliance validation failed: {e}")
             from aragora.compliance.framework import ComplianceCheckResult
 

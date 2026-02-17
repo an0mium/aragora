@@ -244,7 +244,7 @@ class HybridDebateProtocol:
             try:
                 available = await agent.is_available()
                 return name, available
-            except Exception as exc:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError, TimeoutError) as exc:
                 logger.warning("Health check failed for %s: %s", name, exc)
                 return name, False
 
@@ -321,7 +321,7 @@ class HybridDebateProtocol:
         try:
             proposal = await self.external_agent.generate(task, context)
             logger.debug(f"[{debate_id[:8]}] External proposal received: {len(proposal)} chars")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"[{debate_id[:8]}] External agent failed: {e}")
             raise
 
@@ -449,7 +449,7 @@ class HybridDebateProtocol:
                     target_agent=self.external_agent.name,
                 )
                 return critique.content
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
                 logger.warning(f"Critique from {agent.name} failed: {e}")
                 return None
 

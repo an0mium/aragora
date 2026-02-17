@@ -166,7 +166,7 @@ class CrossDebateConfig:
     storage_path: Path | None = None
 
     # Knowledge Mound integration (enriches context with KM-sourced insights)
-    enable_km_integration: bool = False
+    enable_km_integration: bool = True
     km_max_results: int = 5
 
     def __post_init__(self) -> None:

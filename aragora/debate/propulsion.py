@@ -350,7 +350,7 @@ class PropulsionEngine:
                     duration_ms=duration_ms,
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handler dispatch isolation: propulsion handlers can raise any exception
                 duration_ms = (time.time() - start_time) * 1000
                 payload.last_error = f"handler_error:{type(e).__name__}"
 

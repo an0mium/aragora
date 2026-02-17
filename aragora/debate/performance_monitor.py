@@ -234,7 +234,7 @@ class DebatePerformanceMonitor:
         try:
             yield metric
             metric.outcome = "completed"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - context manager must record all errors before re-raising
             metric.outcome = f"error: {type(e).__name__}"
             raise
         finally:
@@ -359,7 +359,7 @@ class DebatePerformanceMonitor:
 
         try:
             yield metric
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - context manager must record all errors before re-raising
             metric.error = f"phase_error:{type(e).__name__}"
             raise
         finally:

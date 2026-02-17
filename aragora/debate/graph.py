@@ -764,7 +764,7 @@ class GraphDebateOrchestrator:
                         loop_id=debate_id,
                     )
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Stream event emission failed (non-critical): {e}")
 
     async def run_debate(
@@ -867,7 +867,7 @@ class GraphDebateOrchestrator:
                         response = await run_agent_fn(agent, prompt, context)
                         confidence = self._extract_confidence(response)
                         responses.append((agent.name, response, confidence))
-                    except Exception as e:
+                    except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
                         responses.append((agent.name, f"Error: {e}", 0.0))
 
                 # Evaluate disagreement

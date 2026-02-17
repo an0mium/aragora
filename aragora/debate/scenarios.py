@@ -645,7 +645,7 @@ class MatrixDebateRunner:
                 consensus_reached=False,
                 metadata={"error": "data_error", "error_type": "data"},
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
             logger.exception(f"Unexpected error in scenario {scenario.name} debate: {e}")
             return ScenarioResult(
                 scenario_id=scenario.id,

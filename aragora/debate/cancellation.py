@@ -120,7 +120,7 @@ class CancellationToken:
         for callback in self._callbacks:
             try:
                 callback(self)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Cancellation callback failed: {e}")
 
         # Propagate to children
@@ -205,7 +205,7 @@ class CancellationToken:
         if self.is_cancelled:
             try:
                 callback(self)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Cancellation callback failed: {e}")
 
         return unregister

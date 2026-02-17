@@ -147,7 +147,7 @@ class EmbeddingCache:
         except OSError as e:
             # Expected: DB file issues, permissions
             logger.debug(f"Failed to load embedding from DB: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             # Unexpected: log at warning for visibility
             logger.warning(f"Unexpected error loading embedding: {type(e).__name__}: {e}")
 
@@ -181,7 +181,7 @@ class EmbeddingCache:
         except OSError as e:
             # Expected: DB file issues, disk full, permissions
             logger.debug(f"Failed to save embedding to DB: {e}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             # Unexpected: log at warning for visibility
             logger.warning(f"Unexpected error saving embedding: {type(e).__name__}: {e}")
 

@@ -14,6 +14,10 @@ from aragora.events.subscribers.debate_handlers import DebateHandlersMixin
 from aragora.events.subscribers.execution_handlers import ExecutionHandlersMixin
 from aragora.events.subscribers.notification_handlers import NotificationHandlersMixin
 from aragora.events.subscribers.testfixer_handlers import TestFixerHandlersMixin
+from aragora.events.subscribers.workflow_automation import (
+    PostDebateWorkflowSubscriber,
+    get_post_debate_subscriber,
+)
 
 __all__ = [
     "RetryConfig",
@@ -24,4 +28,6 @@ __all__ = [
     "ExecutionHandlersMixin",
     "NotificationHandlersMixin",
     "TestFixerHandlersMixin",
+    "PostDebateWorkflowSubscriber",
+    "get_post_debate_subscriber",
 ]

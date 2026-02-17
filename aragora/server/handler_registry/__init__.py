@@ -400,7 +400,12 @@ class HandlerRegistryMixin:
             if normalized_path != dispatch_path and handler.can_handle(normalized_path):
                 dispatch_path = normalized_path
 
-            # Dispatch to appropriate handler method based on HTTP method
+            # Dispatch to appropriate handler method based on HTTP method.
+            # Try method-specific handler first (handle_post, handle_delete, etc.),
+            # then fall through to generic handle() if it returns None.
+            # This handles the case where BaseHandler defines stub methods that
+            # return None, while the handler routes all methods via handle().
+            result = None
             if method == "POST" and hasattr(handler, "handle_post"):
                 result = handler.handle_post(dispatch_path, query_dict, self)
             elif method == "DELETE" and hasattr(handler, "handle_delete"):
@@ -409,7 +414,14 @@ class HandlerRegistryMixin:
                 result = handler.handle_patch(dispatch_path, query_dict, self)
             elif method == "PUT" and hasattr(handler, "handle_put"):
                 result = handler.handle_put(dispatch_path, query_dict, self)
-            else:
+
+            # Resolve async result from method-specific handler
+            if asyncio.iscoroutine(result):
+                result = _run_handler_coroutine(result)
+
+            # Fall through to generic handle() when method-specific handler
+            # returned None (e.g., base class stub or unhandled path)
+            if result is None:
                 result = handler.handle(dispatch_path, query_dict, self)
 
             # Handle async handlers - await coroutines

@@ -1036,6 +1036,31 @@ class Arena(ArenaDelegatesMixin):
     async def _run_inner(self, correlation_id: str = "") -> DebateResult:
         """Internal debate execution orchestrator coordinating all phases."""
         state = await _runner_initialize_debate_context(self, correlation_id)
+
+        # Content moderation: block spam/low-quality prompts before burning API tokens
+        if self.protocol.enable_content_moderation:
+            try:
+                from aragora.moderation import check_debate_content, ContentModerationError
+
+                result = await check_debate_content(
+                    self.env.task, context=self.env.context
+                )
+                if result.should_block:
+                    raise ContentModerationError(
+                        f"Debate content blocked: {result.verdict.value}"
+                    )
+            except ImportError:
+                logger.warning(
+                    "Content moderation enabled but aragora.moderation not available"
+                )
+            except ContentModerationError:
+                raise
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError):
+                logger.warning(
+                    "Content moderation check failed, continuing without moderation",
+                    exc_info=True,
+                )
+
         await _runner_setup_debate_infrastructure(self, state)
         ACTIVE_DEBATES.inc()
 

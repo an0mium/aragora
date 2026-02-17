@@ -33,7 +33,7 @@ def run_async(coro):
     return asyncio.run(coro)
 
 
-def mock_handler_with_query(path: str, query_params: dict = None) -> Mock:
+def mock_handler_with_query(path: str, query_params: dict = None, method: str = "GET") -> Mock:
     """Create a mock handler with path containing query params."""
     mock_handler = Mock()
     if query_params:
@@ -44,15 +44,17 @@ def mock_handler_with_query(path: str, query_params: dict = None) -> Mock:
     # Ensure headers returns a proper dict for extract_client_ip
     mock_handler.headers = {}
     mock_handler.client_address = ("127.0.0.1", 8080)
+    mock_handler.command = method
     return mock_handler
 
 
-def create_mock_handler(path: str = "/api/gauntlet/run") -> Mock:
+def create_mock_handler(path: str = "/api/gauntlet/run", method: str = "POST") -> Mock:
     """Create a properly configured mock handler for gauntlet tests."""
     mock_handler = Mock()
     mock_handler.path = path
     mock_handler.headers = {}
     mock_handler.client_address = ("127.0.0.1", 8080)
+    mock_handler.command = method
     return mock_handler
 
 

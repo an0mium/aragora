@@ -1160,6 +1160,9 @@ def mock_external_apis(request, monkeypatch):
                 },
             )
 
+        async def head(self, url, **kwargs):
+            return self._make_response(url, **kwargs)
+
         async def get(self, url, **kwargs):
             return self._make_response(url, **kwargs)
 

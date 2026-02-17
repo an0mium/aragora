@@ -679,7 +679,7 @@ class TestCredentialProxy:
         proxy.register_credential(sample_credential)
 
         async def failing_callback(usage: CredentialUsage):
-            raise Exception("Callback failed")
+            raise RuntimeError("Callback failed")
 
         proxy.add_audit_callback(failing_callback)
 

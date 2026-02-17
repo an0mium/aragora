@@ -495,6 +495,67 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         except (ImportError, ValueError, TypeError, KeyError, AttributeError):
             return ""
 
+    def _get_active_introspection_context(self, agent_name: str) -> str:
+        """Get dynamic, per-round introspection context for an agent.
+
+        Returns a formatted section with live performance metrics and
+        strategic guidance from MetaReasoningEngine. Returns empty string
+        if active tracking is not available or no rounds have completed.
+
+        This supplements the static _get_introspection_context with data
+        collected during the current debate.
+        """
+        if not self.enable_introspection:
+            return ""
+        if self._introspection_cache is None:
+            return ""
+        try:
+            from aragora.introspection.active import MetaReasoningEngine
+
+            cache = self._introspection_cache
+            if not hasattr(cache, "get_active_summary"):
+                return ""
+
+            summary = cache.get_active_summary(agent_name)
+            if summary is None or summary.rounds_completed == 0:
+                return ""
+
+            engine = MetaReasoningEngine()
+            return engine.format_for_prompt(summary, max_chars=400)
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError):
+            return ""
+
+    def update_introspection_round(
+        self,
+        agent_name: str,
+        round_num: int,
+        metrics: Any,
+    ) -> None:
+        """Record per-round metrics for active introspection tracking.
+
+        Called by the Arena after each round completes to feed live
+        performance data into the introspection system.
+
+        Args:
+            agent_name: Name of the agent
+            round_num: Round number (1-indexed)
+            metrics: RoundMetrics instance with this round's data
+        """
+        if not self.enable_introspection:
+            return
+        if self._introspection_cache is None:
+            return
+        try:
+            cache = self._introspection_cache
+            if hasattr(cache, "update_round"):
+                cache.update_round(agent_name, round_num, metrics)
+        except (TypeError, ValueError, AttributeError) as e:
+            logger.debug(
+                "[introspection] Failed to update round for %s: %s",
+                agent_name,
+                e,
+            )
+
     @staticmethod
     def _estimate_tokens(text: str) -> int:
         if not text:

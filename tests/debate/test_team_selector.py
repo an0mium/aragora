@@ -541,6 +541,7 @@ class TestAgentScoring:
         """Test ELO rating contributes to score."""
         config = TeamSelectionConfig(
             elo_weight=0.3,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -560,6 +561,7 @@ class TestAgentScoring:
         elo_system = MockEloSystemWithRatingObject(ratings={"claude-opus": 1800.0})
         config = TeamSelectionConfig(
             elo_weight=0.3,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -594,6 +596,7 @@ class TestAgentScoring:
         delegation = MockDelegationStrategy(scores={"claude-opus": 4.0})
         config = TeamSelectionConfig(
             delegation_weight=0.2,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -653,6 +656,7 @@ class TestAgentScoring:
         elo_system = MockEloSystem(ratings={})  # No ratings
         config = TeamSelectionConfig(
             elo_weight=0.3,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -1266,6 +1270,7 @@ class TestDelegationStrategy:
         delegation = MockDelegationStrategy(scores={"claude-opus": 5.0})
         config = TeamSelectionConfig(
             delegation_weight=0.2,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,
@@ -1283,6 +1288,7 @@ class TestDelegationStrategy:
         delegation = MockDelegationStrategy(scores={"claude-opus": 5.0})
         config = TeamSelectionConfig(
             delegation_weight=0.2,
+            calibration_weight=0.0,
             enable_domain_filtering=False,
             enable_km_expertise=False,
             enable_pattern_selection=False,

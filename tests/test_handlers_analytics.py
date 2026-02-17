@@ -1,13 +1,15 @@
 """
 Tests for AnalyticsHandler endpoints.
 
+Since AnalyticsHandler.handle() is async (performs RBAC + rate-limiting),
+tests call internal sync methods directly to verify business logic.
+
 Endpoints tested:
 - GET /api/analytics/disagreements - Get disagreement statistics
 - GET /api/analytics/role-rotation - Get role rotation statistics
 - GET /api/analytics/early-stops - Get early stopping statistics
 - GET /api/ranking/stats - Get ranking statistics
 - GET /api/memory/stats - Get memory statistics
-- GET /api/memory/tier-stats - Get memory tier statistics
 """
 
 import json
@@ -22,11 +24,11 @@ from aragora.server.handlers.base import clear_cache
 
 @dataclass
 class MockAgentRanking:
-    """Mock agent ranking object."""
+    """Mock agent ranking object matching handler's expected attributes."""
 
     agent_name: str
-    elo_rating: int
-    total_debates: int
+    elo: int
+    debates_count: int
 
 
 @pytest.fixture
@@ -131,9 +133,10 @@ class TestAnalyticsHandlerRouting:
         assert analytics_handler.can_handle("/api/v1/debates") is False
         assert analytics_handler.can_handle("/api/v1/leaderboard") is False
 
-    def test_handle_returns_none_for_unknown(self, analytics_handler):
+    @pytest.mark.asyncio
+    async def test_handle_returns_none_for_unknown(self, analytics_handler):
         """Should return None for unknown paths."""
-        result = analytics_handler.handle("/api/unknown", {}, None)
+        result = await analytics_handler.handle("/api/unknown", {}, None)
         assert result is None
 
 
@@ -147,7 +150,7 @@ class TestDisagreementStats:
 
     def test_returns_disagreement_stats(self, analytics_handler):
         """Should return disagreement statistics."""
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -157,14 +160,14 @@ class TestDisagreementStats:
 
     def test_counts_debates_correctly(self, analytics_handler):
         """Should count total debates correctly."""
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["total_debates"] == 2
 
     def test_tracks_disagreement_types(self, analytics_handler):
         """Should track disagreement types."""
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         data = json.loads(result.body)
         assert "disagreement_types" in data["stats"]
@@ -175,7 +178,7 @@ class TestDisagreementStats:
         """Should handle empty debates list."""
         mock_storage.list_debates.return_value = []
 
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -185,7 +188,7 @@ class TestDisagreementStats:
     def test_handles_storage_unavailable(self):
         """Should handle missing storage gracefully."""
         handler = AnalyticsHandler({})
-        result = handler.handle("/api/analytics/disagreements", {}, None)
+        result = handler._get_disagreement_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -193,9 +196,9 @@ class TestDisagreementStats:
 
     def test_handles_exception(self, analytics_handler, mock_storage):
         """Should return 500 on exception."""
-        mock_storage.list_debates.side_effect = Exception("DB error")
+        mock_storage.list_debates.side_effect = OSError("DB error")
 
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         assert result.status_code == 500
 
@@ -210,7 +213,7 @@ class TestRoleRotationStats:
 
     def test_returns_role_rotation_stats(self, analytics_handler):
         """Should return role rotation statistics."""
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -220,7 +223,7 @@ class TestRoleRotationStats:
 
     def test_counts_role_assignments(self, analytics_handler):
         """Should count role assignments from messages."""
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         data = json.loads(result.body)
         roles = data["stats"]["role_assignments"]
@@ -237,7 +240,7 @@ class TestRoleRotationStats:
             }
         ]
 
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["role_assignments"].get("speaker", 0) >= 1
@@ -246,7 +249,7 @@ class TestRoleRotationStats:
         """Should handle empty debates list."""
         mock_storage.list_debates.return_value = []
 
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -255,9 +258,9 @@ class TestRoleRotationStats:
 
     def test_handles_exception(self, analytics_handler, mock_storage):
         """Should return 500 on exception."""
-        mock_storage.list_debates.side_effect = Exception("DB error")
+        mock_storage.list_debates.side_effect = OSError("DB error")
 
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         assert result.status_code == 500
 
@@ -272,7 +275,7 @@ class TestEarlyStopStats:
 
     def test_returns_early_stop_stats(self, analytics_handler):
         """Should return early stop statistics."""
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -283,7 +286,7 @@ class TestEarlyStopStats:
 
     def test_counts_early_stopped_debates(self, analytics_handler):
         """Should count early stopped debates."""
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         data = json.loads(result.body)
         # Second debate has early_stopped=True
@@ -292,7 +295,7 @@ class TestEarlyStopStats:
 
     def test_calculates_average_rounds(self, analytics_handler):
         """Should calculate average rounds."""
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         data = json.loads(result.body)
         # (3 + 2) / 2 = 2.5
@@ -302,7 +305,7 @@ class TestEarlyStopStats:
         """Should handle empty debates list."""
         mock_storage.list_debates.return_value = []
 
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -311,9 +314,9 @@ class TestEarlyStopStats:
 
     def test_handles_exception(self, analytics_handler, mock_storage):
         """Should return 500 on exception."""
-        mock_storage.list_debates.side_effect = Exception("DB error")
+        mock_storage.list_debates.side_effect = OSError("DB error")
 
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         assert result.status_code == 500
 
@@ -328,7 +331,7 @@ class TestRankingStats:
 
     def test_returns_ranking_stats(self, analytics_handler):
         """Should return ranking statistics."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -338,7 +341,7 @@ class TestRankingStats:
 
     def test_calculates_correct_totals(self, analytics_handler):
         """Should calculate correct totals."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["total_agents"] == 3
@@ -347,14 +350,14 @@ class TestRankingStats:
 
     def test_identifies_top_agent(self, analytics_handler):
         """Should identify top agent."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["top_agent"] == "claude"
 
     def test_calculates_elo_range(self, analytics_handler):
         """Should calculate ELO range."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["elo_range"]["min"] == 1520
@@ -362,7 +365,7 @@ class TestRankingStats:
 
     def test_calculates_average_elo(self, analytics_handler):
         """Should calculate average ELO."""
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         data = json.loads(result.body)
         # (1650 + 1580 + 1520) / 3 = 1583.33...
@@ -371,7 +374,7 @@ class TestRankingStats:
     def test_returns_503_without_elo_system(self):
         """Should return 503 when ELO system unavailable."""
         handler = AnalyticsHandler({"storage": Mock()})
-        result = handler.handle("/api/ranking/stats", {}, None)
+        result = handler._get_ranking_stats()
 
         assert result.status_code == 503
 
@@ -379,7 +382,7 @@ class TestRankingStats:
         """Should handle empty leaderboard."""
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -388,9 +391,9 @@ class TestRankingStats:
 
     def test_handles_exception(self, analytics_handler, mock_elo_system):
         """Should return 500 on exception."""
-        mock_elo_system.get_leaderboard.side_effect = Exception("ELO error")
+        mock_elo_system.get_leaderboard.side_effect = OSError("ELO error")
 
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         assert result.status_code == 500
 
@@ -407,7 +410,7 @@ class TestMemoryStats:
 
     def test_returns_memory_stats(self, analytics_handler):
         """Should return memory statistics."""
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -415,7 +418,7 @@ class TestMemoryStats:
 
     def test_detects_missing_dbs(self, analytics_handler):
         """Should detect missing database files."""
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["embeddings_db"] is False
@@ -426,7 +429,7 @@ class TestMemoryStats:
         """Should detect existing embeddings database."""
         (tmp_path / "debate_embeddings.db").touch()
 
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["embeddings_db"] is True
@@ -435,7 +438,7 @@ class TestMemoryStats:
         """Should detect existing insights database."""
         (tmp_path / "aragora_insights.db").touch()
 
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["insights_db"] is True
@@ -444,7 +447,7 @@ class TestMemoryStats:
         """Should detect existing continuum memory database."""
         (tmp_path / "continuum_memory.db").touch()
 
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         data = json.loads(result.body)
         assert data["stats"]["continuum_memory"] is True
@@ -452,7 +455,7 @@ class TestMemoryStats:
     def test_returns_empty_without_nomic_dir(self):
         """Should return empty stats without nomic_dir."""
         handler = AnalyticsHandler({"storage": Mock()})
-        result = handler.handle("/api/memory/stats", {}, None)
+        result = handler._get_memory_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -464,7 +467,7 @@ class TestMemoryStats:
         analytics_handler.ctx["nomic_dir"] = tmp_path / "not_a_dir.txt"
         (tmp_path / "not_a_dir.txt").touch()
 
-        result = analytics_handler.handle("/api/memory/stats", {}, None)
+        result = analytics_handler._get_memory_stats()
 
         # Should either handle gracefully or return error
         assert result.status_code in [200, 500]
@@ -481,12 +484,11 @@ class TestAnalyticsCaching:
     def test_debates_are_cached(self, analytics_handler, mock_storage):
         """Should cache debates between calls."""
         # First call
-        analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        analytics_handler._get_disagreement_stats()
         # Second call should use cache
-        analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        analytics_handler._get_role_rotation_stats()
 
-        # Storage should only be called once due to caching
-        # (actual behavior depends on cache TTL)
+        # Storage should have been called for debate data
         assert mock_storage.list_debates.called
 
     def test_cached_debates_method(self, analytics_handler, mock_storage):
@@ -509,7 +511,7 @@ class TestAnalyticsEdgeCases:
             {"slug": "no-result", "messages": []},
         ]
 
-        result = analytics_handler.handle("/api/analytics/early-stops", {}, None)
+        result = analytics_handler._get_early_stop_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -522,7 +524,7 @@ class TestAnalyticsEdgeCases:
             {"slug": "no-messages", "result": {}},
         ]
 
-        result = analytics_handler.handle("/api/analytics/role-rotation", {}, None)
+        result = analytics_handler._get_role_rotation_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -534,7 +536,7 @@ class TestAnalyticsEdgeCases:
             {"slug": "no-report", "messages": [], "result": {}},
         ]
 
-        result = analytics_handler.handle("/api/analytics/disagreements", {}, None)
+        result = analytics_handler._get_disagreement_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -547,7 +549,7 @@ class TestAnalyticsEdgeCases:
             MockAgentRanking("lonely", 1500, 5),
         ]
 
-        result = analytics_handler.handle("/api/ranking/stats", {}, None)
+        result = analytics_handler._get_ranking_stats()
 
         assert result.status_code == 200
         data = json.loads(result.body)

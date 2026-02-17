@@ -82,7 +82,7 @@ class TestCanvasCreateTool:
     async def test_create_failure(self):
         """Test canvas creation failure."""
         mock_manager = AsyncMock()
-        mock_manager.create_canvas.side_effect = Exception("DB error")
+        mock_manager.create_canvas.side_effect = RuntimeError("DB error")
 
         with patch(
             "aragora.mcp.tools_module.canvas._get_manager",

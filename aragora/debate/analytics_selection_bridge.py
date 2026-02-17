@@ -141,7 +141,7 @@ class AnalyticsSelectionBridge:
             logger.info(f"analytics_metrics_refreshed agents={len(self._metrics_cache)}")
             return len(self._metrics_cache)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             logger.warning(f"Failed to refresh analytics metrics: {e}")
             return 0
 

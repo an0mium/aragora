@@ -549,6 +549,31 @@ class BasicHandlersMixin:
         except (RuntimeError, TypeError, AttributeError, ValueError, OSError) as e:
             logger.debug(f"KM outcome persistence failed: {e}")
 
+    def _handle_debate_end_to_workflow(self, event: StreamEvent) -> None:
+        """Debate end -> post-debate workflow automation.
+
+        Delegates to PostDebateWorkflowSubscriber to classify the debate
+        outcome and trigger the appropriate workflow template.
+        """
+        try:
+            from aragora.events.subscribers.workflow_automation import (
+                PostDebateWorkflowSubscriber,
+            )
+
+            subscriber = PostDebateWorkflowSubscriber()
+            subscriber.handle_debate_end(event)
+
+            logger.debug(
+                "Post-debate workflow processed: events=%d workflows=%d errors=%d",
+                subscriber.stats["events_processed"],
+                subscriber.stats["workflows_triggered"],
+                subscriber.stats["errors"],
+            )
+        except ImportError:
+            logger.debug("PostDebateWorkflowSubscriber not available")
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("Debate end -> workflow handler error: %s", e)
+
     def _handle_workflow_outcome_to_supermemory(self, event: StreamEvent) -> None:
         """Workflow completion/failure → Supermemory persistence.
 

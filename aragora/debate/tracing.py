@@ -259,7 +259,7 @@ class Tracer:
         try:
             yield span
             span.status = "OK"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - tracing context manager must record all exceptions before re-raising
             span.record_exception(e)
             raise
         finally:

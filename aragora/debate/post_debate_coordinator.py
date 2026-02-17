@@ -46,6 +46,9 @@ class PostDebateConfig:
     improvement_min_confidence: float = 0.8
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
+    # Execution bridge: auto-trigger downstream actions
+    auto_execution_bridge: bool = True
+    execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
 
 
 @dataclass
@@ -66,6 +69,7 @@ class PostDebateResult:
     receipt_persisted: bool = False
     gauntlet_result: dict[str, Any] | None = None
     improvement_queued: bool = False
+    bridge_results: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -161,6 +165,13 @@ class PostDebateCoordinator:
             result.improvement_queued = self._step_queue_improvement(
                 debate_id, debate_result, task, confidence
             )
+
+        # Step 8: Execution bridge — auto-trigger downstream actions
+        if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
+            bridge_results = self._step_execution_bridge(
+                debate_id, debate_result, task, confidence, agents,
+            )
+            result.bridge_results = bridge_results
 
         return result
 
@@ -491,6 +502,50 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError, KeyError) as e:
             logger.warning("Improvement queue failed: %s", e)
             return False
+
+    def _step_execution_bridge(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+        agents: list[Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Step 8: Run execution bridge to auto-trigger downstream actions."""
+        try:
+            from aragora.debate.execution_bridge import create_default_bridge
+
+            bridge = create_default_bridge()
+            agent_names = [
+                getattr(a, "name", str(a)) for a in (agents or [])
+            ]
+            domain = "general"
+            if hasattr(debate_result, "domain"):
+                domain = debate_result.domain
+
+            results = bridge.evaluate_and_execute(
+                debate_id=debate_id,
+                debate_result=debate_result,
+                confidence=confidence,
+                domain=domain,
+                task=task,
+                agents=agent_names,
+            )
+
+            executed = [r.to_dict() for r in results]
+            if executed:
+                logger.info(
+                    "Execution bridge triggered %d actions for %s",
+                    len(executed),
+                    debate_id,
+                )
+            return executed
+        except ImportError:
+            logger.debug("ExecutionBridge not available")
+            return []
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.warning("Execution bridge failed: %s", e)
+            return []
 
     @staticmethod
     def _classify_improvement_category(task: str) -> str:

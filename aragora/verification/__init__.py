@@ -7,8 +7,18 @@ Provides:
 - VerificationResult: Outcome of proof execution
 - ClaimVerifier: Links claims to their verification proofs
 - FormalVerificationBackend: Interface for theorem provers (Lean, Z3)
+- ArgumentStructureVerifier: Lean4/Z3 verification of debate argument chains
 """
 
+from aragora.verification.argument_verifier import (
+    ArgumentStructureVerifier,
+    ArgumentVerificationResult,
+    ContradictionPair,
+    InvalidChain,
+    UnsupportedConclusion,
+    VerifiedChain,
+    VerificationStrategy,
+)
 from aragora.verification.deepseek_prover import (
     DeepSeekProverTranslator,
     TranslationResult,
@@ -65,6 +75,14 @@ __all__ = [
     "Z3Backend",
     "get_formal_verification_manager",
     "HilbertProver",
+    # Argument structure verification
+    "ArgumentStructureVerifier",
+    "ArgumentVerificationResult",
+    "VerifiedChain",
+    "InvalidChain",
+    "UnsupportedConclusion",
+    "ContradictionPair",
+    "VerificationStrategy",
     # DeepSeek-Prover integration
     "DeepSeekProverTranslator",
     "TranslationResult",

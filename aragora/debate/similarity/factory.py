@@ -194,7 +194,7 @@ class SimilarityFactory:
             return True
         except ImportError:
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Backend {name} not available: {e}")
             return False
 

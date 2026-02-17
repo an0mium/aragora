@@ -438,6 +438,41 @@ class DebateHandlersMixin:
             self.stats.setdefault("debate_outcome_to_knowledge", {"events": 0, "errors": 0})
             self.stats["debate_outcome_to_knowledge"]["errors"] += 1
 
+    def _handle_debate_end_to_workflow(self, event: StreamEvent) -> None:
+        """Handle DEBATE_END events -> trigger post-debate workflow automation.
+
+        Delegates to PostDebateWorkflowSubscriber to classify the debate
+        outcome and trigger the appropriate workflow template (e.g.,
+        implementation PR, follow-up review, escalation, or retry).
+        """
+        try:
+            from aragora.events.subscribers.workflow_automation import (
+                PostDebateWorkflowSubscriber,
+            )
+
+            subscriber = PostDebateWorkflowSubscriber()
+            subscriber.handle_debate_end(event)
+
+            self.stats.setdefault(
+                "debate_end_to_workflow", {"events": 0, "errors": 0}
+            )
+            self.stats["debate_end_to_workflow"]["events"] += 1
+
+            # Propagate error count from the subscriber
+            if subscriber.stats["errors"] > 0:
+                self.stats["debate_end_to_workflow"]["errors"] += subscriber.stats[
+                    "errors"
+                ]
+
+        except ImportError:
+            logger.debug("PostDebateWorkflowSubscriber not available")
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
+            logger.error("Debate End -> Workflow handler error: %s", e)
+            self.stats.setdefault(
+                "debate_end_to_workflow", {"events": 0, "errors": 0}
+            )
+            self.stats["debate_end_to_workflow"]["errors"] += 1
+
     def _handle_mound_to_provenance(self, event: StreamEvent) -> None:
         """Handle Knowledge Mound → Provenance events.
 

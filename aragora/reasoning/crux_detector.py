@@ -392,6 +392,27 @@ class CruxDetector:
         cruxes = sorted(cruxes, key=lambda c: -c.crux_score)
         cruxes = [c for c in cruxes if c.crux_score >= min_score][:top_k]
 
+        # Emit CRUX_DETECTED events for significant cruxes
+        if cruxes:
+            try:
+                from aragora.events.dispatcher import dispatch_event
+
+                for crux in cruxes:
+                    dispatch_event(
+                        "crux_detected",
+                        {
+                            "claim_id": crux.claim_id,
+                            "statement": crux.statement[:200],
+                            "crux_score": round(crux.crux_score, 4),
+                            "influence_score": round(crux.influence_score, 4),
+                            "disagreement_score": round(crux.disagreement_score, 4),
+                            "contesting_agents": crux.contesting_agents,
+                            "resolution_impact": round(crux.resolution_impact, 4),
+                        },
+                    )
+            except (ImportError, RuntimeError, AttributeError) as e:
+                logger.debug("Crux event emission unavailable: %s", e)
+
         # Compute summary statistics
         avg_uncertainty = sum(n.posterior.entropy for n in self.network.nodes.values()) / len(
             self.network.nodes

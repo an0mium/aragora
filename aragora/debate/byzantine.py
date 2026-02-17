@@ -309,7 +309,7 @@ class ByzantineConsensus:
             except asyncio.TimeoutError:
                 logger.warning(f"Prepare timeout for {agent.name}")
                 return None
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                 logger.warning(f"Prepare error for {agent.name}: {e}")
                 return None
 
@@ -352,7 +352,7 @@ class ByzantineConsensus:
             except asyncio.TimeoutError:
                 logger.warning(f"Commit timeout for {agent.name}")
                 return None
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
                 logger.warning(f"Commit error for {agent.name}: {e}")
                 return None
 

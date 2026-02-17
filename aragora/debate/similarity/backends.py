@@ -452,7 +452,7 @@ class SentenceTransformerBackend(SimilarityBackend):
                 SentenceTransformerBackend._nli_model_cache = self.nli_model
                 SentenceTransformerBackend._nli_model_name_cache = nli_model_name
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
             logger.warning(
                 f"Failed to load NLI model '{nli_model_name}': {e}. "
                 "Falling back to pattern-based contradiction detection."
@@ -589,7 +589,7 @@ class SentenceTransformerBackend(SimilarityBackend):
                         )
                     return is_contradiction
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
             logger.warning(f"NLI prediction failed: {e}. Using pattern fallback.")
             return super().is_contradictory(text1, text2)
 
@@ -691,7 +691,7 @@ def get_similarity_backend(
         logger.debug(f"sentence-transformers failed: {e}")
     except OSError as e:
         logger.debug(f"sentence-transformers model error: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError, ConnectionError) as e:
         # Catch-all for model loading failures (network, auth, etc.)
         logger.debug(f"sentence-transformers initialization error: {e}")
 

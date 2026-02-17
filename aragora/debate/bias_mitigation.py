@@ -685,7 +685,7 @@ Respond with ONLY a number from 0-10."""
             logger.debug("LLM criterion evaluation timed out")
         except (ValueError, TypeError) as e:
             logger.debug(f"LLM criterion evaluation failed to parse response: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, KeyError, AttributeError) as e:
             logger.warning(f"Unexpected error in LLM criterion evaluation: {e}")
 
         return 0.5

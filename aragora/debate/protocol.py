@@ -551,6 +551,10 @@ class DebateProtocol:
     enable_knowledge_injection: bool = False  # Opt-in: requires Knowledge Mound
     knowledge_injection_max_receipts: int = 3  # Max past receipts to inject
 
+    # Content moderation: Run spam/quality check on debate task before execution
+    # Blocks debates with spam/low-quality prompts before burning API tokens
+    enable_content_moderation: bool = False  # Opt-in: uses SpamModerationIntegration
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 
@@ -802,7 +806,7 @@ def resolve_default_protocol(
             from aragora.nomic.debate_profile import NomicDebateProfile
 
             return NomicDebateProfile.from_env().to_protocol()
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as exc:
             logger.warning("Failed to apply debate profile '%s': %s", profile, exc)
 
     return DebateProtocol()

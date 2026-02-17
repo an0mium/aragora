@@ -1508,13 +1508,16 @@ class TestAuthBridge:
             mock_provider._validate_id_token = mock_validate_id_token
             mock_get.return_value = mock_provider
 
-            # Need to patch OIDCProvider class check
-            with patch("aragora.auth.oidc.OIDCProvider") as mock_oidc:
-                mock_oidc.__class__ = type(mock_provider)
+            # Patch OIDCProvider with a real class so isinstance() works
+            # without raising TypeError. The mock_provider is a MagicMock,
+            # not an instance of DummyOIDCProvider, so isinstance returns
+            # False and the code falls through to raise AuthenticationError.
+            class DummyOIDCProvider:
+                pass
 
-                # This will fall through to our mock
+            with patch("aragora.auth.oidc.OIDCProvider", DummyOIDCProvider):
                 with pytest.raises(AuthenticationError):
-                    # Will fail because isinstance check fails
+                    # Will fail because isinstance check returns False
                     await bridge.verify_request(token="eyJhbGciOiJIUzI1NiJ9.test")
 
     @pytest.mark.asyncio

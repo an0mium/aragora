@@ -195,7 +195,7 @@ REASON: <brief explanation>"""
             logger.warning(f"Judge termination check timed out: {e}")
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Judge termination check failed to parse response: {e}")
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, KeyError) as e:
             logger.exception(f"Unexpected error in judge termination check: {e}")
 
         return True, ""
@@ -336,7 +336,7 @@ Where confidence indicates how certain you are in your assessment:
                 confidence=0.0,
                 source="parse_error",
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, KeyError) as e:
             logger.exception(f"Unexpected error in judge termination check: {e}")
             return TerminationResult(
                 should_terminate=False,

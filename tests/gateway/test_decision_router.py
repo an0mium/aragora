@@ -1065,9 +1065,13 @@ class TestCustomRuleEvaluation:
     @pytest.mark.asyncio
     async def test_rule_with_exception_skipped(self, router):
         """Rules that raise exceptions are skipped gracefully."""
+
+        def bad_condition(req):
+            raise RuntimeError("rule error")
+
         bad_rule = RoutingRule(
             rule_id="bad",
-            condition=lambda req: 1 / 0,  # ZeroDivisionError
+            condition=bad_condition,
             destination=RouteDestination.REJECT,
             priority=100,
         )

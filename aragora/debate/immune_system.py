@@ -166,7 +166,7 @@ class TransparentImmuneSystem:
             except (ConnectionError, RuntimeError, AttributeError) as e:
                 # Expected: network/event system issues
                 logger.error(f"immune_broadcast_failed error={e}")
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, OSError) as e:
                 # Unexpected: log with more detail
                 logger.error(f"immune_broadcast_failed unexpected error={type(e).__name__}: {e}")
 

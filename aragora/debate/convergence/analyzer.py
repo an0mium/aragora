@@ -234,7 +234,7 @@ class AdvancedConvergenceAnalyzer:
                     total_arguments=total,
                     diversity_score=diversity_score,
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.debug(f"Optimized diversity computation failed, using fallback: {e}")
 
         # Fallback: O(n^2) pairwise comparison with caching

@@ -488,7 +488,7 @@ class CounterfactualOrchestrator:
 
             branch.status = CounterfactualStatus.COMPLETED
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             branch.status = CounterfactualStatus.FAILED
             logger.warning("Counterfactual branch %s failed: %s", branch.branch_id, e)
             branch.conclusion = f"Branch failed: {type(e).__name__}"

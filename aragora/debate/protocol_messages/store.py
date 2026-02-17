@@ -157,7 +157,7 @@ class ConnectionPool:
         if self._closed:
             try:
                 conn.close()
-            except Exception as exc:
+            except (OSError, RuntimeError, ValueError) as exc:
                 logger.debug("Failed to close connection: %s", exc)
             return
 
@@ -167,7 +167,7 @@ class ConnectionPool:
             # Pool full (shouldn't happen), close the extra connection
             try:
                 conn.close()
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.debug("Failed to close excess connection: %s", e)
 
     def close_all(self) -> None:
@@ -180,7 +180,7 @@ class ConnectionPool:
                 conn = self._pool.get_nowait()
                 try:
                     conn.close()
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.debug("Failed to close pooled connection during cleanup: %s", e)
             except queue.Empty:
                 break

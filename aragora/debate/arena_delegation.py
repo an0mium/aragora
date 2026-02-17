@@ -164,7 +164,7 @@ class ArenaDelegation:
         if self._spectator:
             try:
                 self._spectator.emit(event_type, **kwargs)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.debug(f"Spectator notification failed: {e}")
 
     # ==================== Grounded Operations ====================

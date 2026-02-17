@@ -441,15 +441,17 @@ class TestCombinedScoring:
 class TestScoreAgent:
     """Tests for the public score_agent method."""
 
-    def test_score_agent_base_only(self, selector):
+    def test_score_agent_base_only(self):
         """Without systems, should return base score."""
+        config = TeamSelectionConfig(calibration_weight=0.0)
+        selector = TeamSelector(config=config)
         agent = MockAgent(name="test")
         score = selector.score_agent(agent)
         assert score == 1.0  # Default base_score
 
     def test_score_agent_custom_base(self):
         """Should use custom base score."""
-        config = TeamSelectionConfig(base_score=5.0)
+        config = TeamSelectionConfig(base_score=5.0, calibration_weight=0.0)
         selector = TeamSelector(config=config)
         agent = MockAgent(name="test")
 
@@ -459,7 +461,11 @@ class TestScoreAgent:
     def test_score_agent_with_elo(self):
         """Should include ELO contribution."""
         elo = MockEloSystem({"test": 1500})  # 500 above baseline
-        selector = TeamSelector(elo_system=elo)
+        config = TeamSelectionConfig(
+            calibration_weight=0.0,
+            enable_exploration_bonus=False,
+        )
+        selector = TeamSelector(elo_system=elo, config=config)
         agent = MockAgent(name="test")
 
         score = selector.score_agent(agent)
@@ -482,9 +488,14 @@ class TestScoreAgent:
         """Should combine both scoring systems."""
         elo = MockEloSystem({"test": 1500})
         calibration = MockCalibrationTracker({"test": 0.2})
+        config = TeamSelectionConfig(
+            calibration_weight=0.2,
+            enable_exploration_bonus=False,
+        )
         selector = TeamSelector(
             elo_system=elo,
             calibration_tracker=calibration,
+            config=config,
         )
         agent = MockAgent(name="test")
 
@@ -505,7 +516,11 @@ class TestEdgeCases:
     def test_negative_elo_contribution(self):
         """Low ELO should reduce score."""
         elo = MockEloSystem({"low": 500})  # 500 below baseline
-        selector = TeamSelector(elo_system=elo)
+        config = TeamSelectionConfig(
+            calibration_weight=0.0,
+            enable_exploration_bonus=False,
+        )
+        selector = TeamSelector(elo_system=elo, config=config)
         agent = MockAgent(name="low")
 
         score = selector.score_agent(agent)
@@ -539,7 +554,11 @@ class TestEdgeCases:
     def test_extremely_high_elo(self):
         """Should handle very high ELO."""
         elo = MockEloSystem({"elite": 3000})
-        selector = TeamSelector(elo_system=elo)
+        config = TeamSelectionConfig(
+            calibration_weight=0.0,
+            enable_exploration_bonus=False,
+        )
+        selector = TeamSelector(elo_system=elo, config=config)
         agent = MockAgent(name="elite")
 
         score = selector.score_agent(agent)
@@ -670,7 +689,7 @@ class TestKMExpertiseSelection:
                 ]
             }
         )
-        config = TeamSelectionConfig(enable_km_expertise=False)
+        config = TeamSelectionConfig(enable_km_expertise=False, calibration_weight=0.0)
         selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
 
         score = selector.score_agent(agent, domain="technical")
@@ -681,7 +700,7 @@ class TestKMExpertiseSelection:
     def test_km_expertise_no_adapter(self):
         """Should handle missing ranking adapter gracefully."""
         agent = MockAgent(name="test")
-        config = TeamSelectionConfig(enable_km_expertise=True)
+        config = TeamSelectionConfig(enable_km_expertise=True, calibration_weight=0.0)
         selector = TeamSelector(ranking_adapter=None, config=config)
 
         score = selector.score_agent(agent, domain="technical")
@@ -716,7 +735,7 @@ class TestKMExpertiseSelection:
         """Should handle domains with no experts."""
         agent = MockAgent(name="test")
         ranking_adapter = MockRankingAdapter(domain_experts={})
-        config = TeamSelectionConfig(enable_km_expertise=True)
+        config = TeamSelectionConfig(enable_km_expertise=True, calibration_weight=0.0)
         selector = TeamSelector(ranking_adapter=ranking_adapter, config=config)
 
         score = selector.score_agent(agent, domain="obscure_domain")

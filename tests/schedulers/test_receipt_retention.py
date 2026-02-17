@@ -218,7 +218,7 @@ class TestReceiptRetentionScheduler:
         result = await scheduler.cleanup_now()
 
         assert result.receipts_deleted == 0
-        assert result.error == "Database error"
+        assert result.error == "Receipt cleanup failed"
 
     def test_get_status(self, mock_store):
         """Test getting scheduler status."""

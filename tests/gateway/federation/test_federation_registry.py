@@ -2722,10 +2722,23 @@ class TestConnectCloseAdvanced:
     async def test_connect_redis_connection_failure_falls_back(self):
         """When Redis is not available, falls back to in-memory."""
         reg = FederationRegistry(redis_url="redis://nonexistent-host:6379")
-        # This should not raise even if Redis is unreachable
-        await reg.connect()
-        assert reg._health_check_task is not None
-        await reg.close()
+
+        # Mock redis.asyncio.from_url to return a client whose ping()
+        # raises OSError -- which is in the caught exception tuple
+        # (OSError, ConnectionError, TimeoutError). The real redis library
+        # raises redis.exceptions.ConnectionError which is NOT a subclass
+        # of Python's built-in ConnectionError.
+        mock_redis_client = AsyncMock()
+        mock_redis_client.ping = AsyncMock(side_effect=OSError("Connection refused"))
+        mock_redis_client.close = AsyncMock()
+
+        import redis.asyncio as _aioredis
+
+        with patch.object(_aioredis, "from_url", return_value=mock_redis_client):
+            # This should not raise even if Redis is unreachable
+            await reg.connect()
+            assert reg._health_check_task is not None
+            await reg.close()
 
     @pytest.mark.asyncio
     async def test_close_without_connect(self):

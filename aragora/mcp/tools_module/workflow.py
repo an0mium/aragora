@@ -175,7 +175,7 @@ async def get_workflow_status_tool(
     except ImportError:
         logger.warning("Workflow engine not available")
         return {"error": "Workflow engine module not available"}
-    except (RuntimeError, ValueError, OSError) as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.error(f"Failed to get workflow status: {e}")
         return {"error": f"Status check failed: {str(e)}"}
 
@@ -284,7 +284,7 @@ async def cancel_workflow_tool(
     except ImportError:
         logger.warning("Workflow engine not available")
         return {"error": "Workflow engine module not available"}
-    except (RuntimeError, ValueError, OSError) as e:
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
         logger.error(f"Failed to cancel workflow: {e}")
         return {"error": f"Cancel failed: {str(e)}"}
 

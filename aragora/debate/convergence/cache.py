@@ -327,7 +327,7 @@ class _PeriodicCacheCleanup:
                         f"Periodic cleanup: removed {cleaned} stale caches, "
                         f"evicted {entries_evicted} expired entries"
                     )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
                 logger.warning(f"Error during periodic cache cleanup: {e}")
 
     def get_stats(self) -> dict[str, Any]:
@@ -559,7 +559,7 @@ def evict_expired_cache_entries() -> int:
         try:
             evicted = cache.evict_expired()
             total_evicted += evicted
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
             logger.warning(f"Error evicting expired entries from cache {cache.session_id}: {e}")
 
     return total_evicted

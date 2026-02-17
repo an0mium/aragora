@@ -142,7 +142,7 @@ class WisdomInjector:
                     data = json.load(f)
                 self.pending_wisdom = [WisdomSubmission(**w) for w in data.get("pending", [])]
                 logger.debug(f"wisdom_loaded count={len(self.pending_wisdom)}")
-            except Exception as e:
+            except (OSError, IOError, ValueError, TypeError, KeyError) as e:
                 logger.error(f"wisdom_load_failed error={e}")
 
     def _save_pending(self) -> None:
@@ -158,7 +158,7 @@ class WisdomInjector:
                     f,
                     indent=2,
                 )
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error(f"wisdom_save_failed error={e}")
 
     async def submit_wisdom(

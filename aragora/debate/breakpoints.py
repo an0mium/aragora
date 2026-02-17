@@ -148,7 +148,7 @@ class HumanNotifier:
                 try:
                     await self._handlers[channel](breakpoint)
                     success = True
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError, TimeoutError) as e:
                     logger.warning(
                         f"Notification handler '{channel}' failed: {type(e).__name__}: {e}"
                     )
@@ -415,7 +415,7 @@ class BreakpointManager:
                 )
             )
             logger.info(f"Emitted BREAKPOINT event for {breakpoint.breakpoint_id}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to emit breakpoint event: {e}")
 
     async def handle_breakpoint(self, breakpoint: Breakpoint) -> HumanGuidance:

@@ -190,7 +190,7 @@ class KnowledgeMoundOperations:
             logger.info(f"  [knowledge_mound] Retrieved {len(items)} items for context")
             return "\n".join(lines)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             success = False
             error_msg = f"query_error:{type(e).__name__}"
             logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")

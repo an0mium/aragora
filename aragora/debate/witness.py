@@ -518,7 +518,7 @@ class DebateWitness:
                 await asyncio.sleep(self.config.check_interval_seconds)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.error(f"Witness monitoring error: {e}")
                 await asyncio.sleep(1)
 

@@ -77,7 +77,7 @@ class TracesDatabase:
             try:
                 yield conn
                 conn.execute("COMMIT")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - transaction guard must rollback on any exception before re-raising
                 logger.warning(
                     f"Non-database exception during transaction, rolling back: {type(e).__name__}: {e}"
                 )

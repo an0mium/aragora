@@ -1944,3 +1944,350 @@ class TestSpeedPolicy:
         assert generate_fn.await_count == 0
         assert isinstance(ctx.result.metadata, dict)
         assert "fast_first_early_exit" in ctx.result.metadata
+
+
+# =============================================================================
+# Early Stop Spectator Event Tests
+# =============================================================================
+
+
+class TestEarlyStopSpectatorEvents:
+    """Tests for early-stop mechanism emitting spectator events.
+
+    Verifies that when a debate terminates early (via any source: RLM ready,
+    judge, agent vote, stability, or convergence), a spectator "early_stop"
+    event is emitted and result metadata is enriched with termination details.
+    """
+
+    @pytest.mark.asyncio
+    async def test_check_termination_conditions_returns_none_when_no_triggers(self):
+        """Returns (None, '') when no termination condition is met."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        # No judge or early stopping callbacks
+        phase._check_judge_termination = None
+        phase._check_early_stopping = None
+        phase._stability_detector = None
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        source, details = await phase._check_termination_conditions(ctx, round_num=2)
+
+        assert source is None
+        assert details == ""
+
+    @pytest.mark.asyncio
+    async def test_check_termination_conditions_rlm_ready(self):
+        """Returns 'rlm_ready' source when RLM quorum is reached."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = True
+        convergence_tracker.collective_readiness.avg_confidence = 0.92
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        source, details = await phase._check_termination_conditions(ctx, round_num=3)
+
+        assert source == "rlm_ready"
+        assert "0.92" in details
+
+    @pytest.mark.asyncio
+    async def test_check_termination_conditions_judge(self):
+        """Returns 'judge' source when judge says to stop."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        phase._check_judge_termination = AsyncMock(
+            return_value=(False, "Debate is conclusive")
+        )
+        phase._check_early_stopping = None
+        phase._stability_detector = None
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        source, details = await phase._check_termination_conditions(ctx, round_num=2)
+
+        assert source == "judge"
+        assert "conclusive" in details.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_termination_conditions_agent_vote(self):
+        """Returns 'agent_vote' source when agents vote to stop."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        phase._check_judge_termination = None
+        phase._check_early_stopping = AsyncMock(return_value=False)  # False = stop
+        phase._stability_detector = None
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        source, details = await phase._check_termination_conditions(ctx, round_num=2)
+
+        assert source == "agent_vote"
+        assert "voted" in details.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_termination_conditions_stability(self):
+        """Returns 'stability' source when vote distribution stabilizes."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        stability_detector = MagicMock()
+        stability_result = MagicMock()
+        stability_result.recommendation = "stop"
+        stability_result.stability_score = 0.95
+        stability_result.ks_distance = 0.03
+        stability_detector.update.return_value = stability_result
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        phase._check_judge_termination = None
+        phase._check_early_stopping = None
+        phase._stability_detector = stability_detector
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        ctx.round_votes = {"agent-1": "yes", "agent-2": "yes"}
+
+        source, details = await phase._check_termination_conditions(ctx, round_num=3)
+
+        assert source == "stability"
+        assert "0.950" in details
+        assert "0.030" in details
+
+    def test_emit_early_stop_event_calls_spectator(self):
+        """Emitting early stop event calls notify_spectator callback."""
+        notify_spectator = MagicMock()
+        protocol = MockProtocol(rounds=5)
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            notify_spectator=notify_spectator,
+        )
+
+        ctx = MockDebateContext(debate_id="test-debate-456")
+
+        phase._emit_early_stop_event(ctx, round_num=3, source="judge", details="Conclusive")
+
+        notify_spectator.assert_called_once()
+        call_args = notify_spectator.call_args
+        assert call_args[0][0] == "early_stop"  # event_type
+        assert "system" in str(call_args)
+        assert "round 3/5" in call_args[1]["details"]
+        assert "judge" in call_args[1]["details"]
+        assert "saved 2 rounds" in call_args[1]["details"]
+
+    def test_emit_early_stop_event_calls_event_emitter(self):
+        """Emitting early stop event emits via EventEmitter for WebSocket."""
+        event_emitter = MagicMock()
+        protocol = MockProtocol(rounds=5)
+
+        phase = DebateRoundsPhase(protocol=protocol, event_emitter=event_emitter)
+
+        ctx = MockDebateContext(debate_id="test-debate-789")
+
+        phase._emit_early_stop_event(
+            ctx, round_num=2, source="stability", details="Stabilized"
+        )
+
+        event_emitter.emit_sync.assert_called_once()
+        call_kwargs = event_emitter.emit_sync.call_args[1]
+        assert call_kwargs["event_type"] == "debate_early_terminated"
+        assert call_kwargs["debate_id"] == "test-debate-789"
+        assert call_kwargs["round_num"] == 2
+        assert call_kwargs["total_rounds"] == 5
+        assert call_kwargs["source"] == "stability"
+        assert call_kwargs["rounds_saved"] == 3
+
+    def test_emit_early_stop_event_calculates_rounds_saved(self):
+        """Rounds saved is correctly computed as total - current."""
+        notify_spectator = MagicMock()
+        protocol = MockProtocol(rounds=10)
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            notify_spectator=notify_spectator,
+        )
+
+        ctx = MockDebateContext()
+
+        phase._emit_early_stop_event(ctx, round_num=7, source="agent_vote", details="Voted")
+
+        call_args = notify_spectator.call_args
+        assert "saved 3 rounds" in call_args[1]["details"]
+
+    def test_emit_early_stop_event_no_crash_without_callbacks(self):
+        """Emitting early stop event does not crash when no callbacks set."""
+        protocol = MockProtocol(rounds=5)
+        phase = DebateRoundsPhase(protocol=protocol)
+
+        ctx = MockDebateContext()
+
+        # Should not raise
+        phase._emit_early_stop_event(ctx, round_num=3, source="judge", details="Done")
+
+    @pytest.mark.asyncio
+    async def test_execute_round_sets_metadata_on_early_termination(self):
+        """Early termination enriches result metadata with source and reason."""
+        protocol = MockProtocol(rounds=5)
+        notify_spectator = MagicMock()
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False, blocked_by_trickster=False
+        )
+
+        # Agent vote to stop
+        check_early_stopping = AsyncMock(return_value=False)  # False = stop
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        result = MockResult(metadata={}, critiques=[])
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=result,
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            notify_spectator=notify_spectator,
+            check_early_stopping=check_early_stopping,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            perf_monitor = MagicMock()
+            perf_monitor.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            perf_monitor.slow_round_threshold = 60.0
+
+            # Execute round 2 out of 5 (not last round, termination checks apply)
+            should_continue = await phase._execute_round(ctx, perf_monitor, round_num=2, total_rounds=5)
+
+        assert should_continue is False
+        assert result.metadata["early_termination"] is True
+        assert result.metadata["early_termination_source"] == "agent_vote"
+        assert result.metadata["early_termination_round"] == 2
+        assert "voted" in result.metadata["early_termination_reason"].lower()
+        notify_spectator.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_convergence_exit_sets_metadata_and_emits_event(self):
+        """Convergence-based exit sets metadata and emits early_stop event."""
+        protocol = MockProtocol(rounds=5)
+        notify_spectator = MagicMock()
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=True, blocked_by_trickster=False, similarity=0.95,
+        )
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        result = MockResult(metadata={}, critiques=[])
+        ctx = MockDebateContext(
+            agents=[agent1],
+            proposers=[agent1],
+            proposals={"agent-1": "proposal"},
+            result=result,
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            notify_spectator=notify_spectator,
+            critique_with_agent=AsyncMock(return_value=None),
+        )
+        phase._convergence_tracker = convergence_tracker
+        # Ensure no termination checks run (RLM quorum not reached)
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            perf_monitor = MagicMock()
+            perf_monitor.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            perf_monitor.slow_round_threshold = 60.0
+
+            should_continue = await phase._execute_round(ctx, perf_monitor, round_num=2, total_rounds=5)
+
+        assert should_continue is False
+        assert result.metadata["early_termination"] is True
+        assert result.metadata["early_termination_source"] == "convergence"
+        assert result.metadata["early_termination_round"] == 2
+        assert "0.95" in result.metadata["early_termination_reason"]
+
+        # Verify spectator was notified with early_stop event
+        early_stop_calls = [
+            c for c in notify_spectator.call_args_list
+            if c[0][0] == "early_stop"
+        ]
+        assert len(early_stop_calls) >= 1
+        assert "convergence" in early_stop_calls[0][1]["details"].lower()
+
+    @pytest.mark.asyncio
+    async def test_should_terminate_backward_compat(self):
+        """_should_terminate returns bool for backward compatibility."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = True
+        convergence_tracker.collective_readiness.avg_confidence = 0.9
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        result = await phase._should_terminate(ctx, round_num=2)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_should_terminate_returns_false_when_no_triggers(self):
+        """_should_terminate returns False when nothing triggers."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        phase._check_judge_termination = None
+        phase._check_early_stopping = None
+        phase._stability_detector = None
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        result = await phase._should_terminate(ctx, round_num=2)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_termination_priority_order(self):
+        """RLM ready has highest priority and short-circuits other checks."""
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = True
+        convergence_tracker.collective_readiness.avg_confidence = 0.85
+
+        check_judge = AsyncMock(return_value=(False, "Judge wants stop"))
+        check_early = AsyncMock(return_value=False)
+
+        phase = DebateRoundsPhase()
+        phase._convergence_tracker = convergence_tracker
+        phase._check_judge_termination = check_judge
+        phase._check_early_stopping = check_early
+        phase._stability_detector = None
+
+        ctx = MockDebateContext(proposals={"agent-1": "proposal"})
+        source, _details = await phase._check_termination_conditions(ctx, round_num=3)
+
+        # RLM should win, judge and early stopping should NOT be called
+        assert source == "rlm_ready"
+        check_judge.assert_not_awaited()
+        check_early.assert_not_awaited()

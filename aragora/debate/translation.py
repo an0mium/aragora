@@ -301,7 +301,7 @@ Text to translate:
                 backend=f"llm-{self.provider}",
                 translation_time_ms=translation_time,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"LLM translation failed: {e}")
             return TranslationResult(
                 original_text=text,
@@ -348,7 +348,7 @@ Text:
                     detected_language=language,
                     confidence=0.9,
                 )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, ConnectionError, TimeoutError, ImportError) as e:
             logger.warning(f"LLM language detection failed: {e}")
 
         # Default to English

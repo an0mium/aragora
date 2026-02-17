@@ -189,6 +189,11 @@ def require_permission(
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             context = _get_context_from_args(args, kwargs, context_param)
             if context is None:
+                # When auth is disabled (no ARAGORA_API_TOKEN), allow anonymous access
+                from aragora.server.auth import auth_config
+
+                if not auth_config.enabled:
+                    return func(*args, **kwargs)
                 raise PermissionDeniedError(
                     f"No AuthorizationContext found for permission check: {permission_key}"
                 )
@@ -225,6 +230,10 @@ def require_permission(
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             context = _get_context_from_args(args, kwargs, context_param)
             if context is None:
+                from aragora.server.auth import auth_config
+
+                if not auth_config.enabled:
+                    return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
                 raise PermissionDeniedError(
                     f"No AuthorizationContext found for permission check: {permission_key}"
                 )

@@ -526,6 +526,89 @@ class ArgumentCartographer:
         # Update agent's last node
         self._agent_last_node[agent] = node_id
 
+    def add_structural_annotation(
+        self,
+        node_id: str,
+        annotation: dict[str, Any],
+    ) -> bool:
+        """
+        Add a structural annotation to a node's metadata.
+
+        Structural annotations come from the StructuralAnalyzer and include
+        fallacy detections, premise chain data, and claim relationships.
+        These are stored in the node's metadata under the "structural" key
+        and also propagated to edge metadata when relevant.
+
+        Args:
+            node_id: The ID of the node to annotate
+            annotation: Dict with structural analysis data (e.g. fallacies,
+                premise_chains, claim_relationships)
+
+        Returns:
+            True if the annotation was added, False if the node was not found
+        """
+        if node_id not in self.nodes:
+            return False
+
+        node = self.nodes[node_id]
+
+        # Initialize structural annotations list if needed
+        if "structural" not in node.metadata:
+            node.metadata["structural"] = []
+
+        node.metadata["structural"].append(annotation)
+
+        # If annotation contains claim relationships, add corresponding edges
+        claim_relationships = annotation.get("claim_relationships", [])
+        for rel in claim_relationships:
+            relation = rel.get("relation", "supports")
+            # Map structural relation types to edge relations
+            edge_relation_map = {
+                "supports": EdgeRelation.SUPPORTS,
+                "contradicts": EdgeRelation.REFUTES,
+                "refines": EdgeRelation.MODIFIES,
+            }
+            edge_relation = edge_relation_map.get(relation, EdgeRelation.RESPONDS_TO)
+
+            # Find a matching target node by content overlap
+            target_claim = rel.get("target_claim", "")
+            target_node_id = self._find_node_by_content(target_claim)
+            if target_node_id and target_node_id != node_id:
+                self.edges.append(
+                    ArgumentEdge(
+                        source_id=node_id,
+                        target_id=target_node_id,
+                        relation=edge_relation,
+                        weight=rel.get("confidence", 0.5),
+                        metadata={"source": "structural_analysis", "annotation": rel},
+                    )
+                )
+
+        return True
+
+    def _find_node_by_content(self, content_fragment: str) -> str | None:
+        """Find a node whose content matches a fragment (for edge linking)."""
+        if not content_fragment or len(content_fragment) < 10:
+            return None
+
+        content_lower = content_fragment.lower()
+        best_match: str | None = None
+        best_overlap = 0.0
+
+        for node_id, node in self.nodes.items():
+            node_text = (node.full_content or node.summary).lower()
+            # Simple word overlap
+            frag_words = {w for w in content_lower.split() if len(w) >= 3}
+            node_words = {w for w in node_text.split() if len(w) >= 3}
+            if not frag_words or not node_words:
+                continue
+            overlap = len(frag_words & node_words) / min(len(frag_words), len(node_words))
+            if overlap > best_overlap and overlap > 0.3:
+                best_overlap = overlap
+                best_match = node_id
+
+        return best_match
+
     def _sanitize_for_mermaid(self, text: str) -> str:
         """Sanitize text for safe inclusion in Mermaid diagrams."""
         # Remove characters that break Mermaid syntax

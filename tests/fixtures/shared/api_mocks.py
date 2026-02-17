@@ -389,6 +389,9 @@ class MockAsyncHTTPXClient:
             },
         )
 
+    async def head(self, url: str, **kwargs) -> MockHTTPXResponse:
+        return self._make_response(url, **kwargs)
+
     async def get(self, url: str, **kwargs) -> MockHTTPXResponse:
         return self._make_response(url, **kwargs)
 

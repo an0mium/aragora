@@ -679,7 +679,7 @@ class TestTinkerEvaluatorABTest:
         bl_agent.name = "bl"
 
         with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
-            mock_run.side_effect = Exception("Debate failed")
+            mock_run.side_effect = RuntimeError("Debate failed")
 
             result = await evaluator.a_b_test(
                 tasks=["task"],
@@ -866,7 +866,7 @@ class TestTinkerEvaluatorBenchmark:
         baseline.name = "baseline"
 
         with patch.object(evaluator, "_run_debate", new_callable=AsyncMock) as mock_run:
-            mock_run.side_effect = Exception("All trials failed")
+            mock_run.side_effect = RuntimeError("All trials failed")
 
             results = await evaluator.evaluate_on_benchmark(
                 agent=agent,

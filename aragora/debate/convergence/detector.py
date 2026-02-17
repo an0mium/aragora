@@ -93,7 +93,7 @@ class ConvergenceDetector:
                 logger.warning(
                     f"{_ENV_CONVERGENCE_BACKEND}={env_override} failed: {e}. Falling back to factory."
                 )
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError) as e:
                 logger.exception(
                     f"{_ENV_CONVERGENCE_BACKEND}={env_override} unexpected error: {e}. Falling back to factory."
                 )
@@ -107,7 +107,7 @@ class ConvergenceDetector:
             )
             logger.info(f"Using {backend.__class__.__name__} via SimilarityFactory")
             return backend
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"SimilarityFactory failed: {e}. Using JaccardBackend fallback.")
             return JaccardBackend()
 

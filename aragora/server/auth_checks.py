@@ -317,6 +317,13 @@ class AuthChecksMixin:
         if method.upper() == "GET" and self._is_path_exempt_for_get(path):
             return True
 
+        # When authentication is disabled (no ARAGORA_API_TOKEN), allow all
+        # requests through RBAC — there's no user to authorize against.
+        from aragora.server.auth import auth_config
+
+        if not auth_config.enabled:
+            return True
+
         from aragora.billing.auth import extract_user_from_request
         from aragora.rbac import AuthorizationContext, get_role_permissions
 

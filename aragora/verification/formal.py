@@ -1312,6 +1312,43 @@ class FormalVerificationManager:
 
         return result
 
+    async def verify_argument_structure(
+        self,
+        argument_graph: Any,
+        timeout_seconds: float = 30.0,
+    ) -> Any:
+        """
+        Verify the logical structure of an argument graph.
+
+        Uses ArgumentStructureVerifier with LeanBackend for structural proofs
+        and Z3Backend as fallback for decidable fragments.
+
+        Args:
+            argument_graph: An ArgumentCartographer instance with populated
+                           nodes and edges.
+            timeout_seconds: Maximum time for each proof attempt.
+
+        Returns:
+            ArgumentVerificationResult with valid/invalid chains,
+            unsupported conclusions, contradictions, and circular dependencies.
+        """
+        from aragora.verification.argument_verifier import ArgumentStructureVerifier
+
+        # Extract the Lean and Z3 backends from our backend list
+        lean_backend = None
+        z3_backend = None
+        for backend in self.backends:
+            if isinstance(backend, LeanBackend):
+                lean_backend = backend
+            elif isinstance(backend, Z3Backend):
+                z3_backend = backend
+
+        verifier = ArgumentStructureVerifier(
+            lean_backend=lean_backend,
+            z3_backend=z3_backend,
+        )
+        return await verifier.verify(argument_graph, timeout_seconds=timeout_seconds)
+
     def status_report(self) -> dict[str, Any]:
         """Get status of all backends."""
         return {

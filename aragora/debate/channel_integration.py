@@ -124,7 +124,7 @@ class ChannelIntegration:
             )
             return True
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError) as e:
             logger.error(f"Failed to setup channel for {self._debate_id}: {e}")
             return False
 

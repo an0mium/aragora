@@ -648,6 +648,24 @@ class MemoryCoordinator:
             # Update metrics
             if transaction.success:
                 self.metrics.successful_transactions += 1
+
+                # Emit coordination event
+                try:
+                    from aragora.events.dispatcher import dispatch_event
+
+                    dispatch_event(
+                        "memory_coordination",
+                        {
+                            "transaction_id": transaction.id,
+                            "debate_id": transaction.debate_id,
+                            "success": transaction.success,
+                            "operations_count": len(transaction.operations),
+                            "skipped_count": len(transaction.skipped_operations) if transaction.skipped_operations else 0,
+                        },
+                    )
+                except (ImportError, RuntimeError, AttributeError) as e:
+                    logger.debug("Memory coordination event emission unavailable: %s", e)
+
             elif transaction.partial_failure:
                 self.metrics.partial_failures += 1
             else:

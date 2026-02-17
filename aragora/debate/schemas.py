@@ -322,7 +322,7 @@ def validate_agent_response(
             response=response,
             warnings=warnings if warnings else None,
         )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.warning(f"Response validation failed for {agent_name}: {e}")
         return ValidationResult(
             is_valid=False,

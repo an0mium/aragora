@@ -201,7 +201,7 @@ class PerformanceRouterBridge:
                 return self.performance_monitor.get_metrics(agent_name)
             elif hasattr(self.performance_monitor, "metrics"):
                 return self.performance_monitor.metrics.get(agent_name)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
             logger.debug(f"Could not get metrics for {agent_name}: {e}")
 
         return None
@@ -307,7 +307,7 @@ class PerformanceRouterBridge:
                     result.agents_synced += 1
                 else:
                     result.agents_skipped += 1
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ConnectionError) as e:
                 logger.warning(f"Failed to sync {agent_name} to router: {e}")
                 result.agents_skipped += 1
 

@@ -109,7 +109,7 @@ class TestTrendingEndpoint:
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm.return_value = mock_manager
 
-                        result = handler.handle("/api/pulse/trending", {"limit": ["5"]}, None)
+                        result = handler.handle("/api/v1/pulse/trending", {"limit": ["5"]}, None)
 
                         # Either succeeds or fails gracefully
                         assert result is not None
@@ -129,7 +129,7 @@ class TestTrendingEndpoint:
                         mock_manager.get_trending_topics = AsyncMock(return_value=[])
                         mock_pm_class.return_value = mock_manager
 
-                        result = handler.handle("/api/pulse/trending", {"limit": ["100"]}, None)
+                        result = handler.handle("/api/v1/pulse/trending", {"limit": ["100"]}, None)
 
                         # Should either succeed or fail gracefully
                         assert result is not None
@@ -248,14 +248,14 @@ class TestSuggestEndpoint:
         """Returns 503 when pulse module not available."""
         # Patch the import to fail
         with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
-            result = handler.handle("/api/pulse/suggest", {}, None)
+            result = handler.handle("/api/v1/pulse/suggest", {}, None)
             # Should return 503 when pulse module unavailable
             assert result is not None
             assert result.status_code == 503
 
     def test_validates_category_parameter(self, handler):
         """Validates category parameter for security."""
-        result = handler.handle("/api/pulse/suggest", {"category": ["../../../etc/passwd"]}, None)
+        result = handler.handle("/api/v1/pulse/suggest", {"category": ["../../../etc/passwd"]}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -273,7 +273,7 @@ class TestSuggestEndpoint:
             "aragora.server.handlers.features.pulse.get_pulse_manager",
             return_value=mock_manager,
         ):
-            result = handler.handle("/api/pulse/suggest", {"category": ["technology"]}, None)
+            result = handler.handle("/api/v1/pulse/suggest", {"category": ["technology"]}, None)
 
             # Should either succeed (404 if no topics) or fail for other reasons
             assert result is not None
@@ -820,21 +820,21 @@ class TestHandlePostRouting:
 
         with patch.object(handler, "_start_debate_on_topic") as mock_method:
             mock_method.return_value = Mock(status_code=200, body=b"{}")
-            handler.handle_post("/api/pulse/debate-topic", {}, mock_handler)
+            handler.handle_post("/api/v1/pulse/debate-topic", {}, mock_handler)
             mock_method.assert_called_once()
 
     def test_handle_post_routes_scheduler_start(self, handler):
-        """Routes POST /api/pulse/scheduler/start correctly."""
+        """Routes POST /api/v1/pulse/scheduler/start correctly."""
         mock_handler = Mock()
 
         with patch.object(handler, "_start_scheduler") as mock_method:
             mock_method.return_value = Mock(status_code=200, body=b"{}")
-            handler.handle_post("/api/pulse/scheduler/start", {}, mock_handler)
+            handler.handle_post("/api/v1/pulse/scheduler/start", {}, mock_handler)
             mock_method.assert_called_once()
 
     def test_handle_post_returns_none_for_unknown(self, handler):
         """Returns None for unknown POST paths."""
-        result = handler.handle_post("/api/pulse/unknown", {}, None)
+        result = handler.handle_post("/api/v1/pulse/unknown", {}, None)
         assert result is None
 
 
@@ -847,10 +847,10 @@ class TestHandlePatchRouting:
 
         with patch.object(handler, "_update_scheduler_config") as mock_method:
             mock_method.return_value = Mock(status_code=200, body=b"{}")
-            handler.handle_patch("/api/pulse/scheduler/config", {}, mock_handler)
+            handler.handle_patch("/api/v1/pulse/scheduler/config", {}, mock_handler)
             mock_method.assert_called_once()
 
     def test_handle_patch_returns_none_for_unknown(self, handler):
         """Returns None for unknown PATCH paths."""
-        result = handler.handle_patch("/api/pulse/unknown", {}, None)
+        result = handler.handle_patch("/api/v1/pulse/unknown", {}, None)
         assert result is None

@@ -387,7 +387,7 @@ class AgentChannel:
         for handler in handlers:
             try:
                 await handler(message)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handler isolation: user-provided message handlers can raise any exception
                 logger.error(f"Handler error for {agent_name}: {e}")
 
     def get_history(

@@ -485,7 +485,7 @@ class RoleMatcher:
                     summary = self.calibration_tracker.get_calibration_summary(agent)
                     self._calibration_cache[agent] = summary
                     result[agent] = summary
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, KeyError, OSError) as e:
                     logger.debug(f"Failed to get calibration for {agent}: {e}")
                     result[agent] = None
 
@@ -503,7 +503,7 @@ class RoleMatcher:
         for agent in agent_names:
             try:
                 result[agent] = self.persona_manager.get_persona(agent)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.debug(f"Failed to get persona for {agent}: {e}")
                 result[agent] = None
 

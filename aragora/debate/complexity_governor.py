@@ -452,7 +452,7 @@ class AdaptiveComplexityGovernor:
         if self.stress_callback:
             try:
                 self.stress_callback(new_level)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.error(f"governor_callback_failed error={e}")
 
     def get_constraints(self) -> GovernorConstraints:
