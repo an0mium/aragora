@@ -187,6 +187,23 @@ async def run_pipeline_execution(
         execution_mode=pipeline_mode,
     )
 
+    # Run outcome feedback cycle to detect systematic errors and queue
+    # improvement goals for future Nomic Loop iterations
+    try:
+        from aragora.nomic.outcome_feedback import OutcomeFeedbackBridge
+
+        feedback = OutcomeFeedbackBridge()
+        cycle = feedback.run_feedback_cycle()
+        goals_generated = cycle.get("goals_generated", 0)
+        if goals_generated > 0:
+            print(f"\nOutcome feedback: {goals_generated} improvement goals queued")
+            for domain in cycle.get("domains_flagged", []):
+                print(f"  Domain flagged: {domain}")
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logger.debug("Outcome feedback cycle failed (non-critical): %s", exc)
+
     return outcome
 
 
@@ -501,6 +518,11 @@ Examples:
         help="Monitor running tasks for stalls and auto-recover stuck work",
     )
     parser.add_argument(
+        "--feedback",
+        action="store_true",
+        help="Run outcome feedback cycle after execution to detect systematic errors and queue improvements",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -601,6 +623,24 @@ Examples:
             )
         )
         print_result(result)
+
+        # Run outcome feedback if requested
+        if args.feedback:
+            try:
+                from aragora.nomic.outcome_feedback import OutcomeFeedbackBridge
+
+                feedback = OutcomeFeedbackBridge()
+                cycle = feedback.run_feedback_cycle()
+                goals_generated = cycle.get("goals_generated", 0)
+                if goals_generated > 0:
+                    print(f"\nOutcome feedback: {goals_generated} improvement goals queued")
+                else:
+                    print("\nOutcome feedback: no systematic errors detected")
+            except ImportError:
+                print("\nOutcome feedback: OutcomeFeedbackBridge not available")
+            except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.debug("Outcome feedback failed: %s", exc)
+
         return 0 if result.success else 1
 
     except KeyboardInterrupt:
