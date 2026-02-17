@@ -100,7 +100,7 @@ class TestRevalidationAction:
     @pytest.mark.asyncio
     async def test_dispatches_event(self):
         with patch(
-            "aragora.knowledge.mound.ops.confidence_decay.apply_decay",
+            "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
             side_effect=ImportError,
         ), patch(
             "aragora.events.dispatcher.dispatch_event",
