@@ -211,6 +211,28 @@ class GenesisLedger:
             metadata={"event_id": event.event_id},
         )
 
+        self._emit_genesis_event(event)
+
+    def _emit_genesis_event(self, event: GenesisEvent) -> None:
+        """Emit a genesis event to the events dispatcher."""
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(
+                "genesis_event",
+                {
+                    "event_type": event.event_type.value,
+                    "event_id": event.event_id,
+                    "timestamp": event.timestamp.isoformat(),
+                    "data": {
+                        k: v for k, v in event.data.items()
+                        if isinstance(v, (str, int, float, bool, list))
+                    } if event.data else {},
+                },
+            )
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Genesis event emission unavailable: %s", e)
+
     # === Debate Events ===
 
     def record_debate_start(

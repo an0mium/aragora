@@ -51,10 +51,18 @@ def _to_enum_value(value: Any) -> Any:
 
 
 # Type alias for node types
-NodeType = Literal["fact", "claim", "memory", "evidence", "consensus", "entity"]
+NodeType = Literal[
+    "fact", "claim", "memory", "evidence", "consensus", "entity",
+    "idea_concept", "idea_observation", "idea_question", "idea_hypothesis",
+    "idea_insight", "idea_evidence", "idea_assumption", "idea_constraint",
+    "idea_cluster",
+]
 
 # Type alias for relationship types
-RelationshipType = Literal["supports", "contradicts", "derived_from", "related_to", "supersedes"]
+RelationshipType = Literal[
+    "supports", "contradicts", "derived_from", "related_to", "supersedes",
+    "inspires", "refines", "challenges", "exemplifies",
+]
 
 
 class ProvenanceType(Enum):

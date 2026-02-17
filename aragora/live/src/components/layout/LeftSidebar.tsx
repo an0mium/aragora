@@ -28,6 +28,7 @@ const quickActions: NavItem[] = [
 const coreNav: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: '≡' },
   { label: 'Debates', href: '/debates', icon: '⌘' },
+  { label: 'Ideas', href: '/ideas', icon: '✦', minMode: 'standard' },
   { label: 'Knowledge', href: '/knowledge', icon: '?', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
   { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'standard' },

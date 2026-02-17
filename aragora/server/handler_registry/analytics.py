@@ -75,6 +75,11 @@ CanvasPipelineHandler = _safe_import(
     "aragora.server.handlers.canvas_pipeline", "CanvasPipelineHandler"
 )
 
+# Idea Canvas
+IdeaCanvasHandler = _safe_import(
+    "aragora.server.handlers.idea_canvas", "IdeaCanvasHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -96,6 +101,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_usage_metering_handler", UsageMeteringHandler),
     # Canvas pipeline
     ("_canvas_pipeline_handler", CanvasPipelineHandler),
+    # Idea canvas
+    ("_idea_canvas_handler", IdeaCanvasHandler),
 ]
 
 __all__ = [
@@ -119,6 +126,7 @@ __all__ = [
     "UsageMeteringHandler",
     # Canvas pipeline
     "CanvasPipelineHandler",
+    "IdeaCanvasHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

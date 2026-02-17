@@ -434,6 +434,19 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
         if context.session_id in self._sessions:
             del self._sessions[context.session_id]
 
+    @staticmethod
+    def _get_allowed_tools() -> list[str]:
+        """Return allowed tool list for scoped implementation sessions."""
+        return [
+            "Read",
+            "Write",
+            "Edit",
+            "Bash",
+            "Grep",
+            "Glob",
+            "mcp__aragora__*",
+        ]
+
     async def execute_implementation(
         self,
         repo_path: Path,
@@ -463,6 +476,20 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
 
         if self.config.model:
             cmd.extend(["--model", self.config.model])
+
+        # Wire MCP tools when enabled
+        if self.config.use_mcp_tools:
+            try:
+                from aragora.mcp.impl_config import generate_impl_mcp_config
+
+                mcp_config_path = generate_impl_mcp_config(repo_path)
+                cmd.extend(["--mcp-config", str(mcp_config_path)])
+            except (ImportError, OSError) as exc:
+                logger.warning("MCP config generation failed: %s", exc)
+
+            # Scope allowed tools
+            allowed = self._get_allowed_tools()
+            cmd.extend(["--allowedTools", ",".join(allowed)])
 
         env = os.environ.copy()
 

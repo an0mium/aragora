@@ -69,6 +69,7 @@ class ImplementPhase:
         save_state_fn: Callable[[dict], None] | None = None,
         constitution_verifier: Any | None = None,
         design_gate: DesignGate | None = None,
+        memory_gateway: Any | None = None,
         # Legacy API compatibility
         codex_agent: Any | None = None,
         backup_path: Path | None = None,
@@ -106,6 +107,7 @@ class ImplementPhase:
         self._save_state = save_state_fn or (lambda state: None)
         self._constitution_verifier = constitution_verifier
         self._design_gate = design_gate
+        self._memory_gateway = memory_gateway
 
         # Legacy API compatibility
         self.codex = codex_agent

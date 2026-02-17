@@ -36,6 +36,12 @@ from aragora.pipeline.notifications import (
     notify_execution_failed,
 )
 from aragora.pipeline.executor import PlanExecutor, get_plan, list_plans, store_plan
+from aragora.pipeline.idea_to_execution import (
+    IdeaToExecutionPipeline,
+    PipelineConfig,
+    PipelineResult,
+    StageResult,
+)
 from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
 from aragora.pipeline.risk_register import Risk, RiskRegister
 from aragora.pipeline.verification_plan import (
@@ -86,6 +92,11 @@ __all__ = [
     "Risk",
     "VerificationPlan",
     "VerificationCase",
+    # Idea-to-Execution pipeline
+    "IdeaToExecutionPipeline",
+    "PipelineConfig",
+    "PipelineResult",
+    "StageResult",
     # Backward compatibility
     "TestPlan",
     "TestCase",

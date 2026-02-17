@@ -89,6 +89,13 @@ class CanvasEventType(Enum):
     DEBATE_CONSENSUS = "canvas:debate:consensus"
     DEBATE_END = "canvas:debate:end"
 
+    # Idea Canvas collaboration
+    IDEA_CURSOR_MOVE = "ideas:cursor:move"
+    IDEA_PRESENCE_JOIN = "ideas:presence:join"
+    IDEA_PRESENCE_LEAVE = "ideas:presence:leave"
+    IDEA_NODE_LOCK = "ideas:node:lock"
+    IDEA_NODE_UNLOCK = "ideas:node:unlock"
+
     # Error events
     ERROR = "canvas:error"
 

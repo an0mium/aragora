@@ -290,7 +290,23 @@ async def phase_implement():
     print(f"  Task: {task.id} ({task.complexity})")
     print(f"  Working dir: {ARAGORA_PATH}")
 
-    executor = HybridExecutor(repo_path=str(ARAGORA_PATH))
+    # Create memory gateway for historical context in prompts
+    memory_gateway = None
+    try:
+        from aragora.memory.gateway import MemoryGateway
+        from aragora.memory.gateway_config import MemoryGatewayConfig
+        from aragora.nomic.km_context import get_nomic_knowledge_mound
+
+        km = get_nomic_knowledge_mound()
+        if km:
+            memory_gateway = MemoryGateway(
+                config=MemoryGatewayConfig(enabled=True),
+                knowledge_mound=km,
+            )
+    except Exception:
+        pass
+
+    executor = HybridExecutor(repo_path=str(ARAGORA_PATH), memory_gateway=memory_gateway)
     result: TaskResult = await executor.execute_task(task)
 
     data = {

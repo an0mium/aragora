@@ -434,6 +434,20 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_codebase_adapter",
         },
     ),
+    # --- Canvas adapters ---
+    (
+        ".idea_canvas_adapter",
+        "IdeaCanvasAdapter",
+        {
+            "name": "idea_canvas",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 12,
+            "enabled_by_default": False,
+            "config_key": "km_idea_canvas_adapter",
+        },
+    ),
     # --- Unified memory adapters ---
     (
         ".claude_mem_adapter",
@@ -865,6 +879,10 @@ class AdapterFactory:
                     search_fn=deps.get("rlm_context_search_fn"),
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "idea_canvas":
+                adapter = adapter_class(
+                    event_callback=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -957,6 +975,8 @@ class AdapterFactory:
                         store_fn=deps.get("rlm_context_store_fn"),
                         search_fn=deps.get("rlm_context_search_fn"),
                     )
+                elif spec.name == "idea_canvas":
+                    return adapter_class()
                 else:
                     return adapter_class(**deps)
             except (RuntimeError, ValueError, OSError, AttributeError) as e2:
