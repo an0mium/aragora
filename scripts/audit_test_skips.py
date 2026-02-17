@@ -240,12 +240,12 @@ def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> SkipMarke
 
 
 def find_pytest_skip_calls(tree: ast.AST, file_path: str) -> list[SkipMarker]:
-    """Find pytest.skip() calls in the AST."""
+    """Find pytest.skip() and pytest.importorskip() calls in the AST."""
     markers = []
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            # Check for pytest.skip(...)
+            # Check for pytest.skip(...) and pytest.importorskip(...)
             if isinstance(node.func, ast.Attribute):
                 if (
                     isinstance(node.func.value, ast.Name)
@@ -267,6 +267,33 @@ def find_pytest_skip_calls(tree: ast.AST, file_path: str) -> list[SkipMarker]:
                             file=file_path,
                             line=node.lineno,
                             marker_type="pytest.skip",
+                            reason=reason,
+                            category=categorize_reason(reason),
+                        )
+                    )
+
+                elif (
+                    isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "pytest"
+                    and node.func.attr == "importorskip"
+                ):
+                    # pytest.importorskip("module", reason="...")
+                    module_name = ""
+                    reason = ""
+                    if node.args:
+                        module_name = extract_string_value(node.args[0])
+                    for keyword in node.keywords:
+                        if keyword.arg == "reason":
+                            reason = extract_string_value(keyword.value)
+
+                    if not reason:
+                        reason = f"{module_name} not installed" if module_name else "No reason provided"
+
+                    markers.append(
+                        SkipMarker(
+                            file=file_path,
+                            line=node.lineno,
+                            marker_type="pytest.importorskip",
                             reason=reason,
                             category=categorize_reason(reason),
                         )
