@@ -406,4 +406,34 @@ export class MarketplaceAPI {
   async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/marketplace/circuit-breaker', { params }) as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * Search marketplace templates.
+   *
+   * @route GET /api/v1/marketplace/templates/search
+   * @param params - Search parameters (query, category, tags, etc.)
+   */
+  async searchTemplates(params?: {
+    q?: string;
+    category?: string;
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<{ results: MarketplaceTemplate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/marketplace/templates/search', { params }) as Promise<{ results: MarketplaceTemplate[]; total: number }>;
+  }
+
+  /**
+   * List the current user's template deployments.
+   *
+   * @route GET /api/v1/marketplace/my-deployments
+   * @param params - Pagination and filter parameters
+   */
+  async listMyDeployments(params?: {
+    status?: DeploymentStatus;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ deployments: TemplateDeployment[]; total: number }> {
+    return this.client.request('GET', '/api/v1/marketplace/my-deployments', { params }) as Promise<{ deployments: TemplateDeployment[]; total: number }>;
+  }
 }

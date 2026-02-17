@@ -107,6 +107,7 @@ export interface DebateMetrics {
  */
 interface MetricsClientInterface {
   get<T>(path: string): Promise<T>;
+  request<T = unknown>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
 }
 
 /**
@@ -185,5 +186,72 @@ export class MetricsAPI {
    */
   async getDebates(): Promise<DebateMetrics> {
     return this.client.get('/api/metrics/debate');
+  }
+
+  // ===========================================================================
+  // Monitoring
+  // ===========================================================================
+
+  /**
+   * List monitoring alerts.
+   *
+   * @route GET /api/v1/monitoring/alerts
+   */
+  async listMonitoringAlerts(params?: { status?: string; limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/alerts', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * List monitoring dashboards.
+   *
+   * @route GET /api/v1/monitoring/dashboards
+   */
+  async listMonitoringDashboards(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/dashboards', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * Get monitoring health status.
+   *
+   * @route GET /api/v1/monitoring/health
+   */
+  async getMonitoringHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/health');
+  }
+
+  /**
+   * List monitoring logs.
+   *
+   * @route GET /api/v1/monitoring/logs
+   */
+  async listMonitoringLogs(params?: { level?: string; limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/logs', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * Get monitoring metrics.
+   *
+   * @route GET /api/v1/monitoring/metrics
+   */
+  async getMonitoringMetrics(params?: { period?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/metrics', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * List monitoring SLOs.
+   *
+   * @route GET /api/v1/monitoring/slos
+   */
+  async listMonitoringSLOs(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/slos', { params: params as Record<string, unknown> });
+  }
+
+  /**
+   * List monitoring traces.
+   *
+   * @route GET /api/v1/monitoring/traces
+   */
+  async listMonitoringTraces(params?: { limit?: number; offset?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/monitoring/traces', { params: params as Record<string, unknown> });
   }
 }

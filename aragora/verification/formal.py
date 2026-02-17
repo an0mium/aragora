@@ -1310,6 +1310,9 @@ class FormalVerificationManager:
         result = await backend.prove(formal_statement, timeout_seconds)
         result.formal_statement = formal_statement
 
+        # Emit verification result event
+        self._emit_verification_event(claim, result)
+
         return result
 
     async def verify_argument_structure(
