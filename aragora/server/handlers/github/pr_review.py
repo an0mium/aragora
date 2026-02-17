@@ -744,19 +744,42 @@ async def _perform_review(
                 )
                 issues_found.append("potential_secrets")
 
-        # Check for missing tests
+        # Check for missing tests using TestGeneratorAgent when available
         if filename.endswith(".py") and "test_" not in filename:
             has_test = any(
                 f["filename"].startswith("test_") or "/tests/" in f["filename"]
                 for f in pr_details.changed_files
             )
             if not has_test:
+                test_body = "Consider adding tests for the changes in this file."
+                try:
+                    from aragora.agents.test_generator import TestGeneratorAgent
+
+                    generator = TestGeneratorAgent()
+                    gaps = generator.analyze_coverage_gaps(
+                        code=patch_content,
+                        existing_tests="",
+                        file_path=filename,
+                    )
+                    if gaps:
+                        suggestions = []
+                        for gap in gaps[:3]:
+                            if gap.suggested_tests:
+                                suggestions.extend(gap.suggested_tests[:2])
+                        if suggestions:
+                            test_body = (
+                                f"Missing test coverage. Suggested tests:\n"
+                                + "\n".join(f"- `{s}`" for s in suggestions[:5])
+                            )
+                except (ImportError, ValueError, TypeError, AttributeError):
+                    pass
+
                 comments.append(
                     ReviewComment(
                         id=f"comment_{uuid.uuid4().hex[:8]}",
                         file_path=filename,
                         line=1,
-                        body="Consider adding tests for the changes in this file.",
+                        body=test_body,
                         severity="info",
                         category="quality",
                     )
