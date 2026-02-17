@@ -297,6 +297,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             or path.startswith("/api/v1/workflow-approvals")
             or path.startswith("/api/v1/workflow-executions")
             or path.startswith("/api/v1/workflows/executions")
+            or path.startswith("/api/v1/templates/registry")
         )
 
     def _rbac_enabled(self) -> bool:
@@ -450,6 +451,14 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         if not self.can_handle(path):
             return None
 
+        # Template registry endpoints
+        if path.startswith("/api/v1/templates/registry"):
+            return self._registry_handler().handle(path, query_params, handler)
+
+        # Visual builder endpoints (must be before generic ID extraction)
+        if path == "/api/v1/workflows/step-types":
+            return self._builder_handler().handle(path, query_params, handler)
+
         if path.startswith("/api/v1/workflows/templates"):
             path = path.replace("/api/v1/workflows/templates", "/api/v1/workflow-templates", 1)
         if path.startswith("/api/v1/workflows/executions"):
@@ -517,6 +526,21 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         """Handle POST requests."""
         if not self.can_handle(path):
             return None
+
+        # Template registry POST endpoints
+        if path.startswith("/api/v1/templates/registry"):
+            return self._registry_handler().handle_post(path, query_params, handler)
+
+        # Visual builder POST endpoints
+        if path in (
+            "/api/v1/workflows/generate",
+            "/api/v1/workflows/auto-layout",
+            "/api/v1/workflows/from-pattern",
+            "/api/v1/workflows/validate",
+        ):
+            return self._builder_handler().handle_post(path, query_params, handler)
+        if path.endswith("/replay") and "/workflows/" in path:
+            return self._builder_handler().handle_post(path, query_params, handler)
 
         if path.startswith("/api/v1/workflows/templates"):
             path = path.replace("/api/v1/workflows/templates", "/api/v1/workflow-templates", 1)
@@ -665,6 +689,22 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return self._handle_terminate_execution(execution_id, query_params, handler)
 
         return None
+
+    # =========================================================================
+    # Delegate Handlers
+    # =========================================================================
+
+    def _registry_handler(self):
+        if not hasattr(self, '_registry'):
+            from aragora.server.handlers.workflows.registry import TemplateRegistryHandler
+            self._registry = TemplateRegistryHandler()
+        return self._registry
+
+    def _builder_handler(self):
+        if not hasattr(self, '_builder'):
+            from aragora.server.handlers.workflows.builder import WorkflowBuilderHandler
+            self._builder = WorkflowBuilderHandler()
+        return self._builder
 
     # =========================================================================
     # Path Helpers

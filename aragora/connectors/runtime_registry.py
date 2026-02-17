@@ -242,6 +242,204 @@ class ConnectorRegistry:
             ["search", "observations"],
         )
 
+        # Collaboration connectors
+        self._try_register(
+            "notion",
+            "collaboration",
+            "aragora.connectors.enterprise.collaboration.notion",
+            ["search", "pages", "databases"],
+        )
+        self._try_register(
+            "asana",
+            "collaboration",
+            "aragora.connectors.enterprise.collaboration.asana",
+            ["tasks", "projects"],
+        )
+        self._try_register(
+            "linear",
+            "collaboration",
+            "aragora.connectors.enterprise.collaboration.linear",
+            ["issues", "projects"],
+        )
+        self._try_register(
+            "monday",
+            "collaboration",
+            "aragora.connectors.enterprise.collaboration.monday",
+            ["boards", "items"],
+        )
+
+        # Low-code / spreadsheet connectors
+        self._try_register(
+            "airtable",
+            "lowcode",
+            "aragora.connectors.lowcode.airtable",
+            ["databases", "records"],
+        )
+
+        # Document / storage connectors
+        self._try_register(
+            "google_sheets",
+            "documents",
+            "aragora.connectors.documents.connector",
+            ["spreadsheets", "data"],
+        )
+        self._try_register(
+            "google_drive",
+            "documents",
+            "aragora.connectors.enterprise.documents",
+            ["files", "search"],
+        )
+        self._try_register(
+            "dropbox",
+            "documents",
+            "aragora.connectors.enterprise.sync",
+            ["files", "sync"],
+        )
+        self._try_register(
+            "onedrive",
+            "documents",
+            "aragora.connectors.enterprise.sync",
+            ["files", "sync"],
+        )
+        self._try_register(
+            "s3",
+            "documents",
+            "aragora.connectors.enterprise.sync",
+            ["files", "storage"],
+        )
+
+        # CRM connectors
+        self._try_register(
+            "hubspot",
+            "crm",
+            "aragora.connectors.crm.hubspot",
+            ["contacts", "deals", "companies"],
+        )
+        self._try_register(
+            "pipedrive",
+            "crm",
+            "aragora.connectors.crm.pipedrive",
+            ["contacts", "deals"],
+        )
+
+        # Analytics connectors
+        self._try_register(
+            "google_analytics",
+            "analytics",
+            "aragora.connectors.analytics.google_analytics",
+            ["metrics", "reports"],
+        )
+        self._try_register(
+            "mixpanel",
+            "analytics",
+            "aragora.connectors.analytics.mixpanel",
+            ["events", "funnels"],
+        )
+        self._try_register(
+            "segment",
+            "analytics",
+            "aragora.connectors.analytics.segment",
+            ["events", "tracking"],
+        )
+
+        # Database connectors
+        self._try_register(
+            "mongodb",
+            "database",
+            "aragora.connectors.enterprise.database.mongodb",
+            ["documents", "queries"],
+        )
+
+        # Accounting connectors
+        self._try_register(
+            "xero",
+            "accounting",
+            "aragora.connectors.accounting.xero",
+            ["invoices", "contacts", "accounting"],
+        )
+
+        # Advertising connectors
+        self._try_register(
+            "linkedin_ads",
+            "advertising",
+            "aragora.connectors.advertising.linkedin_ads",
+            ["campaigns", "analytics"],
+        )
+
+        # Communication connectors
+        self._try_register(
+            "twilio",
+            "communication",
+            "aragora.connectors.communication.twilio",
+            ["sms", "voice"],
+        )
+        self._try_register(
+            "sendgrid",
+            "communication",
+            "aragora.connectors.communication.sendgrid",
+            ["email", "templates"],
+        )
+
+        # Additional ecommerce connectors
+        self._try_register(
+            "bigcommerce",
+            "ecommerce",
+            "aragora.connectors.ecommerce.bigcommerce",
+            ["orders", "products"],
+        )
+
+        # Additional database connectors
+        self._try_register(
+            "supabase",
+            "database",
+            "aragora.connectors.enterprise.database.supabase_connector",
+            ["database", "auth", "storage"],
+        )
+        self._try_register(
+            "firebase",
+            "database",
+            "aragora.connectors.enterprise.database.firebase",
+            ["firestore", "auth"],
+        )
+
+        # DevOps connectors
+        self._try_register(
+            "gitlab",
+            "devops",
+            "aragora.connectors.devops.gitlab",
+            ["repos", "pipelines", "issues"],
+        )
+        self._try_register(
+            "bitbucket",
+            "devops",
+            "aragora.connectors.devops.bitbucket",
+            ["repos", "pipelines"],
+        )
+
+        # Productivity connectors
+        self._try_register(
+            "trello",
+            "productivity",
+            "aragora.connectors.productivity.trello",
+            ["boards", "cards", "lists"],
+        )
+
+        # Social connectors
+        self._try_register(
+            "instagram",
+            "social",
+            "aragora.connectors.social.instagram",
+            ["posts", "media"],
+        )
+
+        # Additional accounting connectors
+        self._try_register(
+            "quickbooks",
+            "accounting",
+            "aragora.connectors.accounting.quickbooks",
+            ["invoices", "payments", "reports"],
+        )
+
     def _try_register(
         self,
         name: str,

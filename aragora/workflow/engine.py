@@ -183,6 +183,14 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"Computer-use step type not available: {e}")
 
+        # Content extraction step
+        try:
+            from aragora.workflow.nodes.content_extraction import ContentExtractionStep
+
+            self._step_types["content_extraction"] = ContentExtractionStep
+        except ImportError as e:
+            logger.debug(f"Content extraction step type not available: {e}")
+
     def register_step_type(self, type_name: str, step_class: type[WorkflowStep]) -> None:
         """
         Register a custom step type.

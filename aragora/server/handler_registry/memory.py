@@ -113,6 +113,14 @@ CrossPollinationKMCultureHandler = _safe_import(
 )
 
 # =============================================================================
+# Unified memory handler
+# =============================================================================
+
+UnifiedMemoryHandler = _safe_import(
+    "aragora.server.handlers.memory.unified_handler", "UnifiedMemoryHandler"
+)
+
+# =============================================================================
 # Knowledge sharing handlers
 # =============================================================================
 
@@ -159,6 +167,8 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_sharing_notifications_handler", SharingNotificationsHandler),
     # Autonomous learning
     ("_autonomous_learning_handler", AutonomousLearningHandler),
+    # Unified memory
+    ("_unified_memory_handler", UnifiedMemoryHandler),
 ]
 
 __all__ = [

@@ -573,7 +573,7 @@ async def handle_apply_snooze(
                     await gmail.add_label(email_id, f"Snoozed/{label}")
                 if hasattr(gmail, "archive_message"):
                     await gmail.archive_message(email_id)
-        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
+        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
             logger.warning(f"Could not apply Gmail snooze: {gmail_error}")
 
         return success_response(
@@ -622,7 +622,7 @@ async def handle_cancel_snooze(
                     await gmail.remove_label(email_id, "Snoozed")
                 if hasattr(gmail, "unarchive_message"):
                     await gmail.unarchive_message(email_id)
-        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
+        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
             logger.warning(f"Could not remove Gmail snooze: {gmail_error}")
 
         return success_response(
@@ -723,7 +723,7 @@ async def handle_process_due_snoozes(
                         await gmail.unarchive_message(email_id)
                     if hasattr(gmail, "remove_label"):
                         await gmail.remove_label(email_id, "Snoozed")
-            except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
+            except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as gmail_error:
                 logger.warning(f"Could not unsnooze {email_id} in Gmail: {gmail_error}")
 
         return success_response(
