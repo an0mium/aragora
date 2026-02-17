@@ -147,6 +147,8 @@ class MergedConfig:
         "auto_execution_mode",
         "auto_approval_mode",
         "auto_max_risk",
+        "enable_unified_memory",
+        "enable_retention_gate",
     )
 
     # Type annotations for all slots (required by mypy for __slots__ classes)
@@ -266,6 +268,8 @@ class MergedConfig:
     auto_execution_mode: str
     auto_approval_mode: str
     auto_max_risk: str
+    enable_unified_memory: bool
+    enable_retention_gate: bool
 
 
 def merge_config_objects(  # noqa: C901 - complexity inherent in config merging

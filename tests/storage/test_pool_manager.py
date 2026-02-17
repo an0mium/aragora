@@ -197,7 +197,7 @@ class TestInitializeSharedPool:
         async def failing_get_pool(**kwargs):
             nonlocal call_count
             call_count += 1
-            raise Exception(f"Connection failed attempt {call_count}")
+            raise ConnectionError(f"Connection failed attempt {call_count}")
 
         with (
             patch.dict("os.environ", {"ARAGORA_USE_SHARED_POOL": "true"}),
