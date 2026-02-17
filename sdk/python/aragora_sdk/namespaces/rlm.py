@@ -97,6 +97,35 @@ class RLMAPI:
         }
 
 
+    def compress(self, content: str, source_type: SourceType = "text") -> dict[str, Any]:
+        """Compress content using RLM hierarchical abstraction."""
+        return self._client.request("POST", "/api/v1/rlm/compress", json={"content": content, "source_type": source_type})
+
+    def list_contexts(self) -> dict[str, Any]:
+        """List stored RLM contexts."""
+        return self._client.request("GET", "/api/v1/rlm/contexts")
+
+    def query(self, context_id: str, query: str, strategy: RLMStrategy = "auto") -> dict[str, Any]:
+        """Query a compressed context."""
+        return self._client.request("POST", "/api/v1/rlm/query", json={"context_id": context_id, "query": query, "strategy": strategy})
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get RLM usage statistics."""
+        return self._client.request("GET", "/api/v1/rlm/stats")
+
+    def list_strategies(self) -> dict[str, Any]:
+        """List available RLM strategies."""
+        return self._client.request("GET", "/api/v1/rlm/strategies")
+
+    def stream(self, context_id: str, mode: StreamMode = "top_down") -> dict[str, Any]:
+        """Stream content from a compressed context."""
+        return self._client.request("POST", "/api/v1/rlm/stream", json={"context_id": context_id, "mode": mode})
+
+    def list_stream_modes(self) -> dict[str, Any]:
+        """List available stream modes."""
+        return self._client.request("GET", "/api/v1/rlm/stream/modes")
+
+
 class AsyncRLMAPI:
     """
     Asynchronous RLM API.
@@ -121,6 +150,34 @@ class AsyncRLMAPI:
     async def reset_codebase_health(self) -> dict[str, Any]:
         """Reset RLM codebase health metrics."""
         return await self._client.request("POST", "/api/v1/rlm/codebase/health")
+
+    async def compress(self, content: str, source_type: SourceType = "text") -> dict[str, Any]:
+        """Compress content using RLM hierarchical abstraction."""
+        return await self._client.request("POST", "/api/v1/rlm/compress", json={"content": content, "source_type": source_type})
+
+    async def list_contexts(self) -> dict[str, Any]:
+        """List stored RLM contexts."""
+        return await self._client.request("GET", "/api/v1/rlm/contexts")
+
+    async def query(self, context_id: str, query: str, strategy: RLMStrategy = "auto") -> dict[str, Any]:
+        """Query a compressed context."""
+        return await self._client.request("POST", "/api/v1/rlm/query", json={"context_id": context_id, "query": query, "strategy": strategy})
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get RLM usage statistics."""
+        return await self._client.request("GET", "/api/v1/rlm/stats")
+
+    async def list_strategies(self) -> dict[str, Any]:
+        """List available RLM strategies."""
+        return await self._client.request("GET", "/api/v1/rlm/strategies")
+
+    async def stream(self, context_id: str, mode: StreamMode = "top_down") -> dict[str, Any]:
+        """Stream content from a compressed context."""
+        return await self._client.request("POST", "/api/v1/rlm/stream", json={"context_id": context_id, "mode": mode})
+
+    async def list_stream_modes(self) -> dict[str, Any]:
+        """List available stream modes."""
+        return await self._client.request("GET", "/api/v1/rlm/stream/modes")
 
     async def compress_and_query(
         self,

@@ -81,6 +81,10 @@ class ConsensusAPI:
             params["domain"] = domain
         return self._client.request("GET", "/api/v1/consensus/risk-warnings", params=params)
 
+    def list_domains(self) -> dict[str, Any]:
+        """List all consensus domains."""
+        return self._client.request("GET", "/api/v1/consensus/domain")
+
     def get_domain_history(self, domain: str, limit: int = 50) -> dict[str, Any]:
         """Get consensus history for a domain."""
         params = {"limit": limit}
@@ -153,6 +157,10 @@ class AsyncConsensusAPI:
         if domain:
             params["domain"] = domain
         return await self._client.request("GET", "/api/v1/consensus/risk-warnings", params=params)
+
+    async def list_domains(self) -> dict[str, Any]:
+        """List all consensus domains."""
+        return await self._client.request("GET", "/api/v1/consensus/domain")
 
     async def get_domain_history(self, domain: str, limit: int = 50) -> dict[str, Any]:
         params = {"limit": limit}

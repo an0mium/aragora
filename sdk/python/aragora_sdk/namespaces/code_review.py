@@ -66,7 +66,7 @@ class CodeReviewAPI:
         if context:
             data["context"] = context
 
-        return self._client._request("POST", "/api/v1/code-review/review", json=data)
+        return self._client.request("POST", "/api/v1/code-review/review", json=data)
 
     def review_diff(
         self,
@@ -99,7 +99,7 @@ class CodeReviewAPI:
         if context:
             data["context"] = context
 
-        return self._client._request("POST", "/api/v1/code-review/diff", json=data)
+        return self._client.request("POST", "/api/v1/code-review/diff", json=data)
 
     def review_pr(
         self,
@@ -132,7 +132,7 @@ class CodeReviewAPI:
         if post_comments:
             data["post_comments"] = post_comments
 
-        return self._client._request("POST", "/api/v1/code-review/pr", json=data)
+        return self._client.request("POST", "/api/v1/code-review/pr", json=data)
 
     def get_result(self, result_id: str) -> dict[str, Any]:
         """
@@ -144,7 +144,7 @@ class CodeReviewAPI:
         Returns:
             Review result details.
         """
-        return self._client._request("GET", f"/api/v1/code-review/results/{result_id}")
+        return self._client.request("GET", f"/api/v1/code-review/results/{result_id}")
 
     def get_history(
         self,
@@ -167,7 +167,7 @@ class CodeReviewAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return self._client._request("GET", "/api/v1/code-review/history", params=params)
+        return self._client.request("GET", "/api/v1/code-review/history", params=params)
 
     def security_scan(
         self,
@@ -188,7 +188,7 @@ class CodeReviewAPI:
         if language:
             data["language"] = language
 
-        return self._client._request("POST", "/api/v1/code-review/security-scan", json=data)
+        return self._client.request("POST", "/api/v1/code-review/security-scan", json=data)
 
 
 class AsyncCodeReviewAPI:
@@ -216,7 +216,7 @@ class AsyncCodeReviewAPI:
         if context:
             data["context"] = context
 
-        return await self._client._request("POST", "/api/v1/code-review/review", json=data)
+        return await self._client.request("POST", "/api/v1/code-review/review", json=data)
 
     async def review_diff(
         self,
@@ -237,7 +237,7 @@ class AsyncCodeReviewAPI:
         if context:
             data["context"] = context
 
-        return await self._client._request("POST", "/api/v1/code-review/diff", json=data)
+        return await self._client.request("POST", "/api/v1/code-review/diff", json=data)
 
     async def review_pr(
         self,
@@ -257,11 +257,11 @@ class AsyncCodeReviewAPI:
         if post_comments:
             data["post_comments"] = post_comments
 
-        return await self._client._request("POST", "/api/v1/code-review/pr", json=data)
+        return await self._client.request("POST", "/api/v1/code-review/pr", json=data)
 
     async def get_result(self, result_id: str) -> dict[str, Any]:
         """Get a review result by ID."""
-        return await self._client._request("GET", f"/api/v1/code-review/results/{result_id}")
+        return await self._client.request("GET", f"/api/v1/code-review/results/{result_id}")
 
     async def get_history(
         self,
@@ -275,7 +275,7 @@ class AsyncCodeReviewAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return await self._client._request("GET", "/api/v1/code-review/history", params=params)
+        return await self._client.request("GET", "/api/v1/code-review/history", params=params)
 
     async def security_scan(
         self,
@@ -287,4 +287,4 @@ class AsyncCodeReviewAPI:
         if language:
             data["language"] = language
 
-        return await self._client._request("POST", "/api/v1/code-review/security-scan", json=data)
+        return await self._client.request("POST", "/api/v1/code-review/security-scan", json=data)

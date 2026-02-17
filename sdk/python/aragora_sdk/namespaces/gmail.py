@@ -73,6 +73,35 @@ class GmailAPI:
         return self._client.request("GET", "/api/v1/gmail/drafts", params=kwargs)
 
 
+    # ===========================================================================
+    # Gmail Ingest
+    # ===========================================================================
+
+    def get_callback(self) -> dict[str, Any]:
+        """Get Gmail OAuth callback status."""
+        return self._client.request("GET", "/api/v1/gmail/callback")
+
+    def get_connection(self) -> dict[str, Any]:
+        """Get Gmail connection status."""
+        return self._client.request("GET", "/api/v1/gmail/connection")
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get Gmail processing statistics."""
+        return self._client.request("GET", "/api/v1/gmail/stats")
+
+    def get_processed(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get processed Gmail messages."""
+        return self._client.request("GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset})
+
+    def list_triage_rules(self) -> dict[str, Any]:
+        """List Gmail triage rules."""
+        return self._client.request("GET", "/api/v1/gmail/triage-rules")
+
+    def list_debate_configs(self) -> dict[str, Any]:
+        """List Gmail debate configurations."""
+        return self._client.request("GET", "/api/v1/gmail/debate-configs")
+
+
 class AsyncGmailAPI:
     """
     Asynchronous Gmail API.
@@ -104,3 +133,29 @@ class AsyncGmailAPI:
     async def list_drafts(self, **kwargs: Any) -> dict[str, Any]:
         """List Gmail drafts."""
         return await self._client.request("GET", "/api/v1/gmail/drafts", params=kwargs)
+
+    # Gmail Ingest
+
+    async def get_callback(self) -> dict[str, Any]:
+        """Get Gmail OAuth callback status."""
+        return await self._client.request("GET", "/api/v1/gmail/callback")
+
+    async def get_connection(self) -> dict[str, Any]:
+        """Get Gmail connection status."""
+        return await self._client.request("GET", "/api/v1/gmail/connection")
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get Gmail processing statistics."""
+        return await self._client.request("GET", "/api/v1/gmail/stats")
+
+    async def get_processed(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get processed Gmail messages."""
+        return await self._client.request("GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset})
+
+    async def list_triage_rules(self) -> dict[str, Any]:
+        """List Gmail triage rules."""
+        return await self._client.request("GET", "/api/v1/gmail/triage-rules")
+
+    async def list_debate_configs(self) -> dict[str, Any]:
+        """List Gmail debate configurations."""
+        return await self._client.request("GET", "/api/v1/gmail/debate-configs")

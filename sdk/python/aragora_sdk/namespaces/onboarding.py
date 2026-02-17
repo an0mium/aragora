@@ -85,6 +85,26 @@ class OnboardingAPI:
             data["skip_to_step"] = skip_to_step
         return self._client.request("POST", "/api/v1/onboarding/flow", json=data or None)
 
+    def update_step(
+        self,
+        action: FlowAction = "next",
+        data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update onboarding flow step.
+
+        Args:
+            action: Step action (next, previous, complete, skip).
+            data: Optional step data.
+
+        Returns:
+            Updated flow state.
+        """
+        payload: dict[str, Any] = {"action": action}
+        if data:
+            payload["data"] = data
+        return self._client.request("PUT", "/api/v1/onboarding/flow/step", json=payload)
+
     def skip(self) -> dict[str, Any]:
         """Skip the onboarding flow."""
         return self.update_step(action="skip")
@@ -256,6 +276,17 @@ class AsyncOnboardingAPI:
         if skip_to_step:
             data["skip_to_step"] = skip_to_step
         return await self._client.request("POST", "/api/v1/onboarding/flow", json=data or None)
+
+    async def update_step(
+        self,
+        action: FlowAction = "next",
+        data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Update onboarding flow step."""
+        payload: dict[str, Any] = {"action": action}
+        if data:
+            payload["data"] = data
+        return await self._client.request("PUT", "/api/v1/onboarding/flow/step", json=payload)
 
     async def skip(self) -> dict[str, Any]:
         """Skip the onboarding flow."""

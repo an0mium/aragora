@@ -41,6 +41,35 @@ class BatchAPI:
     def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
+    def submit(
+        self,
+        items: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Submit a generic batch operation.
+
+        Args:
+            items: List of batch items.
+            metadata: Optional metadata.
+
+        Returns:
+            Batch submission result with batch_id.
+        """
+        data: dict[str, Any] = {"items": items}
+        if metadata:
+            data["metadata"] = metadata
+        return self._client.request("POST", "/api/v1/batch", json=data)
+
+    def get_queue_status(self) -> dict[str, Any]:
+        """
+        Get batch queue status.
+
+        Returns:
+            Queue status with pending, processing, completed counts.
+        """
+        return self._client.request("GET", "/api/v1/batch/queue/status")
+
     def submit_debates(
         self,
         debates: list[dict[str, Any]],
@@ -137,6 +166,21 @@ class AsyncBatchAPI:
 
     def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
+
+    async def submit(
+        self,
+        items: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Submit a generic batch operation."""
+        data: dict[str, Any] = {"items": items}
+        if metadata:
+            data["metadata"] = metadata
+        return await self._client.request("POST", "/api/v1/batch", json=data)
+
+    async def get_queue_status(self) -> dict[str, Any]:
+        """Get batch queue status."""
+        return await self._client.request("GET", "/api/v1/batch/queue/status")
 
     async def submit_debates(
         self,

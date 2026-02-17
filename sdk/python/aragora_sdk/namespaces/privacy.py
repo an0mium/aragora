@@ -38,6 +38,78 @@ class PrivacyAPI:
         self._client = client
 
     # ===========================================================================
+    # User Management
+    # ===========================================================================
+
+    def list_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """
+        List users with their privacy settings.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            Paginated list of users.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/privacy/users", params=params)
+
+    def invite_user(
+        self,
+        email: str,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Invite a user.
+
+        Args:
+            email: User email address.
+            role: Optional role to assign.
+
+        Returns:
+            Invitation result.
+        """
+        data: dict[str, Any] = {"email": email}
+        if role:
+            data["role"] = role
+        return self._client.request("POST", "/api/v1/privacy/users/invite", json=data)
+
+    def list_platform_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """
+        List platform users.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            Paginated list of users.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/users", params=params)
+
+    def invite_platform_user(
+        self,
+        email: str,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Invite a platform user.
+
+        Args:
+            email: User email address.
+            role: Optional role to assign.
+
+        Returns:
+            Invitation result.
+        """
+        data: dict[str, Any] = {"email": email}
+        if role:
+            data["role"] = role
+        return self._client.request("POST", "/api/v1/users/invite", json=data)
+
+    # ===========================================================================
     # Data Export (GDPR Article 15 / CCPA Right to Know)
     # ===========================================================================
 
@@ -176,6 +248,34 @@ class AsyncPrivacyAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    # ===========================================================================
+    # User Management
+    # ===========================================================================
+
+    async def list_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List users with their privacy settings."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/privacy/users", params=params)
+
+    async def invite_user(self, email: str, role: str | None = None) -> dict[str, Any]:
+        """Invite a user."""
+        data: dict[str, Any] = {"email": email}
+        if role:
+            data["role"] = role
+        return await self._client.request("POST", "/api/v1/privacy/users/invite", json=data)
+
+    async def list_platform_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List platform users."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/users", params=params)
+
+    async def invite_platform_user(self, email: str, role: str | None = None) -> dict[str, Any]:
+        """Invite a platform user."""
+        data: dict[str, Any] = {"email": email}
+        if role:
+            data["role"] = role
+        return await self._client.request("POST", "/api/v1/users/invite", json=data)
 
     # ===========================================================================
     # Data Export

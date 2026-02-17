@@ -88,7 +88,7 @@ class ARAutomationAPI:
         if send_immediately:
             data["send_immediately"] = send_immediately
 
-        return self._client._request("POST", "/api/v1/accounting/ar/invoices", json=data)
+        return self._client.request("POST", "/api/v1/accounting/ar/invoices", json=data)
 
     def list_invoices(
         self,
@@ -127,7 +127,7 @@ class ARAutomationAPI:
         if due_after:
             params["due_after"] = due_after
 
-        return self._client._request("GET", "/api/v1/accounting/ar/invoices", params=params)
+        return self._client.request("GET", "/api/v1/accounting/ar/invoices", params=params)
 
     def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         """
@@ -139,7 +139,7 @@ class ARAutomationAPI:
         Returns:
             Invoice details.
         """
-        return self._client._request("GET", f"/api/v1/accounting/ar/invoices/{invoice_id}")
+        return self._client.request("GET", f"/api/v1/accounting/ar/invoices/{invoice_id}")
 
     def send_invoice(self, invoice_id: str) -> dict[str, Any]:
         """
@@ -151,7 +151,7 @@ class ARAutomationAPI:
         Returns:
             Send confirmation.
         """
-        return self._client._request("POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/send")
+        return self._client.request("POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/send")
 
     def send_reminder(
         self,
@@ -172,7 +172,7 @@ class ARAutomationAPI:
         if escalation_level:
             data["escalation_level"] = escalation_level
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/reminder", json=data
         )
 
@@ -209,7 +209,7 @@ class ARAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/payment", json=data
         )
 
@@ -224,7 +224,7 @@ class ARAutomationAPI:
         Returns:
             Aging report with buckets (current, 1-30, 31-60, 61-90, 90+).
         """
-        return self._client._request("GET", "/api/v1/accounting/ar/aging")
+        return self._client.request("GET", "/api/v1/accounting/ar/aging")
 
     def get_collection_suggestions(self) -> dict[str, Any]:
         """
@@ -233,7 +233,7 @@ class ARAutomationAPI:
         Returns:
             List of suggested collection actions.
         """
-        return self._client._request("GET", "/api/v1/accounting/ar/collections")
+        return self._client.request("GET", "/api/v1/accounting/ar/collections")
 
     # =========================================================================
     # Customer Management
@@ -278,7 +278,7 @@ class ARAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request("POST", "/api/v1/accounting/ar/customers", json=data)
+        return self._client.request("POST", "/api/v1/accounting/ar/customers", json=data)
 
     def get_customer_balance(self, customer_id: str) -> dict[str, Any]:
         """
@@ -290,7 +290,7 @@ class ARAutomationAPI:
         Returns:
             Customer balance with outstanding and overdue amounts.
         """
-        return self._client._request(
+        return self._client.request(
             "GET", f"/api/v1/accounting/ar/customers/{customer_id}/balance"
         )
 
@@ -335,7 +335,7 @@ class AsyncARAutomationAPI:
         if send_immediately:
             data["send_immediately"] = send_immediately
 
-        return await self._client._request("POST", "/api/v1/accounting/ar/invoices", json=data)
+        return await self._client.request("POST", "/api/v1/accounting/ar/invoices", json=data)
 
     async def list_invoices(
         self,
@@ -360,15 +360,15 @@ class AsyncARAutomationAPI:
         if due_after:
             params["due_after"] = due_after
 
-        return await self._client._request("GET", "/api/v1/accounting/ar/invoices", params=params)
+        return await self._client.request("GET", "/api/v1/accounting/ar/invoices", params=params)
 
     async def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         """Get AR invoice details."""
-        return await self._client._request("GET", f"/api/v1/accounting/ar/invoices/{invoice_id}")
+        return await self._client.request("GET", f"/api/v1/accounting/ar/invoices/{invoice_id}")
 
     async def send_invoice(self, invoice_id: str) -> dict[str, Any]:
         """Send an invoice to the customer."""
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/send"
         )
 
@@ -382,7 +382,7 @@ class AsyncARAutomationAPI:
         if escalation_level:
             data["escalation_level"] = escalation_level
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/reminder", json=data
         )
 
@@ -406,7 +406,7 @@ class AsyncARAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/ar/invoices/{invoice_id}/payment", json=data
         )
 
@@ -416,11 +416,11 @@ class AsyncARAutomationAPI:
 
     async def get_aging_report(self) -> dict[str, Any]:
         """Get AR aging report."""
-        return await self._client._request("GET", "/api/v1/accounting/ar/aging")
+        return await self._client.request("GET", "/api/v1/accounting/ar/aging")
 
     async def get_collection_suggestions(self) -> dict[str, Any]:
         """Get collection suggestions for overdue invoices."""
-        return await self._client._request("GET", "/api/v1/accounting/ar/collections")
+        return await self._client.request("GET", "/api/v1/accounting/ar/collections")
 
     # =========================================================================
     # Customer Management
@@ -451,10 +451,10 @@ class AsyncARAutomationAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request("POST", "/api/v1/accounting/ar/customers", json=data)
+        return await self._client.request("POST", "/api/v1/accounting/ar/customers", json=data)
 
     async def get_customer_balance(self, customer_id: str) -> dict[str, Any]:
         """Get customer balance summary."""
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/accounting/ar/customers/{customer_id}/balance"
         )

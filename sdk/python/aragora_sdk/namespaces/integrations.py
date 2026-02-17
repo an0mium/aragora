@@ -447,6 +447,17 @@ class IntegrationsAPI:
         """Validate wizard configuration."""
         return self._client.request("POST", "/api/v2/integrations/wizard/validate")
 
+    def wizard_preflight(self, integration_type: str | None = None) -> dict[str, Any]:
+        """Run wizard preflight checks."""
+        params: dict[str, Any] = {}
+        if integration_type:
+            params["type"] = integration_type
+        return self._client.request("GET", "/api/v2/integrations/wizard/preflight", params=params or None)
+
+    def wizard_recommendations(self) -> dict[str, Any]:
+        """Get wizard integration recommendations."""
+        return self._client.request("GET", "/api/v2/integrations/wizard/recommendations")
+
     def get_integration_health(self, integration_id: str) -> dict[str, Any]:
         """Get integration health."""
         return self._client.request("GET", f"/api/v2/integrations/{integration_id}/health")
@@ -796,6 +807,17 @@ class AsyncIntegrationsAPI:
     async def validate_wizard(self) -> dict[str, Any]:
         """Validate wizard configuration."""
         return await self._client.request("POST", "/api/v2/integrations/wizard/validate")
+
+    async def wizard_preflight(self, integration_type: str | None = None) -> dict[str, Any]:
+        """Run wizard preflight checks."""
+        params: dict[str, Any] = {}
+        if integration_type:
+            params["type"] = integration_type
+        return await self._client.request("GET", "/api/v2/integrations/wizard/preflight", params=params or None)
+
+    async def wizard_recommendations(self) -> dict[str, Any]:
+        """Get wizard integration recommendations."""
+        return await self._client.request("GET", "/api/v2/integrations/wizard/recommendations")
 
     async def get_integration_health(self, integration_id: str) -> dict[str, Any]:
         """Get integration health."""

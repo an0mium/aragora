@@ -102,6 +102,32 @@ class MomentsAPI:
             "GET", "/api/v1/moments/trending", params=params if params else None
         )
 
+    def list_by_type(
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        List moments grouped by type.
+
+        Args:
+            limit: Maximum number of moments to return
+            offset: Number of moments to skip
+
+        Returns:
+            Dict with moments grouped by type
+        """
+        params: dict[str, Any] = {}
+        if limit:
+            params["limit"] = limit
+        if offset:
+            params["offset"] = offset
+        return self._client.request(
+            "GET",
+            "/api/v1/moments/by-type",
+            params=params if params else None,
+        )
+
     def get_by_type(
         self,
         moment_type: MomentType,
@@ -169,6 +195,23 @@ class AsyncMomentsAPI:
             params["limit"] = limit
         return await self._client.request(
             "GET", "/api/v1/moments/trending", params=params if params else None
+        )
+
+    async def list_by_type(
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List moments grouped by type."""
+        params: dict[str, Any] = {}
+        if limit:
+            params["limit"] = limit
+        if offset:
+            params["offset"] = offset
+        return await self._client.request(
+            "GET",
+            "/api/v1/moments/by-type",
+            params=params if params else None,
         )
 
     async def get_by_type(

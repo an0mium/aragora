@@ -167,6 +167,17 @@ class ComputerUseAPI:
     # Actions
     # =========================================================================
 
+    def get_action_stats(self) -> dict[str, Any]:
+        """
+        Get action statistics.
+
+        GET /api/v1/computer-use/actions/stats
+
+        Returns:
+            Dict with action statistics.
+        """
+        return self._client.request("GET", "/api/v1/computer-use/actions/stats")
+
     def list_actions(self) -> dict[str, Any]:
         """
         List available computer use actions.
@@ -302,6 +313,10 @@ class AsyncComputerUseAPI:
     # =========================================================================
     # Actions
     # =========================================================================
+
+    async def get_action_stats(self) -> dict[str, Any]:
+        """Get action statistics. GET /api/v1/computer-use/actions/stats"""
+        return await self._client.request("GET", "/api/v1/computer-use/actions/stats")
 
     async def list_actions(self) -> dict[str, Any]:
         """List available computer use actions. GET /api/v1/computer-use/actions"""

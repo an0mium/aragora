@@ -43,6 +43,36 @@ class TranscriptionAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
+    def upload(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Upload a file for transcription.
+
+        Args:
+            data: Upload payload with file data.
+
+        Returns:
+            Upload result with job ID.
+        """
+        return self._client.request("POST", "/api/v1/transcription/upload", json=data)
+
+    def get_formats(self) -> dict[str, Any]:
+        """
+        Get supported transcription formats.
+
+        Returns:
+            Dict with supported audio and video formats.
+        """
+        return self._client.request("GET", "/api/v1/transcription/formats")
+
+    def get_global_status(self) -> dict[str, Any]:
+        """
+        Get transcription service status.
+
+        Returns:
+            Service status and availability.
+        """
+        return self._client.request("GET", "/api/v1/transcription/status")
+
     def get_config(self) -> dict[str, Any]:
         """
         Get transcription service configuration.
@@ -171,6 +201,18 @@ class AsyncTranscriptionAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    async def upload(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Upload a file for transcription."""
+        return await self._client.request("POST", "/api/v1/transcription/upload", json=data)
+
+    async def get_formats(self) -> dict[str, Any]:
+        """Get supported transcription formats."""
+        return await self._client.request("GET", "/api/v1/transcription/formats")
+
+    async def get_global_status(self) -> dict[str, Any]:
+        """Get transcription service status."""
+        return await self._client.request("GET", "/api/v1/transcription/status")
 
     async def get_config(self) -> dict[str, Any]:
         """Get transcription service configuration."""

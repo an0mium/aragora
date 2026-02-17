@@ -356,6 +356,21 @@ class GatewayAPI:
         """
         return self._client.request("GET", f"/api/v1/gateway/routing/{route_id}")
 
+    def get_routing_rules(self) -> dict[str, Any]:
+        """List all routing rules."""
+        return self._client.request("GET", "/api/v1/gateway/routing/rules")
+
+    def get_routing_stats(self) -> dict[str, Any]:
+        """Get routing statistics."""
+        return self._client.request("GET", "/api/v1/gateway/routing/stats")
+
+    def route_message(self, channel: str, content: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Route a message through the gateway."""
+        data: dict[str, Any] = {"channel": channel, "content": content}
+        if metadata:
+            data["metadata"] = metadata
+        return self._client.request("POST", "/api/v1/gateway/messages/route", json=data)
+
     # =========================================================================
     # OpenClaw Gateway (legacy /api/gateway/openclaw/ paths)
     # =========================================================================
@@ -659,6 +674,21 @@ class AsyncGatewayAPI:
         return await self._client.request(
             "GET", f"/api/v1/gateway/routing/{route_id}"
         )
+
+    async def get_routing_rules(self) -> dict[str, Any]:
+        """List all routing rules."""
+        return await self._client.request("GET", "/api/v1/gateway/routing/rules")
+
+    async def get_routing_stats(self) -> dict[str, Any]:
+        """Get routing statistics."""
+        return await self._client.request("GET", "/api/v1/gateway/routing/stats")
+
+    async def route_message(self, channel: str, content: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Route a message through the gateway."""
+        data: dict[str, Any] = {"channel": channel, "content": content}
+        if metadata:
+            data["metadata"] = metadata
+        return await self._client.request("POST", "/api/v1/gateway/messages/route", json=data)
 
     # =========================================================================
     # OpenClaw Gateway (legacy /api/gateway/openclaw/ paths)

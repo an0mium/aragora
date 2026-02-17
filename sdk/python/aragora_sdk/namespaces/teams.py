@@ -200,6 +200,30 @@ class TeamsAPI:
         """
         return self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
 
+    def send_debate(
+        self,
+        topic: str,
+        team_ids: _List[str] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send a debate to team channels.
+
+        Args:
+            topic: Debate topic.
+            team_ids: Team IDs to send to.
+            options: Additional options.
+
+        Returns:
+            Send confirmation.
+        """
+        data: dict[str, Any] = {"topic": topic}
+        if team_ids:
+            data["team_ids"] = team_ids
+        if options:
+            data.update(options)
+        return self._client.request("POST", "/api/v1/teams/debates/send", json=data)
+
 
 class AsyncTeamsAPI:
     """Asynchronous teams API."""
@@ -291,3 +315,17 @@ class AsyncTeamsAPI:
     async def get_stats(self, team_id: str) -> dict[str, Any]:
         """Get team statistics."""
         return await self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
+
+    async def send_debate(
+        self,
+        topic: str,
+        team_ids: _List[str] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Send a debate to team channels."""
+        data: dict[str, Any] = {"topic": topic}
+        if team_ids:
+            data["team_ids"] = team_ids
+        if options:
+            data.update(options)
+        return await self._client.request("POST", "/api/v1/teams/debates/send", json=data)

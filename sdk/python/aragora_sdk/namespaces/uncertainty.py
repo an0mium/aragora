@@ -68,6 +68,15 @@ class UncertaintyAPI:
 
         return self._client.request("POST", "/api/v1/uncertainty/estimate", json=data)
 
+    def list_debate_uncertainties(self) -> dict[str, Any]:
+        """
+        List uncertainty summaries across debates.
+
+        Returns:
+            List of debate uncertainty summaries.
+        """
+        return self._client.request("POST", "/api/v1/uncertainty/debate")
+
     def get_debate_metrics(self, debate_id: str) -> dict[str, Any]:
         """
         Get uncertainty metrics for a debate.
@@ -185,6 +194,10 @@ class AsyncUncertaintyAPI:
             data["config"] = config
 
         return await self._client.request("POST", "/api/v1/uncertainty/estimate", json=data)
+
+    async def list_debate_uncertainties(self) -> dict[str, Any]:
+        """List uncertainty summaries across debates."""
+        return await self._client.request("POST", "/api/v1/uncertainty/debate")
 
     async def get_debate_metrics(self, debate_id: str) -> dict[str, Any]:
         """

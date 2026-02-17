@@ -150,6 +150,19 @@ class GenesisAPI:
         return self._client.request("GET", f"/api/v1/genesis/tree/{debate_id}")
 
 
+    def list_lineage(self) -> dict[str, Any]:
+        """List all lineage records."""
+        return self._client.request("GET", "/api/v1/genesis/lineage")
+
+    def list_trees(self) -> dict[str, Any]:
+        """List all fractal trees."""
+        return self._client.request("GET", "/api/v1/genesis/tree")
+
+    def list_descendants(self) -> dict[str, Any]:
+        """List all descendants."""
+        return self._client.request("GET", "/api/v1/genesis/descendants")
+
+
 class AsyncGenesisAPI:
     """Asynchronous Genesis API for evolution visibility and genome management."""
 
@@ -227,3 +240,15 @@ class AsyncGenesisAPI:
     ) -> dict[str, Any]:
         """Get the fractal tree structure for a debate."""
         return await self._client.request("GET", f"/api/v1/genesis/tree/{debate_id}")
+
+    async def list_lineage(self) -> dict[str, Any]:
+        """List all lineage records."""
+        return await self._client.request("GET", "/api/v1/genesis/lineage")
+
+    async def list_trees(self) -> dict[str, Any]:
+        """List all fractal trees."""
+        return await self._client.request("GET", "/api/v1/genesis/tree")
+
+    async def list_descendants(self) -> dict[str, Any]:
+        """List all descendants."""
+        return await self._client.request("GET", "/api/v1/genesis/descendants")

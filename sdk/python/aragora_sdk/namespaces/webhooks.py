@@ -96,6 +96,29 @@ class WebhooksAPI:
         """
         return self._client.request("GET", "/api/v1/webhooks/events")
 
+    def get_event_categories(self) -> dict[str, Any]:
+        """Get webhook event categories."""
+        return self._client.request("GET", "/api/v1/webhooks/events/categories")
+
+    def test_slo(self, webhook_id: str | None = None) -> dict[str, Any]:
+        """Test webhook SLO delivery."""
+        data: dict[str, Any] = {}
+        if webhook_id:
+            data["webhook_id"] = webhook_id
+        return self._client.request("POST", "/api/v1/webhooks/slo/test", json=data)
+
+    def bulk_create(self, webhooks: _List[dict[str, Any]]) -> dict[str, Any]:
+        """Create multiple webhooks in bulk."""
+        return self._client.request("POST", "/api/v1/webhooks/bulk", json={"webhooks": webhooks})
+
+    def pause_all(self) -> dict[str, Any]:
+        """Pause all webhooks."""
+        return self._client.request("POST", "/api/v1/webhooks/pause-all")
+
+    def resume_all(self) -> dict[str, Any]:
+        """Resume all webhooks."""
+        return self._client.request("POST", "/api/v1/webhooks/resume-all")
+
 
 class AsyncWebhooksAPI:
     """
@@ -148,3 +171,26 @@ class AsyncWebhooksAPI:
     async def get_events(self) -> dict[str, Any]:
         """Get available webhook event types."""
         return await self._client.request("GET", "/api/v1/webhooks/events")
+
+    async def get_event_categories(self) -> dict[str, Any]:
+        """Get webhook event categories."""
+        return await self._client.request("GET", "/api/v1/webhooks/events/categories")
+
+    async def test_slo(self, webhook_id: str | None = None) -> dict[str, Any]:
+        """Test webhook SLO delivery."""
+        data: dict[str, Any] = {}
+        if webhook_id:
+            data["webhook_id"] = webhook_id
+        return await self._client.request("POST", "/api/v1/webhooks/slo/test", json=data)
+
+    async def bulk_create(self, webhooks: _List[dict[str, Any]]) -> dict[str, Any]:
+        """Create multiple webhooks in bulk."""
+        return await self._client.request("POST", "/api/v1/webhooks/bulk", json={"webhooks": webhooks})
+
+    async def pause_all(self) -> dict[str, Any]:
+        """Pause all webhooks."""
+        return await self._client.request("POST", "/api/v1/webhooks/pause-all")
+
+    async def resume_all(self) -> dict[str, Any]:
+        """Resume all webhooks."""
+        return await self._client.request("POST", "/api/v1/webhooks/resume-all")

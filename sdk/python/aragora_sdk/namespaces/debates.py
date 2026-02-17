@@ -478,6 +478,48 @@ class DebatesAPI:
         data: dict[str, Any] = {"task": task, **kwargs}
         return self._client.request("POST", "/api/debate", json=data)
 
+    # ========== Analytics ==========
+
+    def get_consensus_analytics(self) -> dict[str, Any]:
+        """Get consensus analytics across debates."""
+        return self._client.request("GET", "/api/v1/debates/analytics/consensus")
+
+    def get_trend_analytics(self) -> dict[str, Any]:
+        """Get debate trend analytics."""
+        return self._client.request("GET", "/api/v1/debates/analytics/trends")
+
+    # ========== Archive ==========
+
+    def archive_batch(self, debate_ids: _List[str]) -> dict[str, Any]:
+        """Archive multiple debates."""
+        return self._client.request("POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids})
+
+    def list_archived(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List archived debates."""
+        return self._client.request("GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset})
+
+    # ========== Compare & Import ==========
+
+    def compare(self, debate_ids: _List[str]) -> dict[str, Any]:
+        """Compare multiple debates."""
+        return self._client.request("POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids})
+
+    def get_health(self) -> dict[str, Any]:
+        """Get debate system health."""
+        return self._client.request("GET", "/api/v1/debates/health")
+
+    def import_debate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Import a debate from external data."""
+        return self._client.request("POST", "/api/v1/debates/import", json=data)
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Get aggregate debate statistics."""
+        return self._client.request("GET", "/api/v1/debates/statistics")
+
+    def stream_debate(self, debate_id: str) -> dict[str, Any]:
+        """Get streaming info for a debate."""
+        return self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
+
 
 class AsyncDebatesAPI:
     """
@@ -926,3 +968,45 @@ class AsyncDebatesAPI:
         """Create a debate via the non-versioned quick endpoint."""
         data: dict[str, Any] = {"task": task, **kwargs}
         return await self._client.request("POST", "/api/debate", json=data)
+
+    # ========== Analytics ==========
+
+    async def get_consensus_analytics(self) -> dict[str, Any]:
+        """Get consensus analytics across debates."""
+        return await self._client.request("GET", "/api/v1/debates/analytics/consensus")
+
+    async def get_trend_analytics(self) -> dict[str, Any]:
+        """Get debate trend analytics."""
+        return await self._client.request("GET", "/api/v1/debates/analytics/trends")
+
+    # ========== Archive ==========
+
+    async def archive_batch(self, debate_ids: _List[str]) -> dict[str, Any]:
+        """Archive multiple debates."""
+        return await self._client.request("POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids})
+
+    async def list_archived(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List archived debates."""
+        return await self._client.request("GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset})
+
+    # ========== Compare & Import ==========
+
+    async def compare(self, debate_ids: _List[str]) -> dict[str, Any]:
+        """Compare multiple debates."""
+        return await self._client.request("POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids})
+
+    async def get_health(self) -> dict[str, Any]:
+        """Get debate system health."""
+        return await self._client.request("GET", "/api/v1/debates/health")
+
+    async def import_debate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Import a debate from external data."""
+        return await self._client.request("POST", "/api/v1/debates/import", json=data)
+
+    async def get_statistics(self) -> dict[str, Any]:
+        """Get aggregate debate statistics."""
+        return await self._client.request("GET", "/api/v1/debates/statistics")
+
+    async def stream_debate(self, debate_id: str) -> dict[str, Any]:
+        """Get streaming info for a debate."""
+        return await self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})

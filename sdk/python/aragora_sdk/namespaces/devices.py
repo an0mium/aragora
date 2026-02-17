@@ -94,6 +94,20 @@ class DevicesAPI:
     # Device Registration
     # =========================================================================
 
+    def list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """
+        List registered devices.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            List of registered devices.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/devices", params=params)
+
     def register(
         self,
         device_type: DeviceType,
@@ -200,6 +214,11 @@ class AsyncDevicesAPI:
 
     def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
+
+    async def list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List registered devices."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/devices", params=params)
 
     async def register(
         self,

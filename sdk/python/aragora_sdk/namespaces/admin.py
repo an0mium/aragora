@@ -198,6 +198,30 @@ class AdminAPI:
         """
         return self._client.request("GET", "/api/v1/diagnostics/handlers")
 
+    def list_circuit_breakers(self) -> dict[str, Any]:
+        """List all circuit breaker states."""
+        return self._client.request("GET", "/api/v1/admin/circuit-breakers")
+
+    def reset_circuit_breakers(self) -> dict[str, Any]:
+        """Reset all circuit breakers."""
+        return self._client.request("POST", "/api/v1/admin/circuit-breakers/reset")
+
+    def get_security_audit(self) -> dict[str, Any]:
+        """Get security audit report."""
+        return self._client.request("GET", "/api/v1/admin/security/audit")
+
+    def get_security_compliance(self) -> dict[str, Any]:
+        """Get security compliance status."""
+        return self._client.request("GET", "/api/v1/admin/security/compliance")
+
+    def run_security_scan(self) -> dict[str, Any]:
+        """Run a security scan."""
+        return self._client.request("POST", "/api/v1/admin/security/scan")
+
+    def list_security_threats(self) -> dict[str, Any]:
+        """List detected security threats."""
+        return self._client.request("GET", "/api/v1/admin/security/threats")
+
 
 class AsyncAdminAPI:
     """
@@ -296,3 +320,27 @@ class AsyncAdminAPI:
     async def get_handler_diagnostics(self) -> dict[str, Any]:
         """Get handler diagnostics information. GET /api/v1/diagnostics/handlers"""
         return await self._client.request("GET", "/api/v1/diagnostics/handlers")
+
+    async def list_circuit_breakers(self) -> dict[str, Any]:
+        """List all circuit breaker states."""
+        return await self._client.request("GET", "/api/v1/admin/circuit-breakers")
+
+    async def reset_circuit_breakers(self) -> dict[str, Any]:
+        """Reset all circuit breakers."""
+        return await self._client.request("POST", "/api/v1/admin/circuit-breakers/reset")
+
+    async def get_security_audit(self) -> dict[str, Any]:
+        """Get security audit report."""
+        return await self._client.request("GET", "/api/v1/admin/security/audit")
+
+    async def get_security_compliance(self) -> dict[str, Any]:
+        """Get security compliance status."""
+        return await self._client.request("GET", "/api/v1/admin/security/compliance")
+
+    async def run_security_scan(self) -> dict[str, Any]:
+        """Run a security scan."""
+        return await self._client.request("POST", "/api/v1/admin/security/scan")
+
+    async def list_security_threats(self) -> dict[str, Any]:
+        """List detected security threats."""
+        return await self._client.request("GET", "/api/v1/admin/security/threats")

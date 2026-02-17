@@ -117,6 +117,448 @@ class UnifiedInboxAPI:
     # OAuth Flow
     # =========================================================================
 
+    def get_gmail_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get Gmail OAuth authorization URL.
+
+        Args:
+            redirect_uri: URL to redirect after authorization.
+            state: Optional CSRF state parameter.
+
+        Returns:
+            OAuth URL and state.
+        """
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return self._client.request("GET", "/api/v1/inbox/oauth/gmail", params=params)
+
+    def get_outlook_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get Outlook OAuth authorization URL.
+
+        Args:
+            redirect_uri: URL to redirect after authorization.
+            state: Optional CSRF state parameter.
+
+        Returns:
+            OAuth URL and state.
+        """
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return self._client.request("GET", "/api/v1/inbox/oauth/outlook", params=params)
+
+    # =========================================================================
+    # Account Management
+    # =========================================================================
+
+    def connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """
+        Connect an email account using OAuth authorization code.
+
+        Args:
+            provider: Email provider (gmail or outlook).
+            auth_code: OAuth authorization code.
+            redirect_uri: Redirect URI used in OAuth flow.
+
+        Returns:
+            Connected account details.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/inbox/connect",
+            json={"provider": provider, "auth_code": auth_code, "redirect_uri": redirect_uri},
+        )
+
+    def list_accounts(self) -> dict[str, Any]:
+        """
+        List all connected email accounts.
+
+        Returns:
+            Array of connected accounts with total count.
+        """
+        return self._client.request("GET", "/api/v1/inbox/accounts")
+
+    def disconnect(self, account_id: str) -> dict[str, Any]:
+        """
+        Disconnect an email account.
+
+        Args:
+            account_id: Account ID to disconnect.
+
+        Returns:
+            Confirmation message.
+        """
+        return self._client.request("DELETE", f"/api/v1/inbox/accounts/{account_id}")
+
+    # =========================================================================
+    # Messages
+    # =========================================================================
+
+    def list_messages(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        priority: PriorityTier | None = None,
+        account_id: str | None = None,
+        unread_only: bool | None = None,
+        search: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get prioritized messages across all accounts.
+
+        Args:
+            limit: Maximum messages to return.
+            offset: Pagination offset.
+            priority: Filter by priority tier.
+            account_id: Filter by account.
+            unread_only: Only return unread messages.
+            search: Search query string.
+
+        Returns:
+            Paginated message list sorted by priority.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if priority:
+            params["priority"] = priority
+        if account_id:
+            params["account_id"] = account_id
+        if unread_only is not None:
+            params["unread_only"] = unread_only
+        if search:
+            params["search"] = search
+        return self._client.request("GET", "/api/v1/inbox/messages", params=params)
+
+    def get_message(self, message_id: str) -> dict[str, Any]:
+        """
+        Get details of a specific message.
+
+        Args:
+            message_id: Message ID.
+
+        Returns:
+            Message details with triage result if available.
+        """
+        return self._client.request("GET", f"/api/v1/inbox/messages/{message_id}")
+
+    def send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Send a new message.
+
+        Args:
+            channel: Channel to send through.
+            to: Recipient address.
+            content: Message content.
+            subject: Optional subject line.
+
+        Returns:
+            Send confirmation with message_id.
+        """
+        data: dict[str, Any] = {"channel": channel, "to": to, "content": content}
+        if subject:
+            data["subject"] = subject
+        return self._client.request("POST", "/api/v1/inbox/messages/send", json=data)
+
+    # =========================================================================
+    # Triage
+    # =========================================================================
+
+    def triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Run multi-agent triage on messages.
+
+        Args:
+            message_ids: List of message IDs to triage.
+            context: Optional context with urgency_keywords, delegate_options.
+
+        Returns:
+            Triage results with recommendations.
+        """
+        data: dict[str, Any] = {"message_ids": message_ids}
+        if context:
+            data["context"] = context
+        return self._client.request("POST", "/api/v1/inbox/triage", json=data)
+
+    def bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """
+        Execute bulk action on messages.
+
+        Args:
+            message_ids: List of message IDs.
+            action: Action to perform (archive, mark_read, etc.).
+
+        Returns:
+            Action results with success/error counts.
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/inbox/bulk-action",
+            json={"message_ids": message_ids, "action": action},
+        )
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get inbox health statistics.
+
+        Returns:
+            Comprehensive inbox metrics.
+        """
+        return self._client.request("GET", "/api/v1/inbox/stats")
+
+    def get_trends(self, days: int = 7) -> dict[str, Any]:
+        """
+        Get priority trends over time.
+
+        Args:
+            days: Number of days to analyze (default 7).
+
+        Returns:
+            Trend analysis.
+        """
+        return self._client.request("GET", "/api/v1/inbox/trends", params={"days": days})
+
+    # =========================================================================
+    # Command Center
+    # =========================================================================
+
+    def get_command(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        priority: str | None = None,
+        unread_only: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Fetch prioritized inbox via command center.
+
+        Args:
+            limit: Maximum emails to return.
+            offset: Pagination offset.
+            priority: Filter by priority level.
+            unread_only: Only return unread emails.
+
+        Returns:
+            Prioritized emails with stats.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if priority:
+            params["priority"] = priority
+        if unread_only is not None:
+            params["unread_only"] = unread_only
+        return self._client.request("GET", "/api/v1/inbox/command", params=params)
+
+    def quick_action(
+        self,
+        action: str,
+        email_ids: list[str],
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Execute quick action on email(s).
+
+        Args:
+            action: Action type (archive, snooze, reply, forward, etc.).
+            email_ids: List of email IDs to act on.
+            params: Optional action-specific parameters.
+
+        Returns:
+            Action result with processed count.
+        """
+        data: dict[str, Any] = {"action": action, "emailIds": email_ids}
+        if params:
+            data["params"] = params
+        return self._client.request("POST", "/api/v1/inbox/actions", json=data)
+
+    def bulk_actions(
+        self,
+        action: str,
+        filter: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Execute bulk action based on filter.
+
+        Args:
+            action: Action to perform.
+            filter: Filter to apply (low, deferred, spam, read, all).
+            params: Optional action-specific parameters.
+
+        Returns:
+            Bulk action result with processed count.
+        """
+        data: dict[str, Any] = {"action": action, "filter": filter}
+        if params:
+            data["params"] = params
+        return self._client.request("POST", "/api/v1/inbox/bulk-actions", json=data)
+
+    def get_sender_profile(self, email: str) -> dict[str, Any]:
+        """
+        Get profile information for a sender.
+
+        Args:
+            email: Sender email address.
+
+        Returns:
+            Sender profile information.
+        """
+        return self._client.request(
+            "GET", "/api/v1/inbox/sender-profile", params={"email": email},
+        )
+
+    def get_daily_digest(self) -> dict[str, Any]:
+        """
+        Get daily digest statistics.
+
+        Returns:
+            Daily digest with stats.
+        """
+        return self._client.request("GET", "/api/v1/inbox/daily-digest")
+
+    def reprioritize(
+        self,
+        email_ids: list[str] | None = None,
+        force_tier: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Trigger AI re-prioritization of inbox.
+
+        Args:
+            email_ids: Optional list of specific email IDs to reprioritize.
+            force_tier: Optional tier to force (tier_1_rules, tier_2_lightweight, tier_3_debate).
+
+        Returns:
+            Reprioritization result with changes.
+        """
+        data: dict[str, Any] = {}
+        if email_ids:
+            data["emailIds"] = email_ids
+        if force_tier:
+            data["force_tier"] = force_tier
+        return self._client.request("POST", "/api/v1/inbox/reprioritize", json=data)
+
+    # =========================================================================
+    # Non-versioned aliases (/inbox/*)
+    # =========================================================================
+
+    def nv_get_gmail_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Gmail OAuth URL (non-versioned path)."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return self._client.request("GET", "/inbox/oauth/gmail", params=params)
+
+    def nv_get_outlook_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Outlook OAuth URL (non-versioned path)."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return self._client.request("GET", "/inbox/oauth/outlook", params=params)
+
+    def nv_connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """Connect an email account (non-versioned path)."""
+        return self._client.request(
+            "POST",
+            "/inbox/connect",
+            json={"provider": provider, "auth_code": auth_code, "redirect_uri": redirect_uri},
+        )
+
+    def nv_list_accounts(self) -> dict[str, Any]:
+        """List connected email accounts (non-versioned path)."""
+        return self._client.request("GET", "/inbox/accounts")
+
+    def nv_list_messages(self, **kwargs: Any) -> dict[str, Any]:
+        """Get prioritized messages (non-versioned path)."""
+        params: dict[str, Any] = {}
+        for k in ("limit", "offset", "priority", "account_id", "unread_only", "search"):
+            if k in kwargs and kwargs[k] is not None:
+                params[k] = kwargs[k]
+        return self._client.request("GET", "/inbox/messages", params=params if params else None)
+
+    def nv_send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a new message (non-versioned path)."""
+        data: dict[str, Any] = {"channel": channel, "to": to, "content": content}
+        if subject:
+            data["subject"] = subject
+        return self._client.request("POST", "/inbox/messages/send", json=data)
+
+    def nv_triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run triage on messages (non-versioned path)."""
+        data: dict[str, Any] = {"message_ids": message_ids}
+        if context:
+            data["context"] = context
+        return self._client.request("POST", "/inbox/triage", json=data)
+
+    def nv_bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """Execute bulk action on messages (non-versioned path)."""
+        return self._client.request(
+            "POST",
+            "/inbox/bulk-action",
+            json={"message_ids": message_ids, "action": action},
+        )
+
+    def nv_get_stats(self) -> dict[str, Any]:
+        """Get inbox health statistics (non-versioned path)."""
+        return self._client.request("GET", "/inbox/stats")
+
+    def nv_get_trends(self, days: int = 7) -> dict[str, Any]:
+        """Get priority trends (non-versioned path)."""
+        return self._client.request("GET", "/inbox/trends", params={"days": days})
+
+    # =========================================================================
+    # Convenience aliases
+    # =========================================================================
+
     def list(self, **kwargs: Any) -> dict[str, Any]:
         """List messages (alias for list_messages)."""
         return self.list_messages(**kwargs)
@@ -132,6 +574,295 @@ class AsyncUnifiedInboxAPI:
 
     def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
+
+    # =========================================================================
+    # OAuth Flow
+    # =========================================================================
+
+    async def get_gmail_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Gmail OAuth authorization URL."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return await self._client.request("GET", "/api/v1/inbox/oauth/gmail", params=params)
+
+    async def get_outlook_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Outlook OAuth authorization URL."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return await self._client.request("GET", "/api/v1/inbox/oauth/outlook", params=params)
+
+    # =========================================================================
+    # Account Management
+    # =========================================================================
+
+    async def connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """Connect an email account using OAuth authorization code."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/inbox/connect",
+            json={"provider": provider, "auth_code": auth_code, "redirect_uri": redirect_uri},
+        )
+
+    async def list_accounts(self) -> dict[str, Any]:
+        """List all connected email accounts."""
+        return await self._client.request("GET", "/api/v1/inbox/accounts")
+
+    async def disconnect(self, account_id: str) -> dict[str, Any]:
+        """Disconnect an email account."""
+        return await self._client.request("DELETE", f"/api/v1/inbox/accounts/{account_id}")
+
+    # =========================================================================
+    # Messages
+    # =========================================================================
+
+    async def list_messages(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        priority: PriorityTier | None = None,
+        account_id: str | None = None,
+        unread_only: bool | None = None,
+        search: str | None = None,
+    ) -> dict[str, Any]:
+        """Get prioritized messages across all accounts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if priority:
+            params["priority"] = priority
+        if account_id:
+            params["account_id"] = account_id
+        if unread_only is not None:
+            params["unread_only"] = unread_only
+        if search:
+            params["search"] = search
+        return await self._client.request("GET", "/api/v1/inbox/messages", params=params)
+
+    async def get_message(self, message_id: str) -> dict[str, Any]:
+        """Get details of a specific message."""
+        return await self._client.request("GET", f"/api/v1/inbox/messages/{message_id}")
+
+    async def send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a new message."""
+        data: dict[str, Any] = {"channel": channel, "to": to, "content": content}
+        if subject:
+            data["subject"] = subject
+        return await self._client.request("POST", "/api/v1/inbox/messages/send", json=data)
+
+    # =========================================================================
+    # Triage
+    # =========================================================================
+
+    async def triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run multi-agent triage on messages."""
+        data: dict[str, Any] = {"message_ids": message_ids}
+        if context:
+            data["context"] = context
+        return await self._client.request("POST", "/api/v1/inbox/triage", json=data)
+
+    async def bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """Execute bulk action on messages."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/inbox/bulk-action",
+            json={"message_ids": message_ids, "action": action},
+        )
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get inbox health statistics."""
+        return await self._client.request("GET", "/api/v1/inbox/stats")
+
+    async def get_trends(self, days: int = 7) -> dict[str, Any]:
+        """Get priority trends over time."""
+        return await self._client.request("GET", "/api/v1/inbox/trends", params={"days": days})
+
+    # =========================================================================
+    # Command Center
+    # =========================================================================
+
+    async def get_command(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        priority: str | None = None,
+        unread_only: bool | None = None,
+    ) -> dict[str, Any]:
+        """Fetch prioritized inbox via command center."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if priority:
+            params["priority"] = priority
+        if unread_only is not None:
+            params["unread_only"] = unread_only
+        return await self._client.request("GET", "/api/v1/inbox/command", params=params)
+
+    async def quick_action(
+        self,
+        action: str,
+        email_ids: list[str],
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute quick action on email(s)."""
+        data: dict[str, Any] = {"action": action, "emailIds": email_ids}
+        if params:
+            data["params"] = params
+        return await self._client.request("POST", "/api/v1/inbox/actions", json=data)
+
+    async def bulk_actions(
+        self,
+        action: str,
+        filter: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute bulk action based on filter."""
+        data: dict[str, Any] = {"action": action, "filter": filter}
+        if params:
+            data["params"] = params
+        return await self._client.request("POST", "/api/v1/inbox/bulk-actions", json=data)
+
+    async def get_sender_profile(self, email: str) -> dict[str, Any]:
+        """Get profile information for a sender."""
+        return await self._client.request(
+            "GET", "/api/v1/inbox/sender-profile", params={"email": email},
+        )
+
+    async def get_daily_digest(self) -> dict[str, Any]:
+        """Get daily digest statistics."""
+        return await self._client.request("GET", "/api/v1/inbox/daily-digest")
+
+    async def reprioritize(
+        self,
+        email_ids: list[str] | None = None,
+        force_tier: str | None = None,
+    ) -> dict[str, Any]:
+        """Trigger AI re-prioritization of inbox."""
+        data: dict[str, Any] = {}
+        if email_ids:
+            data["emailIds"] = email_ids
+        if force_tier:
+            data["force_tier"] = force_tier
+        return await self._client.request("POST", "/api/v1/inbox/reprioritize", json=data)
+
+    # =========================================================================
+    # Non-versioned aliases (/inbox/*)
+    # =========================================================================
+
+    async def nv_get_gmail_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Gmail OAuth URL (non-versioned path)."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return await self._client.request("GET", "/inbox/oauth/gmail", params=params)
+
+    async def nv_get_outlook_oauth_url(
+        self, redirect_uri: str, state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Outlook OAuth URL (non-versioned path)."""
+        params: dict[str, Any] = {"redirect_uri": redirect_uri}
+        if state:
+            params["state"] = state
+        return await self._client.request("GET", "/inbox/oauth/outlook", params=params)
+
+    async def nv_connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """Connect an email account (non-versioned path)."""
+        return await self._client.request(
+            "POST",
+            "/inbox/connect",
+            json={"provider": provider, "auth_code": auth_code, "redirect_uri": redirect_uri},
+        )
+
+    async def nv_list_accounts(self) -> dict[str, Any]:
+        """List connected email accounts (non-versioned path)."""
+        return await self._client.request("GET", "/inbox/accounts")
+
+    async def nv_list_messages(self, **kwargs: Any) -> dict[str, Any]:
+        """Get prioritized messages (non-versioned path)."""
+        params: dict[str, Any] = {}
+        for k in ("limit", "offset", "priority", "account_id", "unread_only", "search"):
+            if k in kwargs and kwargs[k] is not None:
+                params[k] = kwargs[k]
+        return await self._client.request("GET", "/inbox/messages", params=params if params else None)
+
+    async def nv_send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a new message (non-versioned path)."""
+        data: dict[str, Any] = {"channel": channel, "to": to, "content": content}
+        if subject:
+            data["subject"] = subject
+        return await self._client.request("POST", "/inbox/messages/send", json=data)
+
+    async def nv_triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run triage on messages (non-versioned path)."""
+        data: dict[str, Any] = {"message_ids": message_ids}
+        if context:
+            data["context"] = context
+        return await self._client.request("POST", "/inbox/triage", json=data)
+
+    async def nv_bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """Execute bulk action on messages (non-versioned path)."""
+        return await self._client.request(
+            "POST",
+            "/inbox/bulk-action",
+            json={"message_ids": message_ids, "action": action},
+        )
+
+    async def nv_get_stats(self) -> dict[str, Any]:
+        """Get inbox health statistics (non-versioned path)."""
+        return await self._client.request("GET", "/inbox/stats")
+
+    async def nv_get_trends(self, days: int = 7) -> dict[str, Any]:
+        """Get priority trends (non-versioned path)."""
+        return await self._client.request("GET", "/inbox/trends", params={"days": days})
+
+    # =========================================================================
+    # Convenience aliases
+    # =========================================================================
 
     async def list(self, **kwargs: Any) -> dict[str, Any]:
         """List messages (alias for list_messages)."""

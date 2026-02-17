@@ -47,6 +47,24 @@ class RepositoryAPI:
         self._client = client
 
     # ===========================================================================
+    # Repository List
+    # ===========================================================================
+
+    def list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """
+        List indexed repositories.
+
+        Args:
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            Paginated list of indexed repositories.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("POST", "/api/v1/repository", params=params)
+
+    # ===========================================================================
     # Indexing Operations
     # ===========================================================================
 
@@ -345,6 +363,15 @@ class AsyncRepositoryAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    # ===========================================================================
+    # Repository List
+    # ===========================================================================
+
+    async def list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List indexed repositories."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("POST", "/api/v1/repository", params=params)
 
     # ===========================================================================
     # Indexing Operations

@@ -21,6 +21,35 @@ class ReplaysAPI:
     def __init__(self, client: AragoraClient) -> None:
         self._client = client
 
+    def search(
+        self,
+        query: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        Search replays.
+
+        Args:
+            query: Search query.
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            Search results with replay matches.
+        """
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/replays/search", params=params)
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get replay statistics.
+
+        Returns:
+            Replay statistics including counts and durations.
+        """
+        return self._client.request("GET", "/api/v1/replays/stats")
+
     def list(
         self,
         workspace_id: str | None = None,
@@ -42,7 +71,7 @@ class ReplaysAPI:
         if workspace_id:
             params["workspace_id"] = workspace_id
 
-        return self._client._request("GET", "/api/v1/replays", params=params)
+        return self._client.request("GET", "/api/v1/replays", params=params)
 
     def get(self, replay_id: str) -> dict[str, Any]:
         """
@@ -54,7 +83,7 @@ class ReplaysAPI:
         Returns:
             Replay details
         """
-        return self._client._request("GET", f"/api/v1/replays/{replay_id}")
+        return self._client.request("GET", f"/api/v1/replays/{replay_id}")
 
     def get_from_debate(self, debate_id: str) -> dict[str, Any]:
         """
@@ -66,7 +95,7 @@ class ReplaysAPI:
         Returns:
             Replay data for the debate
         """
-        return self._client._request("GET", f"/api/v1/debates/{debate_id}/replay")
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/replay")
 
     def get_events(
         self,
@@ -91,7 +120,7 @@ class ReplaysAPI:
         if event_type:
             params["event_type"] = event_type
 
-        return self._client._request("GET", f"/api/v1/replays/{replay_id}/events", params=params)
+        return self._client.request("GET", f"/api/v1/replays/{replay_id}/events", params=params)
 
     def export(
         self,
@@ -109,7 +138,7 @@ class ReplaysAPI:
             Exported replay data or download URL
         """
         params: dict[str, Any] = {"format": format}
-        return self._client._request("GET", f"/api/v1/replays/{replay_id}/export", params=params)
+        return self._client.request("GET", f"/api/v1/replays/{replay_id}/export", params=params)
 
     def get_summary(self, replay_id: str) -> dict[str, Any]:
         """
@@ -121,7 +150,7 @@ class ReplaysAPI:
         Returns:
             Summary with key moments and statistics
         """
-        return self._client._request("GET", f"/api/v1/replays/{replay_id}/summary")
+        return self._client.request("GET", f"/api/v1/replays/{replay_id}/summary")
 
     def get_evolution(self, replay_id: str) -> dict[str, Any]:
         """
@@ -133,7 +162,7 @@ class ReplaysAPI:
         Returns:
             Position evolution data
         """
-        return self._client._request("GET", f"/api/v1/replays/{replay_id}/evolution")
+        return self._client.request("GET", f"/api/v1/replays/{replay_id}/evolution")
 
     def fork(
         self,
@@ -159,7 +188,7 @@ class ReplaysAPI:
         if new_input:
             data["new_input"] = new_input
 
-        return self._client._request("POST", f"/api/v1/replays/{replay_id}/fork", json=data)
+        return self._client.request("POST", f"/api/v1/replays/{replay_id}/fork", json=data)
 
     def compare(
         self,
@@ -176,7 +205,7 @@ class ReplaysAPI:
         Returns:
             Comparison analysis
         """
-        return self._client._request(
+        return self._client.request(
             "GET",
             "/api/v1/replays/compare",
             params={"replay_id_1": replay_id_1, "replay_id_2": replay_id_2},
@@ -192,7 +221,7 @@ class ReplaysAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client._request("DELETE", f"/api/v1/replays/{replay_id}")
+        return self._client.request("DELETE", f"/api/v1/replays/{replay_id}")
 
 
 class AsyncReplaysAPI:
@@ -200,6 +229,17 @@ class AsyncReplaysAPI:
 
     def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
+
+    async def search(
+        self, query: str, limit: int = 50, offset: int = 0,
+    ) -> dict[str, Any]:
+        """Search replays."""
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/replays/search", params=params)
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get replay statistics."""
+        return await self._client.request("GET", "/api/v1/replays/stats")
 
     async def list(
         self,
@@ -212,15 +252,15 @@ class AsyncReplaysAPI:
         if workspace_id:
             params["workspace_id"] = workspace_id
 
-        return await self._client._request("GET", "/api/v1/replays", params=params)
+        return await self._client.request("GET", "/api/v1/replays", params=params)
 
     async def get(self, replay_id: str) -> dict[str, Any]:
         """Get a replay by ID."""
-        return await self._client._request("GET", f"/api/v1/replays/{replay_id}")
+        return await self._client.request("GET", f"/api/v1/replays/{replay_id}")
 
     async def get_from_debate(self, debate_id: str) -> dict[str, Any]:
         """Get the replay for a debate."""
-        return await self._client._request("GET", f"/api/v1/debates/{debate_id}/replay")
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/replay")
 
     async def get_events(
         self,
@@ -234,7 +274,7 @@ class AsyncReplaysAPI:
         if event_type:
             params["event_type"] = event_type
 
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/replays/{replay_id}/events", params=params
         )
 
@@ -245,17 +285,17 @@ class AsyncReplaysAPI:
     ) -> dict[str, Any]:
         """Export a replay."""
         params: dict[str, Any] = {"format": format}
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/replays/{replay_id}/export", params=params
         )
 
     async def get_summary(self, replay_id: str) -> dict[str, Any]:
         """Get replay summary with key moments."""
-        return await self._client._request("GET", f"/api/v1/replays/{replay_id}/summary")
+        return await self._client.request("GET", f"/api/v1/replays/{replay_id}/summary")
 
     async def get_evolution(self, replay_id: str) -> dict[str, Any]:
         """Get the evolution of positions throughout the debate."""
-        return await self._client._request("GET", f"/api/v1/replays/{replay_id}/evolution")
+        return await self._client.request("GET", f"/api/v1/replays/{replay_id}/evolution")
 
     async def fork(
         self,
@@ -268,7 +308,7 @@ class AsyncReplaysAPI:
         if new_input:
             data["new_input"] = new_input
 
-        return await self._client._request("POST", f"/api/v1/replays/{replay_id}/fork", json=data)
+        return await self._client.request("POST", f"/api/v1/replays/{replay_id}/fork", json=data)
 
     async def compare(
         self,
@@ -276,7 +316,7 @@ class AsyncReplaysAPI:
         replay_id_2: str,
     ) -> dict[str, Any]:
         """Compare two replays."""
-        return await self._client._request(
+        return await self._client.request(
             "GET",
             "/api/v1/replays/compare",
             params={"replay_id_1": replay_id_1, "replay_id_2": replay_id_2},
@@ -284,4 +324,4 @@ class AsyncReplaysAPI:
 
     async def delete(self, replay_id: str) -> dict[str, Any]:
         """Delete a replay."""
-        return await self._client._request("DELETE", f"/api/v1/replays/{replay_id}")
+        return await self._client.request("DELETE", f"/api/v1/replays/{replay_id}")

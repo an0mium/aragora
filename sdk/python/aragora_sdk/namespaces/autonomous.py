@@ -320,6 +320,39 @@ class AutonomousAPI:
         return self._client.request("POST", "/api/v2/learning/calibrate", json=data)
 
     # =========================================================================
+    # Learning - Knowledge Extraction
+    # =========================================================================
+
+    def extract_knowledge(
+        self,
+        *,
+        source_type: str | None = None,
+        debate_id: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Trigger knowledge extraction from learning data.
+
+        POST /api/v1/learning/knowledge/extract
+
+        Args:
+            source_type: Type of source to extract from
+            debate_id: Optional debate ID to extract from
+            options: Optional extraction configuration
+
+        Returns:
+            Dict with extraction job details
+        """
+        data: dict[str, Any] = {}
+        if source_type:
+            data["source_type"] = source_type
+        if debate_id:
+            data["debate_id"] = debate_id
+        if options:
+            data["options"] = options
+        return self._client.request("POST", "/api/v1/learning/knowledge/extract", json=data)
+
+    # =========================================================================
     # Monitoring
     # =========================================================================
 
@@ -603,6 +636,27 @@ class AsyncAutonomousAPI:
         if agent_ids:
             data["agent_ids"] = agent_ids
         return await self._client.request("POST", "/api/v2/learning/calibrate", json=data)
+
+    # =========================================================================
+    # Learning - Knowledge Extraction
+    # =========================================================================
+
+    async def extract_knowledge(
+        self,
+        *,
+        source_type: str | None = None,
+        debate_id: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Trigger knowledge extraction. POST /api/v1/learning/knowledge/extract"""
+        data: dict[str, Any] = {}
+        if source_type:
+            data["source_type"] = source_type
+        if debate_id:
+            data["debate_id"] = debate_id
+        if options:
+            data["options"] = options
+        return await self._client.request("POST", "/api/v1/learning/knowledge/extract", json=data)
 
     # =========================================================================
     # Monitoring

@@ -172,6 +172,54 @@ class KnowledgeAPI:
         }
         return self._client.request("POST", "/api/v1/knowledge/facts/relations", json=payload)
 
+    def batch_create_facts(self, facts: list[dict[str, Any]]) -> dict[str, Any]:
+        """Create multiple facts in batch."""
+        return self._client.request("POST", "/api/v1/knowledge/facts/batch", json={"facts": facts})
+
+    def batch_delete_facts(self, fact_ids: list[str]) -> dict[str, Any]:
+        """Delete multiple facts in batch."""
+        return self._client.request("POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids})
+
+    def merge_facts(
+        self, source_ids: list[str], target_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Merge multiple facts."""
+        data: dict[str, Any] = {"source_ids": source_ids}
+        if target_id:
+            data["target_id"] = target_id
+        return self._client.request("POST", "/api/v1/knowledge/facts/merge", json=data)
+
+    def list_fact_relationships(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List fact relationships."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/knowledge/facts/relationships", params=params)
+
+    def get_fact_stats(self) -> dict[str, Any]:
+        """Get fact statistics."""
+        return self._client.request("GET", "/api/v1/knowledge/facts/stats")
+
+    def validate_facts(self, fact_ids: list[str] | None = None) -> dict[str, Any]:
+        """Validate facts."""
+        data: dict[str, Any] = {}
+        if fact_ids:
+            data["fact_ids"] = fact_ids
+        return self._client.request("POST", "/api/v1/knowledge/facts/validate", json=data)
+
+    # ========== Index Operations ==========
+
+    def create_index(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a knowledge index."""
+        return self._client.request("POST", "/api/v1/knowledge/index", json=data)
+
+    def embed_batch(self, texts: list[str]) -> dict[str, Any]:
+        """Create embeddings for a batch of texts."""
+        return self._client.request("POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts})
+
+    def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
+        """Search the knowledge index."""
+        params: dict[str, Any] = {"q": query, "limit": limit}
+        return self._client.request("GET", "/api/v1/knowledge/index/search", params=params)
+
     def create_embeddings(
         self, text: str, **kwargs: Any
     ) -> dict[str, Any]:
@@ -360,6 +408,28 @@ class KnowledgeAPI:
         )
 
     # =========================================================================
+    # KM Checkpoints
+    # =========================================================================
+
+    def list_checkpoints(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List Knowledge Mound checkpoints."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v1/km/checkpoints", params=params)
+
+    # =========================================================================
+    # Culture Documents & Promote
+    # =========================================================================
+
+    def add_culture_document(self, document: dict[str, Any]) -> dict[str, Any]:
+        """Add a culture document to the Knowledge Mound."""
+        return self._client.request("POST", "/api/v1/knowledge/mound/culture/documents", json=document)
+
+    def promote_culture(self, node_id: str, **options: Any) -> dict[str, Any]:
+        """Promote a node to culture knowledge."""
+        data: dict[str, Any] = {"node_id": node_id, **options}
+        return self._client.request("POST", "/api/v1/knowledge/mound/culture/promote", json=data)
+
+    # =========================================================================
     # Culture, Revalidation & Sync
     # =========================================================================
 
@@ -519,6 +589,54 @@ class KnowledgeAPI:
             params["user_id"] = user_id
         return self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user", params=params)
 
+    # ========== Short Alias Routes (/api/v1/facts/*, /api/v1/index/*) ==========
+
+    def facts_batch_create(self, facts: list[dict[str, Any]]) -> dict[str, Any]:
+        """Batch create facts (short alias)."""
+        return self._client.request("POST", "/api/v1/facts/batch", json={"facts": facts})
+
+    def facts_batch_delete(self, fact_ids: list[str]) -> dict[str, Any]:
+        """Batch delete facts (short alias)."""
+        return self._client.request("POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids})
+
+    def facts_merge(self, source_id: str, target_id: str) -> dict[str, Any]:
+        """Merge two facts (short alias)."""
+        return self._client.request("POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id})
+
+    def facts_relationships(self, fact_id: str | None = None) -> dict[str, Any]:
+        """List fact relationships (short alias)."""
+        params: dict[str, Any] = {}
+        if fact_id:
+            params["fact_id"] = fact_id
+        return self._client.request("GET", "/api/v1/facts/relationships", params=params if params else None)
+
+    def facts_stats(self) -> dict[str, Any]:
+        """Get fact statistics (short alias)."""
+        return self._client.request("GET", "/api/v1/facts/stats")
+
+    def facts_validate(self, fact_ids: list[str] | None = None) -> dict[str, Any]:
+        """Validate facts (short alias)."""
+        data: dict[str, Any] = {}
+        if fact_ids:
+            data["fact_ids"] = fact_ids
+        return self._client.request("POST", "/api/v1/facts/validate", json=data)
+
+    def index_create(self, name: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Create a search index (short alias)."""
+        data: dict[str, Any] = {"name": name}
+        if config:
+            data["config"] = config
+        return self._client.request("POST", "/api/v1/index", json=data)
+
+    def index_embed_batch(self, texts: list[str]) -> dict[str, Any]:
+        """Embed a batch of texts (short alias)."""
+        return self._client.request("POST", "/api/v1/index/embed-batch", json={"texts": texts})
+
+    def index_search(self, query: str, limit: int = 10) -> dict[str, Any]:
+        """Search the index (short alias)."""
+        params: dict[str, Any] = {"q": query, "limit": limit}
+        return self._client.request("GET", "/api/v1/index/search", params=params)
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""
@@ -668,6 +786,68 @@ class AsyncKnowledgeAPI:
             "relation_type": relation_type,
         }
         return await self._client.request("POST", "/api/v1/knowledge/facts/relations", json=payload)
+
+    async def batch_create_facts(self, facts: list[dict[str, Any]]) -> dict[str, Any]:
+        """Create multiple facts in batch."""
+        return await self._client.request("POST", "/api/v1/knowledge/facts/batch", json={"facts": facts})
+
+    async def batch_delete_facts(self, fact_ids: list[str]) -> dict[str, Any]:
+        """Delete multiple facts in batch."""
+        return await self._client.request("POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids})
+
+    async def merge_facts(self, source_ids: list[str], target_id: str | None = None) -> dict[str, Any]:
+        """Merge multiple facts."""
+        data: dict[str, Any] = {"source_ids": source_ids}
+        if target_id:
+            data["target_id"] = target_id
+        return await self._client.request("POST", "/api/v1/knowledge/facts/merge", json=data)
+
+    async def list_fact_relationships(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List fact relationships."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/knowledge/facts/relationships", params=params)
+
+    async def get_fact_stats(self) -> dict[str, Any]:
+        """Get fact statistics."""
+        return await self._client.request("GET", "/api/v1/knowledge/facts/stats")
+
+    async def validate_facts(self, fact_ids: list[str] | None = None) -> dict[str, Any]:
+        """Validate facts."""
+        data: dict[str, Any] = {}
+        if fact_ids:
+            data["fact_ids"] = fact_ids
+        return await self._client.request("POST", "/api/v1/knowledge/facts/validate", json=data)
+
+    async def create_index(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a knowledge index."""
+        return await self._client.request("POST", "/api/v1/knowledge/index", json=data)
+
+    async def embed_batch(self, texts: list[str]) -> dict[str, Any]:
+        """Create embeddings for a batch of texts."""
+        return await self._client.request("POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts})
+
+    async def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
+        """Search the knowledge index."""
+        params: dict[str, Any] = {"q": query, "limit": limit}
+        return await self._client.request("GET", "/api/v1/knowledge/index/search", params=params)
+
+    # ========== KM Checkpoints ==========
+
+    async def list_checkpoints(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List Knowledge Mound checkpoints."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v1/km/checkpoints", params=params)
+
+    # ========== Culture Documents & Promote ==========
+
+    async def add_culture_document(self, document: dict[str, Any]) -> dict[str, Any]:
+        """Add a culture document to the Knowledge Mound."""
+        return await self._client.request("POST", "/api/v1/knowledge/mound/culture/documents", json=document)
+
+    async def promote_culture(self, node_id: str, **options: Any) -> dict[str, Any]:
+        """Promote a node to culture knowledge."""
+        data: dict[str, Any] = {"node_id": node_id, **options}
+        return await self._client.request("POST", "/api/v1/knowledge/mound/culture/promote", json=data)
 
     async def create_embeddings(
         self, text: str, **kwargs: Any
@@ -1371,3 +1551,51 @@ class AsyncKnowledgeAPI:
             "/api/v1/knowledge/mound/curation/history",
             params={"limit": limit, "offset": offset},
         )
+
+    # ========== Short Alias Routes (/api/v1/facts/*, /api/v1/index/*) ==========
+
+    async def facts_batch_create(self, facts: list[dict[str, Any]]) -> dict[str, Any]:
+        """Batch create facts (short alias)."""
+        return await self._client.request("POST", "/api/v1/facts/batch", json={"facts": facts})
+
+    async def facts_batch_delete(self, fact_ids: list[str]) -> dict[str, Any]:
+        """Batch delete facts (short alias)."""
+        return await self._client.request("POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids})
+
+    async def facts_merge(self, source_id: str, target_id: str) -> dict[str, Any]:
+        """Merge two facts (short alias)."""
+        return await self._client.request("POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id})
+
+    async def facts_relationships(self, fact_id: str | None = None) -> dict[str, Any]:
+        """List fact relationships (short alias)."""
+        params: dict[str, Any] = {}
+        if fact_id:
+            params["fact_id"] = fact_id
+        return await self._client.request("GET", "/api/v1/facts/relationships", params=params if params else None)
+
+    async def facts_stats(self) -> dict[str, Any]:
+        """Get fact statistics (short alias)."""
+        return await self._client.request("GET", "/api/v1/facts/stats")
+
+    async def facts_validate(self, fact_ids: list[str] | None = None) -> dict[str, Any]:
+        """Validate facts (short alias)."""
+        data: dict[str, Any] = {}
+        if fact_ids:
+            data["fact_ids"] = fact_ids
+        return await self._client.request("POST", "/api/v1/facts/validate", json=data)
+
+    async def index_create(self, name: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Create a search index (short alias)."""
+        data: dict[str, Any] = {"name": name}
+        if config:
+            data["config"] = config
+        return await self._client.request("POST", "/api/v1/index", json=data)
+
+    async def index_embed_batch(self, texts: list[str]) -> dict[str, Any]:
+        """Embed a batch of texts (short alias)."""
+        return await self._client.request("POST", "/api/v1/index/embed-batch", json={"texts": texts})
+
+    async def index_search(self, query: str, limit: int = 10) -> dict[str, Any]:
+        """Search the index (short alias)."""
+        params: dict[str, Any] = {"q": query, "limit": limit}
+        return await self._client.request("GET", "/api/v1/index/search", params=params)
