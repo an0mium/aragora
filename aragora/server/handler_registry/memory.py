@@ -209,6 +209,8 @@ __all__ = [
     "SharingNotificationsHandler",
     # Autonomous learning
     "AutonomousLearningHandler",
+    # Unified memory
+    "UnifiedMemoryHandler",
     # Registry
     "MEMORY_HANDLER_REGISTRY",
 ]
