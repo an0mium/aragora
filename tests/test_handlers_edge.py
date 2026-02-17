@@ -63,13 +63,13 @@ class TestProbesHandlerEdge:
 
     def test_get_request_returns_none(self, handler):
         """GET requests should return None (not supported)."""
-        result = handler.handle("/api/probes/capability", {})
+        result = handler.handle("/api/v1/probes/capability", {})
         assert result is None
 
     def test_missing_body_returns_error(self, handler):
         """POST without body should return error."""
         mock_handler = MockHandler(b"")
-        result = handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
 
         # Should return error for empty/invalid body
         assert result is not None
@@ -78,7 +78,7 @@ class TestProbesHandlerEdge:
     def test_invalid_json_returns_error(self, handler):
         """POST with invalid JSON should return error."""
         mock_handler = MockHandler(b"not valid json {{{")
-        result = handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -86,7 +86,7 @@ class TestProbesHandlerEdge:
     def test_missing_agent_name_returns_error(self, handler):
         """POST without agent_name should return error."""
         mock_handler = MockHandler(json.dumps({"strategies": ["test"]}).encode())
-        result = handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
 
         assert result is not None
         # Should error for missing required field
@@ -98,7 +98,7 @@ class TestProbesHandlerEdge:
 
         with patch.object(handler, "_run_capability_probe") as mock_run:
             mock_run.return_value = error_response("Prober not available", 503)
-            result = handler.handle_post("/api/probes/capability", {}, mock_handler)
+            result = handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
 
         assert result.status_code == 503
 
@@ -124,7 +124,7 @@ class TestVerificationHandlerEdge:
 
     def test_status_when_unavailable(self, handler):
         """Status should report unavailable when Z3 not installed."""
-        with patch("aragora.server.handlers.verification.FORMAL_VERIFICATION_AVAILABLE", False):
+        with patch("aragora.server.handlers.verification.verification.FORMAL_VERIFICATION_AVAILABLE", False):
             result = handler._get_status()
 
         assert result.status_code == 200
@@ -134,7 +134,7 @@ class TestVerificationHandlerEdge:
     def test_verify_without_claim_returns_error(self, handler):
         """Verify without claim should return error."""
         mock_handler = MockHandler(json.dumps({"context": "some context"}).encode())
-        result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+        result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
 
         assert result is not None
         assert result.status_code >= 400
@@ -142,7 +142,7 @@ class TestVerificationHandlerEdge:
     def test_verify_with_empty_claim_returns_error(self, handler):
         """Verify with empty claim should return error."""
         mock_handler = MockHandler(json.dumps({"claim": ""}).encode())
-        result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+        result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
 
         assert result is not None
         assert result.status_code >= 400
@@ -153,7 +153,7 @@ class TestVerificationHandlerEdge:
         mock_handler = MockHandler(json.dumps({"claim": large_claim}).encode())
 
         # Should either process or reject gracefully
-        result = handler.handle_post("/api/verification/formal-verify", {}, mock_handler)
+        result = handler.handle_post("/api/v1/verification/formal-verify", {}, mock_handler)
         assert result is not None
         # Should not crash, should return some response
         assert result.status_code in (200, 400, 413, 500, 503)

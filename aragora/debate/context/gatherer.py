@@ -187,7 +187,7 @@ class ContextGatherer:
                     except (RuntimeError, ValueError, OSError) as e:
                         logger.warning("[knowledge] Failed to initialize Knowledge Mound: %s", e)
                         self._enable_knowledge_grounding = False
-                except Exception as e:
+                except (TypeError, AttributeError, KeyError, ImportError, ConnectionError) as e:
                     logger.warning(
                         "[knowledge] Unexpected error initializing Knowledge Mound: %s", e
                     )
@@ -207,7 +207,7 @@ class ContextGatherer:
             except ImportError:
                 logger.debug("[belief] Belief analyzer module not available")
                 self._enable_belief_guidance = False
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.warning("[belief] Failed to initialize belief analyzer: %s", e)
                 self._enable_belief_guidance = False
 
@@ -227,7 +227,7 @@ class ContextGatherer:
                 except (RuntimeError, ValueError, OSError) as e:
                     logger.warning("[threat_intel] Failed to initialize enrichment: %s", e)
                     self._enable_threat_intel = False
-                except Exception as e:
+                except (TypeError, AttributeError, KeyError, ImportError, ConnectionError) as e:
                     logger.warning("[threat_intel] Unexpected error initializing enrichment: %s", e)
                     self._enable_threat_intel = False
             else:

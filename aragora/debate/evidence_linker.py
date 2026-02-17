@@ -55,7 +55,7 @@ def _ensure_embeddings_checked() -> None:
         _SentenceTransformer = __ST
         _np = __np
         _EMBEDDINGS_AVAILABLE = True
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.debug(
             f"sentence-transformers not available: {e}. "
             "Using heuristic claim-evidence linking"
@@ -190,7 +190,7 @@ class EvidenceClaimLinker:
             try:
                 self._embedder = _SentenceTransformer(embedding_model)
                 logger.debug(f"Loaded embedding model: {embedding_model}")
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
                 logger.warning(f"Failed to load embedding model: {e}")
 
     @property
@@ -370,7 +370,7 @@ class EvidenceClaimLinker:
         if self._embedder is not None:
             try:
                 semantic_score = self._compute_semantic_similarity(claim, evidence.text)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.debug(f"Semantic similarity failed: {e}")
                 semantic_score = 0.5
         else:

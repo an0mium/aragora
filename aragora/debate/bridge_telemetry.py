@@ -296,14 +296,14 @@ def with_bridge_telemetry(
             if extract_metadata:
                 try:
                     op.metadata = extract_metadata(*args, **kwargs)
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                     logger.debug(f"bridge_telemetry_metadata_extraction_failed: {e}")
 
             try:
                 result = await func(*args, **kwargs)
                 op.complete(success=True)
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - telemetry decorator: must catch all to record before re-raising
                 op.complete(success=False, error=e)
                 raise
             finally:
@@ -324,14 +324,14 @@ def with_bridge_telemetry(
             if extract_metadata:
                 try:
                     op.metadata = extract_metadata(*args, **kwargs)
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                     logger.debug(f"bridge_telemetry_metadata_extraction_failed: {e}")
 
             try:
                 result = func(*args, **kwargs)
                 op.complete(success=True)
                 return result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - telemetry decorator: must catch all to record before re-raising
                 op.complete(success=False, error=e)
                 raise
             finally:

@@ -124,7 +124,7 @@ class CompressionMixin:
                 logger.debug("[rlm] AragoraRLM compression timed out")
             except (ValueError, RuntimeError) as e:
                 logger.debug("[rlm] AragoraRLM compression failed: %s", e)
-            except Exception as e:
+            except (TypeError, AttributeError, KeyError, OSError, ConnectionError, ImportError) as e:
                 logger.warning("[rlm] Unexpected error in AragoraRLM compression: %s", e)
 
         # FALLBACK: Try direct HierarchicalCompressor (compression-only)
@@ -165,7 +165,7 @@ class CompressionMixin:
                 logger.debug("[rlm] HierarchicalCompressor timed out")
             except (ValueError, RuntimeError) as e:
                 logger.debug("[rlm] HierarchicalCompressor failed: %s", e)
-            except Exception as e:
+            except (TypeError, AttributeError, KeyError, OSError, ConnectionError, ImportError) as e:
                 logger.warning("[rlm] Unexpected error in HierarchicalCompressor: %s", e)
 
         # FINAL FALLBACK: Simple truncation
@@ -252,7 +252,7 @@ class CompressionMixin:
             logger.debug("[rlm] TRUE RLM query timed out for: '%s...'", query[:30])
         except (ValueError, RuntimeError) as e:
             logger.debug("[rlm] TRUE RLM query failed: %s", e)
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, OSError, ConnectionError) as e:
             logger.warning("[rlm] Unexpected error in TRUE RLM query: %s", e)
 
         return None
@@ -319,7 +319,7 @@ class CompressionMixin:
 
         except ImportError:
             logger.debug("[rlm] REPL adapter not available for knowledge queries")
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, RuntimeError, OSError, ConnectionError) as e:
             logger.warning("[rlm] Failed to create knowledge REPL: %s", e)
 
         # Fall back to standard knowledge query

@@ -178,7 +178,7 @@ class TestAdminAuth:
 
     def test_returns_503_when_no_user_store(self, admin_handler_no_store, mock_handler):
         """Returns 503 when user store is unavailable."""
-        result = admin_handler_no_store.handle("/api/admin/stats", {}, mock_handler)
+        result = admin_handler_no_store.handle("/api/v1/admin/stats", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -192,7 +192,7 @@ class TestAdminAuth:
         mock_auth.is_authenticated = False
         mock_extract.return_value = mock_auth
 
-        result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+        result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -215,7 +215,7 @@ class TestAdminAuth:
         non_admin.role = "member"
         mock_user_store.get_user_by_id.return_value = non_admin
 
-        result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+        result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 403
@@ -231,7 +231,7 @@ class TestAdminAuth:
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = {"reason": "MFA not enabled", "action": "enable_mfa"}
 
-        result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+        result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 403
@@ -266,7 +266,7 @@ class TestGetAdminStats:
         mock_extract.return_value = mock_auth_context
         mock_mfa.return_value = None  # MFA compliant
 
-        result = admin_handler.handle("/api/admin/stats", {}, mock_handler)
+        result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -307,7 +307,7 @@ class TestListUsers:
         }
         mock_user_store.list_all_users.return_value = ([user], 1)
 
-        result = admin_handler.handle("/api/admin/users", {}, mock_handler)
+        result = admin_handler.handle("/api/v1/admin/users", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -550,7 +550,7 @@ class TestMethodNotAllowed:
         mock_handler.command = "POST"
 
         # /api/admin/stats is GET only
-        result = admin_handler.handle("/api/admin/stats", {}, mock_handler, method="POST")
+        result = admin_handler.handle("/api/v1/admin/stats", {}, mock_handler, method="POST")
 
         assert result is not None
         assert result.status_code == 405

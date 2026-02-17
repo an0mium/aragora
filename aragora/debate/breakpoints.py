@@ -566,7 +566,7 @@ How would you like to proceed?
                 )
             )
             logger.info(f"Emitted BREAKPOINT_RESOLVED event for {breakpoint.breakpoint_id}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to emit breakpoint resolved event: {e}")
 
     def inject_guidance(

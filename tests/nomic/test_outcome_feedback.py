@@ -126,7 +126,7 @@ class TestErrorToGoals:
 class TestGenerateGoals:
     """Tests for generate_improvement_goals."""
 
-    @patch("aragora.nomic.outcome_feedback.OutcomeVerifier")
+    @patch("aragora.debate.outcome_verifier.OutcomeVerifier")
     def test_generates_from_verifier(self, MockVerifier, bridge):
         mock_instance = MagicMock()
         MockVerifier.return_value = mock_instance
@@ -146,12 +146,12 @@ class TestGenerateGoals:
         assert len(goals) > 0
         assert goals[0].severity >= goals[-1].severity  # sorted
 
-    @patch("aragora.nomic.outcome_feedback.OutcomeVerifier", side_effect=ImportError)
+    @patch("aragora.debate.outcome_verifier.OutcomeVerifier", side_effect=ImportError)
     def test_handles_missing_verifier(self, MockVerifier, bridge):
         goals = bridge.generate_improvement_goals()
         assert goals == []
 
-    @patch("aragora.nomic.outcome_feedback.OutcomeVerifier")
+    @patch("aragora.debate.outcome_verifier.OutcomeVerifier")
     def test_empty_errors_returns_empty(self, MockVerifier, bridge):
         MockVerifier.return_value.get_systematic_errors.return_value = []
         goals = bridge.generate_improvement_goals()
@@ -202,8 +202,8 @@ class TestGoalToAction:
 class TestQueueSuggestions:
     """Tests for queuing suggestions."""
 
-    @patch("aragora.nomic.outcome_feedback.OutcomeVerifier")
-    @patch("aragora.nomic.outcome_feedback.get_improvement_queue")
+    @patch("aragora.debate.outcome_verifier.OutcomeVerifier")
+    @patch("aragora.nomic.improvement_queue.get_improvement_queue")
     def test_queues_suggestions(self, mock_get_queue, MockVerifier, bridge):
         # Setup verifier
         MockVerifier.return_value.get_systematic_errors.return_value = [
@@ -230,9 +230,9 @@ class TestQueueSuggestions:
 class TestRunFeedbackCycle:
     """Tests for full feedback cycle."""
 
-    @patch("aragora.nomic.outcome_feedback.OutcomeVerifier")
-    @patch("aragora.nomic.outcome_feedback.OutcomeTracker")
-    @patch("aragora.nomic.outcome_feedback.get_improvement_queue")
+    @patch("aragora.debate.outcome_verifier.OutcomeVerifier")
+    @patch("aragora.debate.outcome_tracker.OutcomeTracker")
+    @patch("aragora.nomic.improvement_queue.get_improvement_queue")
     def test_full_cycle(self, mock_get_queue, MockTracker, MockVerifier, bridge):
         MockVerifier.return_value.get_systematic_errors.return_value = [
             {

@@ -377,7 +377,7 @@ class RecoveryNarrator:
                         "data": narrative.to_dict(),
                     }
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
                 logger.warning(f"narrator_broadcast_failed error={e}")
 
         logger.debug(f"narrator_generated event={event_type} agent={component}")
@@ -487,7 +487,7 @@ def setup_narrator_with_checkpoint_manager(
                         "data": narrative.to_dict(),
                     }
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
                 logger.warning(f"narrator_checkpoint_broadcast_failed error={e}")
 
     def on_debate_resumed(event: dict) -> None:
@@ -510,7 +510,7 @@ def setup_narrator_with_checkpoint_manager(
                         "data": narrative.to_dict(),
                     }
                 )
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError, ConnectionError) as e:
                 logger.warning(f"narrator_resume_broadcast_failed error={e}")
 
     # Store handlers on narrator for external registration
@@ -548,5 +548,5 @@ def integrate_narrator_with_checkpoint_webhook(
         if hasattr(webhook, "on_resume") and "on_resume" in handlers:
             webhook.on_resume(handlers["on_resume"])
         logger.info("narrator_registered_with_checkpoint_webhook")
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"narrator_webhook_registration_failed error={e}")

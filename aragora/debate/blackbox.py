@@ -175,7 +175,7 @@ class BlackboxRecorder:
             with open(snapshot_path, "w") as f:
                 json.dump(snapshot.to_dict(), f, indent=2)
             logger.debug(f"blackbox_snapshot turn={turn_id}")
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error(f"blackbox_snapshot_failed turn={turn_id} error={e}")
 
         return snapshot
@@ -214,7 +214,7 @@ class BlackboxRecorder:
         try:
             with open(error_log, "a") as f:
                 f.write(f"[{datetime.now().isoformat()}] {component}: {error}\n")
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             # Don't fail on logging failure, but note it
             logger.debug(f"Failed to write to error log: {e}")
 
@@ -321,7 +321,7 @@ class BlackboxRecorder:
                     f.write(json.dumps(event.to_dict()) + "\n")
             logger.debug(f"blackbox_flush events={len(self.events)}")
             self.events = []
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error(f"blackbox_flush_failed error={e}")
 
     def get_latest_snapshot(self) -> BlackboxSnapshot | None:
@@ -365,7 +365,7 @@ class BlackboxRecorder:
         try:
             with open(summary_path, "w") as f:
                 json.dump(self.get_session_summary(), f, indent=2)
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error(f"blackbox_close_failed error={e}")
 
         logger.info(f"blackbox_close session={self.session_id}")

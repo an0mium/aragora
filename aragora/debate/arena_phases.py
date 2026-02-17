@@ -157,7 +157,7 @@ def _create_verify_claims_callback(arena: Arena):
                         # Translation failed or other status
                         _track_verification("z3_translation_failed", verification_time)
                     # Fall through to confidence check
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, AttributeError, OSError, ImportError) as e:
                     logger.debug(f"Z3 verification failed for claim: {e}")
 
             # Fallback: Count high-confidence claims as "verified"
@@ -242,7 +242,7 @@ def init_phases(arena: Arena) -> None:
         try:
             arena.population_manager = _PopulationManager()
             logger.info("population_manager auto-initialized for genome evolution")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to initialize _PopulationManager: {e}")
             arena.population_manager = None
 
@@ -505,7 +505,7 @@ def _create_checkpoint_callbacks(arena: Arena) -> tuple:
                 logger.debug(
                     f"[checkpoint] Created pre-consensus checkpoint for debate {debate_id}"
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.debug(f"[checkpoint] Pre-consensus checkpoint failed: {e}")
 
     return pre_phase_callback, None

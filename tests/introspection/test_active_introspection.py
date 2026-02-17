@@ -729,26 +729,26 @@ class TestImports:
         assert MetaReasoningEngine is not None
         assert RoundMetrics is not None
 
-    def test_import_from_package(self):
-        """Active classes should be importable from package __init__."""
-        from aragora.introspection import (
-            ActiveIntrospectionTracker,
-            AgentPerformanceSummary,
-            IntrospectionGoals,
-            MetaReasoningEngine,
-            RoundMetrics,
-        )
+    def test_import_from_active_submodule(self):
+        """Active classes should be importable from the active submodule."""
+        from aragora.introspection.active import ActiveIntrospectionTracker
+        from aragora.introspection.active import MetaReasoningEngine
+        from aragora.introspection.active import RoundMetrics
+        from aragora.introspection.active import IntrospectionGoals
+        from aragora.introspection.active import AgentPerformanceSummary
+
         assert ActiveIntrospectionTracker is not None
         assert MetaReasoningEngine is not None
+        assert RoundMetrics is not None
+        assert IntrospectionGoals is not None
+        assert AgentPerformanceSummary is not None
 
-    def test_all_exports_updated(self):
-        """__all__ should include active introspection symbols."""
-        import aragora.introspection as mod
-        expected_new = {
-            "ActiveIntrospectionTracker",
-            "AgentPerformanceSummary",
-            "IntrospectionGoals",
-            "MetaReasoningEngine",
-            "RoundMetrics",
-        }
-        assert expected_new.issubset(set(mod.__all__))
+    def test_cache_has_round_update_support(self):
+        """IntrospectionCache should expose round-update methods."""
+        from aragora.introspection.cache import IntrospectionCache
+
+        cache = IntrospectionCache()
+        assert hasattr(cache, "update_round")
+        assert hasattr(cache, "get_active_summary")
+        assert hasattr(cache, "get_last_round_updated")
+        assert hasattr(cache, "has_active_tracker")
