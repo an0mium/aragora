@@ -782,6 +782,64 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
         return result
 
+    def push_reputation(
+        self,
+        agent_id: str,
+        score: int,
+        domain: str = "calibration",
+        metadata: dict[str, Any] | None = None,
+    ) -> bool:
+        """Push a reputation score for an agent (synchronous convenience method).
+
+        Used by PostDebateCoordinator to push calibration-derived reputation
+        after each debate without needing the full async sync_from_km flow.
+
+        Args:
+            agent_id: Aragora agent identifier.
+            score: Reputation score (0-100).
+            domain: Domain tag for the reputation signal.
+            metadata: Optional metadata dict.
+
+        Returns:
+            True if the reputation was recorded (locally or on-chain).
+        """
+        import hashlib
+
+        record = {
+            "agent_id": agent_id,
+            "score": score,
+            "domain": domain,
+            "metadata": metadata or {},
+            "status": "recorded",
+        }
+
+        # If we have signer + reverse sync, push on-chain
+        if self._signer is not None and self._enable_reverse_sync:
+            try:
+                reputation_contract = self._get_reputation_contract()
+                feedback_data = f"{agent_id}:{domain}:{score}"
+                feedback_hash = hashlib.sha256(feedback_data.encode()).digest()
+
+                tx_hash = reputation_contract.give_feedback(
+                    agent_id=0,  # Resolved by contract from agent name
+                    value=score,
+                    signer=self._signer,
+                    value_decimals=0,
+                    tag1=domain,
+                    tag2=metadata.get("debate_id", "") if metadata else "",
+                    endpoint="",
+                    feedback_uri=f"aragora://calibration/{agent_id}",
+                    feedback_hash=feedback_hash,
+                )
+                record["tx_hash"] = tx_hash
+                record["status"] = "on_chain"
+            except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+                record["status"] = "local_only"
+                logger.debug("On-chain reputation push failed for %s: %s", agent_id, e)
+
+        self._emit_event("reputation_pushed", record)
+        return True
+
     async def _push_receipts_as_validations(
         self,
         linked_agents: list[Any],

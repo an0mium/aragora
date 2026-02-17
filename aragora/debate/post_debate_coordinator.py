@@ -42,10 +42,16 @@ class PostDebateConfig:
     auto_persist_receipt: bool = True
     auto_gauntlet_validate: bool = False
     gauntlet_min_confidence: float = 0.85
+    auto_verify_arguments: bool = False
     auto_queue_improvement: bool = False
     improvement_min_confidence: float = 0.8
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
+    # Calibration → blockchain reputation: push Brier scores to ERC-8004
+    auto_push_calibration: bool = False
+    calibration_min_predictions: int = 5  # Min predictions before pushing
+    # Outcome feedback: feed systematic errors back to Nomic Loop
+    auto_outcome_feedback: bool = False
     # Execution bridge: auto-trigger downstream actions
     auto_execution_bridge: bool = True
     execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
@@ -68,7 +74,9 @@ class PostDebateResult:
     integrity_package: dict[str, Any] | None = None
     receipt_persisted: bool = False
     gauntlet_result: dict[str, Any] | None = None
+    argument_verification: dict[str, Any] | None = None
     improvement_queued: bool = False
+    outcome_feedback: dict[str, Any] | None = None
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -130,6 +138,12 @@ class PostDebateCoordinator:
                 debate_id, debate_result, task, confidence
             )
 
+        # Step 2.7: Argument structure verification
+        if self.config.auto_verify_arguments:
+            result.argument_verification = self._step_argument_verification(
+                debate_id, debate_result, task
+            )
+
         # Step 3: Send notifications
         if self.config.auto_notify:
             result.notification_sent = self._step_notify(
@@ -165,6 +179,14 @@ class PostDebateCoordinator:
             result.improvement_queued = self._step_queue_improvement(
                 debate_id, debate_result, task, confidence
             )
+
+        # Step 7.5: Push calibration data to ERC-8004 blockchain reputation
+        if self.config.auto_push_calibration:
+            self._step_push_calibration(debate_id, agents)
+
+        # Step 7.7: Outcome feedback — feed systematic errors to Nomic Loop
+        if self.config.auto_outcome_feedback:
+            result.outcome_feedback = self._step_outcome_feedback(debate_id)
 
         # Step 8: Execution bridge — auto-trigger downstream actions
         if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
@@ -458,6 +480,70 @@ class PostDebateCoordinator:
             logger.warning("Gauntlet validation failed: %s", e)
             return None
 
+    def _step_argument_verification(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+    ) -> dict[str, Any] | None:
+        """Step 2.7: Verify logical structure of debate argument chains.
+
+        Builds an argument graph from debate messages and runs formal
+        verification to detect invalid chains, contradictions, circular
+        dependencies, and unsupported conclusions.
+        """
+        try:
+            from aragora.verification.argument_verifier import (
+                ArgumentStructureVerifier,
+            )
+            from aragora.visualization.mapper import ArgumentCartographer
+        except ImportError:
+            logger.debug(f"ArgumentStructureVerifier not available for debate {debate_id}")
+            return None
+
+        try:
+            import asyncio
+
+            # Build argument graph from debate messages
+            graph = ArgumentCartographer()
+            graph.set_debate_context(debate_id, task)
+
+            messages = getattr(debate_result, "messages", [])
+            if isinstance(messages, list):
+                for msg in messages:
+                    agent = getattr(msg, "agent", "unknown")
+                    content = getattr(msg, "content", "")
+                    role = getattr(msg, "role", "proposal")
+                    round_num = getattr(msg, "round", 0) or 0
+                    if content:
+                        graph.update_from_message(
+                            agent=str(agent),
+                            content=str(content),
+                            role=str(role),
+                            round_num=int(round_num),
+                        )
+
+            if not graph.nodes:
+                logger.debug(f"No argument nodes to verify for debate {debate_id}")
+                return None
+
+            verifier = ArgumentStructureVerifier()
+            verification_result = asyncio.run(verifier.verify(graph))
+
+            logger.info(
+                f"Argument verification completed for {debate_id}: "
+                f"soundness={verification_result.soundness_score}"
+            )
+            return {
+                "debate_id": debate_id,
+                "verification": verification_result.to_dict(),
+                "is_sound": verification_result.is_sound,
+                "soundness_score": verification_result.soundness_score,
+            }
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.warning(f"Argument verification failed for {debate_id}: {e}")
+            return None
+
     def _step_queue_improvement(
         self,
         debate_id: str,
@@ -547,6 +633,102 @@ class PostDebateCoordinator:
             logger.warning("Execution bridge failed: %s", e)
             return []
 
+    def _step_push_calibration(
+        self,
+        debate_id: str,
+        agents: list[Any] | None = None,
+    ) -> bool:
+        """Step 7.5: Push agent calibration scores to ERC-8004 blockchain reputation.
+
+        For each agent with sufficient prediction history, converts Brier score
+        to a reputation signal and pushes it to the on-chain registry.
+        """
+        try:
+            from aragora.knowledge.mound.adapters.erc8004_adapter import ERC8004Adapter
+
+            adapter = ERC8004Adapter()
+            pushed = 0
+
+            for agent in (agents or []):
+                agent_name = getattr(agent, "name", str(agent))
+                calibration_tracker = getattr(agent, "calibration_tracker", None)
+                if calibration_tracker is None:
+                    continue
+
+                # Get calibration data
+                cal_data = None
+                if hasattr(calibration_tracker, "get_calibration"):
+                    cal_data = calibration_tracker.get_calibration(agent_name)
+                elif hasattr(calibration_tracker, "get_calibration_score"):
+                    cal_data = {"brier_score": calibration_tracker.get_calibration_score(agent_name)}
+
+                if not cal_data:
+                    continue
+
+                prediction_count = cal_data.get("prediction_count", cal_data.get("count", 0))
+                if prediction_count < self.config.calibration_min_predictions:
+                    continue
+
+                brier = cal_data.get("brier_score", cal_data.get("brier", 1.0))
+                # Convert Brier score (0=perfect, 1=worst) to reputation (0-100)
+                reputation = max(0, min(100, int((1.0 - brier) * 100)))
+
+                adapter.push_reputation(
+                    agent_id=agent_name,
+                    score=reputation,
+                    domain="calibration",
+                    metadata={
+                        "debate_id": debate_id,
+                        "brier_score": brier,
+                        "prediction_count": prediction_count,
+                    },
+                )
+                pushed += 1
+
+            if pushed:
+                logger.info(
+                    "Pushed calibration reputation for %d agents (debate %s)",
+                    pushed,
+                    debate_id,
+                )
+            return pushed > 0
+        except ImportError:
+            logger.debug("ERC8004Adapter not available, skipping calibration push")
+            return False
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.warning("Calibration push failed: %s", e)
+            return False
+
+    def _step_outcome_feedback(
+        self,
+        debate_id: str,
+    ) -> dict[str, Any] | None:
+        """Step 7.7: Run outcome feedback cycle to detect systematic errors.
+
+        Analyzes outcome patterns across past debates and queues
+        improvement goals for the Nomic Loop MetaPlanner.
+        """
+        try:
+            from aragora.nomic.outcome_feedback import OutcomeFeedbackBridge
+
+            bridge = OutcomeFeedbackBridge()
+            cycle_result = bridge.run_feedback_cycle()
+
+            if cycle_result.get("goals_generated", 0) > 0:
+                logger.info(
+                    "Outcome feedback: %d goals generated, %d queued (debate %s)",
+                    cycle_result["goals_generated"],
+                    cycle_result["suggestions_queued"],
+                    debate_id,
+                )
+            return cycle_result
+        except ImportError:
+            logger.debug("OutcomeFeedbackBridge not available, skipping outcome feedback")
+            return None
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.debug("Outcome feedback failed (non-critical): %s", e)
+            return None
+
     @staticmethod
     def _classify_improvement_category(task: str) -> str:
         """Classify improvement category from task text."""
@@ -570,6 +752,8 @@ DEFAULT_POST_DEBATE_CONFIG = PostDebateConfig(
     auto_create_pr=False,
     auto_build_integrity_package=False,
     auto_persist_receipt=True,
+    auto_gauntlet_validate=True,
+    auto_push_calibration=True,
 )
 
 

@@ -28,9 +28,13 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_receipt_auto_sign": True,
         "enable_provenance": True,
         "enable_bead_tracking": True,
-        # Knowledge
+        # Knowledge flywheel (Receipt -> KM -> Next Debate)
         "enable_knowledge_extraction": True,
         "enable_auto_revalidation": True,
+        "enable_knowledge_injection": True,
+        "enable_adaptive_consensus": True,
+        # Meta-learning: evaluate and adjust after each debate
+        "enable_meta_learning": True,
         # Budget
         "budget_downgrade_models": True,
         # Memory
@@ -41,6 +45,13 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_position_ledger": True,
         # Compliance
         "enable_compliance_artifacts": True,
+        # Post-debate pipeline (explanation + receipt persistence + gauntlet)
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+            "auto_push_calibration": True,
+        },
     },
     "enterprise": {
         # Everything in SME
@@ -75,6 +86,7 @@ _PRESETS: dict[str, dict[str, Any]] = {
             "auto_persist_receipt": True,
             "auto_gauntlet_validate": True,
             "auto_queue_improvement": True,
+            "auto_push_calibration": True,
         },
     },
     "minimal": {
@@ -156,6 +168,43 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_power_sampling": True,
         # Forking for exploring alternatives
         "enable_debate_forking": True,
+        # Knowledge flywheel
+        "enable_knowledge_injection": True,
+        "enable_adaptive_consensus": True,
+        "enable_meta_learning": True,
+        # Post-debate pipeline
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+            "auto_push_calibration": True,
+        },
+    },
+    "diverse": {
+        # Multi-provider agent diversity: heterogeneous model consensus
+        # Encourages using agents from 3+ providers for stronger epistemic diversity
+        "enable_receipt_generation": True,
+        "enable_provenance": True,
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        "enable_stability_detection": True,
+        "enable_position_ledger": True,
+        # Require minimum provider diversity for robust consensus
+        "min_provider_diversity": 3,
+        "prefer_diverse_providers": True,
+        # Trickster catches hollow consensus from homogeneous models
+        # (already default-on in DebateProtocol, but explicitly set for clarity)
+        # Knowledge flywheel
+        "enable_knowledge_injection": True,
+        "enable_adaptive_consensus": True,
+        "enable_meta_learning": True,
+        # Post-debate pipeline with gauntlet + calibration
+        "_post_debate_preset": {
+            "auto_explain": True,
+            "auto_persist_receipt": True,
+            "auto_gauntlet_validate": True,
+            "auto_push_calibration": True,
+        },
     },
     "financial": {
         # SOX compliance and financial risk
@@ -177,15 +226,16 @@ _PRESETS: dict[str, dict[str, Any]] = {
 }
 
 _PRESET_DESCRIPTIONS: dict[str, str] = {
-    "sme": "Balanced preset for small/medium businesses: receipts, knowledge, budget controls, compliance",
-    "enterprise": "Full-featured preset: everything in SME plus telemetry, airlock, performance monitoring, forking, unified voting",
+    "sme": "Balanced preset for SMBs: receipts, knowledge flywheel, meta-learning, gauntlet validation, calibration tracking",
+    "enterprise": "Full-featured: everything in SME plus telemetry, airlock, forking, unified voting, calibration→blockchain",
     "minimal": "Lightweight preset: stability detection and budget controls only (fast & cheap)",
     "audit": "Maximum traceability: receipts, provenance, beads, compliance, position ledger, telemetry",
     "healthcare": "HIPAA-compliant preset: full audit trail, privacy anonymization, healthcare vertical weight profiles",
     "visual": "Full observability: argument cartography, spectator streaming, position tracking, introspection",
     "compliance": "EU AI Act and regulatory: receipts, provenance, compliance artifacts, privacy anonymization",
-    "research": "Deep analysis: knowledge extraction, supermemory, power sampling, debate forking, cartography",
+    "research": "Deep analysis: knowledge flywheel, supermemory, power sampling, forking, cartography, gauntlet",
     "financial": "SOX-compliant: full audit trail, financial vertical weight profiles, budget controls",
+    "diverse": "Multi-provider diversity: 3+ model providers for heterogeneous consensus, knowledge flywheel, gauntlet",
 }
 
 

@@ -32,6 +32,7 @@ class CodebaseContextConfig:
     persist_to_km: bool = False
     include_tests: bool = False
     cache_ttl_seconds: float = 300.0  # 5 minutes
+    enable_rlm: bool = False  # Use TRUE RLM for deep codebase exploration
 
 
 @dataclass
@@ -55,6 +56,7 @@ class CodebaseContextProvider:
         self._cache: _CacheEntry | None = None
         self._builder: Any | None = None
         self._km_adapter: Any | None = None
+        self._rlm: Any | None = None
 
     @property
     def config(self) -> CodebaseContextConfig:
@@ -123,7 +125,7 @@ class CodebaseContextProvider:
         self._cache = None
 
     async def _build_fresh_context(self, task: str) -> str:
-        """Build fresh context using NomicContextBuilder."""
+        """Build fresh context using NomicContextBuilder, enhanced with RLM if available."""
         from aragora.nomic.context_builder import NomicContextBuilder
 
         path = Path(self._config.codebase_path)  # type: ignore[arg-type]
@@ -137,7 +139,45 @@ class CodebaseContextProvider:
         )
 
         context = await self._builder.build_debate_context()
+
+        # Enhance with RLM deep exploration if enabled
+        if self._config.enable_rlm:
+            rlm_context = await self._build_rlm_context(task)
+            if rlm_context:
+                context = f"{context}\n\n## RLM Deep Analysis\n{rlm_context}"
+
         return context
+
+    async def _build_rlm_context(self, task: str) -> str:
+        """Use TRUE RLM bridge for deep programmatic codebase exploration.
+
+        RLM (arXiv:2512.24601) enables 10M+ token context without degradation,
+        allowing agents to explore the full codebase programmatically rather
+        than relying on static summaries.
+
+        Returns:
+            RLM-generated codebase analysis, or empty string if unavailable.
+        """
+        try:
+            from aragora.rlm.bridge import AragoraRLM
+
+            if self._rlm is None:
+                self._rlm = AragoraRLM()
+
+            # Query RLM for task-relevant codebase structure
+            result = await self._rlm.query(
+                f"Analyze codebase structure relevant to: {task}",
+                context_path=self._config.codebase_path,
+                max_tokens=self._config.max_context_tokens,
+            )
+
+            return str(result) if result else ""
+        except ImportError:
+            logger.debug("RLM bridge not available, using standard context only")
+            return ""
+        except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
+            logger.debug("RLM context build failed: %s", e)
+            return ""
 
     async def _sync_to_km(self) -> None:
         """Sync codebase structures to Knowledge Mound via CodebaseAdapter."""

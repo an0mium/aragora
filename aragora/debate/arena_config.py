@@ -420,6 +420,14 @@ class ArenaConfig:
         # Privacy anonymization (HIPAA Safe Harbor)
         enable_privacy_anonymization: bool = False,
         anonymization_method: str = "redact",
+        # Protocol-level flags (stored for preset passthrough to Arena/Protocol)
+        enable_adaptive_consensus: bool = False,
+        enable_synthesis: bool = False,
+        enable_knowledge_injection: bool = False,
+        enable_meta_learning: bool = False,
+        # Agent provider diversity: prefer heterogeneous model consensus
+        min_provider_diversity: int = 1,  # Minimum number of distinct providers
+        prefer_diverse_providers: bool = False,  # Prefer agents from different providers
         # ---- Sub-config objects (optional, for grouped construction) ----
         hook_config: HookConfig | None = None,
         tracking_config: TrackingConfig | None = None,
@@ -515,12 +523,23 @@ class ArenaConfig:
         self.enable_privacy_anonymization = enable_privacy_anonymization
         self.anonymization_method = anonymization_method
 
+        # Protocol-level flags (preset passthrough)
+        self.enable_adaptive_consensus = enable_adaptive_consensus
+        self.enable_synthesis = enable_synthesis
+        self.enable_knowledge_injection = enable_knowledge_injection
+        self.enable_meta_learning = enable_meta_learning
+
+        # Agent provider diversity
+        self.min_provider_diversity = min_provider_diversity
+        self.prefer_diverse_providers = prefer_diverse_providers
+
         # Post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
         self.post_debate_config = kwargs.pop("post_debate_config", None)
         self.disable_post_debate_pipeline = kwargs.pop("disable_post_debate_pipeline", False)
 
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)
+        self.enable_live_explainability = kwargs.pop("enable_live_explainability", False)
 
         # Agent introspection (self-awareness in prompts)
         self.enable_introspection = kwargs.pop("enable_introspection", True)

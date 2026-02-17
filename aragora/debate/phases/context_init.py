@@ -346,6 +346,7 @@ class ContextInitializer:
             config = CodebaseContextConfig(
                 codebase_path=self.codebase_path,
                 persist_to_km=self.codebase_persist_to_km,
+                enable_rlm=getattr(self, "use_rlm_limiter", False),
             )
             provider = CodebaseContextProvider(config=config)
 
