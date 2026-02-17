@@ -153,6 +153,36 @@ def cmd_merge(args: argparse.Namespace) -> int:
         print(f"Error: Branch '{branch}' does not exist.")
         return 1
 
+    # Scope guard: check for cross-track file modifications
+    try:
+        from aragora.nomic.scope_guard import ScopeGuard
+
+        guard = ScopeGuard(repo_path=repo_path, mode="warn")
+        track_name = guard.detect_track_from_branch(branch)
+        if track_name:
+            wt_path = coordinator.get_worktree_path(branch) or repo_path
+            # Get changed files in the branch
+            changed_result = subprocess.run(
+                ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
+                cwd=wt_path, capture_output=True, text=True, check=False,
+            )
+            changed = [f for f in changed_result.stdout.strip().split("\n") if f]
+            if changed:
+                violations = guard.check_files(changed, track=track_name)
+                if violations:
+                    print(f"Scope warnings for track '{track_name}':")
+                    for v in violations[:10]:
+                        severity = "BLOCK" if v.severity == "block" else "WARN"
+                        print(f"  [{severity}] {v.file_path}: {v.violation_type}")
+                    blocking = [v for v in violations if v.severity == "block"]
+                    if blocking:
+                        print(f"\n{len(blocking)} blocking violation(s). Use --force to override.")
+                        if not getattr(args, "force", False):
+                            return 1
+                    print()
+    except ImportError:
+        pass
+
     # Run tests if requested
     if test_first:
         print(f"Running tests on '{branch}'...")

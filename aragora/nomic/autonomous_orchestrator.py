@@ -1921,6 +1921,21 @@ class AutonomousOrchestrator:
                     break
 
             if track_value and track_value not in failed_tracks:
+                # Scope guard: warn about cross-track file modifications before merging
+                try:
+                    from aragora.nomic.scope_guard import ScopeGuard
+
+                    guard = ScopeGuard(repo_path=self.aragora_path, mode="warn")
+                    track_name = f"{track_value}-track"
+                    changed = guard.get_changed_files(base_branch=self.branch_coordinator.config.base_branch)
+                    if changed:
+                        violations = guard.check_files(changed, track=track_name)
+                        if violations:
+                            for v in violations[:5]:
+                                logger.info(f"scope_violation branch={branch} {v.message}")
+                except (ImportError, OSError, ValueError) as e:
+                    logger.debug(f"scope_guard_skipped: {e}")
+
                 merge_result = await self.branch_coordinator.safe_merge(branch)
                 if merge_result.success:
                     logger.info(
