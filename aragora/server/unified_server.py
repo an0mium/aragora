@@ -1367,8 +1367,20 @@ async def run_unified_server(
     except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
         logger.warning(f"[server] Config validation skipped: {e}")
 
-    # Initialize storage from nomic directory
+    # Initialize storage from nomic directory (or default data dir in offline mode)
     storage = None
+    if nomic_dir is None:
+        # Auto-create a default data directory so storage works without --nomic-dir
+        import os as _os
+
+        default_data = Path(_os.environ.get("ARAGORA_DATA_DIR", "/app/data" if Path("/app").exists() else ".aragora"))
+        try:
+            default_data.mkdir(parents=True, exist_ok=True)
+            nomic_dir = default_data
+            logger.info(f"[server] Using default data directory: {nomic_dir}")
+        except (OSError, PermissionError) as e:
+            logger.warning(f"[server] Cannot create default data directory {default_data}: {e}")
+
     if nomic_dir:
         # Ensure nomic_dir exists - critical for debate persistence
         try:

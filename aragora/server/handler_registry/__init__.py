@@ -199,7 +199,11 @@ class HandlerRegistryMixin:
         # Initialize handlers from filtered registry with auto-instrumentation
         for attr_name, handler_class in active_registry:
             if handler_class is not None:
-                instance = handler_class(ctx)
+                try:
+                    instance = handler_class(ctx)
+                except TypeError:
+                    # Facade handlers (route discovery only) don't accept ctx
+                    instance = handler_class()
                 auto_instrument_handler(instance)
                 setattr(cls, attr_name, instance)
 
