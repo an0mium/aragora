@@ -922,12 +922,44 @@ class CodeReviewOrchestrator:
         if not self.arena:
             return ["No arena configured for debate"]
 
-        # In production, would run actual debate through Arena
-        return [
-            f"Debate on {topic}",
-            f"Reviewed {len(findings)} conflicting findings",
-            "Consensus: Prioritize security over performance when in conflict",
-        ]
+        try:
+            from aragora.debate.orchestrator import Arena
+            from aragora.debate.protocol import DebateProtocol
+            from aragora.core import Environment
+
+            findings_text = "\n".join(
+                f"- [{f.severity.value.upper()}] {f.category.value}: "
+                f"{f.description}"
+                + (f" (suggestion: {f.suggestion})" if f.suggestion else "")
+                for f in findings
+            )
+
+            env = Environment(
+                task=(
+                    f"Resolve conflicting code review findings on: {topic}\n\n"
+                    f"Findings ({len(findings)}):\n{findings_text}\n\n"
+                    f"For each finding, determine priority, validity, and "
+                    f"recommended resolution. Provide actionable consensus."
+                ),
+            )
+            protocol = DebateProtocol(rounds=2, consensus="majority")
+
+            async with Arena(env, [], protocol) as arena:
+                result = await arena.run()
+
+            if result and result.final_answer:
+                return [
+                    f"Debate consensus on {topic}:",
+                    result.final_answer,
+                ]
+
+            return [f"Debate on {topic} completed without consensus"]
+
+        except ImportError:
+            return ["Arena not available for debate review"]
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
+            logger.warning(f"Code review debate failed: {e}")
+            return [f"Debate on {topic} encountered an error"]
 
     def generate_github_comments(
         self,
