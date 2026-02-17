@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,7 +122,7 @@ async def init_redis_ha() -> dict[str, Any]:
     except ImportError as e:
         result["error"] = f"Redis package not installed: {e}"
         logger.debug(f"Redis HA not available: {e}")
-    except (OSError, RuntimeError, ConnectionError, ValueError, TimeoutError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         result["error"] = str(e)
         logger.warning(f"Redis HA initialization failed: {e}")
 
@@ -163,7 +165,9 @@ async def init_redis_state_backend() -> bool:
 
     except ImportError as e:
         logger.debug(f"Redis state backend not available: {e}")
-    except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Failed to initialize Redis state backend: {e}")
+    except RuntimeError as e:
         logger.warning(f"Failed to initialize Redis state backend: {e}")
 
     return False

@@ -33,6 +33,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 from collections.abc import AsyncGenerator, Callable
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 # Redis configuration
@@ -147,7 +149,7 @@ class RedisStateManager:
             self._connected = True
             logger.info(f"Connected to Redis at {self._redis_url}")
             return True
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Failed to connect to Redis: {e}")
             self._connected = False
             return False
@@ -434,7 +436,7 @@ class RedisStateManager:
                 await self._redis.ping()
                 result["ping_ms"] = (time.time() - start) * 1000
                 result["active_debates"] = await self.get_active_debate_count()
-            except (ConnectionError, OSError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.warning("Redis state health check failed: %s", e)
                 result["error"] = "Redis health check failed"
                 result["connected"] = False

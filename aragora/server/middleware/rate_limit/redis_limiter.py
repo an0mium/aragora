@@ -31,6 +31,8 @@ from .base import (
 from .bucket import RedisTokenBucket
 from .limiter import RateLimitConfig, RateLimiter, RateLimitResult
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 if TYPE_CHECKING:
     import redis
 
@@ -122,7 +124,11 @@ def get_redis_client() -> redis.Redis | None:
         logger.info(f"Redis rate limiting enabled: {redis_url.split('@')[-1]}")
         return _redis_client
 
-    except (OSError, ValueError, RuntimeError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
+        logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
+        _redis_client = None
+        return None
+    except (ValueError, RuntimeError) as e:
         logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
         _redis_client = None
         return None

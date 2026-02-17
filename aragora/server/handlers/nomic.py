@@ -50,6 +50,7 @@ from .utils.auth_mixins import SecureEndpointMixin, require_permission
 from .utils.rate_limit import rate_limit
 
 from aragora.audit.unified import audit_admin, audit_security
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 try:
                     await method(*args, **kwargs)
                     return  # Success
-                except (ConnectionError, OSError, TimeoutError) as e:
+                except REDIS_CONNECTION_ERRORS as e:
                     last_error = e
                     if attempt < max_retries - 1:
                         delay = base_delay * (2**attempt)
@@ -170,7 +171,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             # No running event loop - use _run_async as fallback (single attempt)
             try:
                 _run_async(method(*args, **kwargs))
-            except (ConnectionError, OSError, TimeoutError, RuntimeError, AttributeError, TypeError, ValueError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
+                logger.warning(f"Nomic stream emission failed (no event loop): {e}")
+            except (RuntimeError, AttributeError, TypeError, ValueError) as e:
                 logger.warning(f"Nomic stream emission failed (no event loop): {e}")
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

@@ -27,6 +27,8 @@ import logging
 import os
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 # Module-level connection pool (lazy initialized)
@@ -117,7 +119,7 @@ def get_redis_pool() -> Any | None:
         logger.debug("redis package not installed, Redis caching disabled")
         _redis_available = False
         return None
-    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         logger.warning(f"Redis connection failed: {e}")
         _redis_available = False
         return None
@@ -173,7 +175,7 @@ def close_redis_pool() -> None:
         try:
             _redis_pool.disconnect()
             logger.debug("Redis connection pool closed")
-        except (ConnectionError, OSError, RuntimeError) as e:
+        except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
             logger.warning(f"Error closing Redis pool: {e}")
         finally:
             _redis_pool = None
@@ -224,7 +226,7 @@ async def get_async_redis_client() -> Any | None:
     except ImportError:
         logger.debug("redis.asyncio not available for async Redis client")
         return None
-    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         logger.warning(f"Async Redis connection failed: {e}")
         return None
 

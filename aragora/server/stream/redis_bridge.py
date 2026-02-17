@@ -33,6 +33,8 @@ import os
 import time
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -110,7 +112,7 @@ class RedisBroadcastBridge:
             logger.info(f"Redis broadcast bridge connected (instance={self._instance_id})")
             return True
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Failed to connect Redis bridge: {e}")
             self._connected = False
             return False
@@ -173,7 +175,7 @@ class RedisBroadcastBridge:
 
         except asyncio.CancelledError:
             logger.debug("Redis bridge listener cancelled")
-        except (ConnectionError, OSError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis bridge listener error: {e}")
 
     async def _handle_message(self, message: dict) -> None:
@@ -291,7 +293,7 @@ class RedisBroadcastBridge:
         try:
             await self._redis.publish(channel, json.dumps(message))
             logger.debug(f"Published event to {channel}: {event_type}")
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Failed to publish Redis event: {e}")
 
     async def health_check(self) -> dict:
@@ -311,7 +313,7 @@ class RedisBroadcastBridge:
                 start = time.time()
                 await self._redis.ping()
                 result["ping_ms"] = (time.time() - start) * 1000
-            except (ConnectionError, OSError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.warning("Redis bridge health check failed: %s", e)
                 result["error"] = "Redis health check failed"
                 result["connected"] = False

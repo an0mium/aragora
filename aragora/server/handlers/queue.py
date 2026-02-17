@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 from aragora.resilience import CircuitBreaker
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.validation.query_params import safe_query_int
@@ -93,7 +94,7 @@ async def _get_queue() -> Any | None:
         except ImportError:
             logger.warning("Redis package not available for queue")
             return None
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Failed to connect to Redis for queue: {e}")
             return None
         except RuntimeError as e:
@@ -316,7 +317,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                     "timestamp": datetime.now().isoformat(),
                 }
             )
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to get queue stats due to connection error: {e}")
             return error_response(safe_error_message(e, "get queue stats"), 503)
         except (AttributeError, KeyError) as e:
@@ -364,7 +365,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                                         "idle_ms": consumer.get("idle", 0),
                                     }
                                 )
-                    except (ConnectionError, OSError, TimeoutError) as ce:
+                    except REDIS_CONNECTION_ERRORS as ce:
                         logger.debug(f"Could not get consumers due to connection error: {ce}")
                     except (KeyError, TypeError, AttributeError) as ce:
                         logger.debug(f"Consumer data parsing error: {ce}")
@@ -376,7 +377,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                     "timestamp": datetime.now().isoformat(),
                 }
             )
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error("Failed to get worker status due to connection error: %s", e)
             return json_response(
                 {
@@ -454,7 +455,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid job submission data: {e}")
             return error_response(safe_error_message(e, "submit job"), 400)
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to submit job due to connection error: {e}")
             return error_response(safe_error_message(e, "submit job"), 503)
         except AttributeError as e:
@@ -546,7 +547,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to list jobs due to connection error: {e}")
             return error_response(safe_error_message(e, "list jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
@@ -590,7 +591,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to get job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "get job"), 503)
         except (AttributeError, KeyError, TypeError) as e:
@@ -645,7 +646,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to retry job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "retry job"), 503)
         except (AttributeError, KeyError) as e:
@@ -687,7 +688,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to cancel job {job_id} due to connection error: {e}")
             return error_response(safe_error_message(e, "cancel job"), 503)
         except (AttributeError, KeyError) as e:
@@ -774,7 +775,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to list DLQ due to connection error: {e}")
             return error_response(safe_error_message(e, "list DLQ"), 503)
         except (AttributeError, KeyError, TypeError) as e:
@@ -827,7 +828,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to requeue DLQ job {job_id}: {e}")
             return error_response(safe_error_message(e, "requeue DLQ job"), 503)
         except (AttributeError, KeyError) as e:
@@ -863,7 +864,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
 
                         await queue.enqueue(job, priority=job.priority)
                         requeued += 1
-                    except (ConnectionError, OSError, TimeoutError, AttributeError) as e:
+                    except REDIS_CONNECTION_ERRORS as e:
+                        logger.warning("Failed to requeue job %s: %s", job.id, e)
+                        errors.append({"job_id": job.id, "error": "Failed to requeue job"})
+                    except AttributeError as e:
                         logger.warning("Failed to requeue job %s: %s", job.id, e)
                         errors.append({"job_id": job.id, "error": "Failed to requeue job"})
 
@@ -886,7 +890,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to requeue all DLQ: {e}")
             return error_response(safe_error_message(e, "requeue all DLQ"), 503)
         except (AttributeError, KeyError) as e:
@@ -939,7 +943,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                             try:
                                 await queue.delete(job.id)
                                 deleted += 1
-                            except (ConnectionError, OSError, TimeoutError) as e:
+                            except REDIS_CONNECTION_ERRORS as e:
                                 logger.warning(f"Failed to delete job {job.id}: {e}")
                         else:
                             deleted += 1
@@ -955,7 +959,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to cleanup jobs: {e}")
             return error_response(safe_error_message(e, "cleanup jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
@@ -1014,7 +1018,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
 
-        except (ConnectionError, OSError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to list stale jobs: {e}")
             return error_response(safe_error_message(e, "list stale jobs"), 503)
         except (AttributeError, KeyError, TypeError) as e:
