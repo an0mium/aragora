@@ -761,8 +761,8 @@ def audit_action(
                 raise
 
             except (
-                Exception
-            ) as e:  # Intentionally broad: audit decorator logs all failures before re-raising
+                Exception  # noqa: BLE001 - audit decorator logs all failures before re-raising
+            ) as e:
                 outcome = "error"
                 outcome_reason = str(e)[:200]
                 event_severity = AuditSeverity.ERROR
@@ -809,8 +809,8 @@ def audit_action(
                 raise
 
             except (
-                Exception
-            ) as e:  # Intentionally broad: audit decorator logs all failures before re-raising
+                Exception  # noqa: BLE001 - audit decorator logs all failures before re-raising
+            ) as e:
                 outcome = "error"
                 outcome_reason = str(e)[:200]
                 event_severity = AuditSeverity.ERROR
