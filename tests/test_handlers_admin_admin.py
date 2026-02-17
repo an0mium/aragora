@@ -476,7 +476,7 @@ class TestActivateUser:
         mock_handler.command = "POST"
 
         result = admin_handler.handle(
-            "/api/admin/users/target-user-456/activate", {}, mock_handler, method="POST"
+            "/api/v1/admin/users/target-user-456/activate", {}, mock_handler, method="POST"
         )
 
         assert result is not None
@@ -521,7 +521,7 @@ class TestInputValidation:
 
         # Use a user ID with special characters that violate SAFE_ID_PATTERN
         result = admin_handler.handle(
-            "/api/admin/users/invalid!user@id/deactivate", {}, mock_handler, method="POST"
+            "/api/v1/admin/users/invalid!user@id/deactivate", {}, mock_handler, method="POST"
         )
 
         assert result is not None

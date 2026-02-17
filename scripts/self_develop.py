@@ -27,6 +27,9 @@ Usage:
     # Full autonomous run with worktree isolation
     python scripts/self_develop.py --goal "Enhance SME experience" --tracks sme developer --worktree
 
+    # Run on an external codebase (customer repo)
+    python scripts/self_develop.py --goal "Improve test coverage" --repo /path/to/customer/repo --dry-run
+
     # Use MetaPlanner for debate-driven prioritization before execution
     python scripts/self_develop.py --goal "Maximize utility" --meta-plan --debate
 
@@ -113,6 +116,7 @@ async def run_pipeline_execution(
     use_debate: bool = False,
     pipeline_mode: str = "hybrid",
     budget_limit: float | None = None,
+    repo_path: Path | None = None,
 ) -> Any:
     """Decompose goal and execute via the DecisionPlan pipeline.
 
@@ -147,7 +151,7 @@ async def run_pipeline_execution(
 
     # Step 2: Route through the pipeline
     bridge = NomicPipelineBridge(
-        repo_path=Path.cwd(),
+        repo_path=repo_path or Path.cwd(),
         budget_limit_usd=budget_limit,
         execution_mode=pipeline_mode,
     )
@@ -504,6 +508,9 @@ Examples:
         print_decomposition(result)
         return 0
 
+    # Resolve repo path (used by both pipeline and orchestration modes)
+    resolved_repo = Path(args.repo).resolve() if args.repo else None
+
     # Pipeline mode: decompose then execute via DecisionPlan pipeline
     if args.use_pipeline:
         try:
@@ -513,6 +520,7 @@ Examples:
                     use_debate=args.debate,
                     pipeline_mode=args.pipeline_mode,
                     budget_limit=args.budget_limit,
+                    repo_path=resolved_repo,
                 )
             )
             if outcome is None:
@@ -536,9 +544,6 @@ Examples:
     # --parallel implies --worktree unless explicitly disabled
     use_worktree = args.worktree or args.parallel
 
-    # Resolve repo path
-    resolved_repo_path = Path(args.repo).resolve() if args.repo else None
-
     # Full run
     try:
         result = asyncio.run(
@@ -555,7 +560,7 @@ Examples:
                 enable_gauntlet=enable_gauntlet,
                 enable_meta_plan=args.meta_plan,
                 budget_limit=args.budget_limit,
-                repo_path=resolved_repo_path,
+                repo_path=resolved_repo,
             )
         )
         print_result(result)

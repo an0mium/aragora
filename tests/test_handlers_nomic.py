@@ -128,7 +128,7 @@ class TestNomicState:
 
     def test_state_no_state_file(self, nomic_handler, mock_nomic_dir):
         """Returns not_running state when state file doesn't exist."""
-        result = nomic_handler.handle("/api/nomic/state", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/state", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -146,7 +146,7 @@ class TestNomicState:
         }
         (mock_nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        result = nomic_handler.handle("/api/nomic/state", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/state", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -159,7 +159,7 @@ class TestNomicState:
         """Returns 500 error when state file has invalid JSON."""
         (mock_nomic_dir / "nomic_state.json").write_text("not valid json")
 
-        result = nomic_handler.handle("/api/nomic/state", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/state", {}, None)
 
         assert result is not None
         assert result.status_code == 500
@@ -186,7 +186,7 @@ class TestNomicHealth:
 
     def test_health_not_running(self, nomic_handler, mock_nomic_dir):
         """Returns not_running status when state file doesn't exist."""
-        result = nomic_handler.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/health", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -207,7 +207,7 @@ class TestNomicHealth:
         }
         (mock_nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        result = nomic_handler.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/health", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -228,7 +228,7 @@ class TestNomicHealth:
         }
         (mock_nomic_dir / "nomic_state.json").write_text(json.dumps(state))
 
-        result = nomic_handler.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/health", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -242,7 +242,7 @@ class TestNomicHealth:
         """Returns error status for invalid state file."""
         (mock_nomic_dir / "nomic_state.json").write_text("not valid json")
 
-        result = nomic_handler.handle("/api/nomic/health", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/health", {}, None)
 
         assert result is not None
         assert result.status_code == 200  # Returns 200 with error status
@@ -270,7 +270,7 @@ class TestNomicLog:
 
     def test_log_no_log_file(self, nomic_handler, mock_nomic_dir):
         """Returns empty lines when log file doesn't exist."""
-        result = nomic_handler.handle("/api/nomic/log", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/log", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -283,7 +283,7 @@ class TestNomicLog:
         log_content = "Line 1\nLine 2\nLine 3\n"
         (mock_nomic_dir / "nomic_loop.log").write_text(log_content)
 
-        result = nomic_handler.handle("/api/nomic/log", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/log", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -297,7 +297,7 @@ class TestNomicLog:
         log_content = "\n".join([f"Line {i}" for i in range(10)])
         (mock_nomic_dir / "nomic_loop.log").write_text(log_content)
 
-        result = nomic_handler.handle("/api/nomic/log", {"lines": "3"}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/log", {"lines": "3"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -314,12 +314,12 @@ class TestNomicLog:
         (mock_nomic_dir / "nomic_loop.log").write_text(log_content)
 
         # Test minimum clamping
-        result = nomic_handler.handle("/api/nomic/log", {"lines": "-5"}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/log", {"lines": "-5"}, None)
         assert result is not None
         assert result.status_code == 200
 
         # Test maximum clamping (should cap at 1000)
-        result = nomic_handler.handle("/api/nomic/log", {"lines": "9999"}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/log", {"lines": "9999"}, None)
         assert result is not None
         assert result.status_code == 200
 
@@ -343,7 +343,7 @@ class TestRiskRegister:
 
     def test_risk_register_no_file(self, nomic_handler, mock_nomic_dir):
         """Returns empty risks when risk file doesn't exist."""
-        result = nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -363,7 +363,7 @@ class TestRiskRegister:
         content = "\n".join([json.dumps(r) for r in risks])
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -381,7 +381,7 @@ class TestRiskRegister:
         content = "\n".join([json.dumps(r) for r in risks])
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = nomic_handler.handle("/api/nomic/risk-register", {"limit": "3"}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {"limit": "3"}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -394,7 +394,7 @@ class TestRiskRegister:
         content = '{"id": 1, "severity": "low"}\nnot valid json\n{"id": 2, "severity": "high"}\n'
         (mock_nomic_dir / "risk_register.jsonl").write_text(content)
 
-        result = nomic_handler.handle("/api/nomic/risk-register", {}, None)
+        result = run_async(nomic_handler.handle("/api/nomic/risk-register", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -413,7 +413,7 @@ class TestModes:
 
     def test_modes_returns_builtin_modes(self, nomic_handler):
         """Returns builtin modes list."""
-        result = nomic_handler.handle("/api/modes", {}, None)
+        result = run_async(nomic_handler.handle("/api/modes", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -444,7 +444,7 @@ class TestModes:
             return original_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
-            result = nomic_handler.handle("/api/modes", {}, None)
+            result = run_async(nomic_handler.handle("/api/modes", {}, None)
 
             assert result is not None
             assert result.status_code == 200
@@ -479,7 +479,7 @@ class TestNomicMetrics:
                         }
                     ),
                 )
-                result = nomic_handler.handle("/api/nomic/metrics", {}, None)
+                result = run_async(nomic_handler.handle("/api/nomic/metrics", {}, None)
 
                 assert result is not None
                 assert result.status_code == 200
@@ -516,7 +516,7 @@ class TestNomicErrorHandling:
 
     def test_handle_returns_none_for_unhandled(self, nomic_handler):
         """Returns None for unhandled routes."""
-        result = nomic_handler.handle("/api/other/endpoint", {}, None)
+        result = run_async(nomic_handler.handle("/api/other/endpoint", {}, None)
         assert result is None
 
     def test_handles_permission_error(self, nomic_handler, mock_nomic_dir):
@@ -524,7 +524,7 @@ class TestNomicErrorHandling:
         (mock_nomic_dir / "nomic_state.json").write_text("{}")
 
         with patch("builtins.open", side_effect=PermissionError("Access denied")):
-            result = nomic_handler.handle("/api/nomic/state", {}, None)
+            result = run_async(nomic_handler.handle("/api/nomic/state", {}, None)
 
             assert result is not None
             assert result.status_code == 500

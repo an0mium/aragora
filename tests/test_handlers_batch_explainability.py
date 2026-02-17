@@ -368,9 +368,7 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-results-123/results", {}, mock_get_request
-        )
+        result = handler._handle_batch_results("batch-results-123", {})
         response_body, status = parse_handler_result(result)
 
         assert status == 200
@@ -387,9 +385,7 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-pending-123/results", {}, mock_get_request
-        )
+        result = handler._handle_batch_results("batch-pending-123", {})
         response_body, status = parse_handler_result(result)
 
         assert status == 202
@@ -412,10 +408,8 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-partial-123/results",
-            {"include_partial": "true"},
-            mock_get_request,
+        result = handler._handle_batch_results(
+            "batch-partial-123", {"include_partial": "true"}
         )
         response_body, status = parse_handler_result(result)
 
@@ -438,10 +432,8 @@ class TestGetBatchResults:
         )
         _save_batch_job(job)
 
-        result = handler.handle(
-            "/api/v1/explainability/batch/batch-paginated/results",
-            {"limit": "3", "offset": "2"},
-            mock_get_request,
+        result = handler._handle_batch_results(
+            "batch-paginated", {"limit": "3", "offset": "2"}
         )
         response_body, status = parse_handler_result(result)
 
@@ -452,9 +444,7 @@ class TestGetBatchResults:
         assert response_body["pagination"]["has_more"] is True
 
     def test_get_results_not_found(self, handler, mock_get_request):
-        result = handler.handle(
-            "/api/v1/explainability/batch/nonexistent/results", {}, mock_get_request
-        )
+        result = handler._handle_batch_results("nonexistent", {})
         response_body, status = parse_handler_result(result)
 
         assert status == 404
