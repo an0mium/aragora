@@ -409,13 +409,18 @@ class ConsensusPhase:
 
                 try:
                     asyncio.get_running_loop()
-                    asyncio.create_task(
+                    _hook_task = asyncio.create_task(
                         ctx.hook_manager.trigger(
                             "post_consensus",
                             ctx=ctx,
                             result=ctx.result,
                             consensus_reached=ctx.result.consensus_reached,
                         )
+                    )
+                    _hook_task.add_done_callback(
+                        lambda t: logger.warning(f"POST_CONSENSUS hook failed: {t.exception()}")
+                        if not t.cancelled() and t.exception()
+                        else None
                     )
                 except RuntimeError:
                     logger.debug("No running event loop for POST_CONSENSUS hook")
