@@ -209,6 +209,21 @@ def init_phases(arena: Arena) -> None:
     # Warm introspection cache for O(1) per-agent lookups during prompt building
     arena.prompt_builder.warm_introspection_cache(arena.agents)
 
+    # Wire MemoryFabric into PromptBuilder for unified cross-system context
+    if getattr(arena, "enable_coordinated_writes", False):
+        try:
+            from aragora.memory.fabric import MemoryFabric
+
+            _fabric = MemoryFabric(
+                knowledge_mound=getattr(arena, "knowledge_mound", None),
+                continuum=arena.continuum_memory,
+                consensus=arena.memory,
+                supermemory=getattr(arena, "supermemory_adapter", None),
+            )
+            arena.prompt_builder.set_memory_fabric(_fabric)
+        except Exception:
+            logger.debug("MemoryFabric not available, skipping unified context")
+
     # Initialize MemoryManager for centralized memory operations
     arena.memory_manager = MemoryManager(
         continuum_memory=arena.continuum_memory,
