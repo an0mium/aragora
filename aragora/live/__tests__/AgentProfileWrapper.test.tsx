@@ -9,8 +9,8 @@
  * - Responsive layout
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { AgentProfileWrapper } from '../src/app/agent/[[...name]]/AgentProfileWrapper';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
+import { AgentProfileWrapper } from '../src/app/(app)/agent/[[...name]]/AgentProfileWrapper';
 import { mockRouter, useParams } from 'next/navigation';
 
 const mockParams = { name: ['claude-3-opus'] };
@@ -189,7 +189,7 @@ describe('AgentProfileWrapper', () => {
     it('shows loading state initially', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       expect(screen.getByText(/loading/i)).toBeInTheDocument();
     });
@@ -197,7 +197,7 @@ describe('AgentProfileWrapper', () => {
     it('displays agent name in header after loading', async () => {
       setupSuccessfulFetch();
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe('AgentProfileWrapper', () => {
     it('displays ELO rating', async () => {
       setupSuccessfulFetch();
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('1650')).toBeInTheDocument();
@@ -217,7 +217,7 @@ describe('AgentProfileWrapper', () => {
     it('displays persona type badge', async () => {
       setupSuccessfulFetch();
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('analytical')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays win rate', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('63%')).toBeInTheDocument(); // 25/40 = 62.5% rounds to 63%
@@ -239,7 +239,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays win/loss/draw record', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('25W-10L-5D')).toBeInTheDocument();
@@ -247,7 +247,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays consistency score', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('85%')).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays calibration brier score', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('0.150')).toBeInTheDocument();
@@ -269,7 +269,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('renders all tabs', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /overview/i })).toBeInTheDocument();
@@ -283,7 +283,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('switches to performance tab when clicked', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /performance/i })).toBeInTheDocument();
@@ -297,7 +297,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('switches to domains tab when clicked', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /domains/i })).toBeInTheDocument();
@@ -311,7 +311,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('switches to history tab when clicked', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /history/i })).toBeInTheDocument();
@@ -325,7 +325,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('switches to moments tab when clicked', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /moments/i })).toBeInTheDocument();
@@ -339,7 +339,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('switches to network tab when clicked', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /network/i })).toBeInTheDocument();
@@ -359,7 +359,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays persona information', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('Persona')).toBeInTheDocument();
@@ -368,7 +368,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays specializations', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('technology')).toBeInTheDocument();
@@ -377,7 +377,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('displays recent moments preview', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('Recent Moments')).toBeInTheDocument();
@@ -389,7 +389,7 @@ describe('AgentProfileWrapper', () => {
     it('displays error message when fetch fails', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText(/network error/i)).toBeInTheDocument();
@@ -399,7 +399,7 @@ describe('AgentProfileWrapper', () => {
     it('shows return link on error', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText(/return to dashboard/i)).toBeInTheDocument();
@@ -413,7 +413,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('has back button that navigates back', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         const backButton = screen.getByText('← Back');
@@ -425,7 +425,7 @@ describe('AgentProfileWrapper', () => {
     });
 
     it('has dashboard link', async () => {
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         const dashboardLink = screen.getByText('Dashboard');
@@ -440,7 +440,7 @@ describe('AgentProfileWrapper', () => {
       // Override params to have no name
       jest.spyOn(require('next/navigation'), 'useParams').mockReturnValue({ name: undefined });
 
-      render(<AgentProfileWrapper />);
+      renderWithProviders(<AgentProfileWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('Agent Profiles')).toBeInTheDocument();

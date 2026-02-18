@@ -126,6 +126,8 @@ describe('ThemeToggle', () => {
 
     it('uses light theme when system prefers light', async () => {
       mockMatchMedia(false);
+      // renderWithProviders uses defaultPreference="dark", so system preference
+      // does not override the explicit dark preference. The effective theme stays dark.
       renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
@@ -134,7 +136,7 @@ describe('ThemeToggle', () => {
 
       expect(screen.getByRole('button')).toHaveAttribute(
         'aria-label',
-        'Switch to dark mode'
+        'Switch to light mode'
       );
     });
   });

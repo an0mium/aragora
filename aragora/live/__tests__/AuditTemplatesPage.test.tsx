@@ -11,7 +11,7 @@
  * - Navigation on preset selection
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor } from '@/test-utils';
 import { useRouter } from 'next/navigation';
 
 // Mock Next.js router
@@ -28,6 +28,7 @@ jest.mock('../src/components/BackendSelector', () => ({
 }));
 
 jest.mock('../src/context/AuthContext', () => ({
+  ...jest.requireActual('../src/context/AuthContext'),
   useAuth: () => ({
     tokens: { access_token: 'test-token' },
   }),
@@ -111,7 +112,7 @@ describe('AuditTemplatesPage', () => {
 
   beforeAll(async () => {
     // Dynamic import after mocks are set up
-    const module = await import('../src/app/audit/templates/page');
+    const module = await import('../src/app/(app)/audit/templates/page');
     AuditTemplatesPage = module.default;
   });
 
@@ -146,7 +147,7 @@ describe('AuditTemplatesPage', () => {
     it('should show loading state initially', () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      const { container } = render(<AuditTemplatesPage />);
+      const { container } = renderWithProviders(<AuditTemplatesPage />);
 
       // Loading state shows skeleton placeholders with animate-pulse
       expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
@@ -157,7 +158,7 @@ describe('AuditTemplatesPage', () => {
     it('should fetch presets on mount', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -170,7 +171,7 @@ describe('AuditTemplatesPage', () => {
     it('should display preset names', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Legal Due Diligence')).toBeInTheDocument();
@@ -182,7 +183,7 @@ describe('AuditTemplatesPage', () => {
     it('should display preset descriptions', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/Comprehensive legal document analysis/)).toBeInTheDocument();
@@ -194,7 +195,7 @@ describe('AuditTemplatesPage', () => {
     it('should display industry icons for presets', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         // Icons are emojis: Legal (⚖️), Financial (💰), Security (🔒)
@@ -207,7 +208,7 @@ describe('AuditTemplatesPage', () => {
     it('should display consensus threshold for presets', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/80%/)).toBeInTheDocument(); // Legal preset
@@ -219,7 +220,7 @@ describe('AuditTemplatesPage', () => {
     it('should display custom rules count for presets', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/15.*rules/i)).toBeInTheDocument();
@@ -233,7 +234,7 @@ describe('AuditTemplatesPage', () => {
     it('should fetch audit types on mount', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -246,7 +247,7 @@ describe('AuditTemplatesPage', () => {
     it('should display audit type names', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Contract Analysis')).toBeInTheDocument();
@@ -257,7 +258,7 @@ describe('AuditTemplatesPage', () => {
     it('should display audit type versions', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/v1\.2\.0/)).toBeInTheDocument();
@@ -270,7 +271,7 @@ describe('AuditTemplatesPage', () => {
     it('should handle fetch failure gracefully', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const { container } = render(<AuditTemplatesPage />);
+      const { container } = renderWithProviders(<AuditTemplatesPage />);
 
       // Should not crash and should eventually stop loading
       await waitFor(() => {
@@ -284,7 +285,7 @@ describe('AuditTemplatesPage', () => {
         json: () => Promise.resolve({ error: 'Server error' }),
       });
 
-      const { container } = render(<AuditTemplatesPage />);
+      const { container } = renderWithProviders(<AuditTemplatesPage />);
 
       // Should not crash
       await waitFor(() => {
@@ -297,7 +298,7 @@ describe('AuditTemplatesPage', () => {
     it('should have link back to home', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         const homeLink = screen.getByTestId('ascii-banner').closest('a');
@@ -310,7 +311,7 @@ describe('AuditTemplatesPage', () => {
     it('should display page header', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         // Multiple elements contain this text (header and description)
@@ -321,7 +322,7 @@ describe('AuditTemplatesPage', () => {
     it('should display section headers for presets and types', async () => {
       setupSuccessfulFetch();
 
-      render(<AuditTemplatesPage />);
+      renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/INDUSTRY PRESETS/i)).toBeInTheDocument();

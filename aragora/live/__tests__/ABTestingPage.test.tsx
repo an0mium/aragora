@@ -2,8 +2,8 @@
  * Tests for A/B Testing Dashboard page
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import ABTestingPage from '../src/app/ab-testing/page';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
+import ABTestingPage from '../src/app/(app)/ab-testing/page';
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -11,6 +11,7 @@ global.fetch = mockFetch;
 
 // Mock AuthContext
 jest.mock('@/context/AuthContext', () => {
+  const actual = jest.requireActual('@/context/AuthContext');
   const tokens = { access_token: 'test-token' };
   const authState = {
     tokens,
@@ -20,6 +21,7 @@ jest.mock('@/context/AuthContext', () => {
   };
 
   return {
+    ...actual,
     useAuth: () => authState,
   };
 });
@@ -90,7 +92,7 @@ describe('ABTestingPage', () => {
   it('shows loading state initially', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     expect(screen.getByText(/loading a\/b tests/i)).toBeInTheDocument();
   });
@@ -101,7 +103,7 @@ describe('ABTestingPage', () => {
       json: () => Promise.resolve({ tests: [], count: 0 }),
     });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/no a\/b tests found/i)).toBeInTheDocument();
@@ -116,7 +118,7 @@ describe('ABTestingPage', () => {
       json: () => Promise.resolve({ tests: mockTests, count: 2 }),
     });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -140,7 +142,7 @@ describe('ABTestingPage', () => {
       json: () => Promise.resolve({ tests: mockTests, count: 2 }),
     });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -168,7 +170,7 @@ describe('ABTestingPage', () => {
         json: () => Promise.resolve({ message: 'A/B test created', test: mockTests[0] }),
       });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/\[new test\]/i)).toBeInTheDocument();
@@ -208,7 +210,7 @@ describe('ABTestingPage', () => {
       json: () => Promise.resolve({ tests: [mockTests[0]], count: 1 }),
     });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -231,7 +233,7 @@ describe('ABTestingPage', () => {
       json: () => Promise.resolve({ tests: mockTests, count: 2 }),
     });
 
-    render(<ABTestingPage />);
+    renderWithProviders(<ABTestingPage />);
 
     await waitFor(() => {
       expect(screen.getByText('claude-3-opus')).toBeInTheDocument();

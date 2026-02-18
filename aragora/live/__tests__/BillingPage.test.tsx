@@ -2,8 +2,8 @@
  * Tests for Billing Page
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import BillingPage from '../src/app/billing/page';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
+import BillingPage from '../src/app/(app)/billing/page';
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -11,6 +11,7 @@ global.fetch = mockFetch;
 
 // Mock AuthContext
 jest.mock('@/context/AuthContext', () => ({
+  ...jest.requireActual('@/context/AuthContext'),
   useAuth: () => ({
     user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
     tokens: { access_token: 'test-token' },
@@ -151,7 +152,7 @@ describe('BillingPage', () => {
   it('shows loading state initially', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     expect(screen.getByText(/loading billing data/i)).toBeInTheDocument();
   });
@@ -159,7 +160,7 @@ describe('BillingPage', () => {
   it('renders overview data', async () => {
     setupMocks();
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/current plan/i)).toBeInTheDocument();
@@ -185,7 +186,7 @@ describe('BillingPage', () => {
   it('switches to invoices tab and shows invoices', async () => {
     setupMocks();
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/current plan/i)).toBeInTheDocument();
@@ -204,7 +205,7 @@ describe('BillingPage', () => {
   it('shows invoice actions when available', async () => {
     setupMocks();
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/current plan/i)).toBeInTheDocument();
@@ -250,7 +251,7 @@ describe('BillingPage', () => {
       return Promise.resolve({ ok: false });
     });
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/current plan/i)).toBeInTheDocument();
@@ -302,7 +303,7 @@ describe('BillingPage', () => {
       return Promise.resolve({ ok: false });
     });
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/may exceed your limit/i)).toBeInTheDocument();
@@ -353,7 +354,7 @@ describe('BillingPage', () => {
       return Promise.resolve({ ok: false });
     });
 
-    render(<BillingPage />);
+    renderWithProviders(<BillingPage />);
 
     await waitFor(() => {
       expect(screen.getByText('MANAGE SUBSCRIPTION')).toBeInTheDocument();

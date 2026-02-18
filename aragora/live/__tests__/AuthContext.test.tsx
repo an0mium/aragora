@@ -257,6 +257,15 @@ describe('AuthContext', () => {
       mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
       mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
 
+      // Mock the /api/auth/me call during mount validation
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          user: mockUser,
+          organization: mockOrganization,
+        }),
+      });
+
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {
@@ -281,6 +290,15 @@ describe('AuthContext', () => {
     it('handles refresh failure', async () => {
       mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
       mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
+
+      // Mock the /api/auth/me call during mount validation
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          user: mockUser,
+          organization: mockOrganization,
+        }),
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -309,6 +327,15 @@ describe('AuthContext', () => {
       // Pre-populate localStorage
       mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
       mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
+
+      // Mock the /api/auth/me call during mount validation
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          user: mockUser,
+          organization: mockOrganization,
+        }),
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 

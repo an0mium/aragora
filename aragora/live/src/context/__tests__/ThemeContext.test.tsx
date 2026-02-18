@@ -2,7 +2,7 @@
  * Tests for ThemeContext
  *
  * Tests cover:
- * - Default theme (dark)
+ * - Default theme (light)
  * - Theme initialization from localStorage
  * - setTheme changes preference and effective theme
  * - toggleTheme cycles between dark and light
@@ -64,15 +64,15 @@ describe('ThemeContext', () => {
   });
 
   describe('Initialization', () => {
-    it('starts with dark theme by default', async () => {
+    it('starts with light theme by default', async () => {
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      expect(result.current.preference).toBe('dark');
-      expect(result.current.effectiveTheme).toBe('dark');
+      expect(result.current.preference).toBe('light');
+      expect(result.current.effectiveTheme).toBe('light');
     });
 
     it('loads theme from legacy storage key', async () => {
@@ -179,26 +179,7 @@ describe('ThemeContext', () => {
   });
 
   describe('toggleTheme', () => {
-    it('toggles from dark to light', async () => {
-      const { result } = renderHook(() => useTheme(), { wrapper });
-
-      await waitFor(() => {
-        expect(result.current.isInitialized).toBe(true);
-      });
-
-      expect(result.current.effectiveTheme).toBe('dark');
-
-      act(() => {
-        result.current.toggleTheme();
-      });
-
-      expect(result.current.preference).toBe('light');
-      expect(result.current.effectiveTheme).toBe('light');
-    });
-
     it('toggles from light to dark', async () => {
-      localStorageMock['aragora-theme'] = 'light';
-
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
@@ -213,6 +194,25 @@ describe('ThemeContext', () => {
 
       expect(result.current.preference).toBe('dark');
       expect(result.current.effectiveTheme).toBe('dark');
+    });
+
+    it('toggles from dark to light', async () => {
+      localStorageMock['aragora-theme'] = 'dark';
+
+      const { result } = renderHook(() => useTheme(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isInitialized).toBe(true);
+      });
+
+      expect(result.current.effectiveTheme).toBe('dark');
+
+      act(() => {
+        result.current.toggleTheme();
+      });
+
+      expect(result.current.preference).toBe('light');
+      expect(result.current.effectiveTheme).toBe('light');
     });
 
     it('toggle overrides system preference', async () => {
@@ -304,8 +304,8 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      // Should fallback to default
-      expect(result.current.preference).toBe('dark');
+      // Should fallback to default (light)
+      expect(result.current.preference).toBe('light');
     });
 
     it('handles invalid theme value in localStorage', async () => {
@@ -317,8 +317,8 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      // Should fallback to default
-      expect(result.current.preference).toBe('dark');
+      // Should fallback to default (light)
+      expect(result.current.preference).toBe('light');
     });
   });
 });
