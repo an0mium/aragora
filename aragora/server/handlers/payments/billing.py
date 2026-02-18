@@ -609,7 +609,12 @@ async def handle_create_subscription(
         name = body.get("name", "Subscription")
         amount = Decimal(str(body.get("amount", 0)))
         interval = body.get("interval", "month")
-        interval_count = int(body.get("interval_count", 1))
+        try:
+            interval_count = int(body.get("interval_count", 1))
+        except (ValueError, TypeError):
+            return web_error_response("Invalid interval_count", 400)
+        if interval_count < 1 or interval_count > 120:
+            return web_error_response("interval_count must be between 1 and 120", 400)
 
         if not customer_id:
             return web_error_response("Missing customer_id", 400)
