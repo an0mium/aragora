@@ -550,7 +550,10 @@ async def handle_get_sync_history(
     scheduler = get_scheduler()
 
     job_id = f"{tenant_id}:{connector_id}" if connector_id else None
-    sync_status = SyncStatus(status) if status else None
+    try:
+        sync_status = SyncStatus(status) if status else None
+    except ValueError:
+        return error_response(f"Invalid sync status: {status}", 400)
 
     history = scheduler.get_history(
         job_id=job_id,
