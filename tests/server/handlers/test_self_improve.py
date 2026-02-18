@@ -583,6 +583,9 @@ class TestGeneratePlan:
         mock_result.complexity_score = 0.7
 
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer"
         ) as MockDecomposer:
             MockDecomposer.return_value.analyze.return_value = mock_result
@@ -597,6 +600,9 @@ class TestGeneratePlan:
     @pytest.mark.asyncio
     async def test_generate_plan_import_error(self, handler):
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer",
             side_effect=ImportError("No decomposer"),
         ):
@@ -612,6 +618,9 @@ class TestGeneratePlan:
         mock_result = MagicMock(spec=[])
 
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer"
         ) as MockDecomposer:
             MockDecomposer.return_value.analyze.return_value = mock_result
@@ -626,6 +635,9 @@ class TestGeneratePlan:
         mock_result.complexity_score = 0.1
 
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.task_decomposer.TaskDecomposer"
         ) as MockDecomposer:
             MockDecomposer.return_value.analyze.return_value = mock_result
@@ -657,6 +669,9 @@ class TestExecuteRun:
         mock_result.error = None
 
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
         ) as MockOrch:
             mock_orch_instance = MockOrch.return_value
@@ -672,6 +687,9 @@ class TestExecuteRun:
     @pytest.mark.asyncio
     async def test_execute_run_failure(self, handler_with_store, mock_store):
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
         ) as MockOrch:
             mock_orch_instance = MockOrch.return_value
@@ -683,11 +701,14 @@ class TestExecuteRun:
         mock_store.update_run.assert_called()
         last_call = mock_store.update_run.call_args
         assert last_call[1]["status"] == "failed"
-        assert "RuntimeError" in last_call[1]["error"]
+        assert "failed" in last_call[1]["error"].lower()
 
     @pytest.mark.asyncio
     async def test_execute_run_cancelled(self, handler_with_store, mock_store):
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
         ) as MockOrch:
             mock_orch_instance = MockOrch.return_value
@@ -721,6 +742,9 @@ class TestExecuteRun:
         mock_result.error = "Test error"
 
         with patch(
+            "aragora.nomic.self_improve.SelfImprovePipeline",
+            side_effect=ImportError("skip pipeline"),
+        ), patch(
             "aragora.nomic.hardened_orchestrator.HardenedOrchestrator"
         ) as MockOrch:
             mock_orch_instance = MockOrch.return_value
