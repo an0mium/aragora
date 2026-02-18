@@ -1,7 +1,7 @@
 /**
  * Tests for Receipts page — SWR-based receipt fetching, gauntlet fallback, filtering
  */
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 // Mock next/link
 jest.mock('next/link', () => {

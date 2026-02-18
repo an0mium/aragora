@@ -95,11 +95,18 @@ function getDemoPipeline(): PipelineResultResponse {
   };
 }
 
+interface PipelineExecuteResponse {
+  pipeline_id: string;
+  status: string;
+  results: unknown[];
+}
+
 export function usePipeline() {
   const api = useApi<PipelineCreateResponse>();
   const advanceApi = useApi<PipelineAdvanceResponse>();
   const getApi = useApi<PipelineResultResponse>();
   const stageApi = useApi<{ stage: string; data: unknown }>();
+  const executeApi = useApi<PipelineExecuteResponse>();
   const [pipelineData, setPipelineData] = useState<PipelineResultResponse | null>(null);
 
   const createFromDebate = useCallback(
@@ -161,6 +168,14 @@ export function usePipeline() {
     [stageApi]
   );
 
+  const executePipeline = useCallback(
+    async (pipelineId: string) => {
+      const result = await executeApi.post(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {});
+      return result;
+    },
+    [executeApi]
+  );
+
   const loadDemo = useCallback(() => {
     setPipelineData(getDemoPipeline());
   }, []);
@@ -176,9 +191,11 @@ export function usePipeline() {
     advanceStage,
     getPipeline,
     getStage,
+    executePipeline,
     loadDemo,
     reset,
     loading: api.loading || advanceApi.loading || getApi.loading,
-    error: api.error || advanceApi.error || getApi.error,
+    executing: executeApi.loading,
+    error: api.error || advanceApi.error || getApi.error || executeApi.error,
   };
 }

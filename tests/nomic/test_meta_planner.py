@@ -480,10 +480,16 @@ class TestPrioritizeWorkAsync:
     @pytest.mark.asyncio
     async def test_prioritize_uses_heuristic_fallback(self):
         """Should fall back to heuristics when debate fails."""
-        planner = MetaPlanner()
+        config = MetaPlannerConfig(
+            enable_cross_cycle_learning=False,
+            enable_metrics_collection=False,
+        )
+        planner = MetaPlanner(config=config)
 
-        # Import error will trigger heuristic fallback
-        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}):
+        # Import error will trigger heuristic fallback; also mock scan_code_markers
+        # to avoid scanning the entire repo filesystem (causes hangs in CI)
+        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
+             patch("aragora.compat.openclaw.next_steps_runner.scan_code_markers", return_value=([], 0)):
             goals = await planner.prioritize_work(
                 objective="Maximize SME utility",
                 available_tracks=[Track.SME, Track.QA],

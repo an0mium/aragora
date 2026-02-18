@@ -7,7 +7,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
-import { logger } from '@/utils/logger';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 interface GauntletResult {

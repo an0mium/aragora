@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { DebateViewer } from '@/components/debate-viewer';
 import { CruxPanel } from '@/components/CruxPanel';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
@@ -29,11 +29,14 @@ import { DEFAULT_AGENTS } from '@/config';
 
 export function DebateViewerWrapper() {
   const router = useRouter();
-  const [debateId, setDebateId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDeepAnalysis, setShowDeepAnalysis] = useState(false);
   const { config } = useBackend();
+
+  // Extract debate ID from pathname: /debate/abc123 -> abc123
+  const pathSegments = (pathname ?? '').split('/').filter(Boolean);
+  const debateId = pathSegments[1] || null; // ['debate', 'abc123'] -> 'abc123'
 
   // Handle starting a debate from a trending topic
   const handleStartDebateFromTrend = useCallback(async (topic: string, source: string) => {
@@ -58,14 +61,6 @@ export function DebateViewerWrapper() {
     }
   }, [config.api, router]);
 
-  useEffect(() => {
-    // Extract debate ID from actual browser URL: /debate/abc123 -> abc123
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    const id = pathSegments[1] || null; // ['debate', 'abc123'] -> 'abc123'
-    setDebateId(id);
-    setIsLoading(false);
-  }, []);
-
   // Live debates start with 'adhoc_' - hide analysis during streaming for better UX
   const isLiveDebate = debateId?.startsWith('adhoc_') ?? false;
 
@@ -78,15 +73,6 @@ export function DebateViewerWrapper() {
     wsUrl: config.ws,
     enabled: isLiveDebate && !!debateId,
   });
-
-  // Show loading while determining debate ID
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="text-acid-green font-mono animate-pulse">LOADING...</div>
-      </div>
-    );
-  }
 
   // No ID provided - show message
   if (!debateId) {

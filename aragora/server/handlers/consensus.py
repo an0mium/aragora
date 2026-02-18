@@ -72,6 +72,7 @@ class ConsensusHandler(BaseHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/consensus",
         "/api/consensus/similar",
         "/api/consensus/settled",
         "/api/consensus/stats",
@@ -178,6 +179,9 @@ class ConsensusHandler(BaseHandler):
                 rbac_err = self._check_memory_permission(handler, user, "update")
                 if rbac_err:
                     return rbac_err
+
+        if path == "/api/consensus":
+            return self._get_consensus_stats()
 
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation

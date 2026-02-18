@@ -11,12 +11,14 @@ jest.mock('next/link', () => {
 
 // Mock next/navigation
 const mockPush = jest.fn();
+let mockPathname = '/debate';
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
     replace: jest.fn(),
     prefetch: jest.fn(),
   }),
+  usePathname: () => mockPathname,
 }));
 
 // Mock visual components
@@ -124,28 +126,15 @@ jest.mock('@/hooks/useDebateWebSocketStore', () => ({
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Helper to mock window.location.pathname
-// JSDOM marks window.location as non-configurable; use jsdom.reconfigure() via the internal API.
-const mockPathname = (pathname: string) => {
-  // jsdom's window has a reconfigure method on its internal implementation
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const jsdomWindow = window as any;
-  if (jsdomWindow._jsdomUrl) {
-    // Direct URL override for newer JSDOM
-    jsdomWindow._jsdomUrl = new URL(`http://localhost${pathname}`);
-  }
-  // Also try the standard JSDOM reconfigure
-  if (typeof jsdomWindow.reconfigure === 'function') {
-    jsdomWindow.reconfigure({ url: `http://localhost${pathname}` });
-  }
-  // Fallback: use history.replaceState which actually changes the URL in JSDOM
-  window.history.replaceState({}, '', pathname);
-};
+// Helper to set the mocked pathname for usePathname()
+function setMockPathname(pathname: string) {
+  mockPathname = pathname;
+}
 
 describe('DebateViewerPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPathname('/debate');
+    setMockPathname('/debate');
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -154,8 +143,6 @@ describe('DebateViewerPage', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    // Reset URL back to root
-    window.history.replaceState({}, '', '/');
   });
 
   describe('initial render', () => {
@@ -164,9 +151,8 @@ describe('DebateViewerPage', () => {
 
       // Should render successfully
       await waitFor(() => {
-        // Either loading, no-debate message, or debate viewer should appear
+        // Either no-debate message or debate viewer should appear
         const hasContent =
-          screen.queryByText('LOADING...') ||
           screen.queryByText(/NO DEBATE ID PROVIDED/i) ||
           screen.queryByTestId('debate-viewer');
         expect(hasContent).toBeTruthy();
@@ -185,7 +171,7 @@ describe('DebateViewerPage', () => {
 describe('DebateViewerWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPathname('/debate');
+    setMockPathname('/debate');
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -196,22 +182,20 @@ describe('DebateViewerWrapper', () => {
     jest.restoreAllMocks();
   });
 
-  describe('loading state', () => {
-    it('component handles loading state correctly', () => {
-      // The loading state is handled internally via useState/useEffect
-      // In React Testing Library, useEffect runs synchronously during render
-      // so loading state transitions immediately to the final state
-      // We verify the component doesn't crash during this transition
+  describe('initial state', () => {
+    it('component renders correctly with no debate ID', () => {
+      // The debate ID is derived synchronously from usePathname()
+      // With pathname '/debate', there is no ID segment
       renderWithProviders(<DebateViewerWrapper />);
 
-      // After render completes, should show final state (no debate ID message)
+      // Should show no debate ID message
       expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
     });
   });
 
   describe('no debate ID', () => {
     it('shows "no debate ID" message when no ID in URL', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -221,7 +205,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('renders visual effects when no debate ID', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -232,7 +216,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('renders header elements when no debate ID', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -243,7 +227,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('renders return to dashboard link when no debate ID', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -253,7 +237,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('has correct link to dashboard', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -266,7 +250,7 @@ describe('DebateViewerWrapper', () => {
 
   describe('with debate ID', () => {
     it('renders debate viewer when debate ID is in URL', async () => {
-      mockPathname('/debate/test-debate-123');
+      setMockPathname('/debate/test-debate-123');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -276,7 +260,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('passes debate ID to DebateViewer component', async () => {
-      mockPathname('/debate/my-debate-456');
+      setMockPathname('/debate/my-debate-456');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -287,7 +271,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('passes WebSocket URL to DebateViewer component', async () => {
-      mockPathname('/debate/test-debate');
+      setMockPathname('/debate/test-debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -298,7 +282,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('shows analysis toggle button for archived debates', async () => {
-      mockPathname('/debate/archived-debate-789');
+      setMockPathname('/debate/archived-debate-789');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -310,7 +294,7 @@ describe('DebateViewerWrapper', () => {
 
   describe('live debate detection', () => {
     it('detects live debate from adhoc_ prefix', async () => {
-      mockPathname('/debate/adhoc_live-debate');
+      setMockPathname('/debate/adhoc_live-debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -322,7 +306,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('shows voice input panel for live debates', async () => {
-      mockPathname('/debate/adhoc_streaming-debate');
+      setMockPathname('/debate/adhoc_streaming-debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -332,7 +316,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('hides voice input panel for archived debates', async () => {
-      mockPathname('/debate/archived-debate');
+      setMockPathname('/debate/archived-debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -344,7 +328,7 @@ describe('DebateViewerWrapper', () => {
 
   describe('starting debate from trending topic', () => {
     it('calls API when starting debate from trending topic', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
@@ -360,7 +344,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('navigates to new debate when created successfully', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
@@ -376,10 +360,9 @@ describe('DebateViewerWrapper', () => {
   });
 
   describe('error handling', () => {
-    it('handles missing window.location gracefully', async () => {
-      // The component reads from window.location.pathname
-      // In test environment this is mocked
-      mockPathname('/debate');
+    it('handles missing pathname gracefully', async () => {
+      // The component reads pathname from usePathname()
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -392,7 +375,7 @@ describe('DebateViewerWrapper', () => {
 
   describe('URL parsing', () => {
     it('extracts debate ID from URL path segments', async () => {
-      mockPathname('/debate/segment-debate-id');
+      setMockPathname('/debate/segment-debate-id');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -403,7 +386,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('handles URLs with trailing slashes', async () => {
-      mockPathname('/debate/trailing-slash/');
+      setMockPathname('/debate/trailing-slash/');
 
       renderWithProviders(<DebateViewerWrapper />);
 
@@ -414,7 +397,7 @@ describe('DebateViewerWrapper', () => {
     });
 
     it('handles root debate path', async () => {
-      mockPathname('/debate');
+      setMockPathname('/debate');
 
       renderWithProviders(<DebateViewerWrapper />);
 

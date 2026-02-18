@@ -24,7 +24,7 @@ function CanvasLoadingState() {
 }
 
 /** Map transition target stages to the next stage for advancement */
-const NEXT_STAGE: Record<string, PipelineStageType> = {
+const _NEXT_STAGE: Record<string, PipelineStageType> = {
   ideas: 'goals',
   goals: 'actions',
   actions: 'orchestration',
@@ -36,9 +36,11 @@ export default function PipelinePage() {
     createFromIdeas,
     createFromDebate,
     advanceStage,
+    executePipeline,
     loadDemo,
     reset,
     loading,
+    executing,
     error,
   } = usePipeline();
 
@@ -120,6 +122,16 @@ export default function PipelinePage() {
     [],
   );
 
+  const handleExecute = useCallback(async () => {
+    if (pipelineData?.pipeline_id) {
+      await executePipeline(pipelineData.pipeline_id);
+    }
+  }, [pipelineData, executePipeline]);
+
+  const allStagesComplete = pipelineData?.stage_status
+    ? Object.values(pipelineData.stage_status).every((s) => s === 'complete')
+    : false;
+
   return (
     <div className="flex flex-col h-screen bg-bg">
       {/* Header */}
@@ -164,6 +176,16 @@ export default function PipelinePage() {
           >
             {loading ? 'Loading...' : 'Try Demo'}
           </button>
+
+          {pipelineData && allStagesComplete && (
+            <button
+              onClick={handleExecute}
+              disabled={executing}
+              className="px-4 py-2 bg-amber-600 text-white font-mono text-sm hover:bg-amber-500 disabled:opacity-50 transition-colors rounded"
+            >
+              {executing ? 'Executing...' : 'Execute Pipeline'}
+            </button>
+          )}
         </div>
       </header>
 

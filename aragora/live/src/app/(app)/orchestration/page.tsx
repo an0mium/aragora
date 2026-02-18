@@ -20,7 +20,7 @@ interface CanvasMeta {
   updated_at: string;
 }
 
-const API_BASE = '/api/v1/orchestration';
+const API_BASE = '/api/v1/orchestration/canvas';
 
 /**
  * /orchestration page -- lists orchestration canvases or opens the unified
