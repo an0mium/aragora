@@ -15,7 +15,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ class CommitPhase:
         log_fn: Callable[[str], None] | None = None,
         stream_emit_fn: Callable[..., None] | None = None,
         commit_gate: Optional["CommitGate"] = None,
+        cycle_outcome: Any | None = None,
     ):
         """
         Initialize the commit phase.
@@ -59,6 +60,7 @@ class CommitPhase:
             log_fn: Function to log messages
             stream_emit_fn: Function to emit streaming events
             commit_gate: Optional CommitGate for structured approval with audit trail
+            cycle_outcome: Optional NomicCycleOutcome to persist to KM after commit
         """
         self.aragora_path = aragora_path
         self.require_human_approval = require_human_approval
@@ -67,6 +69,7 @@ class CommitPhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._commit_gate = commit_gate
+        self._cycle_outcome = cycle_outcome
 
     async def execute(self, improvement: str) -> CommitResult:
         """
@@ -180,6 +183,10 @@ class CommitPhase:
 
             if committed:
                 self._log(f"  Committed: {summary}")
+
+                # Persist cycle outcome to Knowledge Mound
+                if self._cycle_outcome:
+                    await self._persist_to_km(commit_hash)
                 # Get commit hash
                 hash_result = subprocess.run(
                     ["git", "rev-parse", "--short", "HEAD"],
