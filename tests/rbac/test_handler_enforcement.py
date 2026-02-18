@@ -89,6 +89,8 @@ ALLOWED_WITHOUT_RBAC = frozenset({
     "utils/safe_fetch",
     "utils/sanitization",
     "utils/tenant_validation",
+    # Governance (outcomes.py has RBAC, __init__ is re-export only)
+    "governance/__init__",
     # Bot handlers (use platform-specific signature verification)
     "bots/__init__",
     "bots/base",

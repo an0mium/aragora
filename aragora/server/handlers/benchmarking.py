@@ -21,6 +21,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from .utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
