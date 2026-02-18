@@ -382,68 +382,6 @@ class AnalysisOperationsMixin:
             logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
             return error_response("Invalid request", 400)
 
-
-def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult:
-    """Build graph stats from replay events file."""
-    import json as json_mod
-
-    from aragora.exceptions import (
-        DatabaseError,
-        StorageError,
-    )
-
-    try:
-        from aragora.visualization.mapper import ArgumentCartographer
-    except ImportError:
-        return error_response("Graph analysis module not available", 503)
-
-    try:
-        cartographer = ArgumentCartographer()
-        cartographer.set_debate_context(debate_id, "")
-
-        with replay_path.open() as f:
-            for line_num, line in enumerate(f, 1):
-                if line.strip():
-                    try:
-                        event = json_mod.loads(line)
-                    except json_mod.JSONDecodeError:
-                        logger.warning(f"Skipping malformed JSONL line {line_num}")
-                        continue
-
-                    if event.get("type") == "agent_message":
-                        cartographer.update_from_message(
-                            agent=event.get("agent", "unknown"),
-                            content=event.get("data", {}).get("content", ""),
-                            role=event.get("data", {}).get("role", "proposer"),
-                            round_num=event.get("round", 1),
-                        )
-                    elif event.get("type") == "critique":
-                        cartographer.update_from_critique(
-                            critic_agent=event.get("agent", "unknown"),
-                            target_agent=event.get("data", {}).get("target", "unknown"),
-                            severity=event.get("data", {}).get("severity", 0.5),
-                            round_num=event.get("round", 1),
-                            critique_text=event.get("data", {}).get("content", ""),
-                        )
-
-        stats = cartographer.get_statistics()
-        return json_response(stats)
-    except FileNotFoundError:
-        logger.info("Build graph failed - replay file not found: %s", replay_path)
-        return error_response(f"Replay file not found: {debate_id}", 404)
-    except (StorageError, DatabaseError) as e:
-        logger.error(
-            "Failed to build graph from replay %s: %s: %s",
-            debate_id,
-            type(e).__name__,
-            e,
-            exc_info=True,
-        )
-        return error_response("Database error building graph", 500)
-    except ValueError as e:
-        logger.warning("Invalid replay data for %s: %s", debate_id, e)
-        return error_response("Invalid replay data", 400)
-
     def _get_rhetorical_observations(
         self: _DebatesHandlerProtocol, debate_id: str
     ) -> HandlerResult:
@@ -622,6 +560,68 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
                 exc_info=True,
             )
             return error_response("Error analyzing trickster status", 500)
+
+
+def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult:
+    """Build graph stats from replay events file."""
+    import json as json_mod
+
+    from aragora.exceptions import (
+        DatabaseError,
+        StorageError,
+    )
+
+    try:
+        from aragora.visualization.mapper import ArgumentCartographer
+    except ImportError:
+        return error_response("Graph analysis module not available", 503)
+
+    try:
+        cartographer = ArgumentCartographer()
+        cartographer.set_debate_context(debate_id, "")
+
+        with replay_path.open() as f:
+            for line_num, line in enumerate(f, 1):
+                if line.strip():
+                    try:
+                        event = json_mod.loads(line)
+                    except json_mod.JSONDecodeError:
+                        logger.warning(f"Skipping malformed JSONL line {line_num}")
+                        continue
+
+                    if event.get("type") == "agent_message":
+                        cartographer.update_from_message(
+                            agent=event.get("agent", "unknown"),
+                            content=event.get("data", {}).get("content", ""),
+                            role=event.get("data", {}).get("role", "proposer"),
+                            round_num=event.get("round", 1),
+                        )
+                    elif event.get("type") == "critique":
+                        cartographer.update_from_critique(
+                            critic_agent=event.get("agent", "unknown"),
+                            target_agent=event.get("data", {}).get("target", "unknown"),
+                            severity=event.get("data", {}).get("severity", 0.5),
+                            round_num=event.get("round", 1),
+                            critique_text=event.get("data", {}).get("content", ""),
+                        )
+
+        stats = cartographer.get_statistics()
+        return json_response(stats)
+    except FileNotFoundError:
+        logger.info("Build graph failed - replay file not found: %s", replay_path)
+        return error_response(f"Replay file not found: {debate_id}", 404)
+    except (StorageError, DatabaseError) as e:
+        logger.error(
+            "Failed to build graph from replay %s: %s: %s",
+            debate_id,
+            type(e).__name__,
+            e,
+            exc_info=True,
+        )
+        return error_response("Database error building graph", 500)
+    except ValueError as e:
+        logger.warning("Invalid replay data for %s: %s", debate_id, e)
+        return error_response("Invalid replay data", 400)
 
 
 __all__ = ["AnalysisOperationsMixin"]

@@ -402,9 +402,6 @@ class TestRhetoricalObservations:
 
     def test_rhetorical_patterns_detected(self, analysis_mixin, mock_trace_file):
         """Test rhetorical patterns are detected and returned."""
-        if not hasattr(analysis_mixin, "_get_rhetorical_observations"):
-            pytest.xfail("Method not available on mixin")
-
         mock_result = MockDebateResult(
             messages=[
                 MockMessage("claude", "I concede that point", "proposer", 1),
@@ -445,25 +442,16 @@ class TestTricksterStatus:
 
     def test_trickster_no_nomic_dir(self, analysis_mixin_no_dir):
         """Test trickster status returns 503 when nomic_dir not configured."""
-        if not hasattr(analysis_mixin_no_dir, "_get_trickster_status"):
-            pytest.xfail("Method not available on mixin")
-
         result = analysis_mixin_no_dir._get_trickster_status("test-debate")
         assert result.status_code == 503
 
     def test_trickster_trace_not_found(self, analysis_mixin):
         """Test trickster status returns 404 when trace not found."""
-        if not hasattr(analysis_mixin, "_get_trickster_status"):
-            pytest.xfail("Method not available on mixin")
-
         result = analysis_mixin._get_trickster_status("nonexistent")
         assert result.status_code == 404
 
     def test_trickster_alerts_detected(self, analysis_mixin, mock_trace_file):
         """Test trickster detects hollow consensus alerts."""
-        if not hasattr(analysis_mixin, "_get_trickster_status"):
-            pytest.xfail("Method not available on mixin")
-
         mock_result = MockDebateResult(
             rounds=[{}, {}, {}],
             messages=[
@@ -492,9 +480,6 @@ class TestTricksterStatus:
 
     def test_trickster_interventions_returned(self, analysis_mixin, mock_trace_file):
         """Test trickster returns intervention recommendations."""
-        if not hasattr(analysis_mixin, "_get_trickster_status"):
-            pytest.xfail("Method not available on mixin")
-
         mock_result = MockDebateResult(
             rounds=[{}],
             messages=[MockMessage("claude", "Test", "proposer", 1)],
@@ -519,9 +504,6 @@ class TestTricksterStatus:
 
     def test_trickster_config_returned(self, analysis_mixin, mock_trace_file):
         """Test trickster returns configuration in response."""
-        if not hasattr(analysis_mixin, "_get_trickster_status"):
-            pytest.xfail("Method not available on mixin")
-
         mock_result = MockDebateResult(rounds=[{}], messages=[])
 
         with patch("aragora.debate.traces.DebateTrace") as MockTrace:
