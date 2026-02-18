@@ -37,16 +37,14 @@ class TestSelectAgentsByIntrospection:
             "deepseek": self._make_snapshot("deepseek", reputation=0.6, calibration=0.5),
         }
 
-        with patch(
-            "aragora.nomic.meta_planner.get_agent_introspection",
-            side_effect=lambda name: snapshots[name],
+        mock_module = MagicMock()
+        mock_module.get_agent_introspection = lambda name: snapshots[name]
+
+        with patch.dict(
+            "sys.modules",
+            {"aragora.introspection.api": mock_module},
         ):
-            # We need to patch the import inside the method
-            with patch.dict(
-                "sys.modules",
-                {"aragora.introspection.api": MagicMock(get_agent_introspection=lambda name: snapshots[name])},
-            ):
-                result = planner._select_agents_by_introspection("general")
+            result = planner._select_agents_by_introspection("general")
 
         assert result[0] == "claude"  # 0.9 + 0.8 = 1.7
         assert result[1] == "deepseek"  # 0.6 + 0.5 = 1.1

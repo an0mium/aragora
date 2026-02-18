@@ -67,7 +67,9 @@ interface AuthContextType extends AuthState {
   getCurrentOrgRole: () => 'member' | 'admin' | 'owner' | null;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Exported for test-utils to provide mock values via AuthContext.Provider
+// without triggering AuthProvider's side effects (fetch, localStorage).
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE = API_BASE_URL;
 

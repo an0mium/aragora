@@ -96,6 +96,7 @@ def make_args(**overrides) -> argparse.Namespace:
         "share": False,
         "sarif": None,
         "gauntlet": False,
+        "post_comment": False,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -729,3 +730,115 @@ class TestRunGauntletOnDiff:
         new_issue = result["high_issues"][-1]
         assert new_issue["issue"] == "Buffer overflow in parser"
         assert new_issue["suggestions"] == ["Bounds checking"]
+
+
+# ===========================================================================
+# Tests for --post-comment flag
+# ===========================================================================
+
+
+class TestPostCommentFlag:
+    """Tests for the --post-comment CLI flag."""
+
+    def test_post_comment_flag_registered(self):
+        """The --post-comment flag is recognized by the parser."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        create_review_parser(subparsers)
+
+        args = parser.parse_args(["review", "--demo", "--post-comment"])
+        assert args.post_comment is True
+
+    def test_post_comment_flag_not_set(self):
+        """When --post-comment is not provided, it is False."""
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        create_review_parser(subparsers)
+
+        args = parser.parse_args(["review", "--demo"])
+        assert args.post_comment is False
+
+    @patch("aragora.cli.review.run_review_debate")
+    @patch("aragora.cli.review.extract_review_findings")
+    @patch("aragora.cli.review.get_available_agents")
+    @patch("aragora.cli.review.subprocess")
+    def test_post_comment_calls_gh(
+        self, mock_subprocess, mock_agents, mock_extract, mock_debate, tmp_path
+    ):
+        """--post-comment posts a comment via gh CLI."""
+        mock_agents.return_value = "anthropic-api,openai-api"
+        mock_debate.return_value = MockDebateResult()
+        mock_extract.return_value = mock_findings()
+        mock_subprocess.run.return_value = MagicMock(returncode=0, stderr="")
+
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n-old\n+new\n")
+
+        args = make_args(
+            diff_file=str(diff_file),
+            pr_url="https://github.com/owner/repo/pull/42",
+            post_comment=True,
+        )
+
+        result = cmd_review(args)
+        assert result == 0
+
+        # Verify gh pr comment was called
+        mock_subprocess.run.assert_called()
+        call_args = mock_subprocess.run.call_args
+        cmd = call_args[0][0]
+        assert cmd[0] == "gh"
+        assert cmd[1] == "pr"
+        assert cmd[2] == "comment"
+        assert "42" in cmd
+        assert "--body" in cmd
+
+    @patch("aragora.cli.review.run_review_debate")
+    @patch("aragora.cli.review.extract_review_findings")
+    @patch("aragora.cli.review.get_available_agents")
+    def test_post_comment_requires_pr_url(
+        self, mock_agents, mock_extract, mock_debate, tmp_path
+    ):
+        """--post-comment without a PR URL returns error."""
+        mock_agents.return_value = "anthropic-api,openai-api"
+        mock_debate.return_value = MockDebateResult()
+        mock_extract.return_value = mock_findings()
+
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n-old\n+new\n")
+
+        args = make_args(
+            diff_file=str(diff_file),
+            pr_url=None,
+            post_comment=True,
+        )
+
+        result = cmd_review(args)
+        assert result == 1
+
+    @patch("aragora.cli.review.run_review_debate")
+    @patch("aragora.cli.review.extract_review_findings")
+    @patch("aragora.cli.review.get_available_agents")
+    @patch("aragora.cli.review.subprocess")
+    def test_post_comment_gh_failure_is_warning(
+        self, mock_subprocess, mock_agents, mock_extract, mock_debate, tmp_path
+    ):
+        """gh CLI failure is a warning, not a hard error."""
+        mock_agents.return_value = "anthropic-api,openai-api"
+        mock_debate.return_value = MockDebateResult()
+        mock_extract.return_value = mock_findings()
+        mock_subprocess.run.return_value = MagicMock(returncode=1, stderr="auth error")
+        mock_subprocess.TimeoutExpired = type("TimeoutExpired", (Exception,), {})
+
+        diff_file = tmp_path / "test.diff"
+        diff_file.write_text("--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n-old\n+new\n")
+
+        args = make_args(
+            diff_file=str(diff_file),
+            pr_url="https://github.com/owner/repo/pull/99",
+            post_comment=True,
+        )
+
+        # Should still return 0 despite gh failure
+        result = cmd_review(args)
+        assert result == 0

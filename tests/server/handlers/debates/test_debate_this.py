@@ -71,14 +71,13 @@ def mixin_factory():
 
 @pytest.fixture(autouse=True)
 def _bypass_rate_limits(monkeypatch):
-    """Bypass rate limiting by making check always return allowed."""
+    """Bypass rate limiting by clearing all limiter state and patching user check."""
+    from aragora.server.middleware.rate_limit import decorators as rl_mod
     from aragora.server.middleware.rate_limit.limiter import RateLimitResult
 
-    allowed = RateLimitResult(allowed=True, key="test", remaining=100, limit=100)
-    monkeypatch.setattr(
-        "aragora.server.middleware.rate_limit.decorators.check_user_rate_limit",
-        lambda *a, **kw: allowed,
-    )
+    allowed_result = RateLimitResult(allowed=True, key="test", remaining=100, limit=100)
+    monkeypatch.setattr(rl_mod, "check_user_rate_limit", lambda *a, **kw: allowed_result)
+
     from aragora.server.handlers.utils.rate_limit import clear_all_limiters
 
     clear_all_limiters()

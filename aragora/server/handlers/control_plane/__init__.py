@@ -58,6 +58,7 @@ from aragora.server.handlers.utils.decorators import has_permission
 from aragora.observability.metrics import track_handler
 
 from .agents import AgentHandlerMixin
+from .coordination import CoordinationHandlerMixin
 from .tasks import TaskHandlerMixin
 from .health import HealthHandlerMixin
 from .policy import PolicyHandlerMixin
@@ -67,6 +68,7 @@ logger = logging.getLogger(__name__)
 
 class ControlPlaneHandler(
     AgentHandlerMixin,
+    CoordinationHandlerMixin,
     TaskHandlerMixin,
     HealthHandlerMixin,
     PolicyHandlerMixin,
@@ -197,7 +199,10 @@ class ControlPlaneHandler(
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return self._normalize_path(path).startswith("/api/control-plane/")
+        normalized = self._normalize_path(path)
+        return normalized.startswith("/api/control-plane/") or path.startswith(
+            "/api/v1/coordination/"
+        )
 
     # =========================================================================
     # GET Handlers
@@ -306,6 +311,34 @@ class ControlPlaneHandler(
             violation_id = path.split("/")[-1]
             return self._handle_get_policy_violation(violation_id, handler)
 
+        # === Coordination Routes (versioned, /api/v1/coordination/...) ===
+        # _normalize_path only changes /api/v1/control-plane/ prefixes, so
+        # /api/v1/coordination/ paths pass through unchanged in `path`.
+
+        # /api/v1/coordination/workspaces
+        if path == "/api/v1/coordination/workspaces":
+            return self._handle_list_workspaces(query_params)
+
+        # /api/v1/coordination/federation
+        if path == "/api/v1/coordination/federation":
+            return self._handle_list_federation_policies(query_params)
+
+        # /api/v1/coordination/executions
+        if path == "/api/v1/coordination/executions":
+            return self._handle_list_executions(query_params)
+
+        # /api/v1/coordination/consent
+        if path == "/api/v1/coordination/consent":
+            return self._handle_list_consents(query_params)
+
+        # /api/v1/coordination/stats
+        if path == "/api/v1/coordination/stats":
+            return self._handle_coordination_stats(query_params)
+
+        # /api/v1/coordination/health
+        if path == "/api/v1/coordination/health":
+            return self._handle_coordination_health(query_params)
+
         return None
 
     # =========================================================================
@@ -394,6 +427,43 @@ class ControlPlaneHandler(
                 return err
             return await self._handle_claim_task_async(body, handler)
 
+        # === Coordination POST Routes ===
+        # /api/v1/coordination/workspaces
+        if path == "/api/v1/coordination/workspaces":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_register_workspace(body)
+
+        # /api/v1/coordination/federation
+        if path == "/api/v1/coordination/federation":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_create_federation_policy(body)
+
+        # /api/v1/coordination/execute
+        if path == "/api/v1/coordination/execute":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_execute(body)
+
+        # /api/v1/coordination/consent
+        if path == "/api/v1/coordination/consent":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_grant_consent(body)
+
+        # /api/v1/coordination/approve/:id
+        if path.startswith("/api/v1/coordination/approve/"):
+            request_id = path.split("/")[-1]
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_approve_request(request_id, body)
+
         return None
 
     # =========================================================================
@@ -405,12 +475,22 @@ class ControlPlaneHandler(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle DELETE requests."""
-        path = self._normalize_path(path)
+        normalized = self._normalize_path(path)
 
         # /api/control-plane/agents/:id
-        if path.startswith("/api/control-plane/agents/") and path.count("/") == 4:
-            agent_id = path.split("/")[-1]
+        if normalized.startswith("/api/control-plane/agents/") and normalized.count("/") == 4:
+            agent_id = normalized.split("/")[-1]
             return self._handle_unregister_agent(agent_id, handler)
+
+        # /api/v1/coordination/workspaces/:id
+        if path.startswith("/api/v1/coordination/workspaces/") and path.count("/") == 5:
+            workspace_id = path.split("/")[-1]
+            return self._handle_unregister_workspace(workspace_id)
+
+        # /api/v1/coordination/consent/:id
+        if path.startswith("/api/v1/coordination/consent/") and path.count("/") == 5:
+            consent_id = path.split("/")[-1]
+            return self._handle_revoke_consent(consent_id, {})
 
         return None
 

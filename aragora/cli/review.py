@@ -860,7 +860,7 @@ def cmd_review(args: argparse.Namespace) -> int:
 
     # Persist review findings to Knowledge Mound
     try:
-        from aragora.gauntlet.receipts import DecisionReceipt
+        from aragora.gauntlet.receipt_models import DecisionReceipt
         from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
 
         receipt = DecisionReceipt.from_review_result(result, findings)
@@ -973,6 +973,50 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(f"Warning: SARIF export failed: {e}", file=sys.stderr)
             logger.debug("SARIF export error details", exc_info=True)
 
+    # Post review as PR comment if requested
+    if getattr(args, "post_comment", False):
+        pr_url = getattr(args, "pr_url", None)
+        if not pr_url:
+            print("Error: --post-comment requires a PR URL as the first argument", file=sys.stderr)
+            return 1
+        try:
+            # Extract PR number from URL
+            parts = pr_url.rstrip("/").split("/")
+            if len(parts) >= 2 and parts[-2] == "pull":
+                pr_number = parts[-1]
+            else:
+                print(f"Error: Cannot extract PR number from: {pr_url}", file=sys.stderr)
+                return 1
+
+            # Extract repo for cross-repo support
+            gh_cmd = ["gh", "pr", "comment", pr_number]
+            try:
+                gh_idx = next(i for i, p in enumerate(parts) if "github.com" in p)
+                owner = parts[gh_idx + 1]
+                repo = parts[gh_idx + 2]
+                gh_cmd.extend(["--repo", f"{owner}/{repo}"])
+            except (StopIteration, IndexError):
+                pass  # Use default repo context
+
+            comment_body = format_github_comment(result, findings)
+            gh_cmd.extend(["--body", comment_body])
+
+            gh_result = subprocess.run(
+                gh_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                shell=False,
+            )
+            if gh_result.returncode == 0:
+                print(f"Review comment posted to PR #{pr_number}", file=sys.stderr)
+            else:
+                print(f"Warning: Failed to post comment: {gh_result.stderr}", file=sys.stderr)
+        except subprocess.TimeoutExpired:
+            print("Warning: Timeout posting PR comment", file=sys.stderr)
+        except FileNotFoundError:
+            print("Warning: 'gh' CLI not found. Install GitHub CLI to use --post-comment.", file=sys.stderr)
+
     # CI mode exit codes
     if getattr(args, "ci", False):
         critical = len(findings.get("critical_issues", []))
@@ -1073,6 +1117,14 @@ def create_review_parser(subparsers) -> None:
         "--share",
         action="store_true",
         help="Generate a shareable link for this review",
+    )
+
+    parser.add_argument(
+        "--post-comment",
+        action="store_true",
+        default=False,
+        help="Post review findings as a comment on the GitHub PR. "
+        "Requires a PR URL as the first argument and the 'gh' CLI installed.",
     )
 
     parser.set_defaults(func=cmd_review)

@@ -90,6 +90,11 @@ UniversalGraphHandler = _safe_import(
     "aragora.server.handlers.pipeline.universal_graph", "UniversalGraphHandler"
 )
 
+# Outcome Tracking
+OutcomeHandler = _safe_import(
+    "aragora.server.handlers.governance.outcomes", "OutcomeHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -117,6 +122,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_goal_canvas_handler", GoalCanvasHandler),
     # Universal graph pipeline
     ("_universal_graph_handler", UniversalGraphHandler),
+    # Outcome tracking
+    ("_outcome_handler", OutcomeHandler),
 ]
 
 __all__ = [
@@ -143,6 +150,8 @@ __all__ = [
     "IdeaCanvasHandler",
     "GoalCanvasHandler",
     "UniversalGraphHandler",
+    # Outcome tracking
+    "OutcomeHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

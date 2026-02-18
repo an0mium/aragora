@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from aragora.integrations.email import (
@@ -23,12 +24,23 @@ from aragora.integrations.email import (
 
 @pytest.fixture
 def smtp_config():
-    return EmailConfig(smtp_host="smtp.example.com", smtp_username="user", smtp_password="pass")
+    return EmailConfig(
+        smtp_host="smtp.example.com",
+        smtp_username="user",
+        smtp_password="pass",
+        enable_distributed_rate_limit=False,
+        enable_oauth_refresh=False,
+    )
 
 
 @pytest.fixture
 def sendgrid_config():
-    return EmailConfig(provider="sendgrid", sendgrid_api_key="SG.test_key")
+    return EmailConfig(
+        provider="sendgrid",
+        sendgrid_api_key="SG.test_key",
+        enable_distributed_rate_limit=False,
+        enable_oauth_refresh=False,
+    )
 
 
 @pytest.fixture
@@ -38,6 +50,8 @@ def ses_config():
         ses_access_key_id="AKIA_TEST",
         ses_secret_access_key="secret_test",
         ses_region="us-east-1",
+        enable_distributed_rate_limit=False,
+        enable_oauth_refresh=False,
     )
 
 
@@ -296,3 +310,235 @@ class TestEmailIntegration:
         integration._session = mock_session
         await integration.close()
         mock_session.close.assert_called_once()
+
+
+# =============================================================================
+# Distributed Rate Limiting Tests
+# =============================================================================
+
+
+class TestDistributedRateLimiting:
+    @pytest.mark.asyncio
+    async def test_distributed_rate_limit_allowed(self):
+        """Test that distributed rate limiter is checked when enabled."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_distributed_rate_limit=True,
+            enable_oauth_refresh=False,
+        )
+        integration = EmailIntegration(config)
+
+        mock_result = MagicMock()
+        mock_result.allowed = True
+
+        mock_limiter = AsyncMock()
+        mock_limiter.acquire = AsyncMock(return_value=mock_result)
+
+        with patch(
+            "aragora.integrations.email._get_distributed_rate_limiter",
+            return_value=mock_limiter,
+        ):
+            result = await integration._check_rate_limit()
+            assert result is True
+            mock_limiter.acquire.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_distributed_rate_limit_blocked(self):
+        """Test that distributed rate limiter blocks when limit reached."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_distributed_rate_limit=True,
+            enable_oauth_refresh=False,
+        )
+        integration = EmailIntegration(config)
+
+        mock_result = MagicMock()
+        mock_result.allowed = False
+        mock_result.limit_type = "hour"
+        mock_result.retry_after = 1800.0
+
+        mock_limiter = AsyncMock()
+        mock_limiter.acquire = AsyncMock(return_value=mock_result)
+
+        with patch(
+            "aragora.integrations.email._get_distributed_rate_limiter",
+            return_value=mock_limiter,
+        ):
+            result = await integration._check_rate_limit()
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_local_when_distributed_unavailable(self):
+        """Test fallback to local rate limit when distributed limiter unavailable."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_distributed_rate_limit=True,
+            enable_oauth_refresh=False,
+        )
+        integration = EmailIntegration(config)
+
+        with patch(
+            "aragora.integrations.email._get_distributed_rate_limiter",
+            return_value=None,
+        ):
+            result = await integration._check_rate_limit()
+            assert result is True
+            assert integration._email_count == 1
+
+
+# =============================================================================
+# OAuth Auto-Refresh Tests
+# =============================================================================
+
+
+class TestOAuthRefresh:
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_skipped_when_disabled(self):
+        """Test that OAuth refresh is skipped when disabled."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=False,
+        )
+        integration = EmailIntegration(config)
+
+        with patch("aragora.integrations.email._get_credential_store") as mock_store:
+            await integration._refresh_oauth_if_needed()
+            mock_store.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_skipped_when_no_store(self):
+        """Test that OAuth refresh is skipped when store unavailable."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=True,
+        )
+        integration = EmailIntegration(config)
+
+        with patch(
+            "aragora.integrations.email._get_credential_store",
+            return_value=None,
+        ):
+            await integration._refresh_oauth_if_needed()
+
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_skipped_when_token_valid(self):
+        """Test that OAuth refresh is skipped when token is still valid."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=True,
+        )
+        integration = EmailIntegration(config)
+
+        mock_credential = MagicMock()
+        mock_credential.needs_refresh.return_value = False
+
+        mock_store = AsyncMock()
+        mock_store.get = AsyncMock(return_value=mock_credential)
+
+        with patch(
+            "aragora.integrations.email._get_credential_store",
+            return_value=mock_store,
+        ):
+            await integration._refresh_oauth_if_needed()
+            mock_credential.needs_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_warns_when_no_refresh_token(self):
+        """Test warning when token needs refresh but no refresh token."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=True,
+        )
+        integration = EmailIntegration(config)
+
+        mock_credential = MagicMock()
+        mock_credential.needs_refresh.return_value = True
+        mock_credential.refresh_token = ""
+
+        mock_store = AsyncMock()
+        mock_store.get = AsyncMock(return_value=mock_credential)
+
+        with patch(
+            "aragora.integrations.email._get_credential_store",
+            return_value=mock_store,
+        ):
+            await integration._refresh_oauth_if_needed()
+
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_gmail(self):
+        """Test OAuth refresh flow for Gmail."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=True,
+            oauth_tenant_id="test-tenant",
+        )
+        integration = EmailIntegration(config)
+
+        mock_credential = MagicMock()
+        mock_credential.needs_refresh.return_value = True
+        mock_credential.refresh_token = "refresh_tok"
+        mock_credential.client_id = "client_id"
+        mock_credential.client_secret = "client_secret"
+        mock_credential.provider = "gmail"
+        mock_credential.tenant_id = "test-tenant"
+        mock_credential.email_address = "test@gmail.com"
+
+        mock_store = AsyncMock()
+        mock_store.get = AsyncMock(return_value=mock_credential)
+        mock_store.save = AsyncMock()
+        mock_store.reset_failures = AsyncMock()
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={
+                "access_token": "new_access_tok",
+                "expires_in": 3600,
+            }
+        )
+
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+
+        integration._session = mock_session
+
+        with patch(
+            "aragora.integrations.email._get_credential_store",
+            return_value=mock_store,
+        ):
+            await integration._refresh_oauth_if_needed()
+            mock_store.save.assert_awaited_once()
+            assert mock_credential.access_token == "new_access_tok"
+
+    @pytest.mark.asyncio
+    async def test_oauth_refresh_handles_network_error(self):
+        """Test OAuth refresh gracefully handles network errors."""
+        config = EmailConfig(
+            smtp_host="smtp.example.com",
+            enable_oauth_refresh=True,
+        )
+        integration = EmailIntegration(config)
+
+        mock_credential = MagicMock()
+        mock_credential.needs_refresh.return_value = True
+        mock_credential.refresh_token = "refresh_tok"
+        mock_credential.client_id = "client_id"
+        mock_credential.client_secret = "client_secret"
+        mock_credential.provider = "gmail"
+        mock_credential.tenant_id = "test-tenant"
+        mock_credential.email_address = "test@gmail.com"
+
+        mock_store = AsyncMock()
+        mock_store.get = AsyncMock(return_value=mock_credential)
+
+        # Make the session raise on post
+        mock_session = AsyncMock()
+        mock_session.post = MagicMock(side_effect=aiohttp.ClientError("connection failed"))
+        integration._session = mock_session
+
+        with patch(
+            "aragora.integrations.email._get_credential_store",
+            return_value=mock_store,
+        ):
+            # Should not raise
+            await integration._refresh_oauth_if_needed()

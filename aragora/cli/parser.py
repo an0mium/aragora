@@ -125,6 +125,7 @@ Examples:
     _add_coordinate_parser(subparsers)
     _add_self_improve_parser(subparsers)
     _add_worktree_parser(subparsers)
+    _add_outcome_parser(subparsers)
 
     return parser
 
@@ -896,6 +897,13 @@ def _add_review_parser(subparsers) -> None:
         "--share",
         action="store_true",
         help="Generate a shareable link for this review",
+    )
+    parser.add_argument(
+        "--post-comment",
+        action="store_true",
+        default=False,
+        help="Post review findings as a comment on the GitHub PR. "
+        "Requires a PR URL as the first argument and the 'gh' CLI installed.",
     )
     parser.set_defaults(func=_lazy("aragora.cli.review", "cmd_review"))
 
@@ -1807,3 +1815,10 @@ def _add_worktree_parser(subparsers) -> None:
     from aragora.cli.commands.worktree import add_worktree_parser
 
     add_worktree_parser(subparsers)
+
+
+def _add_outcome_parser(subparsers) -> None:
+    """Add the 'outcome' subcommand for decision outcome tracking."""
+    from aragora.cli.commands.outcome import add_outcome_parser
+
+    add_outcome_parser(subparsers)

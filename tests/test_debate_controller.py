@@ -421,10 +421,11 @@ class TestDebateControllerRunDebate:
 
         controller._run_debate(config, "test_123")
 
-        # Check "completed" status was set
+        # Check "completed" status was set (may be called twice:
+        # once for the result, once for receipt_id after receipt generation)
         calls = mock_update.call_args_list
         completed_calls = [c for c in calls if c[0][1] == "completed"]
-        assert len(completed_calls) == 1
+        assert len(completed_calls) >= 1
         result_payload = completed_calls[0][1].get("result", {})
         assert result_payload["status"] == "consensus_reached"
         assert result_payload["agent_failures"] == {

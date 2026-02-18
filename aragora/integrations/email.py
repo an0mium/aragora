@@ -101,6 +101,35 @@ def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: floa
     return breakers.get(provider)
 
 
+# Distributed rate limiter (lazy import to avoid circular deps)
+_distributed_rate_limiter: Any = None
+
+
+def _get_distributed_rate_limiter() -> Any:
+    """Get the distributed email rate limiter, if available."""
+    global _distributed_rate_limiter  # noqa: PLW0603
+    if _distributed_rate_limiter is not None:
+        return _distributed_rate_limiter
+    try:
+        from aragora.integrations.email_rate_limiter import get_email_rate_limiter
+
+        _distributed_rate_limiter = get_email_rate_limiter()
+        return _distributed_rate_limiter
+    except ImportError:
+        return None
+
+
+# OAuth credential store (lazy import)
+def _get_credential_store() -> Any:
+    """Get the email credential store for OAuth token management."""
+    try:
+        from aragora.integrations.email_oauth import get_email_credential_store
+
+        return get_email_credential_store()
+    except ImportError:
+        return None
+
+
 class EmailProvider(Enum):
     """Email service provider."""
 
@@ -163,6 +192,13 @@ class EmailConfig:
 
     # SMTP timeout (for synchronous operations)
     smtp_timeout: float = 30.0
+
+    # Distributed rate limiting (uses email_rate_limiter module)
+    enable_distributed_rate_limit: bool = True
+
+    # OAuth auto-refresh before sending
+    enable_oauth_refresh: bool = True
+    oauth_tenant_id: str = "default"
 
     # Tracking
     enable_click_tracking: bool = False
@@ -293,11 +329,29 @@ class EmailIntegration:
         return False
 
     async def _check_rate_limit(self) -> bool:
-        """Check if we're within rate limits (thread-safe).
+        """Check if we're within rate limits.
 
-        Uses both asyncio.Lock (for async coroutine coordination) and
-        threading.Lock (for cross-thread safety in multi-worker deployments).
+        Checks the distributed rate limiter first (if available and enabled),
+        then falls back to the local per-instance rate limit.
         """
+        # Check distributed rate limiter first
+        if self.config.enable_distributed_rate_limit:
+            limiter = _get_distributed_rate_limiter()
+            if limiter is not None:
+                result = await limiter.acquire(
+                    self.config.oauth_tenant_id,
+                    self.config.provider,
+                )
+                if not result.allowed:
+                    logger.warning(
+                        "Distributed email rate limit reached (%s), retry after %.1fs",
+                        result.limit_type,
+                        result.retry_after,
+                    )
+                    return False
+                return True
+
+        # Fallback to local per-instance rate limiting
         async with self._rate_limit_lock:
             with self._thread_lock:
                 now = datetime.now()
@@ -313,6 +367,107 @@ class EmailIntegration:
 
                 self._email_count += 1
                 return True
+
+    async def _refresh_oauth_if_needed(self) -> None:
+        """Auto-refresh OAuth tokens if they are about to expire.
+
+        Uses the email credential store to check token expiry and
+        refreshes using the provider's OAuth flow.
+        """
+        if not self.config.enable_oauth_refresh:
+            return
+
+        store = _get_credential_store()
+        if store is None:
+            return
+
+        try:
+            credential = await store.get(
+                self.config.oauth_tenant_id,
+                self.config.provider,
+                self.config.from_email,
+            )
+            if credential is None or not credential.needs_refresh():
+                return
+
+            if not credential.refresh_token:
+                logger.warning(
+                    "OAuth token expiring but no refresh token available for %s",
+                    self.config.from_email,
+                )
+                return
+
+            # Attempt refresh via provider-specific endpoint
+            new_token = await self._do_oauth_refresh(credential)
+            if new_token:
+                credential.access_token = new_token["access_token"]
+                if "refresh_token" in new_token:
+                    credential.refresh_token = new_token["refresh_token"]
+                if "expires_in" in new_token:
+                    from datetime import timezone
+
+                    credential.token_expiry = datetime.now(timezone.utc) + timedelta(
+                        seconds=new_token["expires_in"]
+                    )
+                credential.failure_count = 0
+                credential.last_error = ""
+                await store.save(credential)
+                await store.reset_failures(
+                    credential.tenant_id,
+                    credential.provider,
+                    credential.email_address,
+                )
+                logger.info("OAuth token refreshed for %s", self.config.from_email)
+            else:
+                await store.record_failure(
+                    credential.tenant_id,
+                    credential.provider,
+                    credential.email_address,
+                    "Token refresh returned empty response",
+                )
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.warning("OAuth token refresh failed: %s", e)
+        except (ValueError, KeyError) as e:
+            logger.warning("OAuth token refresh parse error: %s", e)
+
+    async def _do_oauth_refresh(self, credential: Any) -> dict[str, Any] | None:
+        """Execute OAuth token refresh for a given credential.
+
+        Supports Gmail and Microsoft OAuth2 refresh flows.
+        """
+        session = await self._get_session()
+        provider = credential.provider
+
+        if provider in ("gmail", "google"):
+            token_url = "https://oauth2.googleapis.com/token"
+        elif provider in ("microsoft", "outlook", "office365"):
+            token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        else:
+            logger.debug("OAuth refresh not supported for provider: %s", provider)
+            return None
+
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": credential.refresh_token,
+            "client_id": credential.client_id,
+            "client_secret": credential.client_secret,
+        }
+
+        async with session.post(
+            token_url,
+            data=payload,
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as response:
+            if response.status == 200:
+                return await response.json()
+            text = await response.text()
+            logger.warning(
+                "OAuth refresh failed for %s: %s %s",
+                provider,
+                response.status,
+                text[:200],
+            )
+            return None
 
     def _get_circuit_breaker(self) -> Any:
         """Get circuit breaker for current provider."""
@@ -386,8 +541,11 @@ class EmailIntegration:
         """Send an email with retry logic and circuit breaker.
 
         Dispatches to the appropriate provider based on configuration.
-        Includes circuit breaker protection to prevent cascading failures.
+        Includes OAuth auto-refresh, circuit breaker, and rate limiting.
         """
+        # Refresh OAuth tokens if needed
+        await self._refresh_oauth_if_needed()
+
         # Check circuit breaker first
         can_proceed, error_msg = self._check_circuit_breaker()
         if not can_proceed:

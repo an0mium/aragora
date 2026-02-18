@@ -1,5 +1,6 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { renderWithProviders } from '@/test-utils';
 import { DebateViewer } from '../debate-viewer/DebateViewer';
 
 // Mock next/link
@@ -112,7 +113,7 @@ describe('DebateViewer', () => {
     it('shows loading state for archived debates', () => {
       mockFetchDebateById.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       expect(screen.getByText(/LOADING DEBATE/i)).toBeInTheDocument();
     });
@@ -124,7 +125,7 @@ describe('DebateViewer', () => {
         task: 'Live debate task',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.queryByText(/LOADING DEBATE/i)).not.toBeInTheDocument();
     });
@@ -152,7 +153,7 @@ describe('DebateViewer', () => {
     it('displays archived debate task', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('Test archived debate task')).toBeInTheDocument();
@@ -162,7 +163,7 @@ describe('DebateViewer', () => {
     it('displays agent badges', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -173,7 +174,7 @@ describe('DebateViewer', () => {
     it('displays consensus status', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('CONSENSUS REACHED')).toBeInTheDocument();
@@ -184,7 +185,7 @@ describe('DebateViewer', () => {
     it('displays winning proposal', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('Winning Proposal')).toBeInTheDocument();
@@ -195,7 +196,7 @@ describe('DebateViewer', () => {
     it('displays transcript messages', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('Hello from Claude')).toBeInTheDocument();
@@ -206,7 +207,7 @@ describe('DebateViewer', () => {
     it('displays vote tally when available', async () => {
       mockFetchDebateById.mockResolvedValue(mockDebate);
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText(/VOTES.*yes:2.*no:0/)).toBeInTheDocument();
@@ -219,7 +220,7 @@ describe('DebateViewer', () => {
         consensus_reached: false,
       });
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('NO CONSENSUS')).toBeInTheDocument();
@@ -234,7 +235,7 @@ describe('DebateViewer', () => {
         status: 'connecting',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('CONNECTING...')).toBeInTheDocument();
     });
@@ -247,7 +248,7 @@ describe('DebateViewer', () => {
         agents: ['claude', 'gpt4'],
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('LIVE DEBATE')).toBeInTheDocument();
       expect(screen.getAllByText('Live debate task').length).toBeGreaterThanOrEqual(1);
@@ -260,7 +261,7 @@ describe('DebateViewer', () => {
         task: 'Completed debate task',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('DEBATE COMPLETE')).toBeInTheDocument();
     });
@@ -271,7 +272,7 @@ describe('DebateViewer', () => {
         status: 'error',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('CONNECTION ERROR')).toBeInTheDocument();
     });
@@ -287,7 +288,7 @@ describe('DebateViewer', () => {
         ],
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('Live message')).toBeInTheDocument();
     });
@@ -308,7 +309,7 @@ describe('DebateViewer', () => {
         streamingMessages: streamingMap,
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('STREAMING')).toBeInTheDocument();
       expect(screen.getByText(/Typing/)).toBeInTheDocument();
@@ -323,7 +324,7 @@ describe('DebateViewer', () => {
         messages: [],
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText(/Agents preparing proposals/)).toBeInTheDocument();
     });
@@ -339,7 +340,7 @@ describe('DebateViewer', () => {
         ],
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('2 messages')).toBeInTheDocument();
     });
@@ -353,7 +354,7 @@ describe('DebateViewer', () => {
         task: 'Test',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByTestId('user-participation')).toBeInTheDocument();
     });
@@ -366,7 +367,7 @@ describe('DebateViewer', () => {
         task: 'Test',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       // Initially visible
       expect(screen.getByTestId('user-participation')).toBeInTheDocument();
@@ -396,7 +397,7 @@ describe('DebateViewer', () => {
         created_at: new Date().toISOString(),
       });
 
-      render(<DebateViewer debateId="123" />);
+      renderWithProviders(<DebateViewer debateId="123" />);
 
       await waitFor(() => {
         expect(screen.getByText('[SHARE LINK]')).toBeInTheDocument();
@@ -411,7 +412,7 @@ describe('DebateViewer', () => {
         agents: ['claude'],
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('[SHARE LINK]')).toBeInTheDocument();
     });
@@ -426,7 +427,7 @@ describe('DebateViewer', () => {
         hasCitations: true,
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText(/EVIDENCE & CITATIONS/i)).toBeInTheDocument();
     });
@@ -439,7 +440,7 @@ describe('DebateViewer', () => {
         hasCitations: false,
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.queryByText(/EVIDENCE & CITATIONS/i)).not.toBeInTheDocument();
     });
@@ -449,7 +450,7 @@ describe('DebateViewer', () => {
     it('shows error message for archived debate not found', async () => {
       mockFetchDebateById.mockResolvedValue(null);
 
-      render(<DebateViewer debateId="nonexistent" />);
+      renderWithProviders(<DebateViewer debateId="nonexistent" />);
 
       await waitFor(() => {
         expect(screen.getByText(/ERROR/)).toBeInTheDocument();
@@ -460,7 +461,7 @@ describe('DebateViewer', () => {
     it('shows return home link on error', async () => {
       mockFetchDebateById.mockResolvedValue(null);
 
-      render(<DebateViewer debateId="nonexistent" />);
+      renderWithProviders(<DebateViewer debateId="nonexistent" />);
 
       await waitFor(() => {
         expect(screen.getByText('[RETURN HOME]')).toBeInTheDocument();
@@ -476,7 +477,7 @@ describe('DebateViewer', () => {
         task: 'Test',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByText('[BACK TO LIVE]')).toBeInTheDocument();
     });
@@ -488,7 +489,7 @@ describe('DebateViewer', () => {
         task: 'Test',
       });
 
-      render(<DebateViewer debateId="adhoc_123" />);
+      renderWithProviders(<DebateViewer debateId="adhoc_123" />);
 
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
     });
