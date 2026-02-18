@@ -30,6 +30,23 @@ from aragora.integrations.email import (
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _disable_distributed_features(monkeypatch):
+    """Disable distributed rate limiter and OAuth refresh for local rate limit tests."""
+    monkeypatch.setattr(
+        "aragora.integrations.email._distributed_rate_limiter",
+        None,
+    )
+    monkeypatch.setattr(
+        "aragora.integrations.email._get_distributed_rate_limiter",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        "aragora.integrations.email._get_credential_store",
+        lambda: None,
+    )
+
+
 @pytest.fixture
 def smtp_config():
     return EmailConfig(
@@ -38,6 +55,8 @@ def smtp_config():
         enable_circuit_breaker=True,
         circuit_breaker_threshold=3,
         circuit_breaker_cooldown=30.0,
+        enable_distributed_rate_limit=False,
+        enable_oauth_refresh=False,
     )
 
 
@@ -470,7 +489,12 @@ class TestThreadSafety:
     @pytest.mark.asyncio
     async def test_rate_limit_thread_safe(self):
         """Test rate limit checking is thread-safe with async."""
-        config = EmailConfig(smtp_host="smtp.test.com", max_emails_per_hour=100)
+        config = EmailConfig(
+            smtp_host="smtp.test.com",
+            max_emails_per_hour=100,
+            enable_distributed_rate_limit=False,
+            enable_oauth_refresh=False,
+        )
         integration = EmailIntegration(config)
 
         # Concurrent rate limit checks

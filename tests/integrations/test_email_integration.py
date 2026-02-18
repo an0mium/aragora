@@ -488,23 +488,17 @@ class TestOAuthRefresh:
         mock_store.save = AsyncMock()
         mock_store.reset_failures = AsyncMock()
 
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(
-            return_value={
-                "access_token": "new_access_tok",
-                "expires_in": 3600,
-            }
-        )
-
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        integration._session = mock_session
-
-        with patch(
-            "aragora.integrations.email._get_credential_store",
-            return_value=mock_store,
+        with (
+            patch(
+                "aragora.integrations.email._get_credential_store",
+                return_value=mock_store,
+            ),
+            patch.object(
+                integration,
+                "_do_oauth_refresh",
+                new_callable=AsyncMock,
+                return_value={"access_token": "new_access_tok", "expires_in": 3600},
+            ),
         ):
             await integration._refresh_oauth_if_needed()
             mock_store.save.assert_awaited_once()
@@ -531,14 +525,17 @@ class TestOAuthRefresh:
         mock_store = AsyncMock()
         mock_store.get = AsyncMock(return_value=mock_credential)
 
-        # Make the session raise on post
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(side_effect=aiohttp.ClientError("connection failed"))
-        integration._session = mock_session
-
-        with patch(
-            "aragora.integrations.email._get_credential_store",
-            return_value=mock_store,
+        with (
+            patch(
+                "aragora.integrations.email._get_credential_store",
+                return_value=mock_store,
+            ),
+            patch.object(
+                integration,
+                "_do_oauth_refresh",
+                new_callable=AsyncMock,
+                side_effect=aiohttp.ClientError("connection failed"),
+            ),
         ):
             # Should not raise
             await integration._refresh_oauth_if_needed()
