@@ -135,14 +135,15 @@ class TestHybridExecutorSandboxMode:
         assert executor.sandbox_memory_mb == 4096
 
     @pytest.mark.asyncio
-    async def test_sandbox_mode_routes_to_docker(self):
-        """When sandbox_mode=True, first attempt should use Docker sandbox."""
+    async def test_sandbox_mode_routes_to_docker(self, tmp_path):
+        """When sandbox_mode=True and use_harness=False, first attempt should use Docker sandbox."""
         from aragora.implement.executor import HybridExecutor
         from aragora.implement.types import ImplementTask
 
         executor = HybridExecutor(
-            repo_path=Path("/tmp/test"),
+            repo_path=tmp_path,
             sandbox_mode=True,
+            use_harness=False,
         )
 
         task = ImplementTask(
@@ -164,13 +165,13 @@ class TestHybridExecutorSandboxMode:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_sandbox_mode_skipped_on_fallback(self):
+    async def test_sandbox_mode_skipped_on_fallback(self, tmp_path):
         """Fallback attempts should not use sandbox (uses Codex directly)."""
         from aragora.implement.executor import HybridExecutor
         from aragora.implement.types import ImplementTask
 
         executor = HybridExecutor(
-            repo_path=Path("/tmp/test"),
+            repo_path=tmp_path,
             sandbox_mode=True,
         )
 
@@ -202,13 +203,13 @@ class TestHybridExecutorSandboxMode:
         mock_sandbox.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_sandbox_mode_skipped_on_retry(self):
+    async def test_sandbox_mode_skipped_on_retry(self, tmp_path):
         """Retry attempts (attempt > 1) should not use sandbox."""
         from aragora.implement.executor import HybridExecutor
         from aragora.implement.types import ImplementTask
 
         executor = HybridExecutor(
-            repo_path=Path("/tmp/test"),
+            repo_path=tmp_path,
             sandbox_mode=True,
         )
 

@@ -594,6 +594,7 @@ class ExplainabilityHandler(BaseHandler):
         self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle human-readable summary request."""
+        decision = None
         try:
             decision = await self._get_or_build_decision(debate_id)
 
@@ -653,6 +654,9 @@ h3 {{ color: #666; }}
 
         except ImportError:
             # markdown not available, return plain text
+            if decision is None:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
             from aragora.explainability import ExplanationBuilder
 
             builder = ExplanationBuilder()
