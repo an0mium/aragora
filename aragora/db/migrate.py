@@ -229,15 +229,32 @@ def get_sqlite_tables(conn: sqlite3.Connection) -> list[str]:
     return [row[0] for row in cursor.fetchall()]
 
 
+import re
+
+_SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _quote_identifier(name: str) -> str:
+    """Quote a SQL identifier to prevent injection.
+
+    Only allows alphanumeric identifiers and underscores.
+    """
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier: {name!r}")
+    return f'"{name}"'
+
+
 def get_table_columns(conn: sqlite3.Connection, table: str) -> list[tuple[str, str]]:
     """Get column names and types for a table."""
-    cursor = conn.execute(f"PRAGMA table_info({table})")
+    safe_table = _quote_identifier(table)
+    cursor = conn.execute(f"PRAGMA table_info({safe_table})")
     return [(row[1], row[2]) for row in cursor.fetchall()]
 
 
 def get_row_count(conn: sqlite3.Connection, table: str) -> int:
     """Get number of rows in a table."""
-    cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")
+    safe_table = _quote_identifier(table)
+    cursor = conn.execute(f"SELECT COUNT(*) FROM {safe_table}")
     return cursor.fetchone()[0]
 
 
@@ -260,13 +277,15 @@ def migrate_table(
     """
     columns = get_table_columns(sqlite_conn, table)
     column_names = [c[0] for c in columns]
+    safe_table = _quote_identifier(table)
+    safe_columns = ", ".join(_quote_identifier(c) for c in column_names)
 
     # Build INSERT statement
     placeholders = ", ".join(["%s"] * len(columns))
-    insert_sql = f"INSERT INTO {table} ({', '.join(column_names)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+    insert_sql = f"INSERT INTO {safe_table} ({safe_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
 
     # Fetch and insert in batches
-    cursor = sqlite_conn.execute(f"SELECT * FROM {table}")
+    cursor = sqlite_conn.execute(f"SELECT * FROM {safe_table}")
     total_migrated = 0
 
     while True:
@@ -416,7 +435,7 @@ def verify_migration(
 
             try:
                 pg_cursor = pg_conn.cursor()
-                pg_cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                pg_cursor.execute(f"SELECT COUNT(*) FROM {_quote_identifier(table)}")
                 pg_count = pg_cursor.fetchone()[0]
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to get row count for table {table} in PostgreSQL: {e}")

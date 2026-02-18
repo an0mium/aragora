@@ -412,7 +412,7 @@ class TestMigrateTable:
         insert_call = cursor.executemany.call_args
         insert_sql = insert_call[0][0]
 
-        assert "INSERT INTO elo_rankings" in insert_sql
+        assert 'INSERT INTO "elo_rankings"' in insert_sql
         assert "ON CONFLICT DO NOTHING" in insert_sql
         assert "%s" in insert_sql
 
@@ -700,7 +700,7 @@ class TestMigrateSqliteToPostgres:
 
         def conditional_fail(sql, rows):
             for tname in table_fail_set:
-                if f"INSERT INTO {tname}" in sql:
+                if f'INSERT INTO "{tname}"' in sql or f"INSERT INTO {tname}" in sql:
                     raise RuntimeError(f"Failed to migrate {tname}")
             # Success case: do nothing (mock default behavior)
             return None
@@ -1103,7 +1103,7 @@ class TestRollbackScenarios:
         fail_count = [0]
 
         def fail_on_beta(sql, rows):
-            if "INSERT INTO beta" in sql:
+            if 'INSERT INTO "beta"' in sql or "INSERT INTO beta" in sql:
                 fail_count[0] += 1
                 raise RuntimeError("beta migration failed")
 
@@ -1131,7 +1131,7 @@ class TestRollbackScenarios:
         mock_pg_conn.cursor.return_value = mock_pg_cursor
 
         def fail_on_beta(sql, rows):
-            if "INSERT INTO beta" in sql:
+            if 'INSERT INTO "beta"' in sql or "INSERT INTO beta" in sql:
                 raise RuntimeError("beta migration failed")
 
         mock_pg_cursor.executemany.side_effect = fail_on_beta
