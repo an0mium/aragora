@@ -94,6 +94,116 @@ def print_decomposition(result: TaskDecomposition) -> None:
         print("\nNo subtasks generated (goal may be simple enough to handle directly)")
 
 
+def _validate_pipeline(goal: str) -> int:
+    """Validate all pipeline components without executing anything.
+
+    Probes imports, decomposition, bridge, indexer, evaluator, and debug loop.
+    Prints a structured report with pass/fail for each component.
+
+    Returns 0 if all checks pass, 1 if any fail.
+    """
+    print_header("PIPELINE VALIDATION")
+    checks: list[tuple[str, bool, str]] = []
+
+    # 1. TaskDecomposer
+    try:
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze(goal)
+        checks.append(("TaskDecomposer", True, f"score={result.complexity_score}, subtasks={len(result.subtasks)}"))
+    except Exception as e:
+        checks.append(("TaskDecomposer", False, str(e)[:80]))
+
+    # 2. ExecutionBridge
+    try:
+        from aragora.nomic.execution_bridge import ExecutionBridge
+        from aragora.nomic.task_decomposer import SubTask
+
+        bridge = ExecutionBridge()
+        dummy = SubTask(id="val_1", title="Validate", description="Pipeline check", file_scope=[])
+        instr = bridge.create_instruction(dummy)
+        prompt = instr.to_agent_prompt()
+        checks.append(("ExecutionBridge", True, f"prompt={len(prompt)} chars"))
+    except Exception as e:
+        checks.append(("ExecutionBridge", False, str(e)[:80]))
+
+    # 3. SelfImprovePipeline
+    try:
+        from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
+
+        pipeline = SelfImprovePipeline(SelfImproveConfig(
+            enable_codebase_indexing=False, capture_metrics=False, persist_outcomes=False,
+        ))
+        checks.append(("SelfImprovePipeline", True, "importable + configurable"))
+    except Exception as e:
+        checks.append(("SelfImprovePipeline", False, str(e)[:80]))
+
+    # 4. GoalEvaluator
+    try:
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        ev = GoalEvaluator()
+        score = ev.evaluate(goal=goal, files_changed=["test.py"])
+        checks.append(("GoalEvaluator", True, f"score={score.achievement_score:.2f}"))
+    except Exception as e:
+        checks.append(("GoalEvaluator", False, str(e)[:80]))
+
+    # 5. DebugLoop
+    try:
+        from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
+
+        dl = DebugLoop(DebugLoopConfig(max_retries=1))
+        checks.append(("DebugLoop", True, f"max_retries={dl.config.max_retries}"))
+    except Exception as e:
+        checks.append(("DebugLoop", False, str(e)[:80]))
+
+    # 6. MetaPlanner
+    try:
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+
+        mp = MetaPlanner(MetaPlannerConfig(scan_mode=True))
+        checks.append(("MetaPlanner", True, "scan_mode ready"))
+    except Exception as e:
+        checks.append(("MetaPlanner", False, str(e)[:80]))
+
+    # 7. BranchCoordinator
+    try:
+        from aragora.nomic.branch_coordinator import BranchCoordinator, BranchCoordinatorConfig
+
+        bc = BranchCoordinator(config=BranchCoordinatorConfig(use_worktrees=True))
+        checks.append(("BranchCoordinator", True, f"worktrees={bc.config.use_worktrees}"))
+    except Exception as e:
+        checks.append(("BranchCoordinator", False, str(e)[:80]))
+
+    # 8. Claude Code CLI
+    import shutil
+
+    claude_path = shutil.which("claude")
+    if claude_path:
+        checks.append(("Claude CLI", True, claude_path))
+    else:
+        checks.append(("Claude CLI", False, "not found in PATH"))
+
+    # Print report
+    passed = sum(1 for _, ok, _ in checks if ok)
+    total = len(checks)
+    print(f"\nGoal: {goal[:80]}")
+    print(f"Components: {passed}/{total} passed\n")
+
+    for name, ok, detail in checks:
+        icon = "PASS" if ok else "FAIL"
+        print(f"  [{icon}] {name}: {detail}")
+
+    print()
+    if passed == total:
+        print("All pipeline components validated successfully.")
+    else:
+        failed_names = [name for name, ok, _ in checks if not ok]
+        print(f"Failed: {', '.join(failed_names)}")
+        print("Fix these components before running --self-improve --autonomous")
+
+    return 0 if passed == total else 1
+
+
 async def run_debate_decomposition(goal: str) -> TaskDecomposition:
     """Run debate-based decomposition for abstract goals."""
     print_header("DEBATE DECOMPOSITION")
@@ -540,6 +650,12 @@ Examples:
         "past regressions) without LLM calls (requires --self-improve or --meta-plan)",
     )
     parser.add_argument(
+        "--validate-pipeline",
+        action="store_true",
+        help="Validate that all pipeline components can be imported and initialized. "
+        "Runs a non-executing probe: decomposition, bridge, indexer, and evaluator.",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -560,6 +676,10 @@ Examples:
     # Suppress noisy/sensitive third-party loggers
     for noisy in ("botocore", "boto3", "urllib3", "asyncio", "websockets"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+    # Validate pipeline: probe all components without execution
+    if args.validate_pipeline:
+        return _validate_pipeline(args.goal)
 
     # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
     if args.dry_run and not args.self_improve:
