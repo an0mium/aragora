@@ -9,13 +9,17 @@
  * - Logout all devices
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { SettingsPanel } from '@/components/settings-panel';
 
-// Mock the hooks
-jest.mock('../src/context/AuthContext', () => ({
-  useAuth: () => mockAuth,
-}));
+// Mock the hooks – keep the real AuthContext so renderWithProviders can wrap with AuthContext.Provider
+jest.mock('../src/context/AuthContext', () => {
+  const actual = jest.requireActual('../src/context/AuthContext');
+  return {
+    ...actual,
+    useAuth: () => mockAuth,
+  };
+});
 
 jest.mock('../src/components/BackendSelector', () => ({
   useBackend: () => ({
@@ -80,7 +84,7 @@ describe('SettingsPanel', () => {
   describe('Tab Navigation', () => {
     it('renders all tabs', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       expect(screen.getByText('FEATURES')).toBeInTheDocument();
@@ -94,7 +98,7 @@ describe('SettingsPanel', () => {
 
     it('starts on features tab', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       await waitFor(() => {
@@ -104,7 +108,7 @@ describe('SettingsPanel', () => {
 
     it('switches to appearance tab', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('APPEARANCE'));
@@ -116,7 +120,7 @@ describe('SettingsPanel', () => {
 
     it('switches to account tab', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('ACCOUNT'));
@@ -130,7 +134,7 @@ describe('SettingsPanel', () => {
   describe('Features Tab', () => {
     it('shows feature toggle sections', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       await waitFor(() => {
@@ -142,7 +146,7 @@ describe('SettingsPanel', () => {
 
     it('shows calibration toggle', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       await waitFor(() => {
@@ -154,7 +158,7 @@ describe('SettingsPanel', () => {
   describe('Appearance Tab', () => {
     it('shows theme options', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('APPEARANCE'));
@@ -168,7 +172,7 @@ describe('SettingsPanel', () => {
 
     it('shows display options', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('APPEARANCE'));
@@ -183,7 +187,7 @@ describe('SettingsPanel', () => {
   describe('API Keys Tab', () => {
     it('shows API key generation form', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('API KEYS'));
@@ -196,7 +200,7 @@ describe('SettingsPanel', () => {
 
     it('shows API documentation', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('API KEYS'));
@@ -210,7 +214,7 @@ describe('SettingsPanel', () => {
   describe('Account Tab', () => {
     it('shows user information when authenticated', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('ACCOUNT'));
@@ -223,7 +227,7 @@ describe('SettingsPanel', () => {
 
     it('shows logout all devices button', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('ACCOUNT'));
@@ -235,7 +239,7 @@ describe('SettingsPanel', () => {
 
     it('shows danger zone', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('ACCOUNT'));
@@ -250,7 +254,7 @@ describe('SettingsPanel', () => {
   describe('Integrations Tab', () => {
     it('shows Slack integration', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('INTEGRATIONS'));
@@ -262,7 +266,7 @@ describe('SettingsPanel', () => {
 
     it('shows Discord integration', async () => {
       await act(async () => {
-        render(<SettingsPanel />);
+        renderWithProviders(<SettingsPanel />);
       });
 
       fireEvent.click(screen.getByText('INTEGRATIONS'));

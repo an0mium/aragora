@@ -95,6 +95,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_idea_canvas_handler": "extended",
     "_goal_canvas_handler": "extended",
     "_universal_graph_handler": "extended",
+    "_benchmarking_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",
@@ -376,6 +377,7 @@ class RouteIndex:
             "_idea_canvas_handler": ["/api/v1/ideas"],
             "_goal_canvas_handler": ["/api/v1/goals"],
             "_universal_graph_handler": ["/api/v1/pipeline/graphs"],
+            "_benchmarking_handler": ["/api/benchmarks"],
             "_document_handler": ["/api/documents/"],
             "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
             "_auditing_handler": [

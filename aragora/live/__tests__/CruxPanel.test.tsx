@@ -12,7 +12,7 @@
  * - Empty states
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
 import { CruxPanel } from '../src/components/CruxPanel';
 
 // Mock fetch
@@ -91,49 +91,49 @@ describe('CruxPanel', () => {
 
   describe('Initial State', () => {
     it('shows panel title', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('Belief Network Analysis')).toBeInTheDocument();
     });
 
     it('shows cruxes label', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('[CRUXES]')).toBeInTheDocument();
     });
 
     it('shows debate ID input', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByPlaceholderText('Enter debate ID...')).toBeInTheDocument();
     });
 
     it('shows ANALYZE button', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('ANALYZE')).toBeInTheDocument();
     });
 
     it('shows help text about cruxes', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText(/Claims with high uncertainty and high centrality/)).toBeInTheDocument();
     });
 
     it('shows help text about load-bearing claims', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText(/Claims that many other claims depend on/)).toBeInTheDocument();
     });
 
     it('shows initial empty state', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('Enter a debate ID to analyze belief network cruxes.')).toBeInTheDocument();
     });
 
     it('uses initial debateId if provided', () => {
-      render(<CruxPanel apiBase="http://localhost:8080" debateId="test-debate-123" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" debateId="test-debate-123" />);
       expect(screen.getByPlaceholderText('Enter debate ID...')).toHaveValue('test-debate-123');
     });
   });
 
   describe('Form Validation', () => {
     it('shows error for empty debate ID', async () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByText('ANALYZE'));
 
@@ -143,7 +143,7 @@ describe('CruxPanel', () => {
     });
 
     it('does not fetch when debate ID is empty', async () => {
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByText('ANALYZE'));
 
@@ -158,7 +158,7 @@ describe('CruxPanel', () => {
   describe('Data Fetching', () => {
     it('fetches both cruxes and load-bearing claims', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -166,17 +166,19 @@ describe('CruxPanel', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/belief-network/debate-123/cruxes')
+          expect.stringContaining('/api/belief-network/debate-123/cruxes'),
+          expect.anything()
         );
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/belief-network/debate-123/load-bearing-claims')
+          expect.stringContaining('/api/belief-network/debate-123/load-bearing-claims'),
+          expect.anything()
         );
       });
     });
 
     it('shows loading state during fetch', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -191,7 +193,7 @@ describe('CruxPanel', () => {
   describe('Cruxes Display', () => {
     it('displays crux statements', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -205,7 +207,7 @@ describe('CruxPanel', () => {
 
     it('shows crux numbers', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -219,7 +221,7 @@ describe('CruxPanel', () => {
 
     it('shows crux scores', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -233,7 +235,7 @@ describe('CruxPanel', () => {
 
     it('shows authors', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -247,7 +249,7 @@ describe('CruxPanel', () => {
 
     it('shows centrality percentages', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -261,7 +263,7 @@ describe('CruxPanel', () => {
 
     it('shows entropy values', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -275,7 +277,7 @@ describe('CruxPanel', () => {
 
     it('shows belief probabilities', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -292,7 +294,7 @@ describe('CruxPanel', () => {
   describe('Tabs', () => {
     it('shows tabs when data is loaded', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -306,7 +308,7 @@ describe('CruxPanel', () => {
 
     it('switches to load-bearing tab', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -328,7 +330,7 @@ describe('CruxPanel', () => {
   describe('Load-Bearing Claims Display', () => {
     it('displays load-bearing claim statements', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -348,7 +350,7 @@ describe('CruxPanel', () => {
 
     it('shows load-bearing centrality', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -383,7 +385,7 @@ describe('CruxPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'debate-123' } });
@@ -414,7 +416,7 @@ describe('CruxPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       const input = screen.getByPlaceholderText('Enter debate ID...');
       fireEvent.change(input, { target: { value: 'nonexistent' } });
@@ -427,7 +429,7 @@ describe('CruxPanel', () => {
 
     it('clears data on error', async () => {
       setupSuccessfulFetch();
-      render(<CruxPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<CruxPanel apiBase="http://localhost:8080" />);
 
       // First load data
       const input = screen.getByPlaceholderText('Enter debate ID...');

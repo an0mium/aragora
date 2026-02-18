@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { TrendingTopicsPanel } from '../src/components/TrendingTopicsPanel';
 
 // Mock fetch
@@ -23,14 +23,14 @@ describe('TrendingTopicsPanel', () => {
 
   describe('collapsed state', () => {
     it('renders header in collapsed state', () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       expect(screen.getByText('[TRENDING]')).toBeInTheDocument();
       expect(screen.getByText('[+]')).toBeInTheDocument();
     });
 
     it('does not fetch topics when collapsed', () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -38,7 +38,7 @@ describe('TrendingTopicsPanel', () => {
 
   describe('expanded state', () => {
     it('expands when header is clicked', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       const header = screen.getByRole('button');
       fireEvent.click(header);
@@ -49,14 +49,15 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('fetches topics when expanded', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       const header = screen.getByRole('button');
       fireEvent.click(header);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          'http://localhost:8080/api/pulse/trending?limit=10'
+          'http://localhost:8080/api/pulse/trending?limit=10',
+          expect.anything()
         );
       });
     });
@@ -64,7 +65,7 @@ describe('TrendingTopicsPanel', () => {
     it('displays loading state', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       const header = screen.getByRole('button');
       fireEvent.click(header);
@@ -73,7 +74,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('displays topics after loading', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       const header = screen.getByRole('button');
       fireEvent.click(header);
@@ -87,7 +88,7 @@ describe('TrendingTopicsPanel', () => {
 
   describe('topic display', () => {
     it('shows score as percentage', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -98,7 +99,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('shows source icons', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -110,7 +111,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('shows debate count when available', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -120,7 +121,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('shows category badge when available', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -137,7 +138,7 @@ describe('TrendingTopicsPanel', () => {
         status: 500,
       });
 
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -149,7 +150,7 @@ describe('TrendingTopicsPanel', () => {
     it('displays network error message', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -166,7 +167,7 @@ describe('TrendingTopicsPanel', () => {
         json: () => Promise.resolve({ topics: [] }),
       });
 
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -178,7 +179,7 @@ describe('TrendingTopicsPanel', () => {
 
   describe('refresh functionality', () => {
     it('shows refresh button when expanded', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -188,7 +189,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('refreshes topics when refresh button clicked', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -212,7 +213,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('shows refreshing state', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 
@@ -240,7 +241,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('auto-refreshes at specified interval', async () => {
-      render(
+      renderWithProviders(
         <TrendingTopicsPanel
           apiBase="http://localhost:8080"
           autoRefresh={true}
@@ -265,7 +266,7 @@ describe('TrendingTopicsPanel', () => {
     });
 
     it('does not auto-refresh when disabled', async () => {
-      render(
+      renderWithProviders(
         <TrendingTopicsPanel
           apiBase="http://localhost:8080"
           autoRefresh={false}
@@ -289,7 +290,7 @@ describe('TrendingTopicsPanel', () => {
 
   describe('legend', () => {
     it('shows source legend', async () => {
-      render(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TrendingTopicsPanel apiBase="http://localhost:8080" />);
 
       fireEvent.click(screen.getByRole('button'));
 

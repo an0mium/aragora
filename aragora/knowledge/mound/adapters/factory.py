@@ -488,6 +488,20 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_rlm_context_adapter",
         },
     ),
+    # --- Genesis evolution adapters ---
+    (
+        ".genesis_adapter",
+        "GenesisAdapter",
+        {
+            "name": "genesis",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 60,
+            "enabled_by_default": False,
+            "config_key": "km_genesis_adapter",
+        },
+    ),
 ]
 
 

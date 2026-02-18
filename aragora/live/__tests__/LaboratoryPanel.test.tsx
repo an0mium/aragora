@@ -12,8 +12,21 @@
  * - Collapsed/expanded states
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
 import { LaboratoryPanel } from '../src/components/LaboratoryPanel';
+
+// Mock useAuth to always return authenticated state
+jest.mock('@/context/AuthContext', () => ({
+  ...jest.requireActual('@/context/AuthContext'),
+  useAuth: () => ({
+    user: null, organization: null, organizations: [], tokens: { access_token: 'test-token', refresh_token: 'r', token_type: 'bearer' },
+    isLoading: false, isAuthenticated: true, isLoadingOrganizations: false,
+    login: jest.fn(), register: jest.fn(), logout: jest.fn(),
+    refreshToken: jest.fn(), setTokens: jest.fn(),
+    switchOrganization: jest.fn(), refreshOrganizations: jest.fn(),
+    getCurrentOrgRole: jest.fn(),
+  }),
+}));
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -114,19 +127,19 @@ describe('LaboratoryPanel', () => {
   describe('Loading States', () => {
     it('shows panel title', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('Persona Laboratory')).toBeInTheDocument();
     });
 
     it('shows loading message while fetching traits', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
       expect(screen.getByText('Detecting emergent traits...')).toBeInTheDocument();
     });
 
     it('fetches all 4 endpoints on mount', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         // Check that all endpoints were called
@@ -146,7 +159,7 @@ describe('LaboratoryPanel', () => {
   describe('Summary Stats', () => {
     it('displays trait count in summary', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('Traits:')).toBeInTheDocument();
@@ -155,7 +168,7 @@ describe('LaboratoryPanel', () => {
 
     it('displays pollination count in summary', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('Pollinations:')).toBeInTheDocument();
@@ -164,7 +177,7 @@ describe('LaboratoryPanel', () => {
 
     it('displays genesis population change', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('Population:')).toBeInTheDocument();
@@ -176,7 +189,7 @@ describe('LaboratoryPanel', () => {
   describe('Traits Tab', () => {
     it('displays emergent traits with agent names', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -186,7 +199,7 @@ describe('LaboratoryPanel', () => {
 
     it('shows trait domain badges', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('technical')).toBeInTheDocument();
@@ -196,7 +209,7 @@ describe('LaboratoryPanel', () => {
 
     it('displays confidence percentages', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('85%')).toBeInTheDocument(); // 0.85 * 100
@@ -206,7 +219,7 @@ describe('LaboratoryPanel', () => {
 
     it('shows evidence with truncation for long lists', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('Strong deductive arguments')).toBeInTheDocument();
@@ -225,7 +238,7 @@ describe('LaboratoryPanel', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText(/No emergent traits detected yet/)).toBeInTheDocument();
@@ -236,7 +249,7 @@ describe('LaboratoryPanel', () => {
   describe('Tab Switching', () => {
     it('switches to pollinations tab', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -251,7 +264,7 @@ describe('LaboratoryPanel', () => {
 
     it('switches to evolution tab', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -268,7 +281,7 @@ describe('LaboratoryPanel', () => {
 
     it('switches to patterns tab', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -285,7 +298,7 @@ describe('LaboratoryPanel', () => {
 
     it('preserves data when switching tabs', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -304,7 +317,7 @@ describe('LaboratoryPanel', () => {
   describe('Pollinations Tab', () => {
     it('displays cross-pollination suggestions', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -330,7 +343,7 @@ describe('LaboratoryPanel', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
       fireEvent.click(screen.getByText('POLLINATIONS'));
 
       await waitFor(() => {
@@ -342,7 +355,7 @@ describe('LaboratoryPanel', () => {
   describe('Evolution Tab', () => {
     it('displays population stats grid', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -359,7 +372,7 @@ describe('LaboratoryPanel', () => {
 
     it('shows fitness change trend', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -375,7 +388,7 @@ describe('LaboratoryPanel', () => {
 
     it('displays ledger integrity status', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -393,7 +406,7 @@ describe('LaboratoryPanel', () => {
   describe('Patterns Tab', () => {
     it('displays critique patterns with success rates', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -409,7 +422,7 @@ describe('LaboratoryPanel', () => {
 
     it('shows suggested rebuttals', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -436,7 +449,7 @@ describe('LaboratoryPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText(/Some data failed to load/)).toBeInTheDocument();
@@ -449,7 +462,7 @@ describe('LaboratoryPanel', () => {
     it('has retry button on error', async () => {
       mockFetch.mockImplementation(() => Promise.resolve({ ok: false }));
 
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText(/Some data failed to load/)).toBeInTheDocument();
@@ -463,7 +476,7 @@ describe('LaboratoryPanel', () => {
   describe('Refresh Functionality', () => {
     it('refreshes data when refresh button clicked', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -480,7 +493,7 @@ describe('LaboratoryPanel', () => {
 
     it('disables refresh button while loading', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       const refreshButton = screen.getByText('[REFRESH]');
       expect(refreshButton).toBeDisabled();
@@ -490,7 +503,7 @@ describe('LaboratoryPanel', () => {
   describe('Expand/Collapse', () => {
     it('collapses panel when collapse button clicked', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -504,7 +517,7 @@ describe('LaboratoryPanel', () => {
 
     it('expands panel when expand button clicked', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
@@ -523,7 +536,7 @@ describe('LaboratoryPanel', () => {
 
     it('shows help text when collapsed', async () => {
       setupSuccessfulFetch();
-      render(<LaboratoryPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<LaboratoryPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('claude-3-opus')).toBeInTheDocument();

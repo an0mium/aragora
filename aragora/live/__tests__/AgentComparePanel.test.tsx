@@ -2,8 +2,21 @@
  * Tests for AgentComparePanel component
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor } from '@/test-utils';
 import { AgentComparePanel } from '../src/components/AgentComparePanel';
+
+// Mock useAuth to always return authenticated state
+jest.mock('@/context/AuthContext', () => ({
+  ...jest.requireActual('@/context/AuthContext'),
+  useAuth: () => ({
+    user: null, organization: null, organizations: [], tokens: { access_token: 'test-token', refresh_token: 'r', token_type: 'bearer' },
+    isLoading: false, isAuthenticated: true, isLoadingOrganizations: false,
+    login: jest.fn(), register: jest.fn(), logout: jest.fn(),
+    refreshToken: jest.fn(), setTokens: jest.fn(),
+    switchOrganization: jest.fn(), refreshOrganizations: jest.fn(),
+    getCurrentOrgRole: jest.fn(),
+  }),
+}));
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -74,7 +87,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('renders agent selection dropdowns', async () => {
-      render(<AgentComparePanel />);
+      renderWithProviders(<AgentComparePanel />);
 
       await waitFor(() => {
         expect(screen.getByText('Agent 1')).toBeInTheDocument();
@@ -83,7 +96,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('loads available agents from rankings API', async () => {
-      render(<AgentComparePanel />);
+      renderWithProviders(<AgentComparePanel />);
 
       await waitFor(() => {
         const selects = screen.getAllByRole('combobox');
@@ -93,7 +106,7 @@ describe('AgentComparePanel', () => {
 
     it('uses provided availableAgents if given', async () => {
       const agents = ['agent-a', 'agent-b', 'agent-c'];
-      render(<AgentComparePanel availableAgents={agents} />);
+      renderWithProviders(<AgentComparePanel availableAgents={agents} />);
 
       await waitFor(() => {
         // Each agent appears in both dropdowns, so use getAllByRole
@@ -107,7 +120,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('uses initialAgents for default selection', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['agent-a', 'agent-b', 'agent-c']}
           initialAgents={['agent-a', 'agent-c']}
@@ -122,7 +135,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('shows warning when same agent selected', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'claude']}
@@ -155,7 +168,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays ELO ratings for both agents', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -169,7 +182,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays rating difference', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -182,7 +195,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays win/loss stats', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -198,7 +211,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays win rates with color coding', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -212,7 +225,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays ranks', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -226,7 +239,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays consistency scores', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -260,7 +273,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays head-to-head record', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -274,7 +287,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays win counts for each agent', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -309,7 +322,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays domain expertise section', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -322,7 +335,7 @@ describe('AgentComparePanel', () => {
     });
 
     it('displays domain badges', async () => {
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -357,7 +370,7 @@ describe('AgentComparePanel', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}
@@ -385,7 +398,7 @@ describe('AgentComparePanel', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(
+      renderWithProviders(
         <AgentComparePanel
           availableAgents={['claude', 'gemini']}
           initialAgents={['claude', 'gemini']}

@@ -10,7 +10,7 @@
  * - Empty state handling
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { TournamentPanel } from '../src/components/TournamentPanel';
 
 // Mock fetch
@@ -69,7 +69,7 @@ describe('TournamentPanel', () => {
     it('shows loading state while fetching data', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
       expect(screen.getByText('Loading tournaments...')).toBeInTheDocument();
     });
@@ -77,7 +77,7 @@ describe('TournamentPanel', () => {
     it('shows panel title', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
       expect(screen.getByText('Tournaments')).toBeInTheDocument();
     });
@@ -87,7 +87,7 @@ describe('TournamentPanel', () => {
     it('renders tournament selector after data loads', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -98,7 +98,7 @@ describe('TournamentPanel', () => {
     it('auto-selects first tournament', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -110,7 +110,7 @@ describe('TournamentPanel', () => {
     it('displays tournament options with agent and match counts', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -124,7 +124,7 @@ describe('TournamentPanel', () => {
     it('displays participant count', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -136,7 +136,7 @@ describe('TournamentPanel', () => {
     it('displays match count', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -148,7 +148,7 @@ describe('TournamentPanel', () => {
     it('displays top agent', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -161,7 +161,7 @@ describe('TournamentPanel', () => {
     it('shows standings with agent names', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
         await jest.runAllTimersAsync();
       });
 
@@ -177,7 +177,7 @@ describe('TournamentPanel', () => {
     it('shows win-loss-draw records', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
         await jest.runAllTimersAsync();
       });
 
@@ -190,7 +190,7 @@ describe('TournamentPanel', () => {
     it('shows points', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
         await jest.runAllTimersAsync();
       });
 
@@ -203,7 +203,7 @@ describe('TournamentPanel', () => {
     it('shows win rates as percentages', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
         await jest.runAllTimersAsync();
       });
 
@@ -216,7 +216,7 @@ describe('TournamentPanel', () => {
     it('shows rank badges', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
         await jest.runAllTimersAsync();
       });
 
@@ -253,7 +253,7 @@ describe('TournamentPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<TournamentPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         const claudeElements = screen.getAllByText('claude-3-opus');
@@ -275,7 +275,7 @@ describe('TournamentPanel', () => {
       jest.useRealTimers(); // Use real timers for this test
       setupSuccessfulFetch();
 
-      render(<TournamentPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         const claudeElements = screen.getAllByText('claude-3-opus');
@@ -296,7 +296,7 @@ describe('TournamentPanel', () => {
     it('refreshes data every 60 seconds', async () => {
       setupSuccessfulFetch();
       await act(async () => {
-        render(<TournamentPanel apiBase="http://localhost:8080" />);
+        renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
       });
 
       await waitFor(() => {
@@ -319,7 +319,7 @@ describe('TournamentPanel', () => {
     it('cleans up interval on unmount', async () => {
       setupSuccessfulFetch();
 
-      const { unmount } = render(<TournamentPanel apiBase="http://localhost:8080" />);
+      const { unmount } = renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         const claudeElements = screen.getAllByText('claude-3-opus');
@@ -345,7 +345,7 @@ describe('TournamentPanel', () => {
         Promise.reject(new Error('Network error'))
       );
 
-      render(<TournamentPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('Network error')).toBeInTheDocument();
@@ -363,7 +363,7 @@ describe('TournamentPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<TournamentPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText(/No tournaments yet/)).toBeInTheDocument();
@@ -382,7 +382,7 @@ describe('TournamentPanel', () => {
         return Promise.resolve({ ok: false });
       });
 
-      render(<TournamentPanel apiBase="http://localhost:8080" />);
+      renderWithProviders(<TournamentPanel apiBase="http://localhost:8080" />);
 
       await waitFor(() => {
         expect(screen.getByText('No standings available for this tournament.')).toBeInTheDocument();

@@ -90,7 +90,7 @@ class TestCanHandle:
 class TestRecordOutcome:
     """Tests for POST /api/v1/decisions/{id}/outcome."""
 
-    @patch("aragora.server.handlers.governance.outcomes.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_record_success(self, mock_get_adapter):
         mock_adapter = MagicMock()
         mock_adapter.ingest.return_value = True
@@ -166,7 +166,7 @@ class TestRecordOutcome:
             "impact_score": 0.7,
         })
 
-        with patch("aragora.server.handlers.governance.outcomes.get_outcome_adapter") as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
             h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
 

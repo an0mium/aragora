@@ -1,0 +1,59 @@
+id: hiring_committee
+name: Hiring Committee Review
+description: >
+  Structured hiring decision process with bias mitigation,
+  multi-perspective evaluation, and documented rationale.
+category: general
+
+template_name: panel_discussion
+vertical_profile: null
+
+compliance_artifacts: []
+
+min_agents: 3
+max_agents: 5
+required_agent_types:
+  - domain_expert
+  - devil_advocate
+agent_selection_strategy: diverse
+
+max_rounds: 3
+consensus_threshold: 0.6
+timeout_seconds: 300
+
+output_format: decision_receipt
+output_channels:
+  - email
+
+approval_gates:
+  - name: hiring_manager_review
+    description: Hiring manager reviews committee recommendation
+    required_role: hiring_manager
+    auto_approve_if_consensus: true
+    timeout_hours: 48
+
+steps:
+  - name: candidate_evaluation
+    action: debate
+    config:
+      question_template: "Evaluate candidate {candidate_name} for {role}"
+  - name: bias_check
+    action: review
+    config:
+      check_for_bias: true
+  - name: hiring_manager_approval
+    action: approve
+    config:
+      gate: hiring_manager_review
+  - name: notification
+    action: notify
+    config:
+      channels: [email]
+
+tags:
+  - hiring
+  - hr
+  - talent
+  - bias_mitigation
+
+version: "1.0.0"

@@ -1,0 +1,69 @@
+id: hipaa_vendor_assessment
+name: HIPAA Vendor Assessment
+description: >
+  Evaluate vendors handling PHI against HIPAA Security Rule requirements.
+  Generates BAA checklist, risk assessment, and compliance artifacts.
+category: healthcare
+
+template_name: compliance_review
+vertical_profile: healthcare_hipaa
+
+compliance_artifacts:
+  - hipaa_security_rule
+  - business_associate_agreement
+  - risk_assessment
+
+min_agents: 4
+max_agents: 6
+required_agent_types:
+  - compliance_expert
+  - security_analyst
+  - domain_expert
+agent_selection_strategy: best_for_domain
+
+max_rounds: 5
+consensus_threshold: 0.8
+timeout_seconds: 600
+
+output_format: compliance_report
+output_channels:
+  - email
+  - slack
+
+approval_gates:
+  - name: compliance_review
+    description: Compliance officer reviews vendor risk assessment
+    required_role: compliance_officer
+    auto_approve_if_consensus: false
+    timeout_hours: 48
+
+steps:
+  - name: vendor_data_collection
+    action: debate
+    config:
+      question_template: "Assess PHI handling practices of {vendor_name}"
+  - name: risk_scoring
+    action: review
+    config:
+      rubric: healthcare_hipaa
+  - name: compliance_check
+    action: generate_artifact
+    config:
+      artifacts: [hipaa_security_rule, business_associate_agreement]
+  - name: approval
+    action: approve
+    config:
+      gate: compliance_review
+  - name: notification
+    action: notify
+    config:
+      channels: [email, slack]
+
+tags:
+  - hipaa
+  - vendor
+  - healthcare
+  - compliance
+  - phi
+
+version: "1.0.0"

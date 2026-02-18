@@ -1,5 +1,12 @@
 import { renderHook, act } from '@testing-library/react';
+import { createHookWrapper } from '@/test-utils';
 import { usePulseScheduler } from '@/hooks/usePulseScheduler';
+
+// Provide an authenticated wrapper so useAuth() returns valid tokens
+const hookWrapper = createHookWrapper({
+  isAuthenticated: true,
+  tokens: { access_token: 'test-token', refresh_token: 'test-refresh', token_type: 'bearer' } as never,
+});
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -89,7 +96,7 @@ describe('usePulseScheduler', () => {
 
   describe('initial state', () => {
     it('has correct initial state', () => {
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       expect(result.current.status).toBeNull();
       expect(result.current.statusLoading).toBe(false);
@@ -112,7 +119,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -137,7 +144,7 @@ describe('usePulseScheduler', () => {
           })
       );
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       act(() => {
         result.current.fetchStatus();
@@ -158,7 +165,7 @@ describe('usePulseScheduler', () => {
         status: 503,
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -173,7 +180,7 @@ describe('usePulseScheduler', () => {
         status: 500,
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -185,7 +192,7 @@ describe('usePulseScheduler', () => {
     it('handles fetch failure', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -202,7 +209,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.startPolling(5000);
@@ -232,7 +239,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.startPolling(5000);
@@ -258,7 +265,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.startPolling(5000);
@@ -291,7 +298,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result, unmount } = renderHook(() => usePulseScheduler());
+      const { result, unmount } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.startPolling(5000);
@@ -316,7 +323,7 @@ describe('usePulseScheduler', () => {
             json: () => Promise.resolve({ ...mockStatus, state: 'running' }),
           });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         let success: boolean = false;
         await act(async () => {
@@ -338,7 +345,7 @@ describe('usePulseScheduler', () => {
           json: () => Promise.resolve({ error: 'Already running' }),
         });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         let success: boolean = false;
         await act(async () => {
@@ -359,7 +366,7 @@ describe('usePulseScheduler', () => {
             json: () => Promise.resolve(mockStatus),
           });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         await act(async () => {
           await result.current.stop(true);
@@ -382,7 +389,7 @@ describe('usePulseScheduler', () => {
             json: () => Promise.resolve(mockStatus),
           });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         await act(async () => {
           await result.current.stop(false);
@@ -406,7 +413,7 @@ describe('usePulseScheduler', () => {
             json: () => Promise.resolve({ ...mockStatus, state: 'paused' }),
           });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         await act(async () => {
           await result.current.pause();
@@ -429,7 +436,7 @@ describe('usePulseScheduler', () => {
             json: () => Promise.resolve({ ...mockStatus, state: 'running' }),
           });
 
-        const { result } = renderHook(() => usePulseScheduler());
+        const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
         await act(async () => {
           await result.current.resume();
@@ -452,7 +459,7 @@ describe('usePulseScheduler', () => {
           json: () => Promise.resolve(mockStatus),
         });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.updateConfig({ max_debates_per_hour: 10 });
@@ -474,7 +481,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve({ error: 'Invalid config' }),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       const success = await act(async () => {
         return await result.current.updateConfig({ max_debates_per_hour: -1 });
@@ -492,7 +499,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockHistory),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchHistory();
@@ -509,17 +516,19 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockHistory),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchHistory(20, 10);
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('limit=20')
+        expect.stringContaining('limit=20'),
+        expect.anything()
       );
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('offset=10')
+        expect.stringContaining('offset=10'),
+        expect.anything()
       );
     });
 
@@ -529,14 +538,15 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockHistory),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchHistory(50, 0, 'twitter');
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('platform=twitter')
+        expect.stringContaining('platform=twitter'),
+        expect.anything()
       );
     });
 
@@ -546,7 +556,7 @@ describe('usePulseScheduler', () => {
         status: 500,
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchHistory();
@@ -561,7 +571,7 @@ describe('usePulseScheduler', () => {
     it('clears all error states', async () => {
       mockFetch.mockRejectedValue(new Error('Test error'));
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       // Generate errors
       await act(async () => {
@@ -591,7 +601,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve({ ...mockStatus, state: 'running' }),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -608,7 +618,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve({ ...mockStatus, state: 'paused' }),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -625,7 +635,7 @@ describe('usePulseScheduler', () => {
         json: () => Promise.resolve(mockStatus),
       });
 
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.fetchStatus();
@@ -636,7 +646,7 @@ describe('usePulseScheduler', () => {
     });
 
     it('returns null for config and metrics when no status', () => {
-      const { result } = renderHook(() => usePulseScheduler());
+      const { result } = renderHook(() => usePulseScheduler(), { wrapper: hookWrapper });
 
       expect(result.current.config).toBeNull();
       expect(result.current.metrics).toBeNull();

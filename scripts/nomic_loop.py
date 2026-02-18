@@ -9249,6 +9249,85 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
 
         return publish_result
 
+    def _maybe_publish_to_marketplace(
+        self, improvement: str, confidence: float
+    ) -> dict | None:
+        """Optionally publish high-confidence configs as marketplace skills.
+
+        Gated by ARAGORA_AUTO_PUBLISH_MARKETPLACE env var (default off).
+        Only publishes when confidence >= 0.85.
+
+        Args:
+            improvement: Description of the improvement.
+            confidence: Debate consensus confidence (0-1).
+
+        Returns:
+            Dict with publish result or None if skipped.
+        """
+        if os.environ.get("ARAGORA_AUTO_PUBLISH_MARKETPLACE", "0") != "1":
+            return None
+
+        min_confidence = float(
+            os.environ.get("ARAGORA_MARKETPLACE_MIN_CONFIDENCE", "0.85")
+        )
+        if confidence < min_confidence:
+            self._log(
+                f"  [marketplace] Skipped (confidence {confidence:.2f} < {min_confidence})"
+            )
+            return {"published": False, "reason": "below_confidence_threshold"}
+
+        try:
+            from aragora.skills.publisher import SkillPublisher
+            from aragora.skills.base import Skill
+
+            publisher = SkillPublisher()
+            title = improvement.splitlines()[0].strip()[:80] or "nomic-improvement"
+            skill_name = (
+                title.lower()
+                .replace(" ", "-")
+                .replace("_", "-")[:40]
+            )
+
+            skill = Skill(
+                name=f"nomic-{skill_name}",
+                description=improvement.strip()[:500],
+                version="0.1.0",
+            )
+
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                self._log("  [marketplace] Skipped (event loop already running)")
+                return {"published": False, "reason": "event_loop_running"}
+
+            success, listing, issues = loop.run_until_complete(
+                publisher.publish(
+                    skill=skill,
+                    author_id="nomic-loop",
+                    author_name="Aragora Nomic Loop",
+                    changelog=f"Auto-published from cycle {self.cycle_count}",
+                )
+            )
+
+            result = {
+                "published": success,
+                "skill_name": skill.name,
+                "confidence": confidence,
+                "issues": len(issues),
+            }
+            if listing:
+                result["listing_id"] = listing.id
+            self._log(f"  [marketplace] Published: {success} ({skill.name})")
+            return result
+
+        except ImportError:
+            self._log("  [marketplace] Skipped (publisher not available)")
+            return {"published": False, "reason": "import_error"}
+        except (RuntimeError, ValueError, OSError) as e:
+            self._log(f"  [marketplace] Error: {e}")
+            return {"published": False, "reason": f"error: {type(e).__name__}"}
+
     def _finalize_cycle(self, cycle_result: dict) -> None:
         """Finalize cycle and record cross-cycle learning data.
 
@@ -10439,6 +10518,16 @@ Working directory: {self.aragora_path}
             )
             if publish_result:
                 cycle_result["publish"] = publish_result
+
+            # Auto-publish high-confidence improvements to marketplace
+            debate_confidence = cycle_result.get("phases", {}).get("debate", {}).get(
+                "confidence", 0.0
+            )
+            marketplace_result = self._maybe_publish_to_marketplace(
+                improvement, debate_confidence
+            )
+            if marketplace_result:
+                cycle_result["marketplace"] = marketplace_result
         else:
             cycle_result["outcome"] = "not_committed"
 

@@ -1,0 +1,61 @@
+id: pricing_change
+name: Pricing Change Review
+description: >
+  Evaluate pricing changes with financial, competitive,
+  and customer impact analysis. Includes revenue projection
+  and churn risk assessment.
+category: finance
+
+template_name: business_review
+vertical_profile: financial_risk
+
+compliance_artifacts: []
+
+min_agents: 3
+max_agents: 5
+required_agent_types:
+  - financial_analyst
+  - devil_advocate
+agent_selection_strategy: best_for_domain
+
+max_rounds: 5
+consensus_threshold: 0.7
+timeout_seconds: 300
+
+output_format: decision_receipt
+output_channels:
+  - email
+  - slack
+
+approval_gates:
+  - name: executive_review
+    description: Executive reviews pricing change and market impact
+    required_role: executive
+    auto_approve_if_consensus: false
+    timeout_hours: 48
+
+steps:
+  - name: market_analysis
+    action: debate
+    config:
+      question_template: "Evaluate pricing change: {pricing_proposal}"
+  - name: financial_projection
+    action: review
+    config:
+      rubric: financial_risk
+  - name: executive_approval
+    action: approve
+    config:
+      gate: executive_review
+  - name: notification
+    action: notify
+    config:
+      channels: [email, slack]
+
+tags:
+  - pricing
+  - finance
+  - revenue
+  - strategy
+
+version: "1.0.0"

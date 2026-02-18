@@ -91,16 +91,17 @@ describe('featureFlags', () => {
     });
 
     it('warns and returns false for unknown features', () => {
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const { logger } = require('@/utils/logger');
+      const loggerSpy = jest.spyOn(logger, 'warn').mockImplementation();
 
       // @ts-expect-error Testing invalid feature name
       const result = isFeatureEnabled('NONEXISTENT_FEATURE');
 
       expect(result).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Unknown feature flag')
       );
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
   });
 

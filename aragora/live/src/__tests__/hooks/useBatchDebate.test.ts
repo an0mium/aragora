@@ -1,5 +1,12 @@
 import { renderHook, act } from '@testing-library/react';
+import { createHookWrapper } from '@/test-utils';
 import { useBatchDebate } from '@/hooks/useBatchDebate';
+
+// Provide an authenticated wrapper so useAuth() returns valid tokens
+const hookWrapper = createHookWrapper({
+  isAuthenticated: true,
+  tokens: { access_token: 'test-token', refresh_token: 'test-refresh', token_type: 'bearer' } as never,
+});
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -22,7 +29,7 @@ describe('useBatchDebate', () => {
 
   describe('initial state', () => {
     it('starts with empty state', () => {
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       expect(result.current.submitting).toBe(false);
       expect(result.current.submitError).toBeNull();
@@ -49,7 +56,7 @@ describe('useBatchDebate', () => {
         }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       let response: unknown;
       await act(async () => {
@@ -65,7 +72,7 @@ describe('useBatchDebate', () => {
         'http://localhost:8080/api/debates/batch',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(response).toEqual({
@@ -86,7 +93,7 @@ describe('useBatchDebate', () => {
         json: async () => ({ error: 'Invalid batch format' }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.submitBatch({ items: [] });
@@ -99,7 +106,7 @@ describe('useBatchDebate', () => {
     it('handles network error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.submitBatch({ items: [{ question: 'Test' }] });
@@ -111,7 +118,7 @@ describe('useBatchDebate', () => {
     it('shows submitting state during request', async () => {
       mockFetch.mockImplementationOnce(() => new Promise(() => {}));
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       act(() => {
         result.current.submitBatch({ items: [{ question: 'Test' }] });
@@ -139,7 +146,7 @@ describe('useBatchDebate', () => {
         json: async () => mockStatus,
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.getBatchStatus('batch-123');
@@ -157,7 +164,7 @@ describe('useBatchDebate', () => {
         status: 404,
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.getBatchStatus('nonexistent');
@@ -186,7 +193,7 @@ describe('useBatchDebate', () => {
         json: async () => mockStatus,
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.pollBatchStatus('batch-123', 1000);
@@ -220,7 +227,7 @@ describe('useBatchDebate', () => {
         json: async () => completedStatus,
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.pollBatchStatus('batch-123', 1000);
@@ -260,7 +267,7 @@ describe('useBatchDebate', () => {
         }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.pollBatchStatus('batch-123', 1000);
@@ -293,7 +300,7 @@ describe('useBatchDebate', () => {
         json: async () => ({ batches: mockBatches }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.listBatches();
@@ -309,14 +316,15 @@ describe('useBatchDebate', () => {
         json: async () => ({ batches: [] }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.listBatches(50, 'completed');
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('status=completed')
+        expect.stringContaining('status=completed'),
+        expect.anything()
       );
     });
   });
@@ -336,7 +344,7 @@ describe('useBatchDebate', () => {
         json: async () => mockQueueStatus,
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.getQueueStatus();
@@ -361,7 +369,7 @@ describe('useBatchDebate', () => {
         }),
       });
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.getBatchStatus('batch-123');
@@ -382,7 +390,7 @@ describe('useBatchDebate', () => {
     it('clears submit error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Test error'));
 
-      const { result } = renderHook(() => useBatchDebate());
+      const { result } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         await result.current.submitBatch({ items: [] });
@@ -412,7 +420,7 @@ describe('useBatchDebate', () => {
         }),
       });
 
-      const { result, unmount } = renderHook(() => useBatchDebate());
+      const { result, unmount } = renderHook(() => useBatchDebate(), { wrapper: hookWrapper });
 
       await act(async () => {
         result.current.pollBatchStatus('batch-123', 1000);

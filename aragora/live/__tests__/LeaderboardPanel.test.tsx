@@ -9,7 +9,7 @@
  * - Consistency score display
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { LeaderboardPanel } from '../src/components/LeaderboardPanel';
 
 // Mock next/link
@@ -146,7 +146,7 @@ describe('LeaderboardPanel', () => {
   it('renders skeleton loading state initially', async () => {
     mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
     // Component uses skeleton loaders instead of text during loading
     // Just verify the component renders without error during loading
@@ -156,7 +156,7 @@ describe('LeaderboardPanel', () => {
   it('renders agent rankings after data loads', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -171,7 +171,7 @@ describe('LeaderboardPanel', () => {
   it('displays consistency scores for agents', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -185,7 +185,7 @@ describe('LeaderboardPanel', () => {
   it('switches between tabs correctly', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -221,7 +221,7 @@ describe('LeaderboardPanel', () => {
   it('shows domain filter when domains are available', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -257,7 +257,7 @@ describe('LeaderboardPanel', () => {
     }));
 
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -278,7 +278,7 @@ describe('LeaderboardPanel', () => {
     }));
 
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -311,7 +311,7 @@ describe('LeaderboardPanel', () => {
     }));
 
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -328,7 +328,7 @@ describe('LeaderboardPanel', () => {
   it('refreshes data when refresh button is clicked', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -349,7 +349,7 @@ describe('LeaderboardPanel', () => {
   it('auto-refreshes every 30 seconds', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" />);
     });
 
     await waitFor(() => {
@@ -371,7 +371,7 @@ describe('LeaderboardPanel', () => {
   it('includes loopId in API requests when provided', async () => {
     setupSuccessfulFetch();
     await act(async () => {
-      render(<LeaderboardPanel apiBase="http://localhost:3001" loopId="test-loop-123" />);
+      renderWithProviders(<LeaderboardPanel apiBase="http://localhost:3001" loopId="test-loop-123" />);
     });
 
     await waitFor(() => {

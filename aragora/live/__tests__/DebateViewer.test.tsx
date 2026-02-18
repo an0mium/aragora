@@ -2,7 +2,7 @@
  * Tests for DebateViewer component
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor } from '@/test-utils';
 import { DebateViewer } from '@/components/debate-viewer/DebateViewer';
 import { useDebateWebSocket } from '../src/hooks/useDebateWebSocket';
 import { fetchDebateById } from '../src/utils/supabase';
@@ -76,7 +76,7 @@ describe('DebateViewer live debates', () => {
   });
 
   it('shows connecting state for live debates', () => {
-    render(<DebateViewer debateId="adhoc_live-123" wsUrl="ws://localhost:3001" />);
+    renderWithProviders(<DebateViewer debateId="adhoc_live-123" wsUrl="ws://localhost:3001" />);
 
     expect(screen.getByText(/connecting\.\.\./i)).toBeInTheDocument();
     expect(screen.getByText(/waiting for debate topic/i)).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('DebateViewer live debates', () => {
       ],
     });
 
-    render(<DebateViewer debateId="adhoc_live-123" wsUrl="ws://localhost:3001" />);
+    renderWithProviders(<DebateViewer debateId="adhoc_live-123" wsUrl="ws://localhost:3001" />);
 
     expect(screen.getByText(/live debate/i)).toBeInTheDocument();
     expect(screen.getByText(/discuss the best approach for feature x/i)).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('DebateViewer archived debates', () => {
   it('shows error when debate not found', async () => {
     (fetchDebateById as jest.Mock).mockResolvedValue(null);
 
-    render(<DebateViewer debateId="archived-debate-123" wsUrl="ws://localhost:3001" />);
+    renderWithProviders(<DebateViewer debateId="archived-debate-123" wsUrl="ws://localhost:3001" />);
 
     await waitFor(() => {
       expect(screen.getByText(/debate not found/i)).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe('DebateViewer archived debates', () => {
 
     (fetchDebateById as jest.Mock).mockResolvedValue(archivedDebate);
 
-    render(<DebateViewer debateId="debate-1" wsUrl="ws://localhost:3001" />);
+    renderWithProviders(<DebateViewer debateId="debate-1" wsUrl="ws://localhost:3001" />);
 
     await waitFor(() => {
       expect(screen.getByText('Should we adopt X?')).toBeInTheDocument();

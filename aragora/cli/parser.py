@@ -127,6 +127,7 @@ Examples:
     _add_worktree_parser(subparsers)
     _add_outcome_parser(subparsers)
     _add_explain_parser(subparsers)
+    _add_playbook_parser(subparsers)
 
     return parser
 
@@ -1823,3 +1824,17 @@ def _add_outcome_parser(subparsers) -> None:
     from aragora.cli.commands.outcome import add_outcome_parser
 
     add_outcome_parser(subparsers)
+
+
+def _add_explain_parser(subparsers) -> None:
+    """Add the 'explain' subcommand for decision explanation."""
+    from aragora.cli.commands.explain import add_explain_parser
+
+    add_explain_parser(subparsers)
+
+
+def _add_playbook_parser(subparsers) -> None:
+    """Add the 'playbook' subcommand for decision playbooks."""
+    from aragora.cli.commands.playbook import add_playbook_parser
+
+    add_playbook_parser(subparsers)

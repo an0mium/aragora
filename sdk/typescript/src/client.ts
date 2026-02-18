@@ -158,6 +158,11 @@ import {
   ReceiptsAPI,
   ExplainabilityAPI,
   ControlPlaneAPI,
+  CoordinationAPI,
+  ModerationAPI,
+  AudienceAPI,
+  ModesAPI,
+  SpectateAPI,
   GauntletAPI,
   AnalyticsAPI,
   MemoryAPI,
@@ -399,6 +404,21 @@ export class AragoraClient {
    * Provides methods for agent registry, scheduling, and health monitoring.
    */
   readonly controlPlane: ControlPlaneAPI;
+
+  /** Coordination API - Cross-workspace federation and execution. */
+  readonly coordination: CoordinationAPI;
+
+  /** Moderation API - Content moderation configuration and queue. */
+  readonly moderation: ModerationAPI;
+
+  /** Audience API - Audience suggestion submission and retrieval. */
+  readonly audience: AudienceAPI;
+
+  /** Modes API - Operational modes listing. */
+  readonly modes: ModesAPI;
+
+  /** Spectate API - Real-time debate observation via SSE. */
+  readonly spectate: SpectateAPI;
 
   /**
    * Gauntlet API namespace.
@@ -907,6 +927,11 @@ export class AragoraClient {
     this.receipts = new ReceiptsAPI(this);
     this.explainability = new ExplainabilityAPI(this);
     this.controlPlane = new ControlPlaneAPI(this);
+    this.coordination = new CoordinationAPI(this);
+    this.moderation = new ModerationAPI(this);
+    this.audience = new AudienceAPI(this);
+    this.modes = new ModesAPI(this);
+    this.spectate = new SpectateAPI(this);
     this.gauntlet = new GauntletAPI(this);
     this.analytics = new AnalyticsAPI(this);
     this.memory = new MemoryAPI(this);

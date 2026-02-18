@@ -93,6 +93,29 @@ export function renderWithProviders(
   return render(ui, { wrapper: Wrapper, ...renderOptions });
 }
 
+/**
+ * Create a wrapper component for `renderHook` that provides auth context.
+ * Pass `authOverrides` to customise the auth state.
+ */
+export function createHookWrapper(authOverrides: Partial<AuthContextType> = {}) {
+  const authValue: AuthContextType = { ...defaultAuthValues, ...authOverrides };
+  return function HookWrapper({ children }: { children: ReactNode }) {
+    return (
+      <ThemeProvider defaultPreference="dark">
+        <AuthContext.Provider value={authValue}>
+          {children}
+        </AuthContext.Provider>
+      </ThemeProvider>
+    );
+  };
+}
+
+/**
+ * Default hook wrapper with mock auth context.
+ * Usage: `renderHook(() => useMyHook(), { wrapper: hookWrapper })`
+ */
+export const hookWrapper = createHookWrapper();
+
 // Re-export everything from @testing-library/react so test files can
 // import from '@/test-utils' as a drop-in replacement for
 // '@testing-library/react'.

@@ -1,0 +1,62 @@
+id: eu_ai_act_conformity
+name: EU AI Act Conformity Assessment
+description: >
+  Assess AI system conformity with EU AI Act requirements.
+  Generates Article 12/13/14 compliance artifacts.
+category: compliance
+
+template_name: compliance_review
+vertical_profile: compliance_sox
+
+compliance_artifacts:
+  - article_12_logging
+  - article_13_transparency
+  - article_14_human_oversight
+
+min_agents: 3
+max_agents: 5
+required_agent_types:
+  - compliance_expert
+  - ai_ethics_expert
+agent_selection_strategy: best_for_domain
+
+max_rounds: 5
+consensus_threshold: 0.7
+timeout_seconds: 600
+
+output_format: compliance_report
+output_channels:
+  - email
+
+approval_gates:
+  - name: dpo_review
+    description: Data Protection Officer reviews AI system compliance
+    required_role: data_protection_officer
+    auto_approve_if_consensus: false
+    timeout_hours: 72
+
+steps:
+  - name: risk_classification
+    action: debate
+    config:
+      question_template: "Classify risk level of {system_name} under EU AI Act"
+  - name: conformity_check
+    action: review
+    config:
+      rubric: compliance_sox
+  - name: artifact_generation
+    action: generate_artifact
+    config:
+      artifacts: [article_12_logging, article_13_transparency, article_14_human_oversight]
+  - name: dpo_approval
+    action: approve
+    config:
+      gate: dpo_review
+
+tags:
+  - eu_ai_act
+  - compliance
+  - ai_governance
+  - regulation
+
+version: "1.0.0"

@@ -13,6 +13,7 @@ from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .ap_automation import APAutomationAPI, AsyncAPAutomationAPI
 from .ar_automation import ARAutomationAPI, AsyncARAutomationAPI
+from .audience import AsyncAudienceAPI, AudienceAPI
 from .audio import AsyncAudioAPI, AudioAPI
 from .audit import AsyncAuditAPI, AuditAPI
 from .auditing import AsyncAuditingAPI, AuditingAPI
@@ -79,6 +80,8 @@ from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .matches import AsyncMatchesAPI, MatchesAPI
 from .media import AsyncMediaAPI, MediaAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
+from .moderation import AsyncModerationAPI, ModerationAPI
+from .modes import AsyncModesAPI, ModesAPI
 from .metrics import AsyncMetricsAPI, MetricsAPI
 from .moments import AsyncMomentsAPI, MomentsAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
@@ -116,6 +119,7 @@ from .routing import AsyncRoutingAPI, RoutingAPI
 from .security import AsyncSecurityAPI, SecurityAPI
 from .self_improve import AsyncSelfImproveAPI, SelfImproveAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
+from .spectate import AsyncSpectateAPI, SpectateAPI
 from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
 from .social import AsyncSocialAPI, SocialAPI
@@ -159,6 +163,8 @@ __all__ = [
     "AsyncAPAutomationAPI",
     "ARAutomationAPI",
     "AsyncARAutomationAPI",
+    "AudienceAPI",
+    "AsyncAudienceAPI",
     "AudioAPI",
     "AsyncAudioAPI",
     "AuditAPI",
@@ -291,6 +297,10 @@ __all__ = [
     "AsyncMediaAPI",
     "MemoryAPI",
     "AsyncMemoryAPI",
+    "ModerationAPI",
+    "AsyncModerationAPI",
+    "ModesAPI",
+    "AsyncModesAPI",
     "MetricsAPI",
     "AsyncMetricsAPI",
     "MomentsAPI",
@@ -365,6 +375,8 @@ __all__ = [
     "AsyncSelfImproveAPI",
     "SkillsAPI",
     "AsyncSkillsAPI",
+    "SpectateAPI",
+    "AsyncSpectateAPI",
     "SLOAPI",
     "AsyncSLOAPI",
     "SMEAPI",

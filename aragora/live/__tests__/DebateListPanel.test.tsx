@@ -2,7 +2,7 @@
  * Tests for DebateListPanel component
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
 import { DebateListPanel } from '../src/components/DebateListPanel';
 
 // Mock fetch globally
@@ -52,7 +52,7 @@ describe('DebateListPanel', () => {
     it('shows loading spinner initially', async () => {
       mockFetch.mockImplementation(() => new Promise(() => {})); // Never resolves
 
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       expect(document.querySelector('.animate-spin')).toBeInTheDocument();
     });
@@ -63,7 +63,7 @@ describe('DebateListPanel', () => {
         status: 500,
       });
 
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to fetch debates: 500/)).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe('DebateListPanel', () => {
         json: () => Promise.resolve({ debates: mockDebates }),
       });
 
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('Discuss rate limiting strategies')).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe('DebateListPanel', () => {
     });
 
     it('renders all filter buttons', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('DebateListPanel', () => {
     });
 
     it('defaults to All filter', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         const allButton = screen.getByRole('button', { name: 'All' });
@@ -113,7 +113,7 @@ describe('DebateListPanel', () => {
     });
 
     it('filters to consensus debates when Consensus clicked', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('Evaluate caching approaches')).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('DebateListPanel', () => {
     });
 
     it('filters to no-consensus debates when No Consensus clicked', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('Discuss rate limiting strategies')).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe('DebateListPanel', () => {
     });
 
     it('displays consensus badge for consensus debates', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         const consensusBadges = screen.getAllByText('Consensus');
@@ -163,7 +163,7 @@ describe('DebateListPanel', () => {
     });
 
     it('displays no consensus badge for non-consensus debates', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('No Consensus')).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe('DebateListPanel', () => {
     });
 
     it('displays winner when available', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText(/Winner:/)).toBeInTheDocument();
@@ -182,7 +182,7 @@ describe('DebateListPanel', () => {
     });
 
     it('displays agent badges', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         // These agents appear in multiple debates, so use getAllByText
@@ -194,7 +194,7 @@ describe('DebateListPanel', () => {
     });
 
     it('truncates agent list for many agents', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         // debate-3 has 5 agents, should show +1
@@ -203,7 +203,7 @@ describe('DebateListPanel', () => {
     });
 
     it('displays round count', async () => {
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('3 rounds')).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('DebateListPanel', () => {
       });
 
       const onSelectDebate = jest.fn();
-      render(<DebateListPanel onSelectDebate={onSelectDebate} />);
+      renderWithProviders(<DebateListPanel onSelectDebate={onSelectDebate} />);
 
       await waitFor(() => {
         expect(screen.getByText('Discuss rate limiting strategies')).toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('DebateListPanel', () => {
         json: () => Promise.resolve({ debates: twentyDebates }),
       });
 
-      render(<DebateListPanel limit={20} />);
+      renderWithProviders(<DebateListPanel limit={20} />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Load More' })).toBeInTheDocument();
@@ -263,7 +263,7 @@ describe('DebateListPanel', () => {
         json: () => Promise.resolve({ debates: mockDebates }),
       });
 
-      render(<DebateListPanel limit={20} />);
+      renderWithProviders(<DebateListPanel limit={20} />);
 
       await waitFor(() => {
         expect(screen.getByText('Discuss rate limiting strategies')).toBeInTheDocument();
@@ -280,7 +280,7 @@ describe('DebateListPanel', () => {
         json: () => Promise.resolve({ debates: [] }),
       });
 
-      render(<DebateListPanel />);
+      renderWithProviders(<DebateListPanel />);
 
       await waitFor(() => {
         expect(screen.getByText('No debates found')).toBeInTheDocument();

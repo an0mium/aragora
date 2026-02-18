@@ -584,7 +584,7 @@ describe('fetchNomicState', () => {
 
     const state = await fetchNomicState('http://api.test');
 
-    expect(global.fetch).toHaveBeenCalledWith('http://api.test/api/nomic/state');
+    expect(global.fetch).toHaveBeenCalledWith('http://api.test/api/nomic/state', expect.anything());
     expect(state).toEqual(mockState);
   });
 
@@ -618,7 +618,7 @@ describe('fetchNomicLog', () => {
 
     const lines = await fetchNomicLog('http://api.test', 50);
 
-    expect(global.fetch).toHaveBeenCalledWith('http://api.test/api/nomic/log?lines=50');
+    expect(global.fetch).toHaveBeenCalledWith('http://api.test/api/nomic/log?lines=50', expect.anything());
     expect(lines).toEqual(mockLines);
   });
 

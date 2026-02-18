@@ -13,7 +13,7 @@
  * - Keyboard accessibility
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { DocumentUpload } from '../src/components/DocumentUpload';
 
 // Mock fetch
@@ -37,19 +37,19 @@ describe('DocumentUpload', () => {
 
   describe('Initial render', () => {
     it('renders drop zone with instructions', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       expect(screen.getByText('Drop files here or click to upload')).toBeInTheDocument();
       expect(screen.getByText(/PDF, DOCX, TXT, MD/)).toBeInTheDocument();
     });
 
     it('shows Documents header', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
       expect(screen.getByText('Documents')).toBeInTheDocument();
     });
 
     it('renders accessible drop zone', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
       expect(dropZone).toBeInTheDocument();
     });
@@ -57,7 +57,7 @@ describe('DocumentUpload', () => {
 
   describe('File validation', () => {
     it('rejects unsupported file types', async () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('test.exe', 'application/x-msdownload');
@@ -70,7 +70,7 @@ describe('DocumentUpload', () => {
     });
 
     it('rejects files over 10MB', async () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       // Create small file but override size property to simulate large file
@@ -85,7 +85,7 @@ describe('DocumentUpload', () => {
     });
 
     it('rejects MIME type mismatch (file spoofing detection)', async () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       // PDF extension but wrong MIME type
@@ -113,7 +113,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('valid.pdf', 'application/pdf');
@@ -145,7 +145,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile(
@@ -180,7 +180,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('notes.txt', 'text/plain');
@@ -212,7 +212,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('readme.md', 'text/markdown');
@@ -241,7 +241,7 @@ describe('DocumentUpload', () => {
 
       mockFetch.mockReturnValueOnce(uploadPromise);
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('test.pdf', 'application/pdf');
@@ -281,7 +281,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('success.pdf', 'application/pdf');
@@ -299,7 +299,7 @@ describe('DocumentUpload', () => {
         json: () => Promise.resolve({ error: 'Server error occurred' }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('fail.pdf', 'application/pdf');
@@ -314,7 +314,7 @@ describe('DocumentUpload', () => {
     it('handles network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('network.pdf', 'application/pdf');
@@ -343,7 +343,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('report.pdf', 'application/pdf');
@@ -376,7 +376,7 @@ describe('DocumentUpload', () => {
       });
 
       const onDocumentsChange = jest.fn();
-      render(<DocumentUpload onDocumentsChange={onDocumentsChange} />);
+      renderWithProviders(<DocumentUpload onDocumentsChange={onDocumentsChange} />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('removable.pdf', 'application/pdf');
@@ -414,7 +414,7 @@ describe('DocumentUpload', () => {
       });
 
       const onDocumentsChange = jest.fn();
-      render(<DocumentUpload onDocumentsChange={onDocumentsChange} />);
+      renderWithProviders(<DocumentUpload onDocumentsChange={onDocumentsChange} />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('callback.pdf', 'application/pdf');
@@ -444,7 +444,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('first.pdf', 'application/pdf');
@@ -463,7 +463,7 @@ describe('DocumentUpload', () => {
 
   describe('Drag and drop', () => {
     it('shows drag state on dragover', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
 
@@ -474,7 +474,7 @@ describe('DocumentUpload', () => {
     });
 
     it('removes drag state on dragleave', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
 
@@ -498,7 +498,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
       const file = createFile('dropped.pdf', 'application/pdf');
@@ -521,7 +521,7 @@ describe('DocumentUpload', () => {
 
   describe('Keyboard accessibility', () => {
     it('opens file picker on Enter key', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -533,7 +533,7 @@ describe('DocumentUpload', () => {
     });
 
     it('opens file picker on Space key', () => {
-      render(<DocumentUpload />);
+      renderWithProviders(<DocumentUpload />);
 
       const dropZone = screen.getByRole('button', { name: /upload a document/i });
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -560,7 +560,7 @@ describe('DocumentUpload', () => {
           }),
       });
 
-      render(<DocumentUpload apiBase="https://api.example.com" />);
+      renderWithProviders(<DocumentUpload apiBase="https://api.example.com" />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       const file = createFile('test.pdf', 'application/pdf');

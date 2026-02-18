@@ -1,5 +1,12 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { createHookWrapper } from '@/test-utils';
 import { useFeatures } from '@/hooks/useFeatures';
+
+// Provide an authenticated wrapper so useAuth() returns valid tokens
+const hookWrapper = createHookWrapper({
+  isAuthenticated: true,
+  tokens: { access_token: 'test-token', refresh_token: 'test-refresh', token_type: 'bearer' } as never,
+});
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -58,7 +65,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       expect(result.current.loading).toBe(true);
       expect(result.current.features).toBeNull();
@@ -73,7 +80,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -83,7 +90,7 @@ describe('useFeatures', () => {
         'http://localhost:8000/api/features',
         expect.objectContaining({
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
       expect(result.current.features).toEqual(mockFeaturesResponse);
@@ -96,7 +103,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result, rerender } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result, rerender } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -116,7 +123,7 @@ describe('useFeatures', () => {
         status: 500,
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -129,7 +136,7 @@ describe('useFeatures', () => {
     it('handles network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -147,7 +154,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -164,7 +171,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -174,17 +181,17 @@ describe('useFeatures', () => {
       expect(result.current.isAvailable('broadcast')).toBe(false);
     });
 
-    it('returns true during loading (graceful degradation)', () => {
+    it('returns false during loading', () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
-      // While loading, should default to true
+      // While loading, features are not yet known
       expect(result.current.loading).toBe(true);
-      expect(result.current.isAvailable('any-feature')).toBe(true);
+      expect(result.current.isAvailable('any-feature')).toBe(false);
     });
   });
 
@@ -195,7 +202,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -211,7 +218,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -228,7 +235,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -243,7 +250,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       // Before load completes
       expect(result.current.getAvailableFeatures()).toEqual([]);
@@ -257,7 +264,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -274,7 +281,7 @@ describe('useFeatures', () => {
         json: () => Promise.resolve(mockFeaturesResponse),
       });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -306,7 +313,7 @@ describe('useFeatures', () => {
           json: () => Promise.resolve(updatedResponse),
         });
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -329,7 +336,7 @@ describe('useFeatures', () => {
         })
         .mockRejectedValueOnce(new Error('Refetch failed'));
 
-      const { result } = renderHook(() => useFeatures('http://localhost:8000'));
+      const { result } = renderHook(() => useFeatures('http://localhost:8000'), { wrapper: hookWrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);

@@ -1,0 +1,56 @@
+id: incident_postmortem
+name: Incident Postmortem
+description: >
+  Structured blameless postmortem for production incidents.
+  Identifies root causes, contributing factors, and actionable
+  improvements. Generates timeline and action items.
+category: engineering
+
+template_name: root_cause_analysis
+vertical_profile: null
+
+compliance_artifacts: []
+
+min_agents: 3
+max_agents: 5
+required_agent_types:
+  - domain_expert
+  - devil_advocate
+agent_selection_strategy: diverse
+
+max_rounds: 3
+consensus_threshold: 0.6
+timeout_seconds: 300
+
+output_format: decision_receipt
+output_channels:
+  - slack
+
+approval_gates: []
+
+steps:
+  - name: timeline_construction
+    action: debate
+    config:
+      question_template: "Reconstruct incident timeline for {incident_id}"
+  - name: root_cause_analysis
+    action: debate
+    config:
+      question_template: "Identify root causes and contributing factors"
+  - name: action_items
+    action: review
+    config:
+      focus: [prevention, detection, response]
+  - name: notification
+    action: notify
+    config:
+      channels: [slack]
+
+tags:
+  - incident
+  - postmortem
+  - sre
+  - reliability
+  - blameless
+
+version: "1.0.0"

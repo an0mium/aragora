@@ -2,7 +2,7 @@
  * Tests for PhaseProgress component
  */
 
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor, act } from '@/test-utils';
 import { PhaseProgress } from '../src/components/PhaseProgress';
 import type { StreamEvent } from '../src/types/events';
 
@@ -40,7 +40,7 @@ describe('PhaseProgress', () => {
       mockFetch.mockResolvedValueOnce({ ok: false });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       expect(screen.getByText('Debate')).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('PhaseProgress', () => {
       mockFetch.mockResolvedValueOnce({ ok: false });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       expect(screen.getByText('Phase Progress')).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('PhaseProgress', () => {
       mockFetch.mockResolvedValueOnce({ ok: false });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="design" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="design" apiBase="http://localhost:3001" />);
       });
 
       const designBlock = screen.getByText('Design');
@@ -81,7 +81,7 @@ describe('PhaseProgress', () => {
       ];
 
       await act(async () => {
-        render(<PhaseProgress events={events} currentPhase="design" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={events} currentPhase="design" apiBase="http://localhost:3001" />);
       });
 
       const debateBlock = screen.getByText('Debate');
@@ -96,7 +96,7 @@ describe('PhaseProgress', () => {
       ];
 
       await act(async () => {
-        render(<PhaseProgress events={events} currentPhase="implement" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={events} currentPhase="implement" apiBase="http://localhost:3001" />);
       });
 
       const designBlock = screen.getByText('Design');
@@ -108,7 +108,7 @@ describe('PhaseProgress', () => {
       const events: StreamEvent[] = [createPhaseStartEvent('implement')];
 
       await act(async () => {
-        render(<PhaseProgress events={events} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={events} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       const implementBlock = screen.getByText('Implement');
@@ -119,7 +119,7 @@ describe('PhaseProgress', () => {
       mockFetch.mockResolvedValueOnce({ ok: false });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       const commitBlock = screen.getByText('Commit');
@@ -141,11 +141,11 @@ describe('PhaseProgress', () => {
       });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('http://localhost:3001/api/nomic/state');
+        expect(mockFetch).toHaveBeenCalledWith('http://localhost:3001/api/nomic/state', expect.anything());
       });
     });
 
@@ -162,7 +162,7 @@ describe('PhaseProgress', () => {
       });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       await waitFor(() => {
@@ -183,7 +183,7 @@ describe('PhaseProgress', () => {
       });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       await waitFor(() => {
@@ -204,7 +204,7 @@ describe('PhaseProgress', () => {
       });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       await waitFor(() => {
@@ -227,7 +227,7 @@ describe('PhaseProgress', () => {
       const events: StreamEvent[] = [createPhaseStartEvent('debate')];
 
       await act(async () => {
-        render(<PhaseProgress events={events} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={events} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       await waitFor(() => {
@@ -249,7 +249,7 @@ describe('PhaseProgress', () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       // Component should still render without crashing
@@ -269,7 +269,7 @@ describe('PhaseProgress', () => {
       });
 
       await act(async () => {
-        render(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
+        renderWithProviders(<PhaseProgress events={[]} currentPhase="debate" apiBase="http://localhost:3001" />);
       });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);

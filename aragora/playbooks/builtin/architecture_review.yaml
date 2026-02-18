@@ -1,0 +1,59 @@
+id: architecture_review
+name: Architecture Decision Review
+description: >
+  Review architectural decisions with diverse technical perspectives.
+  Ensures security, scalability, and maintainability are addressed.
+category: engineering
+
+template_name: code_review
+vertical_profile: null
+
+compliance_artifacts: []
+
+min_agents: 3
+max_agents: 5
+required_agent_types:
+  - security_analyst
+  - domain_expert
+agent_selection_strategy: diverse
+
+max_rounds: 5
+consensus_threshold: 0.7
+timeout_seconds: 300
+
+output_format: decision_receipt
+output_channels:
+  - slack
+
+approval_gates:
+  - name: tech_lead_review
+    description: Tech lead approves architectural direction
+    required_role: tech_lead
+    auto_approve_if_consensus: true
+    timeout_hours: 24
+
+steps:
+  - name: architecture_debate
+    action: debate
+    config:
+      question_template: "Evaluate architectural approach: {proposal}"
+  - name: security_review
+    action: review
+    config:
+      focus: [security, scalability, maintainability]
+  - name: tech_lead_approval
+    action: approve
+    config:
+      gate: tech_lead_review
+  - name: notification
+    action: notify
+    config:
+      channels: [slack]
+
+tags:
+  - architecture
+  - engineering
+  - technical
+  - adr
+
+version: "1.0.0"

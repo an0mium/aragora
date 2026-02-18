@@ -95,6 +95,16 @@ OutcomeHandler = _safe_import(
     "aragora.server.handlers.governance.outcomes", "OutcomeHandler"
 )
 
+# Decision Benchmarking
+BenchmarkingHandler = _safe_import(
+    "aragora.server.handlers.benchmarking", "BenchmarkingHandler"
+)
+
+# Decision Playbooks
+PlaybookHandler = _safe_import(
+    "aragora.server.handlers.playbooks", "PlaybookHandler"
+)
+
 # =============================================================================
 # Analytics Handler Registry Entries
 # =============================================================================
@@ -124,6 +134,10 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_universal_graph_handler", UniversalGraphHandler),
     # Outcome tracking
     ("_outcome_handler", OutcomeHandler),
+    # Decision benchmarking
+    ("_benchmarking_handler", BenchmarkingHandler),
+    # Decision playbooks
+    ("_playbook_handler", PlaybookHandler),
 ]
 
 __all__ = [
@@ -152,6 +166,8 @@ __all__ = [
     "UniversalGraphHandler",
     # Outcome tracking
     "OutcomeHandler",
+    # Decision benchmarking
+    "BenchmarkingHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

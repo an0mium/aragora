@@ -18,7 +18,7 @@ from aragora.cli.commands.outcome import _cmd_record, _cmd_search
 class TestOutcomeRecord:
     """Tests for the 'outcome record' CLI command."""
 
-    @patch("aragora.cli.commands.outcome.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_record_success(self, mock_get_adapter, capsys):
         mock_adapter = MagicMock()
         mock_adapter.ingest.return_value = True
@@ -45,7 +45,7 @@ class TestOutcomeRecord:
         captured = capsys.readouterr()
         assert "Outcome recorded" in captured.out
 
-    @patch("aragora.cli.commands.outcome.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_record_failure(self, mock_get_adapter, capsys):
         mock_adapter = MagicMock()
         mock_adapter.ingest.return_value = False
@@ -65,7 +65,7 @@ class TestOutcomeRecord:
             _cmd_record(args)
         assert exc_info.value.code == 1
 
-    @patch("aragora.cli.commands.outcome.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_record_with_custom_decision_id(self, mock_get_adapter):
         mock_adapter = MagicMock()
         mock_adapter.ingest.return_value = True
@@ -86,7 +86,7 @@ class TestOutcomeRecord:
         call_data = mock_adapter.ingest.call_args[0][0]
         assert call_data["decision_id"] == "custom_dec_id"
 
-    @patch("aragora.cli.commands.outcome.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_record_clamps_impact(self, mock_get_adapter):
         mock_adapter = MagicMock()
         mock_adapter.ingest.return_value = True
@@ -111,7 +111,7 @@ class TestOutcomeRecord:
 class TestOutcomeSearch:
     """Tests for the 'outcome search' CLI command."""
 
-    @patch("aragora.cli.commands.outcome.get_outcome_adapter")
+    @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_search_empty(self, mock_get_adapter, capsys):
         mock_adapter = MagicMock()
         mock_adapter.get_stats.return_value = {

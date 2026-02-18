@@ -149,6 +149,7 @@ class AragoraClient:
         from .namespaces.ap_automation import APAutomationAPI
         from .namespaces.approvals import ApprovalsAPI
         from .namespaces.ar_automation import ARAutomationAPI
+        from .namespaces.audience import AudienceAPI
         from .namespaces.audio import AudioAPI
         from .namespaces.audit import AuditAPI
         from .namespaces.audit_trail import AuditTrailAPI
@@ -174,6 +175,7 @@ class AragoraClient:
         from .namespaces.connectors import ConnectorsAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.control_plane import ControlPlaneAPI
+        from .namespaces.coordination import CoordinationAPI
         from .namespaces.cost_management import CostManagementAPI
         from .namespaces.critiques import CritiquesAPI
         from .namespaces.cross_pollination import CrossPollinationAPI
@@ -215,6 +217,8 @@ class AragoraClient:
         from .namespaces.memory import MemoryAPI
         from .namespaces.metrics import MetricsAPI
         from .namespaces.ml import MLAPI
+        from .namespaces.moderation import ModerationAPI
+        from .namespaces.modes import ModesAPI
         from .namespaces.monitoring import MonitoringAPI
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
@@ -250,6 +254,7 @@ class AragoraClient:
         from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.social import SocialAPI
+        from .namespaces.spectate import SpectateAPI
         from .namespaces.sso import SSOAPI
         from .namespaces.support import SupportAPI
         from .namespaces.system import SystemAPI
@@ -280,6 +285,7 @@ class AragoraClient:
         self.ap_automation = APAutomationAPI(self)
         self.approvals = ApprovalsAPI(self)
         self.ar_automation = ARAutomationAPI(self)
+        self.audience = AudienceAPI(self)
         self.audio = AudioAPI(self)
         self.audit = AuditAPI(self)
         self.audit_trail = AuditTrailAPI(self)
@@ -305,6 +311,7 @@ class AragoraClient:
         self.connectors = ConnectorsAPI(self)
         self.consensus = ConsensusAPI(self)
         self.control_plane = ControlPlaneAPI(self)
+        self.coordination = CoordinationAPI(self)
         self.cost_management = CostManagementAPI(self)
         self.critiques = CritiquesAPI(self)
         self.cross_pollination = CrossPollinationAPI(self)
@@ -346,6 +353,8 @@ class AragoraClient:
         self.media = MediaAPI(self)
         self.metrics = MetricsAPI(self)
         self.ml = MLAPI(self)
+        self.moderation = ModerationAPI(self)
+        self.modes = ModesAPI(self)
         self.monitoring = MonitoringAPI(self)
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
@@ -381,6 +390,7 @@ class AragoraClient:
         self.slo = SLOAPI(self)
         self.sme = SMEAPI(self)
         self.social = SocialAPI(self)
+        self.spectate = SpectateAPI(self)
         self.sso = SSOAPI(self)
         self.support = SupportAPI(self)
         self.system = SystemAPI(self)
@@ -687,6 +697,7 @@ class AragoraAsyncClient:
         from .namespaces.ap_automation import AsyncAPAutomationAPI
         from .namespaces.approvals import AsyncApprovalsAPI
         from .namespaces.ar_automation import AsyncARAutomationAPI
+        from .namespaces.audience import AsyncAudienceAPI
         from .namespaces.audio import AsyncAudioAPI
         from .namespaces.audit import AsyncAuditAPI
         from .namespaces.audit_trail import AsyncAuditTrailAPI
@@ -712,6 +723,7 @@ class AragoraAsyncClient:
         from .namespaces.connectors import AsyncConnectorsAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.control_plane import AsyncControlPlaneAPI
+        from .namespaces.coordination import AsyncCoordinationAPI
         from .namespaces.cost_management import AsyncCostManagementAPI
         from .namespaces.critiques import AsyncCritiquesAPI
         from .namespaces.cross_pollination import AsyncCrossPollinationAPI
@@ -753,6 +765,8 @@ class AragoraAsyncClient:
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.metrics import AsyncMetricsAPI
         from .namespaces.ml import AsyncMLAPI
+        from .namespaces.moderation import AsyncModerationAPI
+        from .namespaces.modes import AsyncModesAPI
         from .namespaces.monitoring import AsyncMonitoringAPI
         from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
@@ -788,6 +802,7 @@ class AragoraAsyncClient:
         from .namespaces.slo import AsyncSLOAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.social import AsyncSocialAPI
+        from .namespaces.spectate import AsyncSpectateAPI
         from .namespaces.sso import AsyncSSOAPI
         from .namespaces.support import AsyncSupportAPI
         from .namespaces.system import AsyncSystemAPI
@@ -818,6 +833,7 @@ class AragoraAsyncClient:
         self.ap_automation = AsyncAPAutomationAPI(self)
         self.approvals = AsyncApprovalsAPI(self)
         self.ar_automation = AsyncARAutomationAPI(self)
+        self.audience = AsyncAudienceAPI(self)
         self.audio = AsyncAudioAPI(self)
         self.audit = AsyncAuditAPI(self)
         self.audit_trail = AsyncAuditTrailAPI(self)
@@ -843,6 +859,7 @@ class AragoraAsyncClient:
         self.connectors = AsyncConnectorsAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.control_plane = AsyncControlPlaneAPI(self)
+        self.coordination = AsyncCoordinationAPI(self)
         self.cost_management = AsyncCostManagementAPI(self)
         self.critiques = AsyncCritiquesAPI(self)
         self.cross_pollination = AsyncCrossPollinationAPI(self)
@@ -884,6 +901,8 @@ class AragoraAsyncClient:
         self.media = AsyncMediaAPI(self)
         self.metrics = AsyncMetricsAPI(self)
         self.ml = AsyncMLAPI(self)
+        self.moderation = AsyncModerationAPI(self)
+        self.modes = AsyncModesAPI(self)
         self.monitoring = AsyncMonitoringAPI(self)
         self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
@@ -919,6 +938,7 @@ class AragoraAsyncClient:
         self.slo = AsyncSLOAPI(self)
         self.sme = AsyncSMEAPI(self)
         self.social = AsyncSocialAPI(self)
+        self.spectate = AsyncSpectateAPI(self)
         self.sso = AsyncSSOAPI(self)
         self.support = AsyncSupportAPI(self)
         self.system = AsyncSystemAPI(self)

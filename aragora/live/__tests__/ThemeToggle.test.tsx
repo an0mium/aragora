@@ -2,7 +2,7 @@
  * Tests for ThemeToggle component
  */
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, act } from '@/test-utils';
 import { ThemeToggle } from '../src/components/ThemeToggle';
 
 // Mock localStorage
@@ -50,12 +50,12 @@ describe('ThemeToggle', () => {
 
   describe('Initial State', () => {
     it('renders without crashing', () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
       expect(screen.getByRole('button')).toBeInTheDocument();
     });
 
     it('has aria-label for accessibility', async () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       // Wait for mount
       await act(async () => {
@@ -70,7 +70,7 @@ describe('ThemeToggle', () => {
   describe('Theme Persistence', () => {
     it('loads dark theme from localStorage', async () => {
       localStorageMock.setItem('aragora-theme', 'dark');
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -84,7 +84,7 @@ describe('ThemeToggle', () => {
 
     it('loads light theme from localStorage', async () => {
       localStorageMock.setItem('aragora-theme', 'light');
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -97,7 +97,7 @@ describe('ThemeToggle', () => {
     });
 
     it('saves theme to localStorage on toggle', async () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -112,7 +112,7 @@ describe('ThemeToggle', () => {
   describe('System Preference', () => {
     it('uses dark theme when system prefers dark', async () => {
       mockMatchMedia(true);
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -126,7 +126,7 @@ describe('ThemeToggle', () => {
 
     it('uses light theme when system prefers light', async () => {
       mockMatchMedia(false);
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -141,7 +141,7 @@ describe('ThemeToggle', () => {
 
   describe('Toggle Behavior', () => {
     it('toggles from dark to light', async () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -157,7 +157,7 @@ describe('ThemeToggle', () => {
 
     it('toggles from light to dark', async () => {
       localStorageMock.setItem('aragora-theme', 'light');
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -172,7 +172,7 @@ describe('ThemeToggle', () => {
     });
 
     it('sets data-theme attribute on body for light mode', async () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -187,7 +187,7 @@ describe('ThemeToggle', () => {
       localStorageMock.setItem('aragora-theme', 'light');
       document.body.setAttribute('data-theme', 'light');
 
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -201,7 +201,7 @@ describe('ThemeToggle', () => {
 
   describe('Icons', () => {
     it('shows sun icon in dark mode (to switch to light)', async () => {
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -213,7 +213,7 @@ describe('ThemeToggle', () => {
 
     it('shows moon icon in light mode (to switch to dark)', async () => {
       localStorageMock.setItem('aragora-theme', 'light');
-      render(<ThemeToggle />);
+      renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));

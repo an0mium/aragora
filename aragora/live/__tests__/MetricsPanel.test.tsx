@@ -2,7 +2,7 @@
  * Tests for MetricsPanel component
  */
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor, act } from '@/test-utils';
 import { MetricsPanel } from '../src/components/MetricsPanel';
 
 // Mock fetch
@@ -90,7 +90,7 @@ describe('MetricsPanel', () => {
 
   it('renders summary metrics after load', async () => {
     setupSuccessfulFetch();
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await waitFor(() => {
       expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('MetricsPanel', () => {
 
   it('shows loading copy for the overview tab when pending', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     expect(screen.getByText('Server Metrics')).toBeInTheDocument();
     expect(screen.getByText('Loading metrics...')).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('MetricsPanel', () => {
 
   it('switches tabs and shows tab-specific content', async () => {
     setupSuccessfulFetch();
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await waitFor(() => {
       expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe('MetricsPanel', () => {
       return Promise.resolve({ ok: false });
     });
 
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await waitFor(() => {
       expect(screen.getByText(/some metrics failed to load/i)).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('MetricsPanel', () => {
 
   it('collapses the panel and shows the compact summary', async () => {
     setupSuccessfulFetch();
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await waitFor(() => {
       expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('MetricsPanel', () => {
 
   it('refreshes data when the refresh button is clicked', async () => {
     setupSuccessfulFetch();
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await waitFor(() => {
       expect(screen.getByText('1 day, 0:00:00')).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('MetricsPanel', () => {
     jest.useFakeTimers();
     setupSuccessfulFetch();
 
-    render(<MetricsPanel apiBase="http://localhost:8080" />);
+    renderWithProviders(<MetricsPanel apiBase="http://localhost:8080" />);
 
     await act(async () => {
       await Promise.resolve();

@@ -29,6 +29,10 @@ from .dashboard import (
     DashboardSummary,
     get_analytics_dashboard,
 )
+from .benchmarking import (
+    BenchmarkAggregator,
+    BenchmarkAggregate,
+)
 from .debate_analytics import (
     DebateAnalytics,
     DebateTimeGranularity,
@@ -53,6 +57,9 @@ __all__ = [
     "RiskHeatmapCell",
     "DashboardSummary",
     "get_analytics_dashboard",
+    # Benchmarking
+    "BenchmarkAggregator",
+    "BenchmarkAggregate",
     # Debate Analytics
     "DebateAnalytics",
     "DebateTimeGranularity",

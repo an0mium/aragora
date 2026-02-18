@@ -24,7 +24,6 @@ from ..base import (
     error_response,
     handle_errors,
     json_response,
-    safe_json_parse,
 )
 from ..utils.rate_limit import rate_limit
 
@@ -62,6 +61,21 @@ class OutcomeHandler:
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
+    MAX_BODY_SIZE = 1_048_576  # 1 MB
+
+    def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
+        """Read and parse JSON body from request handler."""
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length <= 0:
+                return {}
+            if content_length > self.MAX_BODY_SIZE:
+                return None
+            body = handler.rfile.read(content_length)
+            return json.loads(body) if body else {}
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return None
+
     def can_handle(self, method: str, path: str) -> bool:
         """Check if this handler can handle the given request."""
         if "/outcomes/search" in path:
@@ -86,7 +100,7 @@ class OutcomeHandler:
             return self._handle_list_outcomes(path, handler)
         return error_response("Not found", 404)
 
-    @handle_errors
+    @handle_errors("outcome recording")
     def _handle_record_outcome(self, path: str, handler: Any) -> HandlerResult:
         """
         POST /api/v1/decisions/{id}/outcome
@@ -114,7 +128,7 @@ class OutcomeHandler:
         if not decision_id:
             return error_response("Missing decision ID in path", 400)
 
-        body = safe_json_parse(handler)
+        body = self._read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
 

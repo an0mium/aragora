@@ -1,0 +1,67 @@
+id: sox_financial_decision
+name: SOX Financial Decision
+description: >
+  Financial decision-making workflow with SOX compliance controls.
+  Ensures segregation of duties, audit trail, and material impact assessment.
+category: finance
+
+template_name: financial_review
+vertical_profile: financial_audit
+
+compliance_artifacts:
+  - sox_control_assessment
+  - segregation_of_duties
+  - material_impact_analysis
+
+min_agents: 4
+max_agents: 7
+required_agent_types:
+  - financial_analyst
+  - compliance_expert
+  - risk_analyst
+agent_selection_strategy: best_for_domain
+
+max_rounds: 5
+consensus_threshold: 0.75
+timeout_seconds: 600
+
+output_format: compliance_report
+output_channels:
+  - email
+
+approval_gates:
+  - name: controller_review
+    description: Financial controller reviews material impact
+    required_role: financial_controller
+    auto_approve_if_consensus: false
+    timeout_hours: 24
+
+steps:
+  - name: financial_analysis
+    action: debate
+    config:
+      question_template: "Evaluate financial impact of {decision_topic}"
+  - name: sox_compliance_check
+    action: review
+    config:
+      rubric: financial_audit
+  - name: artifact_generation
+    action: generate_artifact
+    config:
+      artifacts: [sox_control_assessment, material_impact_analysis]
+  - name: controller_approval
+    action: approve
+    config:
+      gate: controller_review
+  - name: audit_trail
+    action: notify
+    config:
+      channels: [email]
+
+tags:
+  - sox
+  - finance
+  - audit
+  - compliance
+
+version: "1.0.0"
