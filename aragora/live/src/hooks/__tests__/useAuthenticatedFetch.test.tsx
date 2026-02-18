@@ -114,6 +114,7 @@ describe('useAuthenticatedFetch', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
+        headers: new Headers({ 'content-type': 'application/json' }),
         json: async () => ({ error: 'Internal server error' }),
       });
 

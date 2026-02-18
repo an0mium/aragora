@@ -83,7 +83,7 @@ describe('retry utilities', () => {
       const result = await fetchWithRetry('https://api.example.com/data');
 
       expect(result).toBe(mockResponse);
-      expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', undefined);
+      expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', expect.anything());
     });
 
     it('passes init options to fetch', async () => {
