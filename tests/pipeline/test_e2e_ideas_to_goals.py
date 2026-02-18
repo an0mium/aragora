@@ -367,7 +367,7 @@ class TestGoalKMAdapterIntegration:
         """goal_canvas adapter should be in the factory registry."""
         from aragora.knowledge.mound.adapters.factory import _ADAPTER_DEFS
 
-        names = [d.name for d in _ADAPTER_DEFS]
+        names = [spec_kwargs.get("name", "") for _, _, spec_kwargs in _ADAPTER_DEFS]
         assert "goal_canvas" in names
 
     def test_goal_node_types_in_km(self):
