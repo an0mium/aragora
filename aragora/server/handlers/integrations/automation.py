@@ -96,7 +96,7 @@ class AutomationHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Return True if the path is handled by this handler."""
-        if path in self.HANDLED_PATHS:
+        if path in self.ROUTES:
             return True
         if path.startswith("/api/v1/webhooks/"):
             return True
