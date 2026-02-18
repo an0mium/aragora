@@ -325,9 +325,13 @@ class GitHubOAuthMixin:
             if not email:
                 raise ValueError("Could not retrieve email from GitHub")
 
+            provider_user_id = user_data.get("id")
+            if provider_user_id is None:
+                raise ValueError("GitHub user response missing 'id' field")
+
             return OAuthUserInfo(
                 provider="github",
-                provider_user_id=str(user_data["id"]),
+                provider_user_id=str(provider_user_id),
                 email=email,
                 name=user_data.get("name") or user_data.get("login", email.split("@")[0]),
                 picture=user_data.get("avatar_url"),
@@ -387,9 +391,13 @@ class GitHubOAuthMixin:
             if not email:
                 raise ValueError("Could not retrieve email from GitHub")
 
+            provider_user_id = user_data.get("id")
+            if provider_user_id is None:
+                raise ValueError("GitHub user response missing 'id' field")
+
             return OAuthUserInfo(
                 provider="github",
-                provider_user_id=str(user_data["id"]),
+                provider_user_id=str(provider_user_id),
                 email=email,
                 name=user_data.get("name") or user_data.get("login", email.split("@")[0]),
                 picture=user_data.get("avatar_url"),

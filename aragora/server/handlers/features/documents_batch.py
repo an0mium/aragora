@@ -28,6 +28,7 @@ from ..base import (
     safe_error_message,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.query_params import safe_query_int
 
 # Knowledge processing enabled by default
@@ -36,6 +37,8 @@ KNOWLEDGE_PROCESSING_DEFAULT = (
 )
 
 logger = logging.getLogger(__name__)
+
+_batch_upload_limiter = RateLimiter(requests_per_minute=5)
 
 # Maximum files per batch upload
 MAX_BATCH_SIZE = 50
@@ -131,6 +134,10 @@ class DocumentBatchHandler(BaseHandler):
     @require_permission("documents:create")
     async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests."""
+        client_ip = get_client_ip(handler)
+        if not _batch_upload_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/v1/documents/batch":
             return await self._upload_batch(handler)
         return None

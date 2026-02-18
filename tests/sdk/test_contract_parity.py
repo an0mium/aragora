@@ -1,4 +1,4 @@
-"""Contract parity tests for OpenClaw and Blockchain SDK namespaces.
+"""Contract parity tests for Pipeline, OpenClaw, and Blockchain SDK namespaces.
 
 Verifies that all SDK surfaces (Python SDK, TypeScript SDK, Python client)
 define the same endpoints as the server OpenAPI spec.  These tests catch
@@ -52,6 +52,25 @@ OPENCLAW_ENDPOINTS: list[tuple[str, str]] = [
     ("GET", "/api/v1/openclaw/metrics"),
     ("GET", "/api/v1/openclaw/audit"),
     ("GET", "/api/v1/openclaw/stats"),
+]
+
+PIPELINE_ENDPOINTS: list[tuple[str, str]] = [
+    # Pipeline execution
+    ("POST", "/api/v1/canvas/pipeline/run"),
+    ("POST", "/api/v1/canvas/pipeline/from-debate"),
+    ("POST", "/api/v1/canvas/pipeline/from-ideas"),
+    ("POST", "/api/v1/canvas/pipeline/advance"),
+    # Pipeline queries
+    ("GET", "/api/v1/canvas/pipeline/{id}"),
+    ("GET", "/api/v1/canvas/pipeline/{id}/status"),
+    ("GET", "/api/v1/canvas/pipeline/{id}/stage/{id}"),
+    ("GET", "/api/v1/canvas/pipeline/{id}/graph"),
+    ("GET", "/api/v1/canvas/pipeline/{id}/receipt"),
+    # Goal extraction
+    ("POST", "/api/v1/canvas/pipeline/extract-goals"),
+    # Canvas conversion
+    ("POST", "/api/v1/canvas/convert/debate"),
+    ("POST", "/api/v1/canvas/convert/workflow"),
 ]
 
 BLOCKCHAIN_ENDPOINTS: list[tuple[str, str]] = [
@@ -137,6 +156,74 @@ def _extract_ts_paths(filepath: Path) -> list[tuple[str, str]]:
         endpoints.append((method, _normalize_path(path)))
 
     return endpoints
+
+
+# =========================================================================
+# Pipeline parity tests
+# =========================================================================
+
+
+class TestPipelineContractParity:
+    """Verify all SDK surfaces match the server's Pipeline endpoints."""
+
+    def _unique_endpoints(self, endpoints: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        return set(endpoints)
+
+    def test_python_sdk_covers_all_endpoints(self):
+        """Python SDK pipeline covers every server Pipeline endpoint."""
+        sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/pipeline.py"
+        sdk_paths = self._unique_endpoints(_extract_python_sdk_paths(sdk_file))
+        canonical = set(PIPELINE_ENDPOINTS)
+
+        missing = canonical - sdk_paths
+        assert not missing, (
+            f"Python SDK pipeline missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_typescript_sdk_covers_all_endpoints(self):
+        """TypeScript SDK pipeline covers every server Pipeline endpoint."""
+        ts_file = ROOT / "sdk/typescript/src/namespaces/pipeline.ts"
+        ts_paths = self._unique_endpoints(_extract_ts_paths(ts_file))
+        canonical = set(PIPELINE_ENDPOINTS)
+
+        missing = canonical - ts_paths
+        assert not missing, (
+            f"TypeScript SDK pipeline missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_python_sdk_pipeline_method_count(self):
+        """Python SDK pipeline has both sync and async classes."""
+        from aragora_sdk.namespaces.pipeline import AsyncPipelineAPI, PipelineAPI
+
+        sync_methods = [m for m in dir(PipelineAPI) if not m.startswith("_")]
+        async_methods = [m for m in dir(AsyncPipelineAPI) if not m.startswith("_")]
+
+        assert set(sync_methods) == set(async_methods), (
+            f"Sync/async method mismatch. "
+            f"Only in sync: {set(sync_methods) - set(async_methods)}. "
+            f"Only in async: {set(async_methods) - set(sync_methods)}"
+        )
+
+    def test_handler_routes_match_canonical(self):
+        """Handler ROUTES list matches the canonical endpoint set."""
+        handler_file = ROOT / "aragora/server/handlers/canvas_pipeline.py"
+        source = handler_file.read_text()
+
+        # Extract ROUTES list entries
+        route_pattern = re.compile(r'"(GET|POST|PUT|DELETE)\s+(/api/v1/[^"]+)"')
+        handler_endpoints: set[tuple[str, str]] = set()
+        for match in route_pattern.finditer(source):
+            method, path = match.group(1), match.group(2)
+            handler_endpoints.add((method, _normalize_path(path)))
+
+        canonical = set(PIPELINE_ENDPOINTS)
+        missing = canonical - handler_endpoints
+        assert not missing, (
+            f"Handler ROUTES missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
 
 
 # =========================================================================
@@ -327,6 +414,19 @@ class TestCrossSurfaceConsistency:
         # closeSession is an alias for endSession, so the same path appears twice — that's OK
         unexpected_ts = {p for p in only_in_ts if p not in ts_paths}
         assert not unexpected_ts, f"Unexpected paths only in TypeScript SDK: {unexpected_ts}"
+
+    def test_pipeline_python_ts_path_agreement(self):
+        """Python and TypeScript SDKs hit the same Pipeline paths."""
+        py_file = ROOT / "sdk/python/aragora_sdk/namespaces/pipeline.py"
+        ts_file = ROOT / "sdk/typescript/src/namespaces/pipeline.ts"
+        py_paths = set(_extract_python_sdk_paths(py_file))
+        ts_paths = set(_extract_ts_paths(ts_file))
+
+        only_in_py = py_paths - ts_paths
+        only_in_ts = ts_paths - py_paths
+
+        assert not only_in_py, f"Paths only in Python SDK: {only_in_py}"
+        assert not only_in_ts, f"Paths only in TypeScript SDK: {only_in_ts}"
 
     def test_blockchain_python_ts_path_agreement(self):
         """Python and TypeScript SDKs hit the same Blockchain paths."""

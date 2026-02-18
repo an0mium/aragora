@@ -188,6 +188,32 @@ class TestConvenienceMethods:
         sent = json.loads(mock_ws.send_str.call_args[0][0])
         assert sent["data"]["error"] == "something broke"
 
+    @pytest.mark.asyncio
+    async def test_emit_node_added(self, emitter, mock_ws):
+        emitter.add_client(mock_ws, "pipe-1")
+        await emitter.emit_node_added("pipe-1", "ideas", "n1", "ideaNode", "Rate limiter")
+        sent = json.loads(mock_ws.send_str.call_args[0][0])
+        assert sent["type"] == "pipeline_node_added"
+        assert sent["data"]["stage"] == "ideas"
+        assert sent["data"]["node_id"] == "n1"
+        assert sent["data"]["node_type"] == "ideaNode"
+        assert sent["data"]["label"] == "Rate limiter"
+        assert "added_at" in sent["data"]
+
+    @pytest.mark.asyncio
+    async def test_emit_transition_pending(self, emitter, mock_ws):
+        emitter.add_client(mock_ws, "pipe-1")
+        await emitter.emit_transition_pending(
+            "pipe-1", "ideas", "goals", 0.72, "Extracted 3 goals from 4 ideas",
+        )
+        sent = json.loads(mock_ws.send_str.call_args[0][0])
+        assert sent["type"] == "pipeline_transition_pending"
+        assert sent["data"]["from_stage"] == "ideas"
+        assert sent["data"]["to_stage"] == "goals"
+        assert sent["data"]["confidence"] == 0.72
+        assert sent["data"]["ai_rationale"] == "Extracted 3 goals from 4 ideas"
+        assert "pending_at" in sent["data"]
+
 
 # =========================================================================
 # Event callback adapter

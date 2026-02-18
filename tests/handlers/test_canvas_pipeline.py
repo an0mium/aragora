@@ -432,3 +432,91 @@ class TestConstructor:
 
     def test_routes_defined(self):
         assert len(CanvasPipelineHandler.ROUTES) == 12
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: pipeline_id consistency
+# ---------------------------------------------------------------------------
+
+
+class TestRunPipelineIdConsistency:
+    """Verify the handler's pipeline_id matches the stored result's pipeline_id."""
+
+    @pytest.mark.asyncio
+    async def test_run_pipeline_id_matches_stored(self, handler, mock_store):
+        """Returned pipeline_id must match the ID used to store results."""
+        stored_ids = []
+        mock_store.save.side_effect = lambda pid, data: stored_ids.append(pid)
+
+        result = await handler.handle_run({
+            "input_text": "Build a caching layer",
+            "dry_run": True,
+        })
+        assert "error" not in result
+        returned_id = result["pipeline_id"]
+
+        # The placeholder save uses the handler's pipeline_id
+        assert returned_id in stored_ids
+
+    @pytest.mark.asyncio
+    async def test_run_missing_input(self, handler):
+        """Missing input_text returns error."""
+        result = await handler.handle_run({})
+        assert "error" in result
+        assert "input_text" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: event_callback in sync methods
+# ---------------------------------------------------------------------------
+
+
+class TestSyncEventCallback:
+    """Verify from_debate and from_ideas invoke event_callback."""
+
+    def test_from_ideas_event_callback(self):
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        events = []
+
+        def on_event(event_type, data):
+            events.append((event_type, data))
+
+        pipeline = IdeaToExecutionPipeline()
+        result = pipeline.from_ideas(
+            ["idea A", "idea B"],
+            auto_advance=True,
+            event_callback=on_event,
+        )
+        assert result.pipeline_id.startswith("pipe-")
+        # Must have received stage events
+        event_types = [e[0] for e in events]
+        assert "stage_completed" in event_types
+
+    def test_from_debate_event_callback(self):
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        events = []
+
+        def on_event(event_type, data):
+            events.append((event_type, data))
+
+        pipeline = IdeaToExecutionPipeline()
+        result = pipeline.from_debate(
+            {"nodes": [{"id": "n1", "label": "test"}], "edges": []},
+            auto_advance=True,
+            event_callback=on_event,
+        )
+        assert result.pipeline_id.startswith("pipe-")
+        event_types = [e[0] for e in events]
+        assert "stage_completed" in event_types
+
+    def test_from_ideas_external_pipeline_id(self):
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        pipeline = IdeaToExecutionPipeline()
+        result = pipeline.from_ideas(
+            ["idea A"],
+            pipeline_id="pipe-custom-123",
+        )
+        assert result.pipeline_id == "pipe-custom-123"

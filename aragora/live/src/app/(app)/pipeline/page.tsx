@@ -23,10 +23,18 @@ function CanvasLoadingState() {
   );
 }
 
+/** Map transition target stages to the next stage for advancement */
+const NEXT_STAGE: Record<string, PipelineStageType> = {
+  ideas: 'goals',
+  goals: 'actions',
+  actions: 'orchestration',
+};
+
 export default function PipelinePage() {
   const {
     pipelineData,
     createFromIdeas,
+    createFromDebate,
     advanceStage,
     loadDemo,
     reset,
@@ -35,7 +43,10 @@ export default function PipelinePage() {
   } = usePipeline();
 
   const [showIdeaInput, setShowIdeaInput] = useState(false);
+  const [showDebateInput, setShowDebateInput] = useState(false);
   const [ideaText, setIdeaText] = useState('');
+  const [debateJson, setDebateJson] = useState('');
+  const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
 
   const handleFromIdeas = useCallback(async () => {
@@ -50,6 +61,23 @@ export default function PipelinePage() {
       setKey((k) => k + 1);
     }
   }, [ideaText, createFromIdeas]);
+
+  const handleFromDebate = useCallback(async () => {
+    setDebateError('');
+    try {
+      const data = JSON.parse(debateJson);
+      if (!data.nodes || !Array.isArray(data.nodes)) {
+        setDebateError('JSON must have a "nodes" array');
+        return;
+      }
+      await createFromDebate(data);
+      setShowDebateInput(false);
+      setDebateJson('');
+      setKey((k) => k + 1);
+    } catch {
+      setDebateError('Invalid JSON — paste ArgumentCartographer export');
+    }
+  }, [debateJson, createFromDebate]);
 
   const handleDemo = useCallback(() => {
     loadDemo();
@@ -67,6 +95,29 @@ export default function PipelinePage() {
       setKey((k) => k + 1);
     },
     [advanceStage],
+  );
+
+  const handleTransitionApprove = useCallback(
+    (pipelineId: string, transitionId: string) => {
+      // Find the transition to determine target stage
+      const transition = pipelineData?.transitions?.find(
+        (t) => (t.id as string) === transitionId,
+      );
+      if (transition) {
+        const toStage = transition.to_stage as PipelineStageType;
+        advanceStage(pipelineId, toStage);
+        setKey((k) => k + 1);
+      }
+    },
+    [pipelineData, advanceStage],
+  );
+
+  const handleTransitionReject = useCallback(
+    (_pipelineId: string, _transitionId: string) => {
+      // Rejection is a no-op for now — the stage stays pending
+      // Future: could send rejection reason to backend
+    },
+    [],
   );
 
   return (
@@ -91,11 +142,19 @@ export default function PipelinePage() {
           </button>
 
           <button
-            onClick={() => setShowIdeaInput(!showIdeaInput)}
+            onClick={() => { setShowIdeaInput(!showIdeaInput); setShowDebateInput(false); }}
             disabled={loading}
             className="px-4 py-2 bg-indigo-600 text-white font-mono text-sm hover:bg-indigo-500 transition-colors rounded"
           >
             From Ideas
+          </button>
+
+          <button
+            onClick={() => { setShowDebateInput(!showDebateInput); setShowIdeaInput(false); }}
+            disabled={loading}
+            className="px-4 py-2 bg-violet-600 text-white font-mono text-sm hover:bg-violet-500 transition-colors rounded"
+          >
+            From Debate
           </button>
 
           <button
@@ -139,6 +198,40 @@ export default function PipelinePage() {
         </div>
       )}
 
+      {/* Debate JSON input dropdown */}
+      {showDebateInput && (
+        <div className="px-6 py-4 border-b border-border bg-surface/50">
+          <label className="block text-sm font-mono text-text-muted mb-2">
+            Paste ArgumentCartographer JSON export:
+          </label>
+          <textarea
+            value={debateJson}
+            onChange={(e) => { setDebateJson(e.target.value); setDebateError(''); }}
+            rows={6}
+            className="w-full max-w-lg bg-bg border border-border rounded p-3 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+            placeholder={'{\n  "nodes": [\n    {"id": "n1", "type": "proposal", "summary": "...", "content": "..."}\n  ],\n  "edges": [\n    {"source_id": "n2", "target_id": "n1", "relation": "supports"}\n  ]\n}'}
+          />
+          {debateError && (
+            <p className="text-xs text-red-400 font-mono mt-1">{debateError}</p>
+          )}
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleFromDebate}
+              disabled={!debateJson.trim() || loading}
+              className="px-4 py-2 bg-violet-600 text-white text-sm font-mono rounded hover:bg-violet-500 disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Generating...' : 'Import Debate'}
+            </button>
+            <button
+              onClick={() => { setShowDebateInput(false); setDebateError(''); }}
+              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Error display */}
       {error && (
         <div className="px-6 py-2 bg-red-500/10 border-b border-red-500/30">
@@ -154,6 +247,8 @@ export default function PipelinePage() {
             pipelineId={pipelineData.pipeline_id}
             initialData={pipelineData}
             onStageAdvance={handleStageAdvance}
+            onTransitionApprove={handleTransitionApprove}
+            onTransitionReject={handleTransitionReject}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -171,6 +266,12 @@ export default function PipelinePage() {
                   className="px-6 py-3 bg-indigo-600 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors"
                 >
                   Enter Ideas
+                </button>
+                <button
+                  onClick={() => setShowDebateInput(true)}
+                  className="px-6 py-3 bg-violet-600 text-white font-mono text-sm rounded hover:bg-violet-500 transition-colors"
+                >
+                  From Debate
                 </button>
                 <button
                   onClick={handleDemo}

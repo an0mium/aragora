@@ -150,6 +150,38 @@ class PipelineStreamEmitter:
             "step": step_name, "progress": progress,
         })
 
+    async def emit_node_added(
+        self,
+        pipeline_id: str,
+        stage: str,
+        node_id: str,
+        node_type: str,
+        label: str,
+    ) -> None:
+        await self.emit(pipeline_id, StreamEventType.PIPELINE_NODE_ADDED, {
+            "stage": stage,
+            "node_id": node_id,
+            "node_type": node_type,
+            "label": label,
+            "added_at": time.time(),
+        })
+
+    async def emit_transition_pending(
+        self,
+        pipeline_id: str,
+        from_stage: str,
+        to_stage: str,
+        confidence: float,
+        ai_rationale: str,
+    ) -> None:
+        await self.emit(pipeline_id, StreamEventType.PIPELINE_TRANSITION_PENDING, {
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "confidence": confidence,
+            "ai_rationale": ai_rationale,
+            "pending_at": time.time(),
+        })
+
     async def emit_completed(
         self, pipeline_id: str, receipt_dict: dict[str, Any] | None = None,
     ) -> None:
@@ -180,6 +212,8 @@ class PipelineStreamEmitter:
                 "goal_extracted": StreamEventType.PIPELINE_GOAL_EXTRACTED,
                 "workflow_generated": StreamEventType.PIPELINE_WORKFLOW_GENERATED,
                 "step_progress": StreamEventType.PIPELINE_STEP_PROGRESS,
+                "node_added": StreamEventType.PIPELINE_NODE_ADDED,
+                "transition_pending": StreamEventType.PIPELINE_TRANSITION_PENDING,
                 "completed": StreamEventType.PIPELINE_COMPLETED,
                 "failed": StreamEventType.PIPELINE_FAILED,
             }

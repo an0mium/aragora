@@ -15,6 +15,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
 )
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.defaults.permissions import (
     PERM_VULNERABILITY_SCAN,
@@ -56,6 +57,8 @@ from .vulnerability import (
     handle_list_scans,
     handle_scan_repository,
 )
+
+_security_scan_limiter = RateLimiter(requests_per_minute=5)
 
 
 class SecurityHandler(BaseHandler):
@@ -124,6 +127,11 @@ class SecurityHandler(BaseHandler):
         """
         if not self.can_handle(path):
             return None
+
+        # Rate limit check for expensive scan operations
+        client_ip = get_client_ip(handler)
+        if not _security_scan_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # Auth and permission checks
         user, err = self.require_auth_or_error(handler)

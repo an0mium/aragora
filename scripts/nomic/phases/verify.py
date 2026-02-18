@@ -250,25 +250,93 @@ class VerifyPhase:
             self._stream_emit("on_verification_result", "import", False, str(e))
             return {"check": "import", "passed": False, "error": str(e)}
 
-    async def _run_tests(self) -> dict:
-        """Run pytest tests."""
+    async def _run_tests(self, test_paths: list[str] | None = None) -> dict:
+        """Run pytest tests using TestRunner for structured failure data.
+
+        Args:
+            test_paths: Optional list of specific test paths to run.
+                Falls back to "tests/" if not provided.
+        """
         self._log("  Running tests...")
         try:
+            from aragora.nomic.testfixer.runner import TestRunner
+
+            paths = test_paths or ["tests/"]
+            test_command = f"python -m pytest {' '.join(paths)} -x --tb=short -q"
+            runner = TestRunner(
+                repo_path=self.aragora_path,
+                test_command=test_command,
+                timeout_seconds=240,
+            )
+            result = await runner.run()
+
+            no_tests_collected = result.exit_code == 5 or result.total_tests == 0
+            passed = result.success or no_tests_collected
+
+            # Serialize failure details for downstream consumption
+            failure_details = [
+                {
+                    "test_name": f.test_name,
+                    "test_file": f.test_file,
+                    "line_number": f.line_number,
+                    "error_type": f.error_type,
+                    "error_message": f.error_message,
+                    "stack_trace": f.stack_trace[:500],
+                    "involved_files": f.involved_files,
+                }
+                for f in result.failures[:10]
+            ]
+
+            check: dict[str, Any] = {
+                "check": "tests",
+                "passed": passed,
+                "output": result.stdout[-500:] if result.stdout else "",
+                "note": "no tests collected" if no_tests_collected else "",
+                "test_result": result,
+                "failure_details": failure_details,
+                "stats": {
+                    "total": result.total_tests,
+                    "passed": result.passed,
+                    "failed": result.failed,
+                    "errors": result.errors,
+                    "skipped": result.skipped,
+                },
+            }
+            self._log(
+                f"    {'passed' if passed else 'FAILED'} tests"
+                + (f" ({result.failed} failed)" if result.failed else "")
+                + (" (no tests collected)" if no_tests_collected else "")
+            )
+            self._stream_emit(
+                "on_verification_result", "tests", passed,
+                result.stdout[-200:] if result.stdout else "",
+            )
+            return check
+        except ImportError:
+            self._log("    [fallback] TestRunner unavailable, using raw subprocess")
+            return await self._run_tests_raw(test_paths)
+        except Exception as e:
+            self._log(f"    FAILED tests (exception): {e}")
+            self._stream_emit("on_verification_result", "tests", False, f"Exception: {e}")
+            return {
+                "check": "tests",
+                "passed": False,
+                "error": str(e),
+                "note": "Test execution failed",
+            }
+
+    async def _run_tests_raw(self, test_paths: list[str] | None = None) -> dict:
+        """Fallback: run pytest via raw subprocess when TestRunner is unavailable."""
+        try:
+            cmd = ["python", "-m", "pytest", *(test_paths or ["tests/"]), "-x", "--tb=short", "-q"]
             proc = await asyncio.create_subprocess_exec(
-                "python",
-                "-m",
-                "pytest",
-                "tests/",
-                "-x",
-                "--tb=short",
-                "-q",
+                *cmd,
                 cwd=self.aragora_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=240)
             stdout_text = stdout.decode() if stdout else ""
-            # pytest returns 5 when no tests are collected - treat as pass
             no_tests_collected = proc.returncode == 5 or "no tests ran" in stdout_text.lower()
             passed = proc.returncode == 0 or no_tests_collected
             check = {
@@ -282,7 +350,8 @@ class VerifyPhase:
                 + (" (no tests collected)" if no_tests_collected else "")
             )
             self._stream_emit(
-                "on_verification_result", "tests", passed, stdout_text[-200:] if stdout_text else ""
+                "on_verification_result", "tests", passed,
+                stdout_text[-200:] if stdout_text else "",
             )
             return check
         except asyncio.TimeoutError:

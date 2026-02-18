@@ -1,4 +1,5 @@
 export { PipelineCanvas } from './PipelineCanvas';
+export { PipelineToolbar } from './PipelineToolbar';
 export { StageNavigator } from './StageNavigator';
 export { IdeaNode, GoalNode, ActionNode, OrchestrationNode } from './nodes';
 export type {
@@ -7,7 +8,14 @@ export type {
   GoalNodeData,
   ActionNodeData,
   OrchestrationNodeData,
+  PipelineNodeData,
+  NodeTypeConfig,
   PipelineResultResponse,
   ReactFlowData,
   StageConfig,
+} from './types';
+export {
+  PIPELINE_NODE_TYPE_CONFIGS,
+  getDefaultPipelineNodeData,
+  getNodeTypeForStage,
 } from './types';

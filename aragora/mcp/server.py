@@ -74,6 +74,10 @@ IMPL_MODE_TOOLS = frozenset({
     "get_memory_pressure",
     "search_evidence",
     "cite_evidence",
+    "run_pipeline",
+    "extract_goals",
+    "get_pipeline_status",
+    "advance_pipeline_stage",
 })
 
 

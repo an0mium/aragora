@@ -206,6 +206,8 @@ class IdeaToExecutionPipeline:
         self,
         cartographer_data: dict[str, Any],
         auto_advance: bool = True,
+        pipeline_id: str | None = None,
+        event_callback: Any | None = None,
     ) -> PipelineResult:
         """Run the full pipeline starting from a debate graph.
 
@@ -213,8 +215,10 @@ class IdeaToExecutionPipeline:
             cartographer_data: ArgumentCartographer.to_dict() output
             auto_advance: If True, auto-generate all stages.
                           If False, stop after Stage 1 for human review.
+            pipeline_id: Optional external pipeline ID (generated if not provided)
+            event_callback: Optional callable(event_type, data) for progress events
         """
-        pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
+        pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         result = PipelineResult(
             pipeline_id=pipeline_id,
             stage_status={s.value: "pending" for s in PipelineStage},
@@ -226,6 +230,7 @@ class IdeaToExecutionPipeline:
             canvas_name=f"Ideas from Debate",
         )
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
+        self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
         logger.info(
             "Pipeline %s: Stage 1 complete — %d idea nodes",
             pipeline_id,
@@ -236,13 +241,19 @@ class IdeaToExecutionPipeline:
             return result
 
         # Stage 2: Goals
+        self._emit_sync(event_callback, "stage_started", {"stage": "goals"})
         result = self._advance_to_goals(result)
+        self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
 
         # Stage 3: Actions
+        self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
+        self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
 
         # Stage 4: Orchestration
+        self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
+        self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
 
         self._build_universal_graph(result)
         return result
@@ -251,12 +262,20 @@ class IdeaToExecutionPipeline:
         self,
         ideas: list[str],
         auto_advance: bool = True,
+        pipeline_id: str | None = None,
+        event_callback: Any | None = None,
     ) -> PipelineResult:
         """Run the full pipeline from raw idea strings.
 
         Simpler entry point for users who just have a list of thoughts.
+
+        Args:
+            ideas: List of idea/thought strings
+            auto_advance: If True, auto-generate all stages
+            pipeline_id: Optional external pipeline ID (generated if not provided)
+            event_callback: Optional callable(event_type, data) for progress events
         """
-        pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
+        pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         result = PipelineResult(
             pipeline_id=pipeline_id,
             stage_status={s.value: "pending" for s in PipelineStage},
@@ -292,18 +311,24 @@ class IdeaToExecutionPipeline:
             result.ideas_canvas.nodes[node.id] = node
 
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
+        self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
 
         # Goals already extracted via extract_from_raw_ideas
         result.stage_status[PipelineStage.GOALS.value] = "complete"
+        self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
 
         if not auto_advance:
             return result
 
         # Stage 3: Actions
+        self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
+        self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
 
         # Stage 4: Orchestration
+        self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
+        self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
 
         self._build_universal_graph(result)
         return result
@@ -334,6 +359,7 @@ class IdeaToExecutionPipeline:
         self,
         input_text: str,
         config: PipelineConfig | None = None,
+        pipeline_id: str | None = None,
     ) -> PipelineResult:
         """Run the full async pipeline from input text.
 
@@ -344,12 +370,13 @@ class IdeaToExecutionPipeline:
         Args:
             input_text: The input idea/question/problem statement
             config: Pipeline configuration
+            pipeline_id: Optional external pipeline ID (generated if not provided)
 
         Returns:
             PipelineResult with all stage outputs
         """
         cfg = config or PipelineConfig()
-        pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
+        pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         start_time = time.monotonic()
 
         result = PipelineResult(
@@ -661,6 +688,17 @@ class IdeaToExecutionPipeline:
         if cfg.event_callback:
             try:
                 cfg.event_callback(event_type, data)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _emit_sync(
+        callback: Any | None, event_type: str, data: dict[str, Any],
+    ) -> None:
+        """Emit an event via a standalone callback (for sync methods)."""
+        if callback:
+            try:
+                callback(event_type, data)
             except Exception:
                 pass
 

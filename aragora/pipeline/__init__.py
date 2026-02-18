@@ -8,6 +8,10 @@ Transforms debate outcomes into actionable development artifacts:
 - VerificationPlan: Verification strategy
 - PatchPlan: Implementation steps
 - DecisionIntegrityPackage: Receipt + implementation plan bundle
+- UniversalNode/UniversalGraph: Unified schema spanning IDEAS→GOALS→ACTIONS→ORCHESTRATION
+- GraphStore: SQLite persistence for universal graphs
+- Stage transitions: Promote nodes across pipeline stages with provenance
+- Adapters: Bidirectional conversion between Canvas/Goal models and UniversalNode
 """
 
 from aragora.pipeline.decision_integrity import (
@@ -44,6 +48,23 @@ from aragora.pipeline.idea_to_execution import (
 )
 from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
 from aragora.pipeline.risk_register import Risk, RiskRegister
+from aragora.pipeline.adapters import (
+    canvas_to_universal_graph,
+    from_argument_node,
+    from_canvas_node,
+    from_goal_node,
+    to_canvas_node,
+    to_goal_node,
+    universal_graph_to_canvas,
+)
+from aragora.pipeline.graph_store import GraphStore, get_graph_store
+from aragora.pipeline.stage_transitions import (
+    actions_to_orchestration,
+    goals_to_actions,
+    ideas_to_goals,
+    promote_node,
+)
+from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
 from aragora.pipeline.verification_plan import (
     VerificationCase,
     VerificationPlan,
@@ -97,6 +118,26 @@ __all__ = [
     "PipelineConfig",
     "PipelineResult",
     "StageResult",
+    # Universal graph schema
+    "UniversalNode",
+    "UniversalEdge",
+    "UniversalGraph",
+    # Graph persistence
+    "GraphStore",
+    "get_graph_store",
+    # Stage transitions
+    "promote_node",
+    "ideas_to_goals",
+    "goals_to_actions",
+    "actions_to_orchestration",
+    # Adapters
+    "from_canvas_node",
+    "to_canvas_node",
+    "from_goal_node",
+    "to_goal_node",
+    "from_argument_node",
+    "canvas_to_universal_graph",
+    "universal_graph_to_canvas",
     # Backward compatibility
     "TestPlan",
     "TestCase",

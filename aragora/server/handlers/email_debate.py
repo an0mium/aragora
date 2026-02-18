@@ -19,9 +19,12 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.services.email_debate import EmailDebateService, EmailInput
 
 logger = logging.getLogger(__name__)
+
+_email_debate_limiter = RateLimiter(requests_per_minute=10)
 
 
 class EmailDebateHandler(BaseHandler):
@@ -55,6 +58,10 @@ class EmailDebateHandler(BaseHandler):
         self, path: str, query_params: dict, handler=None
     ) -> HandlerResult | None:
         """Handle POST requests."""
+        client_ip = get_client_ip(handler)
+        if not _email_debate_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         if path == "/api/v1/email/prioritize":
             return await self._prioritize_single(handler)
         elif path == "/api/v1/email/prioritize/batch":

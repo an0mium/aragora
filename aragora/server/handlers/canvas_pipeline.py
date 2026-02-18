@@ -235,9 +235,21 @@ class CanvasPipelineHandler:
             pipeline = IdeaToExecutionPipeline(
                 agent=agent, use_universal=use_universal,
             )
+
+            # Wire stream emitter for real-time progress
+            event_cb = None
+            try:
+                from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+                event_cb = get_pipeline_emitter().as_event_callback(
+                    f"pipe-from-debate"  # placeholder until pipeline_id is known
+                )
+            except ImportError:
+                pass
+
             result = pipeline.from_debate(
                 cartographer_data,
                 auto_advance=auto_advance,
+                event_callback=event_cb,
             )
 
             # Persist result and keep live object in memory
@@ -294,7 +306,20 @@ class CanvasPipelineHandler:
             pipeline = IdeaToExecutionPipeline(
                 agent=agent, use_universal=use_universal,
             )
-            result = pipeline.from_ideas(ideas, auto_advance=auto_advance)
+
+            # Wire stream emitter for real-time progress
+            event_cb = None
+            try:
+                from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+                event_cb = get_pipeline_emitter().as_event_callback(
+                    f"pipe-from-ideas"  # placeholder until pipeline_id is known
+                )
+            except ImportError:
+                pass
+
+            result = pipeline.from_ideas(
+                ideas, auto_advance=auto_advance, event_callback=event_cb,
+            )
 
             result_dict = result.to_dict()
             _get_store().save(result.pipeline_id, result_dict)
@@ -486,10 +511,10 @@ class CanvasPipelineHandler:
             async def _run_pipeline() -> None:
                 if emitter:
                     config.event_callback = emitter.as_event_callback(pipeline_id)
-                result = await pipeline.run(input_text, config)
+                result = await pipeline.run(input_text, config, pipeline_id=pipeline_id)
                 result_dict = result.to_dict()
-                _get_store().save(result.pipeline_id, result_dict)
-                _pipeline_objects[result.pipeline_id] = result
+                _get_store().save(pipeline_id, result_dict)
+                _pipeline_objects[pipeline_id] = result
                 _persist_universal_graph(result)
 
             # Generate pipeline_id before launching task

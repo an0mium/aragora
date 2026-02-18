@@ -185,9 +185,13 @@ class MicrosoftOAuthMixin:
             if not email or "@" not in email:
                 raise ValueError("Could not retrieve email from Microsoft")
 
+            provider_user_id = user_data.get("id")
+            if not provider_user_id:
+                raise ValueError("Microsoft user response missing 'id' field")
+
             return OAuthUserInfo(
                 provider="microsoft",
-                provider_user_id=user_data["id"],
+                provider_user_id=provider_user_id,
                 email=email,
                 name=user_data.get("displayName", email.split("@")[0]),
                 picture=None,  # Microsoft Graph requires separate call for photo
@@ -206,9 +210,13 @@ class MicrosoftOAuthMixin:
             if not email or "@" not in email:
                 raise ValueError("Could not retrieve email from Microsoft")
 
+            provider_user_id = user_data.get("id")
+            if not provider_user_id:
+                raise ValueError("Microsoft user response missing 'id' field")
+
             return OAuthUserInfo(
                 provider="microsoft",
-                provider_user_id=user_data["id"],
+                provider_user_id=provider_user_id,
                 email=email,
                 name=user_data.get("displayName", email.split("@")[0]),
                 picture=None,  # Microsoft Graph requires separate call for photo

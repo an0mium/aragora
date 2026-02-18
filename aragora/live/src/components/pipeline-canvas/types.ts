@@ -52,6 +52,77 @@ export interface OrchestrationNodeData {
   agentType?: string;
 }
 
+export type PipelineNodeData =
+  | IdeaNodeData
+  | GoalNodeData
+  | ActionNodeData
+  | OrchestrationNodeData;
+
+// =============================================================================
+// Node Type Configurations (per-stage palette items)
+// =============================================================================
+
+export interface NodeTypeConfig {
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+  borderColor: string;
+}
+
+export const PIPELINE_NODE_TYPE_CONFIGS: Record<PipelineStageType, Record<string, NodeTypeConfig>> = {
+  ideas: {
+    concept: { label: 'Concept', icon: '💡', description: 'A raw idea or concept', color: 'bg-indigo-500/20', borderColor: 'border-indigo-500' },
+    cluster: { label: 'Cluster', icon: '🔗', description: 'Group of related ideas', color: 'bg-indigo-500/20', borderColor: 'border-indigo-400' },
+    question: { label: 'Question', icon: '❓', description: 'Open question to resolve', color: 'bg-indigo-500/20', borderColor: 'border-indigo-300' },
+    insight: { label: 'Insight', icon: '🔍', description: 'Key insight or finding', color: 'bg-indigo-500/20', borderColor: 'border-indigo-500' },
+    evidence: { label: 'Evidence', icon: '📊', description: 'Supporting evidence', color: 'bg-indigo-500/20', borderColor: 'border-indigo-400' },
+    assumption: { label: 'Assumption', icon: '⚠️', description: 'Assumption to validate', color: 'bg-indigo-500/20', borderColor: 'border-indigo-300' },
+    constraint: { label: 'Constraint', icon: '🚧', description: 'Known constraint', color: 'bg-indigo-500/20', borderColor: 'border-indigo-400' },
+  },
+  goals: {
+    goal: { label: 'Goal', icon: '🎯', description: 'Concrete goal to achieve', color: 'bg-emerald-500/20', borderColor: 'border-emerald-500' },
+    principle: { label: 'Principle', icon: '📐', description: 'Guiding principle', color: 'bg-emerald-500/20', borderColor: 'border-emerald-400' },
+    strategy: { label: 'Strategy', icon: '♟️', description: 'Strategic approach', color: 'bg-emerald-500/20', borderColor: 'border-emerald-500' },
+    milestone: { label: 'Milestone', icon: '🏁', description: 'Key milestone', color: 'bg-emerald-500/20', borderColor: 'border-emerald-400' },
+    metric: { label: 'Metric', icon: '📈', description: 'Measurable metric', color: 'bg-emerald-500/20', borderColor: 'border-emerald-300' },
+    risk: { label: 'Risk', icon: '⚡', description: 'Identified risk', color: 'bg-emerald-500/20', borderColor: 'border-emerald-500' },
+  },
+  actions: {
+    task: { label: 'Task', icon: '✅', description: 'Actionable task', color: 'bg-amber-500/20', borderColor: 'border-amber-500' },
+    epic: { label: 'Epic', icon: '📋', description: 'Large body of work', color: 'bg-amber-500/20', borderColor: 'border-amber-400' },
+    checkpoint: { label: 'Checkpoint', icon: '🔖', description: 'Verification checkpoint', color: 'bg-amber-500/20', borderColor: 'border-amber-500' },
+    deliverable: { label: 'Deliverable', icon: '📦', description: 'Tangible deliverable', color: 'bg-amber-500/20', borderColor: 'border-amber-400' },
+    dependency: { label: 'Dependency', icon: '🔄', description: 'External dependency', color: 'bg-amber-500/20', borderColor: 'border-amber-300' },
+  },
+  orchestration: {
+    agent_task: { label: 'Agent Task', icon: '🤖', description: 'Task assigned to an agent', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
+    debate: { label: 'Debate', icon: '💬', description: 'Multi-agent debate', color: 'bg-pink-500/20', borderColor: 'border-pink-400' },
+    human_gate: { label: 'Human Gate', icon: '👤', description: 'Human approval required', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
+    parallel_fan: { label: 'Parallel Fan', icon: '🔀', description: 'Parallel execution', color: 'bg-pink-500/20', borderColor: 'border-pink-400' },
+    merge: { label: 'Merge', icon: '🔁', description: 'Merge parallel results', color: 'bg-pink-500/20', borderColor: 'border-pink-300' },
+    verification: { label: 'Verification', icon: '🔬', description: 'Verify results', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
+  },
+};
+
+export function getDefaultPipelineNodeData(stage: PipelineStageType, subtype: string): PipelineNodeData {
+  switch (stage) {
+    case 'ideas':
+      return { label: PIPELINE_NODE_TYPE_CONFIGS.ideas[subtype]?.label || 'New Idea', ideaType: subtype as IdeaType, contentHash: '', fullContent: '' };
+    case 'goals':
+      return { label: PIPELINE_NODE_TYPE_CONFIGS.goals[subtype]?.label || 'New Goal', goalType: subtype as GoalType, description: '', priority: 'medium' };
+    case 'actions':
+      return { label: PIPELINE_NODE_TYPE_CONFIGS.actions[subtype]?.label || 'New Action', stepType: subtype as ActionType, description: '', optional: false };
+    case 'orchestration':
+      return { label: PIPELINE_NODE_TYPE_CONFIGS.orchestration[subtype]?.label || 'New Node', orchType: subtype as OrchType, assignedAgent: '', capabilities: [] };
+  }
+}
+
+export function getNodeTypeForStage(stage: PipelineStageType): string {
+  const map: Record<PipelineStageType, string> = { ideas: 'ideaNode', goals: 'goalNode', actions: 'actionNode', orchestration: 'orchestrationNode' };
+  return map[stage];
+}
+
 // =============================================================================
 // Stage Configuration
 // =============================================================================

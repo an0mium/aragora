@@ -395,6 +395,8 @@ class StreamEventType(Enum):
     PIPELINE_GOAL_EXTRACTED = "pipeline_goal_extracted"  # Goal extracted from debate
     PIPELINE_WORKFLOW_GENERATED = "pipeline_workflow_generated"  # Workflow generated
     PIPELINE_STEP_PROGRESS = "pipeline_step_progress"  # Step-level progress
+    PIPELINE_NODE_ADDED = "pipeline_node_added"  # Individual node added to canvas
+    PIPELINE_TRANSITION_PENDING = "pipeline_transition_pending"  # Human approval gate
     PIPELINE_COMPLETED = "pipeline_completed"  # Full pipeline completed
     PIPELINE_FAILED = "pipeline_failed"  # Pipeline failed
 

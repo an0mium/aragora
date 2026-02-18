@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.storage.integration_store import (
@@ -40,6 +41,8 @@ from aragora.storage.integration_store import (
 )
 
 logger = logging.getLogger(__name__)
+
+_integration_limiter = RateLimiter(requests_per_minute=30)
 
 # =============================================================================
 # Integration Types and Models
@@ -230,6 +233,10 @@ class IntegrationsHandler(SecureHandler):
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests for integration configuration and tests."""
+        client_ip = get_client_ip(handler)
+        if not _integration_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         normalized = strip_version_prefix(path)
         # Read body for POST requests
         data = self.read_json_body(handler) if handler else {}
@@ -282,6 +289,10 @@ class IntegrationsHandler(SecureHandler):
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PUT requests for integration configuration."""
+        client_ip = get_client_ip(handler)
+        if not _integration_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         normalized = strip_version_prefix(path)
         # Read body for PUT requests
         data = self.read_json_body(handler) if handler else {}
@@ -309,6 +320,10 @@ class IntegrationsHandler(SecureHandler):
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PATCH requests for integration configuration."""
+        client_ip = get_client_ip(handler)
+        if not _integration_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         normalized = strip_version_prefix(path)
         # Read body for PATCH requests
         data = self.read_json_body(handler) if handler else {}
@@ -336,6 +351,10 @@ class IntegrationsHandler(SecureHandler):
         handler: Any = None,
     ) -> HandlerResult:
         """Handle DELETE requests for integration configuration."""
+        client_ip = get_client_ip(handler)
+        if not _integration_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         normalized = strip_version_prefix(path)
         if normalized.startswith("/api/integrations/"):
             perm_error = await self._check_permission(handler, INTEGRATION_DELETE_PERMISSION)

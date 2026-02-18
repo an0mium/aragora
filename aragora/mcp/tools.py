@@ -94,6 +94,12 @@ from aragora.mcp.tools_module import (
     canvas_list_tool,
     canvas_delete_node_tool,
 )
+from aragora.mcp.tools_module.pipeline import (
+    run_pipeline_tool,
+    extract_goals_tool,
+    get_pipeline_status_tool,
+    advance_pipeline_stage_tool,
+)
 from aragora.mcp.tools_module.codebase import (
     search_codebase_tool,
     get_symbol_tool,
@@ -811,6 +817,65 @@ TOOLS_METADATA = [
             "node_id": {"type": "string", "required": True},
         },
     },
+    # Pipeline tools
+    {
+        "name": "run_pipeline",
+        "description": "Run the idea-to-execution pipeline from raw ideas or text",
+        "function": run_pipeline_tool,
+        "parameters": {
+            "input_text": {
+                "type": "string",
+                "description": "Free-form text to run through the full pipeline",
+            },
+            "ideas": {
+                "type": "string",
+                "description": "JSON array of idea strings",
+            },
+            "dry_run": {"type": "boolean", "default": False},
+        },
+    },
+    {
+        "name": "extract_goals",
+        "description": "Extract goals from raw ideas using the GoalExtractor",
+        "function": extract_goals_tool,
+        "parameters": {
+            "ideas_json": {
+                "type": "string",
+                "required": True,
+                "description": "JSON array of idea strings",
+            },
+            "confidence_threshold": {"type": "number", "default": 0.6},
+        },
+    },
+    {
+        "name": "get_pipeline_status",
+        "description": "Get the execution status of a pipeline",
+        "function": get_pipeline_status_tool,
+        "parameters": {
+            "pipeline_id": {
+                "type": "string",
+                "required": True,
+                "description": "The pipeline ID to look up",
+            },
+        },
+    },
+    {
+        "name": "advance_pipeline_stage",
+        "description": "Advance a pipeline to the next stage (goals, actions, orchestration)",
+        "function": advance_pipeline_stage_tool,
+        "parameters": {
+            "pipeline_id": {
+                "type": "string",
+                "required": True,
+                "description": "The pipeline ID to advance",
+            },
+            "target_stage": {
+                "type": "string",
+                "required": True,
+                "description": "Target stage (goals, actions, orchestration)",
+            },
+        },
+    },
     # Codebase tools
     {
         "name": "search_codebase",
@@ -936,6 +1001,11 @@ __all__ = [
     "canvas_execute_action_tool",
     "canvas_list_tool",
     "canvas_delete_node_tool",
+    # Pipeline tools
+    "run_pipeline_tool",
+    "extract_goals_tool",
+    "get_pipeline_status_tool",
+    "advance_pipeline_stage_tool",
     # Codebase tools
     "search_codebase_tool",
     "get_symbol_tool",

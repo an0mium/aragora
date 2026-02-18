@@ -195,7 +195,7 @@ class VerificationStep(BaseStep):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> dict[str, Any]:
-        """Execute verification checks."""
+        """Execute verification checks using TestRunner for structured results."""
         config = {**self._config, **context.current_step_config}
 
         test_count = config.get("test_count", 0)
@@ -219,41 +219,43 @@ class VerificationStep(BaseStep):
         }
 
         if run_tests and test_paths:
+            repo_path = context.get_state("repo_path", str(Path.cwd()))
             try:
-                import subprocess
+                from aragora.nomic.testfixer.runner import TestRunner
 
-                cmd = ["python", "-m", "pytest", *test_paths, "-v", "--tb=short"]
-                proc = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                    cwd=context.get_state("repo_path", str(Path.cwd())),
+                test_command = f"python -m pytest {' '.join(test_paths)} -v --tb=short"
+                runner = TestRunner(
+                    repo_path=Path(repo_path),
+                    test_command=test_command,
+                    timeout_seconds=300,
                 )
-                results["exit_code"] = proc.returncode
-                results["success"] = proc.returncode == 0
-                results["stdout"] = proc.stdout[-2000:] if proc.stdout else ""
-                results["stderr"] = proc.stderr[-1000:] if proc.stderr else ""
+                test_result = await runner.run()
 
-                # Parse pass/fail counts from pytest output
-                for line in proc.stdout.splitlines():
-                    if "passed" in line:
-                        import re
+                results["exit_code"] = test_result.exit_code
+                results["success"] = test_result.success
+                results["tests_passed"] = test_result.passed
+                results["tests_failed"] = test_result.failed
+                results["stdout"] = test_result.stdout[-2000:] if test_result.stdout else ""
+                results["stderr"] = test_result.stderr[-1000:] if test_result.stderr else ""
+                results["test_result"] = test_result
 
-                        m = re.search(r"(\d+) passed", line)
-                        if m:
-                            results["tests_passed"] = int(m.group(1))
-                    if "failed" in line:
-                        import re
+                # Serialize failure details for downstream use
+                results["failure_details"] = [
+                    {
+                        "test_name": f.test_name,
+                        "test_file": f.test_file,
+                        "line_number": f.line_number,
+                        "error_type": f.error_type,
+                        "error_message": f.error_message,
+                        "stack_trace": f.stack_trace[:500],
+                        "involved_files": f.involved_files,
+                    }
+                    for f in test_result.failures[:10]
+                ]
 
-                        m = re.search(r"(\d+) failed", line)
-                        if m:
-                            results["tests_failed"] = int(m.group(1))
-
-            except subprocess.TimeoutExpired:
-                # subprocess.run() already kills the child on timeout
-                results["success"] = False
-                results["errors"].append("Test suite timed out after 300s")
+            except ImportError:
+                logger.debug("TestRunner unavailable, falling back to subprocess")
+                results = await self._run_tests_subprocess(test_paths, repo_path, results)
             except (OSError, FileNotFoundError) as e:
                 results["success"] = False
                 results["errors"].append(f"Failed to run tests: {e}")
@@ -261,5 +263,48 @@ class VerificationStep(BaseStep):
             # No test paths specified - mark as passed (verification plan only)
             results["tests_passed"] = test_count
             results["success"] = True
+
+        return results
+
+    async def _run_tests_subprocess(
+        self,
+        test_paths: list[str],
+        repo_path: str,
+        results: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Fallback: run tests via raw subprocess when TestRunner is unavailable."""
+        import re
+        import subprocess
+
+        try:
+            cmd = ["python", "-m", "pytest", *test_paths, "-v", "--tb=short"]
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=repo_path,
+            )
+            results["exit_code"] = proc.returncode
+            results["success"] = proc.returncode == 0
+            results["stdout"] = proc.stdout[-2000:] if proc.stdout else ""
+            results["stderr"] = proc.stderr[-1000:] if proc.stderr else ""
+
+            for line in proc.stdout.splitlines():
+                if "passed" in line:
+                    m = re.search(r"(\d+) passed", line)
+                    if m:
+                        results["tests_passed"] = int(m.group(1))
+                if "failed" in line:
+                    m = re.search(r"(\d+) failed", line)
+                    if m:
+                        results["tests_failed"] = int(m.group(1))
+
+        except subprocess.TimeoutExpired:
+            results["success"] = False
+            results["errors"].append("Test suite timed out after 300s")
+        except (OSError, FileNotFoundError) as e:
+            results["success"] = False
+            results["errors"].append(f"Failed to run tests: {e}")
 
         return results

@@ -394,10 +394,15 @@ class FeedbackLoop:
     Optionally integrates with SelfCorrectionEngine to apply strategy
     recommendations (e.g., rotate agents, decrease scope) informed by
     cross-cycle failure patterns.
+
+    When a TestResult is available in error_info, uses testfixer's heuristic
+    analysis to produce rich hints (file path, line number, error category,
+    fix target, relevant code snippets, suggested approach).
     """
 
-    def __init__(self, max_iterations: int = 3):
+    def __init__(self, max_iterations: int = 3, repo_path: Path | None = None):
         self.max_iterations = max_iterations
+        self.repo_path = repo_path
         self._iteration_counts: dict[str, int] = {}
         self._strategy_recommendations: list[Any] = []
 
@@ -445,12 +450,13 @@ class FeedbackLoop:
                 "hints": error_info.get("ci_failures", []),
             }
 
-        # Test failures -> adjust implementation
+        # Test failures -> use rich analysis if TestResult is available
         if error_type == "test_failure":
+            hints = self._extract_rich_test_hints(error_info)
             return {
                 "action": "retry_implement",
                 "reason": "Test failures require implementation adjustment",
-                "hints": self._extract_test_hints(error_message),
+                "hints": hints,
             }
 
         # Lint/type errors -> quick fix
@@ -475,6 +481,54 @@ class FeedbackLoop:
             "reason": f"Unknown error type: {error_type}",
             "require_human": True,
         }
+
+    def _extract_rich_test_hints(self, error_info: dict[str, Any]) -> str | list[dict[str, Any]]:
+        """Extract rich hints from TestResult using testfixer heuristics.
+
+        Falls back to basic string extraction if testfixer is unavailable
+        or no TestResult is present in error_info.
+        """
+        test_result = error_info.get("test_result")
+        if test_result is None:
+            return self._extract_test_hints(error_info.get("message", ""))
+
+        try:
+            from aragora.nomic.testfixer.analyzer import (
+                categorize_by_heuristics,
+                determine_fix_target,
+                extract_relevant_code,
+                generate_approach_heuristic,
+            )
+
+            repo_path = self.repo_path or Path.cwd()
+            rich_hints = []
+
+            for failure in test_result.failures[:5]:
+                category, confidence = categorize_by_heuristics(failure)
+                fix_target = determine_fix_target(category, failure)
+                code_snippets = extract_relevant_code(failure, repo_path)
+                approach = generate_approach_heuristic(category, failure)
+
+                rich_hints.append({
+                    "test_name": failure.test_name,
+                    "test_file": failure.test_file,
+                    "line_number": failure.line_number,
+                    "error_type": failure.error_type,
+                    "error_message": failure.error_message,
+                    "category": category.value,
+                    "confidence": confidence,
+                    "fix_target": fix_target.value,
+                    "relevant_code": {
+                        k: v[:500] for k, v in code_snippets.items()
+                    },
+                    "suggested_approach": approach,
+                })
+
+            return rich_hints or self._extract_test_hints(error_info.get("message", ""))
+
+        except ImportError:
+            logger.debug("testfixer analyzer unavailable, using basic hint extraction")
+            return self._extract_test_hints(error_info.get("message", ""))
 
     def apply_strategy_recommendations(
         self, recommendations: list[Any]
@@ -639,7 +693,7 @@ class AutonomousOrchestrator:
         self.hierarchy = hierarchy or HierarchyConfig()
         self.hierarchical_coordinator = hierarchical_coordinator
         self.router = AgentRouter(self.track_configs)
-        self.feedback_loop = FeedbackLoop()
+        self.feedback_loop = FeedbackLoop(repo_path=self.aragora_path)
         if enable_curriculum:
             try:
                 from aragora.nomic.curriculum.integration import CurriculumAwareFeedbackLoop
@@ -1278,10 +1332,39 @@ class AutonomousOrchestrator:
                     assignment, success=True, domain=assignment.track.value,
                 )
             else:
+                # Extract structured TestResult from verify step if available
+                error_info: dict[str, Any] = {
+                    "type": "workflow_failure",
+                    "message": result.error or "",
+                }
+                verify_step = result.get_step_result("verify")
+                if verify_step and isinstance(verify_step.output, dict):
+                    test_result_obj = verify_step.output.get("test_result")
+                    if test_result_obj is not None:
+                        error_info["type"] = "test_failure"
+                        error_info["test_result"] = test_result_obj
+
+                # Try targeted fix for small, high-confidence test-side failures
+                if error_info.get("test_result") is not None:
+                    fixed = await self._attempt_targeted_fix(
+                        assignment, error_info["test_result"]
+                    )
+                    if fixed:
+                        assignment.status = "completed"
+                        assignment.result = {
+                            "workflow_result": result.final_output,
+                            "targeted_fix": True,
+                        }
+                        await self._update_bead_status(subtask.id, "done")
+                        await self._record_agent_outcome(
+                            assignment, success=True, domain=assignment.track.value,
+                        )
+                        return
+
                 # Handle failure with feedback loop
                 feedback = self.feedback_loop.analyze_failure(
                     assignment,
-                    {"type": "workflow_failure", "message": result.error or ""},
+                    error_info,
                 )
                 if inspect.isawaitable(feedback):
                     feedback = await feedback
@@ -1338,6 +1421,100 @@ class AutonomousOrchestrator:
             await self._fabric_complete_task(
                 assignment, success=assignment.status == "completed"
             )
+
+    async def _attempt_targeted_fix(
+        self,
+        assignment: AgentAssignment,
+        test_result: Any,
+    ) -> bool:
+        """Attempt a targeted fix using TestFixerOrchestrator for small failures.
+
+        Guards:
+        - Only attempt if <= 5 failures
+        - At least one failure has heuristic confidence >= 0.7
+        - At least one failure targets test file or config (not impl)
+
+        Returns True if fix succeeded and verification passes.
+        """
+        try:
+            from aragora.nomic.testfixer.analyzer import (
+                categorize_by_heuristics,
+                determine_fix_target,
+                FixTarget,
+            )
+            from aragora.nomic.testfixer.orchestrator import (
+                TestFixerOrchestrator,
+                FixLoopConfig,
+                LoopStatus,
+            )
+        except ImportError:
+            logger.debug("testfixer unavailable, skipping targeted fix")
+            return False
+
+        failures = getattr(test_result, "failures", [])
+        if not failures or len(failures) > 5:
+            return False
+
+        # Check guard: at least one high-confidence test-side fix
+        has_eligible = False
+        for failure in failures:
+            category, confidence = categorize_by_heuristics(failure)
+            fix_target = determine_fix_target(category, failure)
+            if confidence >= 0.7 and fix_target in (FixTarget.TEST_FILE, FixTarget.CONFIG):
+                has_eligible = True
+                break
+
+        if not has_eligible:
+            return False
+
+        logger.info(
+            "targeted_fix_attempt subtask_id=%s failures=%d",
+            assignment.subtask.id,
+            len(failures),
+        )
+
+        # Scope tests to only the failing test files
+        failing_files = list({f.test_file for f in failures if f.test_file})
+        if not failing_files:
+            return False
+
+        test_command = f"python -m pytest {' '.join(failing_files)} -x --tb=short -q"
+
+        try:
+            fixer = TestFixerOrchestrator(
+                repo_path=self.aragora_path,
+                test_command=test_command,
+                config=FixLoopConfig(
+                    max_iterations=3,
+                    min_confidence_to_apply=0.7,
+                    revert_on_failure=True,
+                    stop_on_first_success=False,
+                ),
+            )
+            fix_result = await fixer.run_fix_loop()
+
+            if fix_result.status == LoopStatus.SUCCESS:
+                logger.info(
+                    "targeted_fix_success subtask_id=%s fixes=%d",
+                    assignment.subtask.id,
+                    fix_result.fixes_successful,
+                )
+                return True
+
+            logger.info(
+                "targeted_fix_incomplete subtask_id=%s status=%s",
+                assignment.subtask.id,
+                fix_result.status.value,
+            )
+            return False
+
+        except (RuntimeError, OSError, ValueError) as e:
+            logger.warning(
+                "targeted_fix_error subtask_id=%s error=%s",
+                assignment.subtask.id,
+                type(e).__name__,
+            )
+            return False
 
     async def _record_agent_outcome(
         self,

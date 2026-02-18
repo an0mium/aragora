@@ -27,9 +27,12 @@ from ..base import (
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
+from ..utils.rate_limit import RateLimiter, get_client_ip
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
+
+_gmail_query_limiter = RateLimiter(requests_per_minute=20)
 
 # Gmail permissions
 GMAIL_READ_PERMISSION = "gmail:read"
@@ -120,6 +123,10 @@ class GmailQueryHandler(SecureHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests."""
+        client_ip = get_client_ip(handler)
+        if not _gmail_query_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
         # RBAC: Require authentication and gmail:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
