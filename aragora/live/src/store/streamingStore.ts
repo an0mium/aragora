@@ -118,7 +118,7 @@ export interface ConnectorInfo {
 
 // Default configs
 export const DEFAULT_KAFKA_CONFIG: KafkaConfig = {
-  bootstrap_servers: 'localhost:9092',
+  bootstrap_servers: '',
   topics: ['aragora-events'],
   group_id: 'aragora-consumer',
   security_protocol: 'PLAINTEXT',

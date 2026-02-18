@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { WS_URL } from '@/config';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { TimelineView } from '@/components/spectate/TimelineView';
@@ -57,7 +58,7 @@ export default function SpectateClient() {
 
     connect(debateId);
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765';
+    const wsUrl = WS_URL.replace(/\/ws$/, '');
     const ws = new WebSocket(`${wsUrl}/spectate/${debateId}`);
 
     ws.onopen = () => {
