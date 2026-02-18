@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, act, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import SocialPage from '../page';
 
@@ -74,7 +74,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       expect(screen.getByTestId('scanlines')).toBeInTheDocument();
       expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       expect(screen.getByText('Social Media')).toBeInTheDocument();
     });
@@ -107,7 +107,7 @@ describe('SocialPage', () => {
     it('shows loading state initially', () => {
       mockFetch.mockReturnValue(new Promise(() => {})); // Never resolves
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     });
@@ -118,7 +118,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/youtube/status');
@@ -169,7 +169,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('YouTube')).toBeInTheDocument();
@@ -195,7 +195,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         // There are multiple connectors that can be "Not configured"
@@ -221,7 +221,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Connect YouTube' })).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Connect YouTube' })).toBeInTheDocument();
@@ -273,7 +273,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Twitter/X')).toBeInTheDocument();
@@ -286,7 +286,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Configuration')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Error: Token expired')).toBeInTheDocument();
@@ -328,7 +328,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({ debates: [] }),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -382,7 +382,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({ debates: [] }),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -407,7 +407,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({ debates: [] }),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -444,7 +444,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -496,7 +496,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -535,7 +535,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({ debates: [] }),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -558,7 +558,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -578,7 +578,7 @@ describe('SocialPage', () => {
         json: () => Promise.resolve({}),
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -623,7 +623,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -654,7 +654,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       // Page should still load with placeholder connectors
       await waitFor(() => {
@@ -677,7 +677,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -718,7 +718,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -755,7 +755,7 @@ describe('SocialPage', () => {
         });
       });
 
-      render(<SocialPage />);
+      renderWithProviders(<SocialPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: 'Connect YouTube' })).toBeInTheDocument();

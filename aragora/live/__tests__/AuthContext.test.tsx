@@ -357,6 +357,8 @@ describe('AuthContext', () => {
       mockLocalStorage['aragora_tokens'] = JSON.stringify(expiredTokens);
       mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
 
+      // No /api/auth/me mock needed - expired tokens are caught before the fetch
+
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {

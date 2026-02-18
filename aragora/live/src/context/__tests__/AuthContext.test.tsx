@@ -184,6 +184,16 @@ describe('AuthContext - Additional Tests', () => {
         owner_id: 'user-123',
       };
 
+      // Mock /api/auth/me for mount validation
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user: mockUser,
+          organization: mockOrganization,
+          organizations: [mockUserOrganization],
+        }),
+      });
+      // Mock the switch API call
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ organization: newOrg }),
