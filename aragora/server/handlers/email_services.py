@@ -29,6 +29,7 @@ from typing import Any
 from aragora.server.handlers.base import (
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import SecureHandler, UnauthorizedError, ForbiddenError
 from aragora.server.handlers.utils.responses import HandlerResult
@@ -941,6 +942,7 @@ class EmailServicesHandler(SecureHandler):
         """Route email services endpoint requests."""
         return None
 
+    @handle_errors("email services creation")
     async def handle_post(
         self,
         path: str,
@@ -970,7 +972,7 @@ class EmailServicesHandler(SecureHandler):
             self.check_permission(auth_context, permission)
         except ForbiddenError:
             logger.warning(f"Email permission denied: {permission} for user {auth_context.user_id}")
-            return error_response(f"Permission denied: {permission}", 403)
+            return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id
 
@@ -1020,7 +1022,7 @@ class EmailServicesHandler(SecureHandler):
             self.check_permission(auth_context, "email:read")
         except ForbiddenError:
             logger.warning(f"Email read denied for user {auth_context.user_id}")
-            return error_response("Permission denied: email:read", 403)
+            return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id
 
@@ -1039,6 +1041,7 @@ class EmailServicesHandler(SecureHandler):
                 )
         return error_response("Not found", status=404)
 
+    @handle_errors("email services deletion")
     async def handle_delete(
         self,
         path: str,
@@ -1059,7 +1062,7 @@ class EmailServicesHandler(SecureHandler):
             self.check_permission(auth_context, "email:update")
         except ForbiddenError:
             logger.warning(f"Email update denied for user {auth_context.user_id}")
-            return error_response("Permission denied: email:update", 403)
+            return error_response("Permission denied", 403)
 
         user_id = auth_context.user_id
 

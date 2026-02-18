@@ -340,7 +340,7 @@ class MLHandler(BaseHandler):
             if not user or not has_permission(
                 user.role if hasattr(user, "role") else None, required_permission
             ):
-                return error_response(f"Permission denied: {required_permission} required", 403)
+                return error_response("Permission denied", 403)
             return self._handle_export_training(data)
         if path == "/api/v1/ml/route":
             return self._handle_route(data)

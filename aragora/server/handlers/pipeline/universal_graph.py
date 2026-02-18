@@ -36,6 +36,7 @@ from ..base import (
     get_string_param,
     json_response,
     validate_path_segment,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -134,12 +135,14 @@ class UniversalGraphHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission)
             if not decision.allowed:
+                logger.warning("Permission denied: %s", permission)
                 return error_response("Permission denied", 403)
             return None
         except (ImportError, AttributeError, ValueError) as e:
             logger.debug("Permission check unavailable: %s", e)
             return None
 
+    @handle_errors("universal graph creation")
     def handle_post(
         self, path: str, body: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -174,6 +177,7 @@ class UniversalGraphHandler(BaseHandler):
 
         return None
 
+    @handle_errors("universal graph update")
     def handle_put(
         self, path: str, body: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -194,6 +198,7 @@ class UniversalGraphHandler(BaseHandler):
 
         return None
 
+    @handle_errors("universal graph deletion")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

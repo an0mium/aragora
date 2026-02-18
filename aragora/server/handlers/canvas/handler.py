@@ -137,7 +137,8 @@ class CanvasHandler(SecureHandler):
             )
         except PermissionDeniedError as e:
             permission_key = e.permission_key if hasattr(e, "permission_key") else "unknown"
-            return error_response(f"Permission denied: {permission_key}", 403)
+            logger.warning("Permission denied: %s", permission_key)
+            return error_response("Permission denied", 403)
 
     def _get_request_body(self, handler: Any) -> dict[str, Any]:
         """Extract JSON body from request."""

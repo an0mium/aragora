@@ -292,7 +292,8 @@ class RLMHandler(BaseHandler):
             decision = checker.check_permission(auth_context, permission)
 
             if not decision.allowed:
-                return error_response(f"Permission denied: {permission}", 403)
+                logger.warning("Permission denied: %s", permission)
+                return error_response("Permission denied", 403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"RBAC check failed: {e}")
@@ -310,6 +311,7 @@ class RLMHandler(BaseHandler):
             return self._get_refinement_status(path, handler)
         return error_response("Use POST method for RLM queries", 405)
 
+    @handle_errors("r l m creation")
     @require_permission("debates:write")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""

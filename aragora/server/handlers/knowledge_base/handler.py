@@ -170,7 +170,7 @@ class KnowledgeHandler(
         permissions = getattr(user, "permissions", []) or []
         roles = getattr(user, "roles", []) or []
         if permission not in permissions and "admin" not in roles and "admin" not in permissions:
-            return error_response(f"Permission denied: requires {permission}", 403)
+            return error_response("Permission denied", 403)
         return None
 
     @require_permission("knowledge:read")

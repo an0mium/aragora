@@ -72,7 +72,7 @@ def _check_permission(ctx: dict[str, Any], permission: str) -> HandlerResult | N
 
     if not decision.allowed:
         logger.warning(f"Permission denied: {permission} for user {user_id}")
-        return error_response(f"Permission denied: {permission}", status=403)
+        return error_response("Permission denied", status=403)
 
     return None
 

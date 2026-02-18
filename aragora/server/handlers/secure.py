@@ -129,8 +129,9 @@ class SecureHandler(BaseHandler):
         record_rbac_decision(permission, decision.allowed)
 
         if not decision.allowed:
+            logger.warning("Permission denied: %s", permission)
             raise ForbiddenError(
-                f"Permission denied: {permission}",
+                "Permission denied",
                 permission=permission,
             )
 
@@ -255,7 +256,7 @@ class SecureHandler(BaseHandler):
         if isinstance(error, PermissionDeniedError):
             record_blocked_request("rbac_denied", "user")
             return error_response(
-                f"Permission denied: {error.permission_key or 'unknown'}",
+                "Permission denied",
                 403,
             )
 

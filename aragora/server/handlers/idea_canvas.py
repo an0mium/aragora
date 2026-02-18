@@ -104,7 +104,8 @@ class IdeaCanvasHandler(SecureHandler):
             )
         except PermissionDeniedError as e:
             perm = e.permission_key if hasattr(e, "permission_key") else "unknown"
-            return error_response(f"Permission denied: {perm}", 403)
+            logger.warning("Permission denied: %s", perm)
+            return error_response("Permission denied", 403)
 
     def _get_request_body(self, handler: Any) -> dict[str, Any]:
         try:

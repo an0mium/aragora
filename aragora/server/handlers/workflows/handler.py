@@ -477,7 +477,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 and "workflow.*" not in auth_ctx.permissions
             ):
                 logger.warning("User %s denied workflow.read permission", auth_ctx.user_id)
-                return error_response("Permission denied: requires workflow.read", 403)
+                return error_response("Permission denied", 403)
 
         # GET /api/workflow-executions
         if path == "/api/v1/workflow-executions":
@@ -571,7 +571,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 and "workflow.*" not in auth_ctx.permissions
             ):
                 logger.warning("User %s denied %s permission", auth_ctx.user_id, required_perm)
-                return error_response(f"Permission denied: requires {required_perm}", 403)
+                return error_response("Permission denied", 403)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -630,7 +630,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 and "workflow.*" not in auth_ctx.permissions
             ):
                 logger.warning("User %s denied workflow.update permission", auth_ctx.user_id)
-                return error_response("Permission denied: requires workflow.update", 403)
+                return error_response("Permission denied", 403)
 
         body, err = self.read_json_body_validated(handler)
         if err:
@@ -677,7 +677,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 and "workflow.*" not in auth_ctx.permissions
             ):
                 logger.warning("User %s denied %s permission", auth_ctx.user_id, required_perm)
-                return error_response(f"Permission denied: requires {required_perm}", 403)
+                return error_response("Permission denied", 403)
 
         workflow_id = self._extract_id(path)
         if workflow_id:

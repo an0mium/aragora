@@ -177,7 +177,7 @@ def admin_secure_endpoint(
                             auth_context, permission, str(resource_id) if resource_id else None
                         )
                     except ForbiddenError:
-                        return error_response(f"Permission denied: {permission}", 403)
+                        return error_response("Permission denied", 403)
 
                 # 5. Call the actual handler
                 result = await func(self, request, auth_context, *args, **kwargs)

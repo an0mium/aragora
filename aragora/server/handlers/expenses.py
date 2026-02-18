@@ -43,6 +43,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -1174,10 +1175,11 @@ class ExpenseHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission)
             if not decision.allowed:
+                logger.warning("Permission denied: %s", permission)
                 return error_response("Permission denied", status=403)
             return None
         except (ImportError, AttributeError, ValueError) as e:
-            logger.debug(f"Permission check failed: {e}")
+            logger.debug("Permission check failed: %s", e)
             return error_response("Authentication required", status=401)
 
     async def handle(  # type: ignore[override]
@@ -1222,6 +1224,7 @@ class ExpenseHandler(BaseHandler):
         """Compatibility wrapper for GET handlers."""
         return await self.handle(path, query_params, handler)
 
+    @handle_errors("expense creation")
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
@@ -1264,6 +1267,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    @handle_errors("expense update")
     async def handle_put(  # type: ignore[override]
         self,
         path: str,
@@ -1286,6 +1290,7 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    @handle_errors("expense deletion")
     async def handle_delete(  # type: ignore[override]
         self,
         path: str,

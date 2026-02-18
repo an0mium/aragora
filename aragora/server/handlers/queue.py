@@ -37,6 +37,7 @@ from .base import (
     get_string_param,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from .secure import SecureHandler
 from .utils.auth import ForbiddenError, UnauthorizedError
@@ -153,6 +154,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/queue/")
 
+    @handle_errors("queue creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -200,7 +202,7 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
             self.check_permission(auth_context, permission)
         except ForbiddenError:
             logger.warning(f"Queue permission denied: {permission} for user {auth_context.user_id}")
-            return error_response(f"Permission denied: {permission}", 403)
+            return error_response("Permission denied", 403)
 
         query_params: dict[str, Any] = {}
         if handler:

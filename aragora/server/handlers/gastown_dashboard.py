@@ -144,7 +144,7 @@ class GasTownDashboardHandler(SecureHandler):
         try:
             self.check_permission(auth_context, "gastown:read")
         except ForbiddenError:
-            return error_response("Permission denied: gastown:read", 403)
+            return error_response("Permission denied", 403)
 
         path = strip_version_prefix(path)
 

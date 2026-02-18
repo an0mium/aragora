@@ -41,6 +41,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -251,6 +252,7 @@ class DeviceHandler(SecureHandler):
         """Route GET requests."""
         return await self._route_request(path, "GET", query_params, handler, None)
 
+    @handle_errors("device creation")
     @require_permission("devices:write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -261,6 +263,7 @@ class DeviceHandler(SecureHandler):
             return err
         return await self._route_request(path, "POST", query_params, handler, body)
 
+    @handle_errors("device deletion")
     @require_permission("devices:delete")
     async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -304,7 +307,7 @@ class DeviceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "devices.read")
             except ForbiddenError:
-                return error_response("Permission denied: devices.read", 403)
+                return error_response("Permission denied", 403)
             return await self._get_health()
 
         # Register device (rate limited)
@@ -316,7 +319,7 @@ class DeviceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "devices.write")
             except ForbiddenError:
-                return error_response("Permission denied: devices.write", 403)
+                return error_response("Permission denied", 403)
             return await self._register_device(body or {}, auth_context, handler)
 
         segments = normalized.strip("/").split("/")
@@ -330,7 +333,7 @@ class DeviceHandler(SecureHandler):
                 try:
                     self.check_permission(auth_context, "devices.read")
                 except ForbiddenError:
-                    return error_response("Permission denied: devices.read", 403)
+                    return error_response("Permission denied", 403)
                 return await self._list_user_devices(user_id, auth_context)
             if len(segments) == 5 and segments[4] == "notify" and method == "POST":
                 # Apply notification rate limit
@@ -340,7 +343,7 @@ class DeviceHandler(SecureHandler):
                 try:
                     self.check_permission(auth_context, "devices.notify")
                 except ForbiddenError:
-                    return error_response("Permission denied: devices.notify", 403)
+                    return error_response("Permission denied", 403)
                 return await self._notify_user(user_id, body or {}, auth_context)
             return None
 
@@ -353,14 +356,14 @@ class DeviceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "devices.read")
             except ForbiddenError:
-                return error_response("Permission denied: devices.read", 403)
+                return error_response("Permission denied", 403)
             return await self._get_device(device_id, auth_context)
 
         if len(segments) == 3 and method == "DELETE":
             try:
                 self.check_permission(auth_context, "devices.write")
             except ForbiddenError:
-                return error_response("Permission denied: devices.write", 403)
+                return error_response("Permission denied", 403)
             return await self._unregister_device(device_id, auth_context)
 
         if len(segments) == 4 and segments[3] == "notify" and method == "POST":
@@ -371,7 +374,7 @@ class DeviceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "devices.notify")
             except ForbiddenError:
-                return error_response("Permission denied: devices.notify", 403)
+                return error_response("Permission denied", 403)
             return await self._notify_device(device_id, body or {}, auth_context)
 
         return None

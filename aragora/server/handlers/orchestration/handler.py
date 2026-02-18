@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -145,7 +146,7 @@ class OrchestrationHandler(SecureHandler):
             return None
         except ForbiddenError:
             logger.warning(f"Permission denied: {permission} for user {auth_context.user_id}")
-            return error_response(f"Permission denied: {permission}", 403)
+            return error_response("Permission denied", 403)
 
     def _validate_knowledge_source(
         self,
@@ -281,7 +282,7 @@ class OrchestrationHandler(SecureHandler):
             self.check_permission(auth_context, "orchestration:read")
         except ForbiddenError:
             logger.warning(f"Orchestration read denied for user {auth_context.user_id}")
-            return error_response("Permission denied: orchestration:read", 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/v1/orchestration/templates":
             return self._get_templates(query_params)
@@ -294,6 +295,7 @@ class OrchestrationHandler(SecureHandler):
 
     # Signature differs from BaseHandler to support data-first calling convention
     # used by unified_server's POST routing. This is intentional.
+    @handle_errors("orchestration creation")
     async def handle_post(  # type: ignore[override]
         self,
         path: str,
@@ -321,7 +323,7 @@ class OrchestrationHandler(SecureHandler):
             self.check_permission(auth_context, "orchestration:execute")
         except ForbiddenError:
             logger.warning(f"Orchestration execute denied for user {auth_context.user_id}")
-            return error_response("Permission denied: orchestration:execute", 403)
+            return error_response("Permission denied", 403)
 
         # Also check deliberate permission for deliberation endpoints
         if path in ("/api/v1/orchestration/deliberate", "/api/v1/orchestration/deliberate/sync"):
@@ -329,7 +331,7 @@ class OrchestrationHandler(SecureHandler):
                 self.check_permission(auth_context, PERM_ORCH_DELIBERATE)
             except ForbiddenError:
                 logger.warning(f"Deliberation create denied for user {auth_context.user_id}")
-                return error_response(f"Permission denied: {PERM_ORCH_DELIBERATE}", 403)
+                return error_response("Permission denied", 403)
 
         if path == "/api/v1/orchestration/deliberate":
             return self._handle_deliberate(data, handler, auth_context, sync=False)

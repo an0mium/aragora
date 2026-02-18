@@ -171,6 +171,7 @@ class CanvasPipelineHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission)
             if not decision.allowed:
+                logger.warning("Permission denied: %s", permission)
                 return error_response("Permission denied", status=403)
             return None
         except (ImportError, AttributeError, ValueError) as e:

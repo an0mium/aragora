@@ -66,7 +66,7 @@ def _check_diagnostics_permission(handler: Any) -> HandlerResult | None:
             )
             result = checker.check_permission(auth_ctx, "admin:diagnostics")
             if not result.allowed:
-                return error_response("Permission denied: admin:diagnostics required", 403)
+                return error_response("Permission denied", 403)
     except ImportError:
         # RBAC module not available, fall back to auth-only check
         logger.debug("RBAC module not available, allowing authenticated access")

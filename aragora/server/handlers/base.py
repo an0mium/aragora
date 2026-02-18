@@ -995,7 +995,7 @@ class BaseHandler:
         except ImportError:
             pass
 
-        return None, error_response(f"Permission denied: requires '{permission}'", 403)
+        return None, error_response("Permission denied", 403)
 
     # === POST Body Parsing Support ===
 

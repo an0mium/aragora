@@ -26,6 +26,8 @@ import re
 import uuid
 from typing import Any
 
+from aragora.server.handlers.base import handle_errors
+
 logger = logging.getLogger(__name__)
 
 # Path patterns
@@ -136,12 +138,14 @@ class PipelineGraphHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission)
             if not decision.allowed:
+                logger.warning("Permission denied: %s", permission)
                 return error_response("Permission denied", status=403)
             return None
         except (ImportError, AttributeError, ValueError) as e:
             logger.debug("Permission check unavailable: %s", e)
             return None
 
+    @handle_errors("pipeline graph deletion")
     def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch DELETE requests."""
         # Match route first so unknown paths return None (letting other handlers try)
@@ -161,6 +165,7 @@ class PipelineGraphHandler:
 
         return None
 
+    @handle_errors("pipeline graph creation")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests."""
         # Match route first so unknown paths return None (letting other handlers try)
@@ -271,6 +276,7 @@ class PipelineGraphHandler:
             logger.warning("List graphs failed: %s", e)
             return {"error": "Failed to list graphs"}
 
+    @handle_errors("pipeline graph operation")
     async def handle_delete_graph(self, graph_id: str) -> dict[str, Any]:
         """DELETE /api/v1/pipeline/graph/{id}"""
         try:

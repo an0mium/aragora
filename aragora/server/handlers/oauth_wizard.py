@@ -225,7 +225,7 @@ class OAuthWizardHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, required_permission)
             except (PermissionDeniedError, RoleRequiredError):
-                return error_response(f"Permission denied: {required_permission} required", 403)
+                return error_response("Permission denied", 403)
 
             # Main wizard endpoint
             if path == "/api/v2/integrations/wizard" and method == "GET":

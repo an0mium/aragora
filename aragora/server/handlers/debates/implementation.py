@@ -711,6 +711,7 @@ class ImplementationOperationsMixin:
                 checker = get_permission_checker()
                 decision = checker.check_permission(user, "autonomous:approve")  # type: ignore[arg-type]
                 if not decision.allowed:
+                    logger.warning("Permission denied: autonomous:approve")
                     return error_response("Permission denied", 403)
             except (ImportError, AttributeError):
                 pass  # Legacy compatibility: permission checker may not be available
@@ -998,6 +999,7 @@ class ImplementationOperationsMixin:
                     "autonomous:approve",
                 )
                 if not decision.allowed:
+                    logger.warning("Permission denied: autonomous:approve")
                     return error_response("Permission denied", 403)
             except (ImportError, AttributeError, ValueError, TypeError) as e:
                 logger.warning("Permission check for autonomous:approve failed: %s", e)

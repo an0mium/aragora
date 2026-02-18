@@ -197,7 +197,7 @@ class AgentHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:agents"
         ):
-            return error_response("Permission denied: controlplane:agents required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -248,7 +248,7 @@ class AgentHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:agents"
         ):
-            return error_response("Permission denied: controlplane:agents required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -304,7 +304,7 @@ class AgentHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:agents"
         ):
-            return error_response("Permission denied: controlplane:agents required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -338,7 +338,7 @@ class AgentHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:agents"
         ):
-            return error_response("Permission denied: controlplane:agents required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -378,7 +378,7 @@ class AgentHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:agents"
         ):
-            return error_response("Permission denied: controlplane:agents required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:

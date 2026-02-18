@@ -21,6 +21,7 @@ from typing import Any
 from aiohttp import web
 
 from aragora.rbac.checker import get_permission_checker
+from aragora.server.handlers.base import handle_errors
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.validation.query_params import safe_query_int
 
@@ -60,7 +61,7 @@ async def _check_permission(request: web.Request, permission: str) -> web.Respon
 
         if not checker.check_permission(user_id, permission).allowed:
             return web.json_response(
-                {"success": False, "error": f"Permission denied: {permission}"},
+                {"success": False, "error": "Permission denied"},
                 status=403,
             )
         return None  # Permission granted
@@ -341,6 +342,7 @@ class QuickScanHandler:
         """Allow handler registry to pass server context without error."""
         self._ctx = _ctx
 
+    @handle_errors("quick scan operation")
     async def handle_post_quick_scan(self, request: web.Request) -> web.Response:
         """
         POST /api/codebase/quick-scan

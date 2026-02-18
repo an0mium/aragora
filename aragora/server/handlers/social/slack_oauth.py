@@ -234,7 +234,7 @@ class SlackOAuthHandler(SecureHandler):
                 if require_all:
                     # All permissions required, one failed
                     raise ForbiddenError(
-                        f"Permission denied: {perm} required",
+                        "Permission denied",
                         permission=perm,
                     )
 
@@ -244,7 +244,7 @@ class SlackOAuthHandler(SecureHandler):
 
         # None of the permissions passed
         raise ForbiddenError(
-            f"Permission denied: one of {', '.join(permissions)} required",
+            "Permission denied",
             permission=permissions[0],
         )
 
@@ -382,10 +382,7 @@ class SlackOAuthHandler(SecureHandler):
                     )
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack install: {e}")
-                    return error_response(
-                        f"Permission denied: {PERM_SLACK_OAUTH_INSTALL} or {CONNECTOR_AUTHORIZE} required",
-                        403,
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
 
@@ -396,10 +393,7 @@ class SlackOAuthHandler(SecureHandler):
                     self._check_permission(auth_context, CONNECTOR_READ)
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack preview: {e}")
-                    return error_response(
-                        f"Permission denied: {CONNECTOR_READ} required",
-                        403,
-                    )
+                    return error_response("Permission denied", 403)
                 return await self._handle_preview(query_params)
             return error_response("Method not allowed", 405)
 
@@ -415,7 +409,7 @@ class SlackOAuthHandler(SecureHandler):
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack workspace list: {e}")
                     return error_response(
-                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_READ} required",
+                        "Permission denied",
                         403,
                     )
                 return await self._handle_list_workspaces()
@@ -438,7 +432,7 @@ class SlackOAuthHandler(SecureHandler):
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack workspace status: {e}")
                     return error_response(
-                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_READ} required",
+                        "Permission denied",
                         403,
                     )
                 return await self._handle_workspace_status(workspace_id)
@@ -458,7 +452,7 @@ class SlackOAuthHandler(SecureHandler):
                 except (ForbiddenError, PermissionError) as e:
                     logger.warning(f"Permission denied for Slack token refresh: {e}")
                     return error_response(
-                        f"Permission denied: {PERM_SLACK_WORKSPACE_MANAGE} or {CONNECTOR_AUTHORIZE} required",
+                        "Permission denied",
                         403,
                     )
                 return await self._handle_refresh_token(workspace_id)

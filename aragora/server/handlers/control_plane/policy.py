@@ -94,7 +94,7 @@ class PolicyHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
-            return error_response("Permission denied: controlplane:policies required", 403)
+            return error_response("Permission denied", 403)
 
         store = self._get_policy_store()
         if not store:
@@ -172,7 +172,7 @@ class PolicyHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
-            return error_response("Permission denied: controlplane:policies required", 403)
+            return error_response("Permission denied", 403)
 
         store = self._get_policy_store()
         if not store:
@@ -209,7 +209,7 @@ class PolicyHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
-            return error_response("Permission denied: controlplane:policies required", 403)
+            return error_response("Permission denied", 403)
 
         store = self._get_policy_store()
         if not store:
@@ -257,7 +257,7 @@ class PolicyHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:policies"
         ):
-            return error_response("Permission denied: controlplane:policies required", 403)
+            return error_response("Permission denied", 403)
 
         store = self._get_policy_store()
         if not store:

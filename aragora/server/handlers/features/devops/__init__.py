@@ -112,6 +112,7 @@ class DevOpsHandler(BaseHandler):
         checker = get_permission_checker()
         decision = checker.check_permission(auth_ctx, permission, resource_id)
         if not decision.allowed:
+            logger.warning("Permission denied: %s", permission)
             raise ForbiddenError("Permission denied", permission=permission)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

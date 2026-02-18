@@ -166,7 +166,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -223,7 +223,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -288,7 +288,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -334,7 +334,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -390,7 +390,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -437,7 +437,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -490,7 +490,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -540,7 +540,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -596,7 +596,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -622,7 +622,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:
@@ -898,7 +898,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         from aragora.core.decision_results import get_decision_result
 
@@ -922,7 +922,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         from aragora.core.decision_results import get_decision_status
 
@@ -945,7 +945,7 @@ class TaskHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:tasks"
         ):
-            return error_response("Permission denied: controlplane:tasks required", 403)
+            return error_response("Permission denied", 403)
 
         coordinator = self._get_coordinator()
         if not coordinator:

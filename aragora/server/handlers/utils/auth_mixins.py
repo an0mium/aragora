@@ -191,7 +191,7 @@ class SecureEndpointMixin:
 
             # All permissions denied
             return None, _get_error_response()(
-                f"Permission denied: requires one of {permissions}", 403
+                "Permission denied", 403
             )
 
         except _UnauthorizedError:

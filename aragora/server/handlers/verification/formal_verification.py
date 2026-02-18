@@ -285,7 +285,8 @@ class FormalVerificationHandler(BaseHandler):
             decision = checker.check_permission(auth_context, permission)
 
             if not decision.allowed:
-                return error_response(f"Permission denied: {permission}", 403)
+                logger.warning("Permission denied: %s", permission)
+                return error_response("Permission denied", 403)
             return None
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"Auth check failed for verification: {e}")

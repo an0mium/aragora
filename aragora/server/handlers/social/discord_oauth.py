@@ -175,7 +175,7 @@ class DiscordOAuthHandler(SecureHandler):
                 try:
                     self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
                 except (ForbiddenError, PermissionError):
-                    return error_response("Permission denied: connector:authorize required", 403)
+                    return error_response("Permission denied", 403)
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)
 

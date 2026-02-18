@@ -14,6 +14,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.query_params import safe_query_int
@@ -117,6 +118,7 @@ class SecurityHandler(BaseHandler):
 
         return self._route_get(path, query_params)
 
+    @handle_errors("security creation")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -328,6 +330,7 @@ class SecurityHandler(BaseHandler):
     # Vulnerability Scan Endpoints
     # =========================================================================
 
+    @handle_errors("security operation")
     async def handle_post_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan"""
         if err := self._check_permission(PERM_VULNERABILITY_SCAN.id):
@@ -414,6 +417,7 @@ class SecurityHandler(BaseHandler):
     # Secrets Scan Endpoints
     # =========================================================================
 
+    @handle_errors("security operation")
     async def handle_post_secrets_scan(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/scan/secrets"""
         if err := self._check_permission(PERM_SECRETS_SCAN.id):
@@ -559,6 +563,7 @@ class SecurityHandler(BaseHandler):
     # SBOM Endpoints
     # =========================================================================
 
+    @handle_errors("security operation")
     async def handle_post_sbom(self, data: dict[str, Any], repo_id: str) -> HandlerResult:
         """POST /api/v1/codebase/{repo}/sbom - Generate SBOM"""
         if err := self._check_permission(PERM_SBOM_GENERATE.id):
@@ -668,7 +673,8 @@ class SecurityHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission_key)
             if not decision.allowed:
-                return error_response(f"Permission denied: {permission_key}", 403)
+                logger.warning("Permission denied: %s", permission_key)
+                return error_response("Permission denied", 403)
         except ImportError:
             # RBAC not available, allow access
             pass

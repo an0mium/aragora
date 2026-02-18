@@ -656,7 +656,7 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                     f"Permission denied: user={user_ctx.user_id} role={user_ctx.role} "
                     f"permission={permission}"
                 )
-                return None, error_response(f"Permission denied: requires '{permission}'", 403)
+                return None, error_response("Permission denied", 403)
 
             return user_ctx, None
 

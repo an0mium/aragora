@@ -116,7 +116,7 @@ class SkillMarketplaceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "skills:read")
             except ForbiddenError:
-                return error_response("Permission denied: skills:read", 403)
+                return error_response("Permission denied", 403)
             return await self._list_installed(auth_context)
 
         # Publish skill (requires auth)
@@ -126,7 +126,7 @@ class SkillMarketplaceHandler(SecureHandler):
             try:
                 self.check_permission(auth_context, "skills:publish")
             except ForbiddenError:
-                return error_response("Permission denied: skills:publish", 403)
+                return error_response("Permission denied", 403)
             return await self._publish_skill(body or {}, auth_context)
 
         # Skill-specific endpoints
@@ -154,7 +154,7 @@ class SkillMarketplaceHandler(SecureHandler):
                     try:
                         self.check_permission(auth_context, "skills:install")
                     except ForbiddenError:
-                        return error_response("Permission denied: skills:install", 403)
+                        return error_response("Permission denied", 403)
                     return await self._install_skill(skill_id, body or {}, auth_context)
 
                 # Uninstall skill
@@ -164,7 +164,7 @@ class SkillMarketplaceHandler(SecureHandler):
                     try:
                         self.check_permission(auth_context, "skills:install")
                     except ForbiddenError:
-                        return error_response("Permission denied: skills:install", 403)
+                        return error_response("Permission denied", 403)
                     return await self._uninstall_skill(skill_id, auth_context)
 
                 # Rate skill
@@ -174,7 +174,7 @@ class SkillMarketplaceHandler(SecureHandler):
                     try:
                         self.check_permission(auth_context, "skills:rate")
                     except ForbiddenError:
-                        return error_response("Permission denied: skills:rate", 403)
+                        return error_response("Permission denied", 403)
                     return await self._rate_skill(skill_id, body or {}, auth_context)
 
                 # Verify skill (admin)
@@ -184,7 +184,7 @@ class SkillMarketplaceHandler(SecureHandler):
                     try:
                         self.check_permission(auth_context, "skills:admin")
                     except ForbiddenError:
-                        return error_response("Permission denied: skills:admin", 403)
+                        return error_response("Permission denied", 403)
                     return await self._set_verification(skill_id, True, auth_context)
 
                 # Revoke verification (admin)
@@ -194,7 +194,7 @@ class SkillMarketplaceHandler(SecureHandler):
                     try:
                         self.check_permission(auth_context, "skills:admin")
                     except ForbiddenError:
-                        return error_response("Permission denied: skills:admin", 403)
+                        return error_response("Permission denied", 403)
                     return await self._set_verification(skill_id, False, auth_context)
 
         return None

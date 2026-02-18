@@ -145,7 +145,8 @@ class AudioHandler(BaseHandler):
                 decision = checker.check_permission(auth_context, "debates.read")
 
                 if not decision.allowed:
-                    return error_response("Permission denied: debates.read", 403)
+                    logger.warning("Permission denied: debates.read")
+                    return error_response("Permission denied", 403)
 
                 # Additional ownership check for private debates
                 debate_owner = debate.get("owner_id") or debate.get("user_id")

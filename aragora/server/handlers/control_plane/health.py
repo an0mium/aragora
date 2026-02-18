@@ -469,7 +469,7 @@ class HealthHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:audit"
         ):
-            return error_response("Permission denied: controlplane:audit required", 403)
+            return error_response("Permission denied", 403)
 
         try:
             from aragora.control_plane.audit import AuditQuery, AuditAction, ActorType
@@ -606,7 +606,7 @@ class HealthHandlerMixin:
         if not _get_has_permission()(
             user.role if hasattr(user, "role") else None, "controlplane:audit"
         ):
-            return error_response("Permission denied: controlplane:audit required", 403)
+            return error_response("Permission denied", 403)
 
         try:
             audit_log = self.ctx.get("audit_log")
