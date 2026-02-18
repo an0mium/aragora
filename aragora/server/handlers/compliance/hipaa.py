@@ -328,19 +328,22 @@ class HIPAAMixin:
                     # Date filtering
                     event_time = event.get("timestamp")
                     if event_time:
-                        if isinstance(event_time, str):
-                            event_dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
-                        else:
-                            event_dt = event_time
+                        try:
+                            if isinstance(event_time, str):
+                                event_dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
+                            else:
+                                event_dt = event_time
 
-                        if from_date:
-                            from_dt = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
-                            if event_dt < from_dt:
-                                continue
-                        if to_date:
-                            to_dt = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
-                            if event_dt > to_dt:
-                                continue
+                            if from_date:
+                                from_dt = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
+                                if event_dt < from_dt:
+                                    continue
+                            if to_date:
+                                to_dt = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
+                                if event_dt > to_dt:
+                                    continue
+                        except ValueError:
+                            continue
 
                     phi_accesses.append(
                         {

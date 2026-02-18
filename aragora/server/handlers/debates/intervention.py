@@ -119,8 +119,11 @@ async def handle_resume_debate(debate_id: str, context: AuthorizationContext) ->
     # Calculate pause duration
     pause_duration = None
     if paused_at:
-        pause_start = datetime.fromisoformat(paused_at)
-        pause_duration = (datetime.now() - pause_start).total_seconds()
+        try:
+            pause_start = datetime.fromisoformat(paused_at)
+            pause_duration = (datetime.now() - pause_start).total_seconds()
+        except ValueError:
+            pause_duration = None
 
     log_intervention(
         debate_id,

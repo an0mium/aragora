@@ -488,10 +488,13 @@ class HealthHandlerMixin:
             # Parse query parameters
             start_time = None
             end_time = None
-            if query_params.get("start_time"):
-                start_time = datetime.fromisoformat(query_params["start_time"])
-            if query_params.get("end_time"):
-                end_time = datetime.fromisoformat(query_params["end_time"])
+            try:
+                if query_params.get("start_time"):
+                    start_time = datetime.fromisoformat(query_params["start_time"])
+                if query_params.get("end_time"):
+                    end_time = datetime.fromisoformat(query_params["end_time"])
+            except ValueError:
+                return error_response("Invalid date format. Use ISO 8601.", 400)
 
             actions = None
             if query_params.get("actions"):

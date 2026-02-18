@@ -204,10 +204,13 @@ async def handle_list_invoices(
         start_date = None
         end_date = None
 
-        if data.get("start_date"):
-            start_date = datetime.fromisoformat(data["start_date"])
-        if data.get("end_date"):
-            end_date = datetime.fromisoformat(data["end_date"])
+        try:
+            if data.get("start_date"):
+                start_date = datetime.fromisoformat(data["start_date"])
+            if data.get("end_date"):
+                end_date = datetime.fromisoformat(data["end_date"])
+        except ValueError:
+            return error_response("Invalid date format. Use ISO 8601.", 400)
 
         limit = max(1, min(int(data.get("limit", 100)), 1000))
         offset = max(0, int(data.get("offset", 0)))

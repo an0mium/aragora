@@ -176,10 +176,13 @@ class WorkspaceSettingsMixin:
         # Parse filters
         start_date = None
         end_date = None
-        if "start_date" in query_params:
-            start_date = datetime.fromisoformat(query_params["start_date"])
-        if "end_date" in query_params:
-            end_date = datetime.fromisoformat(query_params["end_date"])
+        try:
+            if "start_date" in query_params:
+                start_date = datetime.fromisoformat(query_params["start_date"])
+            if "end_date" in query_params:
+                end_date = datetime.fromisoformat(query_params["end_date"])
+        except ValueError:
+            return m.error_response("Invalid date format. Use ISO 8601.", 400)
 
         actor_id = query_params.get("actor_id")
         resource_id = query_params.get("resource_id")
@@ -255,10 +258,13 @@ class WorkspaceSettingsMixin:
 
         start_date = None
         end_date = None
-        if "start_date" in query_params:
-            start_date = datetime.fromisoformat(query_params["start_date"])
-        if "end_date" in query_params:
-            end_date = datetime.fromisoformat(query_params["end_date"])
+        try:
+            if "start_date" in query_params:
+                start_date = datetime.fromisoformat(query_params["start_date"])
+            if "end_date" in query_params:
+                end_date = datetime.fromisoformat(query_params["end_date"])
+        except ValueError:
+            return m.error_response("Invalid date format. Use ISO 8601.", 400)
 
         workspace_id = query_params.get("workspace_id")
         format_type = query_params.get("format", "json")
@@ -310,10 +316,13 @@ class WorkspaceSettingsMixin:
 
         start_date = None
         end_date = None
-        if "start_date" in query_params:
-            start_date = datetime.fromisoformat(query_params["start_date"])
-        if "end_date" in query_params:
-            end_date = datetime.fromisoformat(query_params["end_date"])
+        try:
+            if "start_date" in query_params:
+                start_date = datetime.fromisoformat(query_params["start_date"])
+            if "end_date" in query_params:
+                end_date = datetime.fromisoformat(query_params["end_date"])
+        except ValueError:
+            return m.error_response("Invalid date format. Use ISO 8601.", 400)
 
         audit_log = self._get_audit_log()
         is_valid, errors = self._run_async(

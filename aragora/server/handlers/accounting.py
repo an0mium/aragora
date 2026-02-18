@@ -564,12 +564,15 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
             start_date_str = request.query.get("start_date")
             end_date_str = request.query.get("end_date")
 
-            start_date = (
-                datetime.fromisoformat(start_date_str)
-                if start_date_str
-                else datetime.now() - timedelta(days=30)
-            )
-            end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.now()
+            try:
+                start_date = (
+                    datetime.fromisoformat(start_date_str)
+                    if start_date_str
+                    else datetime.now() - timedelta(days=30)
+                )
+                end_date = datetime.fromisoformat(end_date_str) if end_date_str else datetime.now()
+            except ValueError:
+                return web.json_response({"error": "Invalid date format. Use ISO 8601."}, status=400)
 
             transactions = []
 
@@ -665,8 +668,11 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
                 status=400,
             )
 
-        start_date = datetime.fromisoformat(start_date_str)
-        end_date = datetime.fromisoformat(end_date_str)
+        try:
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+        except ValueError:
+            return web.json_response({"error": "Invalid date format. Use ISO 8601."}, status=400)
 
         connector = await get_qbo_connector(request)
 

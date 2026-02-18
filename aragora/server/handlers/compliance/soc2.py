@@ -105,15 +105,18 @@ class SOC2Mixin:
         now = datetime.now(timezone.utc)
 
         # Default to last 90 days if not specified
-        if not period_end:
-            end_date = now
-        else:
-            end_date = datetime.fromisoformat(period_end.replace("Z", "+00:00"))
+        try:
+            if not period_end:
+                end_date = now
+            else:
+                end_date = datetime.fromisoformat(period_end.replace("Z", "+00:00"))
 
-        if not period_start:
-            start_date = end_date - timedelta(days=90)
-        else:
-            start_date = datetime.fromisoformat(period_start.replace("Z", "+00:00"))
+            if not period_start:
+                start_date = end_date - timedelta(days=90)
+            else:
+                start_date = datetime.fromisoformat(period_start.replace("Z", "+00:00"))
+        except ValueError:
+            return json_response({"error": "Invalid date format. Use ISO 8601."}, 400)
 
         # Evaluate controls
         controls = await self._evaluate_controls()
