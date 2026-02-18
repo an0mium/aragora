@@ -37,6 +37,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 
@@ -806,6 +807,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:write")
     async def handle_post_oauth_callback(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/oauth/callback"""
@@ -888,6 +890,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:write")
     async def handle_post_send(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/send"""
@@ -914,6 +917,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:write")
     async def handle_post_reply(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/outlook/reply"""
@@ -971,6 +975,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:write")
     async def handle_post_mark_read(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/read"""
@@ -986,6 +991,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:write")
     async def handle_post_move(self, data: dict[str, Any], message_id: str) -> HandlerResult:
         """POST /api/v1/outlook/messages/{message_id}/move"""
@@ -1005,6 +1011,7 @@ class OutlookHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("outlook operation")
     @require_permission("connectors:delete")
     async def handle_delete_message(self, params: dict[str, Any], message_id: str) -> HandlerResult:
         """DELETE /api/v1/outlook/messages/{message_id}"""

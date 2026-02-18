@@ -31,6 +31,7 @@ from .base import (
     get_string_param,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
@@ -188,6 +189,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         return error_response("Repository endpoint not found", 404)
 
+    @handle_errors("repository creation")
     @require_permission("repository:write")
     @rate_limit(requests_per_minute=30)
     async def handle_post(
@@ -220,6 +222,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         return error_response("Repository POST endpoint not found", 404)
 
+    @handle_errors("repository deletion")
     @require_permission("repository:delete")
     @rate_limit(requests_per_minute=30)
     async def handle_delete(

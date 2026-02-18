@@ -21,7 +21,7 @@ from aragora.moderation import (
     pop_review_item,
     review_queue_size,
 )
-from aragora.server.handlers.base import HandlerResult, json_response, error_response
+from aragora.server.handlers.base import HandlerResult, json_response, error_response, handle_errors
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.http_utils import run_async
@@ -91,6 +91,7 @@ class ModerationHandler(SecureHandler):
             return self._handle_get_queue(query_params, handler)
         return None
 
+    @handle_errors("moderation update")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -98,6 +99,7 @@ class ModerationHandler(SecureHandler):
             return self._handle_update_config(handler)
         return None
 
+    @handle_errors("moderation creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

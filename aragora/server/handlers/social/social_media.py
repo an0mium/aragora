@@ -30,6 +30,7 @@ from ..base import (
     error_response,
     get_host_header,
     json_response,
+    handle_errors,
 )
 
 if TYPE_CHECKING:
@@ -310,6 +311,7 @@ class SocialMediaHandler(BaseHandler):
 
         return None
 
+    @handle_errors("social media creation")
     @require_permission("social:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

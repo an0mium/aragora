@@ -24,6 +24,7 @@ from .base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from .utils.rate_limit import rate_limit
 
@@ -100,6 +101,7 @@ class UncertaintyHandler(BaseHandler):
 
         return None
 
+    @handle_errors("uncertainty creation")
     @require_permission("uncertainty:read")
     @rate_limit(requests_per_minute=60)
     async def handle_post(

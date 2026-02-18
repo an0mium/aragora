@@ -44,6 +44,7 @@ from .base import (
     get_int_param,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from .secure import SecureHandler
 from .utils.auth_mixins import SecureEndpointMixin, require_permission
@@ -644,6 +645,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
     # POST Handlers - Control Operations
     # =========================================================================
 
+    @handle_errors("nomic creation")
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(

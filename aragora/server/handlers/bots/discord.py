@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -267,6 +268,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
+    @handle_errors("discord creation")
     @rate_limit(requests_per_minute=30)
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

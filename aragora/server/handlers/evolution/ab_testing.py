@@ -128,6 +128,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
         return None
 
+    @handle_errors("evolution a b testing creation")
     @require_permission("testing:create")
     def handle_post(
         self, path: str, body: dict[str, Any], handler: Any = None
@@ -163,6 +164,7 @@ class EvolutionABTestingHandler(BaseHandler):
 
         return None
 
+    @handle_errors("evolution a b testing deletion")
     @require_permission("testing:delete")
     def handle_delete(
         self, path: str, query_params: dict, handler: Any = None

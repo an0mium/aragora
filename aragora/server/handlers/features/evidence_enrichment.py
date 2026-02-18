@@ -113,6 +113,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 return self._get_finding_evidence(finding_id, handler=handler)
         return None
 
+    @handle_errors("evidence enrichment creation")
     @require_permission("evidence:write")
     @rate_limit(requests_per_minute=30, limiter_name="evidence_enrichment_write")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:

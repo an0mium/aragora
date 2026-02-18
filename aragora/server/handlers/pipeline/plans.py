@@ -24,6 +24,7 @@ from ..base import (
     get_string_param,
     json_response,
     validate_path_segment,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -79,6 +80,7 @@ class PlanManagementHandler(BaseHandler):
 
         return None
 
+    @handle_errors("plan management update")
     @require_permission("plans:approve")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any

@@ -103,6 +103,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
+    @handle_errors("scheduler creation")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         _, perm_error = self.require_permission_or_error(handler, "scheduler:write")
@@ -139,6 +140,7 @@ class SchedulerHandler(BaseHandler):
 
         return None
 
+    @handle_errors("scheduler deletion")
     def handle_delete(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route DELETE requests to appropriate methods."""
         _, perm_error = self.require_permission_or_error(handler, "scheduler:delete")

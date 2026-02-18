@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ class ConnectorManagementHandler(BaseHandler):
     # POST routing
     # ------------------------------------------------------------------
 
+    @handle_errors("connector management creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

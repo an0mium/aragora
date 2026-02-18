@@ -158,6 +158,7 @@ class TournamentHandler(BaseHandler):
 
         return None
 
+    @handle_errors("tournament creation")
     @require_permission("tournaments:create")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for tournament creation and updates."""

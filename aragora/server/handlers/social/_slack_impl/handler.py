@@ -26,6 +26,7 @@ from .config import (
     json_response,
     get_slack_integration,
 )
+from aragora.server.handlers.base import handle_errors
 from .commands import CommandsMixin
 from .events import EventsMixin
 from .interactive import InteractiveMixin
@@ -167,6 +168,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             logger.debug(f"Failed to extract team_id: {e}")
         return None
 
+    @handle_errors("slack creation")
     def handle_post(
         self, path: str, body: dict[str, Any], handler: Any
     ) -> Awaitable[HandlerResult | None]:

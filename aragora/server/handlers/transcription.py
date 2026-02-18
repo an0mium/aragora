@@ -38,6 +38,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
@@ -517,6 +518,7 @@ class TranscriptionHandler(BaseHandler):
 
         return None
 
+    @handle_errors("transcription creation")
     @rate_limit(requests_per_minute=10)
     @require_permission("transcription:create")
     async def handle_post(

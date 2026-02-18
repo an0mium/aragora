@@ -18,6 +18,7 @@ from ...base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    handle_errors,
 )
 from ._common import (
     PERM_TELEGRAM_ADMIN,
@@ -82,6 +83,7 @@ class TelegramHandler(
 
         return error_response("Not found", 404)
 
+    @handle_errors("telegram creation")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         return self.handle(path, {}, handler)

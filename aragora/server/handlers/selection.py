@@ -151,6 +151,7 @@ class SelectionHandler(BaseHandler):
             return self._get_role_assigner(name)
         return None
 
+    @handle_errors("selection creation")
     @require_permission("selection:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""

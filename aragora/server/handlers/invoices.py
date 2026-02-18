@@ -45,6 +45,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -1250,6 +1251,7 @@ class InvoiceHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
+    @handle_errors("invoice creation")
     @require_permission("finance:write")
     async def handle_post(
         self,

@@ -25,6 +25,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -116,6 +117,7 @@ class GmailQueryHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail query creation")
     async def handle_post(
         self,
         path: str,

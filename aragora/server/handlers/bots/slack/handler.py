@@ -16,6 +16,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -248,6 +249,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         }
         return await self.handle_status_request(handler, extra_status)
 
+    @handle_errors("slack creation")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

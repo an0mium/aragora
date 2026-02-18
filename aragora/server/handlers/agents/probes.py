@@ -90,6 +90,7 @@ class ProbesHandler(BaseHandler):
             return self._get_probe_report(handler, report_id)
         return None
 
+    @handle_errors("probes creation")
     @require_permission("probes:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

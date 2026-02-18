@@ -21,6 +21,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 from aragora.server.handlers.utils.url_security import validate_webhook_url
@@ -128,6 +129,7 @@ class SharingNotificationsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("sharing notifications creation")
     def handle_post(
         self,
         path: str,
@@ -192,6 +194,7 @@ class SharingNotificationsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("sharing notifications update")
     def handle_put(
         self,
         path: str,

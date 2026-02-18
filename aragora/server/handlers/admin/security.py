@@ -19,6 +19,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -109,6 +110,7 @@ class SecurityHandler(SecureHandler):
             return endpoint_handler(handler)
         return None
 
+    @handle_errors("security creation")
     @require_permission("admin:security:write")
     def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""

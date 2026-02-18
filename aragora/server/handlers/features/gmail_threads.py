@@ -29,6 +29,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from .gmail_ingest import get_user_state
@@ -126,6 +127,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail threads creation")
     async def handle_post(
         self,
         path: str,
@@ -181,6 +183,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail threads update")
     async def handle_put(
         self,
         path: str,
@@ -216,6 +219,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail threads deletion")
     async def handle_delete(
         self,
         path: str,

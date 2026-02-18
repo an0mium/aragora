@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -393,6 +394,7 @@ class NotificationsHandler(SecureHandler):
 
         return None
 
+    @handle_errors("notifications creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -441,6 +443,7 @@ class NotificationsHandler(SecureHandler):
 
         return None
 
+    @handle_errors("notifications deletion")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

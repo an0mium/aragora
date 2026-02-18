@@ -20,6 +20,7 @@ from aragora.server.handlers.base import (
     error_response,
     get_clamped_int_param,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.openapi_decorator import api_endpoint
@@ -469,6 +470,7 @@ class KnowledgeChatHandler(BaseHandler):
 
         return None
 
+    @handle_errors("knowledge chat creation")
     @rate_limit(requests_per_minute=30, limiter_name="knowledge_chat_write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

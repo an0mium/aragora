@@ -95,6 +95,7 @@ class RoutingHandler(BaseHandler):
             return self._get_domain_leaderboard(domain, limit)
         return None
 
+    @handle_errors("routing creation")
     @require_permission("routing:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""

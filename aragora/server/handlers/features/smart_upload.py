@@ -249,6 +249,7 @@ try:
         auto_error_response,  # noqa: F401
         error_response,
         json_response,
+    handle_errors,
     )
     from ..utils.rate_limit import rate_limit  # noqa: F401
     from aragora.rbac.decorators import require_permission
@@ -1110,6 +1111,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return None
 
+        @handle_errors("smart upload creation")
         @require_permission("upload:create")
         @rate_limit(requests_per_minute=20)
         async def handle_post(

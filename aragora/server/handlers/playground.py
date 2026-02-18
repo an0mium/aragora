@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -428,6 +429,7 @@ class PlaygroundHandler(BaseHandler):
     # POST /api/v1/playground/debate
     # ------------------------------------------------------------------
 
+    @handle_errors("playground creation")
     def handle_post(
         self,
         path: str,

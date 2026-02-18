@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -175,6 +176,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
+    @handle_errors("whats app creation")
     @rate_limit(requests_per_minute=1000, limiter_name="whatsapp_webhook")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

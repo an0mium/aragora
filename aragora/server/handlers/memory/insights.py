@@ -110,6 +110,7 @@ class InsightsHandler(SecureHandler):
 
         return None
 
+    @handle_errors("insights creation")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:

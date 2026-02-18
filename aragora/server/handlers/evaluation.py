@@ -90,6 +90,7 @@ class EvaluationHandler(BaseHandler):
             return self._list_profiles()
         return None
 
+    @handle_errors("evaluation creation")
     @require_permission("evaluation:create")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

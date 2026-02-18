@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import (
     ForbiddenError,
@@ -486,6 +487,7 @@ class MetricsHandler(SecureHandler):
             return error_response("Permission denied", 403)
         return None
 
+    @handle_errors("metrics operation")
     async def handle_post_analyze(
         self, data: dict[str, Any], repo_id: str, handler: Any = None
     ) -> HandlerResult:

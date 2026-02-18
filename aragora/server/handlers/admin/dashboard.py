@@ -23,6 +23,7 @@ from ..base import (
     get_int_param,
     json_response,
     ttl_cache,
+    handle_errors,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import _get_limiter, get_client_ip
@@ -219,6 +220,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
 
         return None
 
+    @handle_errors("dashboard creation")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:

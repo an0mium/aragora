@@ -41,6 +41,7 @@ try:
         HandlerResult,
         error_response,
         json_response,
+    handle_errors,
     )
     from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 
@@ -394,6 +395,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
+        @handle_errors("cloud storage creation")
         @rate_limit(requests_per_minute=30)
         async def handle_post(
             self,

@@ -23,6 +23,7 @@ from ..base import (
     TypedHandler,
     json_response,
     error_response,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 
@@ -90,6 +91,7 @@ class ExampleTypedHandler(TypedHandler):
 
         return None
 
+    @handle_errors("example typed creation")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler

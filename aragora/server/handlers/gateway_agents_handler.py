@@ -189,6 +189,7 @@ class GatewayAgentsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway agents creation")
     @require_permission("gateway:agent.create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -206,6 +207,7 @@ class GatewayAgentsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway agents deletion")
     @require_permission("gateway:agent.delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

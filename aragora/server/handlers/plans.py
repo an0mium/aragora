@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.routing import RouteDispatcher
 from aragora.server.validation.query_params import safe_query_int
@@ -133,6 +134,7 @@ class PlansHandler(BaseHandler):
         # Try path param routes not matched by dispatcher segment count
         return self._try_get_by_id(path, query_params)
 
+    @handle_errors("plans creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

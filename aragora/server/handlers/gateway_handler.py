@@ -244,6 +244,7 @@ class GatewayHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway creation")
     @require_permission("gateway:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -273,6 +274,7 @@ class GatewayHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway deletion")
     @require_permission("gateway:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

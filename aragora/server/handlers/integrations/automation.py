@@ -40,6 +40,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
@@ -199,6 +200,7 @@ class AutomationHandler(SecureHandler):
 
         return None
 
+    @handle_errors("automation creation")
     async def handle_post(
         self,
         path: str,
@@ -227,6 +229,7 @@ class AutomationHandler(SecureHandler):
 
         return None
 
+    @handle_errors("automation deletion")
     def handle_delete(
         self,
         path: str,

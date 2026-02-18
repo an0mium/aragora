@@ -17,6 +17,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int
@@ -150,6 +151,7 @@ class SharedInboxHandler(BaseHandler):
         """Route shared inbox endpoint requests."""
         return None
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:create")
     async def handle_post_shared_inbox(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/shared"""
@@ -239,6 +241,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:manage")
     async def handle_post_assign_message(
         self, data: dict[str, Any], inbox_id: str, message_id: str
@@ -272,6 +275,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:manage")
     async def handle_post_update_status(
         self, data: dict[str, Any], inbox_id: str, message_id: str
@@ -302,6 +306,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:manage")
     async def handle_post_add_tag(
         self, data: dict[str, Any], inbox_id: str, message_id: str
@@ -327,6 +332,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:admin")
     async def handle_post_routing_rule(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/routing/rules"""
@@ -376,6 +382,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:admin")
     async def handle_patch_routing_rule(self, data: dict[str, Any], rule_id: str) -> HandlerResult:
         """PATCH /api/v1/inbox/routing/rules/:id"""
@@ -386,6 +393,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:admin")
     async def handle_delete_routing_rule(self, rule_id: str) -> HandlerResult:
         """DELETE /api/v1/inbox/routing/rules/:id"""
@@ -396,6 +404,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("shared inbox operation")
     @require_permission("inbox:admin")
     async def handle_post_test_routing_rule(
         self, data: dict[str, Any], rule_id: str

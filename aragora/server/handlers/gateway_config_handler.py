@@ -115,6 +115,7 @@ class GatewayConfigHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway config creation")
     @require_permission("gateway:admin")
     @rate_limit(requests_per_minute=5, limiter_name="gateway_config_write")
     def handle_post(

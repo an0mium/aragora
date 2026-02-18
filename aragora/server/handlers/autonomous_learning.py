@@ -52,6 +52,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -559,6 +560,7 @@ class AutonomousLearningHandler(BaseHandler):
             cb.record_failure()
             return error_response("Internal server error", 500)
 
+    @handle_errors("autonomous learning creation")
     @rate_limit(requests_per_minute=30)
     @require_permission("debates:write")
     async def handle_post(

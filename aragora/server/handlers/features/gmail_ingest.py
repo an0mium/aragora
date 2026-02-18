@@ -39,6 +39,7 @@ from ..base import (
     error_response,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -200,6 +201,7 @@ class GmailIngestHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail ingest creation")
     async def handle_post(
         self,
         path: str,

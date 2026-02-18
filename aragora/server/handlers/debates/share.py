@@ -25,6 +25,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -223,6 +224,7 @@ class DebateShareHandler(BaseHandler):
     # POST /api/v1/debates/{id}/share
     # ------------------------------------------------------------------
 
+    @handle_errors("debate share creation")
     @require_permission("debates:write")
     def handle_post(
         self,
@@ -264,6 +266,7 @@ class DebateShareHandler(BaseHandler):
     # DELETE /api/v1/debates/{id}/share
     # ------------------------------------------------------------------
 
+    @handle_errors("debate share deletion")
     @require_permission("debates:write")
     def handle_delete(
         self,

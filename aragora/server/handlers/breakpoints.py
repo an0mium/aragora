@@ -30,6 +30,7 @@ from .base import (
     json_response,
     safe_error_message,
     validate_path_segment,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
@@ -119,6 +120,7 @@ class BreakpointsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("breakpoints creation")
     @require_permission("breakpoints:update")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for breakpoint resolution."""

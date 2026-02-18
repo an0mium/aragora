@@ -25,6 +25,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from .gmail_ingest import get_user_state
@@ -97,6 +98,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail labels creation")
     async def handle_post(
         self,
         path: str,
@@ -152,6 +154,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail labels modification")
     async def handle_patch(
         self,
         path: str,
@@ -186,6 +189,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("gmail labels deletion")
     async def handle_delete(
         self,
         path: str,

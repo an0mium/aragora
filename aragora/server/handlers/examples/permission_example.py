@@ -22,6 +22,7 @@ from ..base import (
     PermissionHandler,
     json_response,
     error_response,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 
@@ -96,6 +97,7 @@ class ExamplePermissionHandler(PermissionHandler):
 
         return None
 
+    @handle_errors("example permission creation")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
@@ -111,6 +113,7 @@ class ExamplePermissionHandler(PermissionHandler):
 
         return None
 
+    @handle_errors("example permission deletion")
     @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler

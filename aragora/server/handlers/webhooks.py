@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint, path_param, query_param
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -337,6 +338,7 @@ class WebhookHandler(SecureHandler):
 
         return None
 
+    @handle_errors("webhook creation")
     @api_endpoint(
         path="/api/v1/webhooks",
         method="POST",
@@ -439,6 +441,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         return None
 
+    @handle_errors("webhook deletion")
     @api_endpoint(
         path="/api/v1/webhooks/{webhook_id}",
         method="DELETE",
@@ -489,6 +492,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         return None
 
+    @handle_errors("webhook modification")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

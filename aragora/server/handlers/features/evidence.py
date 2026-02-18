@@ -42,6 +42,7 @@ from aragora.server.handlers.base import (
     get_string_param,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.validation.security import (
@@ -264,6 +265,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @handle_errors("evidence creation")
     @require_permission("evidence:create")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -307,6 +309,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @handle_errors("evidence deletion")
     @require_permission("evidence:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

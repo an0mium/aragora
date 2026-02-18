@@ -67,6 +67,7 @@ class VerificationHandler(BaseHandler):
             return self._get_status()
         return None
 
+    @handle_errors("verification creation")
     @require_permission("verification:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

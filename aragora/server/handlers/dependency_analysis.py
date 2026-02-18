@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -513,6 +514,7 @@ class DependencyAnalysisHandler(BaseHandler):
         """Route dependency analysis endpoint requests."""
         return None
 
+    @handle_errors("dependency analysis creation")
     @rate_limit(requests_per_minute=30)
     @require_permission("debates:write")
     async def handle_post(

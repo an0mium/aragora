@@ -251,6 +251,7 @@ class ComputerUseHandler(BaseHandler):
 
         return None
 
+    @handle_errors("computer use creation")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

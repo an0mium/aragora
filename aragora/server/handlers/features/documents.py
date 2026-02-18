@@ -134,6 +134,7 @@ class DocumentHandler(BaseHandler):
 
         return None
 
+    @handle_errors("document creation")
     @require_permission("documents:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -156,6 +157,7 @@ class DocumentHandler(BaseHandler):
             )
         return None
 
+    @handle_errors("document deletion")
     @require_permission("documents:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

@@ -90,6 +90,7 @@ try:
         auto_error_response,  # noqa: F401
         error_response,
         json_response,
+    handle_errors,
     )
     from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit  # noqa: F401
 
@@ -785,6 +786,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return None  # Let handle_post handle it
 
+        @handle_errors("chat creation")
         async def handle_post(
             self, path: str, body: dict[str, Any], handler: Any
         ) -> HandlerResult | None:

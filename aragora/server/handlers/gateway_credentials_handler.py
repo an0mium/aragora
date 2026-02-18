@@ -203,6 +203,7 @@ class GatewayCredentialsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway credentials creation")
     @require_permission("gateway:credential.create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -223,6 +224,7 @@ class GatewayCredentialsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("gateway credentials deletion")
     @require_permission("gateway:credential.delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

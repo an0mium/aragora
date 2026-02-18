@@ -217,6 +217,7 @@ class FolderUploadHandler(BaseHandler):
 
         return None
 
+    @handle_errors("folder upload creation")
     @require_permission("upload:create")
     @rate_limit(requests_per_minute=10)
     async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
@@ -229,6 +230,7 @@ class FolderUploadHandler(BaseHandler):
 
         return None
 
+    @handle_errors("folder upload deletion")
     @require_permission("upload:delete")
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE folder requests."""

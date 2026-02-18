@@ -59,6 +59,7 @@ from ..base import (
     safe_error_message,
     ttl_cache,
     validate_path_segment,
+    handle_errors,
 )
 from ..utils.lazy_stores import LazyStore
 from ..utils.rate_limit import rate_limit
@@ -544,6 +545,7 @@ class PulseHandler(BaseHandler):
             status=404,
         )
 
+    @handle_errors("pulse creation")
     @require_permission("pulse:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -561,6 +563,7 @@ class PulseHandler(BaseHandler):
             return self._resume_scheduler(handler)
         return None
 
+    @handle_errors("pulse modification")
     @require_permission("pulse:update")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any

@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 
@@ -1121,6 +1122,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         """Route audit-GitHub bridge endpoint requests."""
         return None
 
+    @handle_errors("audit git hub bridge operation")
     @require_permission("connectors:write")
     async def handle_post_create_issue(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues"""
@@ -1144,6 +1146,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("audit git hub bridge operation")
     @require_permission("connectors:write")
     async def handle_post_bulk_create_issues(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/issues/bulk"""
@@ -1168,6 +1171,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("audit git hub bridge operation")
     @require_permission("connectors:write")
     async def handle_post_create_pr(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/audit/pr"""
@@ -1193,6 +1197,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("audit git hub bridge operation")
     @require_permission("connectors:write")
     async def handle_post_sync_session(
         self, data: dict[str, Any], session_id: str

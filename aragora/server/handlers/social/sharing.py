@@ -367,6 +367,7 @@ class SharingHandler(BaseHandler):
 
         return None
 
+    @handle_errors("sharing creation")
     @require_permission("sharing:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests."""

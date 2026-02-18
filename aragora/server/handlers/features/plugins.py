@@ -254,6 +254,7 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
+    @handle_errors("plugins creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -292,6 +293,7 @@ class PluginsHandler(BaseHandler):
             return self._add_sunset_header_if_legacy(path, response, handler)
         return None
 
+    @handle_errors("plugins deletion")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

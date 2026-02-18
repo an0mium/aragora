@@ -15,6 +15,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -93,6 +94,7 @@ class EmailHandler(BaseHandler):
         # The actual handling is done via HTTP method-specific handlers
         return None
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/prioritize",
@@ -125,6 +127,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/rank-inbox",
@@ -157,6 +160,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/feedback",
@@ -194,6 +198,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/feedback/batch",
@@ -227,6 +232,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/categorize",
@@ -257,6 +263,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/categorize/batch",
@@ -292,6 +299,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/categorize/apply-label",
@@ -393,6 +401,7 @@ class EmailHandler(BaseHandler):
         )
         return success_response(result)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="PUT",
         path="/api/v1/email/config",
@@ -420,6 +429,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/vip",
@@ -452,6 +462,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="DELETE",
         path="/api/v1/email/vip",
@@ -484,6 +495,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/gmail/oauth/url",
@@ -519,6 +531,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/gmail/oauth/callback",
@@ -612,6 +625,7 @@ class EmailHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("email operation")
     @api_endpoint(
         method="POST",
         path="/api/v1/email/context/boost",

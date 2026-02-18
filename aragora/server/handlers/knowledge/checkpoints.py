@@ -27,6 +27,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import (
@@ -658,6 +659,7 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
+    @handle_errors("k m checkpoint creation")
     @require_permission("knowledge:write")
     async def handle_post(
         self,
@@ -688,6 +690,7 @@ class KMCheckpointHandler(BaseHandler):
 
         return error_response("Not found", status=404)
 
+    @handle_errors("k m checkpoint deletion")
     @require_permission("knowledge:delete")
     async def handle_delete(
         self,

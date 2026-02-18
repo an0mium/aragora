@@ -52,6 +52,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..utils.rate_limit import rate_limit
 
@@ -202,6 +203,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         return None
 
+    @handle_errors("teams integration creation")
     @rate_limit(requests_per_minute=30, limiter_name="teams_commands")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

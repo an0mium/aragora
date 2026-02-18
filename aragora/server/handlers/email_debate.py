@@ -17,6 +17,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -53,6 +54,7 @@ class EmailDebateHandler(BaseHandler):
         """Handle GET requests (not supported)."""
         return error_response("Use POST method for email vetted decisionmaking", 405)
 
+    @handle_errors("email debate creation")
     @require_permission("email:create")
     async def handle_post(
         self, path: str, query_params: dict, handler=None

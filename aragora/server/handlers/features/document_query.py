@@ -56,6 +56,7 @@ class DocumentQueryHandler(BaseHandler):
             "Use POST method for document queries", 405, code="METHOD_NOT_ALLOWED"
         )
 
+    @handle_errors("document query creation")
     @require_permission("documents:read")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""

@@ -73,7 +73,6 @@ ROUTES = [
 
 # Endpoints that require authentication
 AUTH_REQUIRED_ENDPOINTS = [
-    "/api/v1/debates",  # List all debates - prevents enumeration
     "/api/v1/debates/batch",  # Batch submission requires auth
     "/export/",  # Export debate data
     "/citations",  # Evidence citations

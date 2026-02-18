@@ -35,7 +35,7 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
-from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.base import BaseHandler, HandlerResult, handle_errors
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.core import sanitize_string
 
@@ -546,6 +546,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception("Error creating template: %s", e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @handle_errors("marketplace operation")
     @require_permission("marketplace:delete")
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.delete")
     def handle_delete_template(self, template_id: str) -> HandlerResult:

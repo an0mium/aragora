@@ -123,6 +123,7 @@ class HybridDebateHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @handle_errors("hybrid debate creation")
     @require_permission("gateway:hybrid_debate")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

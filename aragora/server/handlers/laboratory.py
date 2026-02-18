@@ -77,6 +77,7 @@ class LaboratoryHandler(BaseHandler):
             return self._get_emergent_traits(min_confidence, limit)
         return None
 
+    @handle_errors("laboratory creation")
     @require_permission("laboratory:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""

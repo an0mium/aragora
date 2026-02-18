@@ -23,6 +23,7 @@ from ..base import (
     HandlerResult,
     json_response,
     error_response,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 
@@ -74,6 +75,7 @@ class ExampleAsyncHandler(AsyncTypedHandler):
 
         return None
 
+    @handle_errors("example async creation")
     @require_permission("debates:write")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler

@@ -28,6 +28,7 @@ from .base import (
     error_response,
     get_int_param,
     json_response,
+    handle_errors,
 )
 from .secure import SecureHandler
 from .utils.auth_mixins import SecureEndpointMixin, require_permission
@@ -108,6 +109,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         return None
 
+    @handle_errors("self improve creation")
     @require_permission("self_improve:admin")
     @rate_limit(requests_per_minute=10)
     async def handle_post(

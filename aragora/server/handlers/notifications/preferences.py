@@ -19,6 +19,7 @@ from ..base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -81,6 +82,7 @@ class NotificationPreferencesHandler(BaseHandler):
 
         return self._get_preferences(handler)
 
+    @handle_errors("notification preferences update")
     @require_permission("notifications:manage_preferences")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any

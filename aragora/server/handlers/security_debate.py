@@ -29,6 +29,7 @@ from .base import (
     error_response,
     json_response,
     require_permission,
+    handle_errors,
 )
 from .secure import SecureHandler
 
@@ -61,6 +62,7 @@ class SecurityDebateHandler(SecureHandler):
             return self.get_api_v1_audit_security_debate_id(parts[-1])
         return None
 
+    @handle_errors("security debate creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

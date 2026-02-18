@@ -464,6 +464,8 @@ class HandlerRegistryMixin:
                 result = _run_handler_coroutine(result)
 
             if result:
+                # Track status for request lifecycle logging
+                self._response_status = result.status_code
                 # Log successful handler dispatch at debug level
                 logger.debug(
                     "[handlers] %s %s -> %s (status=%d)",

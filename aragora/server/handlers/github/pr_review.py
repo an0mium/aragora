@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     success_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.services import ServiceRegistry
@@ -1138,6 +1139,7 @@ class PRReviewHandler(BaseHandler):
         """Route PR review endpoint requests."""
         return None
 
+    @handle_errors("p r review operation")
     @require_permission("github:pr:review")
     async def handle_post_trigger_review(self, data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/pr/review"""
@@ -1206,6 +1208,7 @@ class PRReviewHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @handle_errors("p r review operation")
     @require_permission("github:pr:write")
     async def handle_post_submit_review(
         self, data: dict[str, Any], pr_number: int

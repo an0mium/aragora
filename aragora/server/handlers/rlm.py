@@ -140,6 +140,7 @@ class RLMContextHandler(BaseHandler):
 
         return None
 
+    @handle_errors("r l m context creation")
     @rate_limit(requests_per_minute=30)
     @require_permission("rlm:create")
     def handle_post(
@@ -158,6 +159,7 @@ class RLMContextHandler(BaseHandler):
 
         return None
 
+    @handle_errors("r l m context deletion")
     @rate_limit(requests_per_minute=30)
     @require_permission("rlm:delete")
     def handle_delete(

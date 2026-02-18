@@ -21,6 +21,7 @@ from ..base import (
     AuthenticatedHandler,
     HandlerResult,
     json_response,
+    handle_errors,
 )
 from ..utils.decorators import require_permission
 
@@ -88,6 +89,7 @@ class ExampleAuthenticatedHandler(AuthenticatedHandler):
 
         return None
 
+    @handle_errors("example authenticated creation")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler

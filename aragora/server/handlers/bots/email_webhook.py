@@ -41,6 +41,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -118,6 +119,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             return await self.handle_status_request(handler)
         return None
 
+    @handle_errors("email webhook creation")
     @rate_limit(requests_per_minute=120)
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

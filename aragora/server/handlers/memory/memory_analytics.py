@@ -110,6 +110,7 @@ class MemoryAnalyticsHandler(SecureHandler):
 
         return None
 
+    @handle_errors("memory analytics creation")
     async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:

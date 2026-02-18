@@ -27,6 +27,7 @@ from typing import Any, Literal, Protocol, cast, runtime_checkable
 from aragora.server.handlers.base import (
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
@@ -226,6 +227,7 @@ class IntegrationsHandler(SecureHandler):
 
         return error_response("Not found", status=404)
 
+    @handle_errors("integrations creation")
     async def handle_post(
         self,
         path: str,
@@ -282,6 +284,7 @@ class IntegrationsHandler(SecureHandler):
 
         return error_response("Not found", status=404)
 
+    @handle_errors("integrations update")
     async def handle_put(
         self,
         path: str,
@@ -313,6 +316,7 @@ class IntegrationsHandler(SecureHandler):
             )
         return error_response("Not found", status=404)
 
+    @handle_errors("integrations modification")
     async def handle_patch(
         self,
         path: str,
@@ -344,6 +348,7 @@ class IntegrationsHandler(SecureHandler):
             )
         return error_response("Not found", status=404)
 
+    @handle_errors("integrations deletion")
     async def handle_delete(
         self,
         path: str,

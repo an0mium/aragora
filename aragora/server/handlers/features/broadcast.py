@@ -28,6 +28,7 @@ from ..base import (
     get_int_param,
     get_string_param,
     json_response,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 
@@ -93,6 +94,7 @@ class BroadcastHandler(BaseHandler):
         """Handle GET requests (none for this handler - POST only)."""
         return None
 
+    @handle_errors("broadcast creation")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

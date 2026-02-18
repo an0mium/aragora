@@ -29,6 +29,7 @@ from ..base import (
     HandlerResult,
     error_response,
     get_bounded_string_param,
+    handle_errors,
 )
 from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
@@ -235,6 +236,7 @@ class MemoryHandler(
 
         return None
 
+    @handle_errors("memory creation")
     @require_permission("memory:manage")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -274,6 +276,7 @@ class MemoryHandler(
 
         return None
 
+    @handle_errors("memory deletion")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

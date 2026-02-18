@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -187,6 +188,7 @@ class StreamingConnectorHandler(BaseHandler):
     # POST routing
     # ------------------------------------------------------------------
 
+    @handle_errors("streaming connector creation")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -228,6 +230,7 @@ class StreamingConnectorHandler(BaseHandler):
     # PUT routing
     # ------------------------------------------------------------------
 
+    @handle_errors("streaming connector update")
     def handle_put(
         self,
         path: str,

@@ -26,6 +26,7 @@ from ..base import (
     error_response,
     json_response,
     safe_error_message,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
@@ -131,6 +132,7 @@ class DocumentBatchHandler(BaseHandler):
 
         return None
 
+    @handle_errors("document batch creation")
     @require_permission("documents:create")
     async def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests."""
@@ -142,6 +144,7 @@ class DocumentBatchHandler(BaseHandler):
             return await self._upload_batch(handler)
         return None
 
+    @handle_errors("document batch deletion")
     @require_permission("documents:delete")
     async def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests."""

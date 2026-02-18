@@ -180,7 +180,7 @@ class DebatesHandler(
             return self._handle_batch_export(normalized, query_params, handler)
 
         # Exact path matches - list debates
-        if normalized == "/api/debates":
+        if normalized in ("/api/debates", "/api/debates/"):
             limit = min(get_int_param(query_params, "limit", 20), 100)
             # Get authenticated user for org-scoped results
             user = self.get_current_user(handler)
@@ -301,6 +301,7 @@ class DebatesHandler(
 
         return error_response(f"Unknown batch export endpoint: {path}", 404)
 
+    @handle_errors("debates creation")
     @require_permission("debates:create")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -361,6 +362,7 @@ class DebatesHandler(
 
         return None
 
+    @handle_errors("debates modification")
     @require_permission("debates:update")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -375,6 +377,7 @@ class DebatesHandler(
                 return self._patch_debate(handler, debate_id)
         return None
 
+    @handle_errors("debates deletion")
     @require_permission("debates:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

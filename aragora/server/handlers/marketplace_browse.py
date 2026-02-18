@@ -26,6 +26,7 @@ from .base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
@@ -92,6 +93,7 @@ class MarketplaceBrowseHandler(BaseHandler):
 
         return None
 
+    @handle_errors("marketplace browse creation")
     @require_permission("marketplace:write")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests (rating)."""

@@ -25,6 +25,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
@@ -142,6 +143,7 @@ class DecisionHandler(BaseHandler):
 
         return None
 
+    @handle_errors("decision creation")
     async def handle_post(
         self, path: str, query_params: dict, handler=None
     ) -> HandlerResult | None:

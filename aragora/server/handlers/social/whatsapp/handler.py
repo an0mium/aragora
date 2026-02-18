@@ -34,6 +34,7 @@ from ...base import (
     HandlerResult,
     error_response,
     json_response,
+    handle_errors,
 )
 from .commands import (
     command_agents,
@@ -296,6 +297,7 @@ class WhatsAppHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
+    @handle_errors("whats app creation")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests."""
         return self.handle(path, {}, handler)
