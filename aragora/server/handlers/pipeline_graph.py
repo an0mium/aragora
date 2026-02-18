@@ -144,43 +144,48 @@ class PipelineGraphHandler:
 
     def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch DELETE requests."""
-        auth_error = self._check_permission(handler, "pipeline:write")
-        if auth_error:
-            return auth_error
-
-        # DELETE /api/v1/pipeline/graph/{id}/node/{node_id}
+        # Match route first so unknown paths return None (letting other handlers try)
         m = _GRAPH_NODE_ID.match(path)
         if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
             return self.handle_remove_node(m.group(1), m.group(2))
 
-        # DELETE /api/v1/pipeline/graph/{id}
         m = _GRAPH_ID.match(path)
         if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
             return self.handle_delete_graph(m.group(1))
 
         return None
 
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests."""
-        auth_error = self._check_permission(handler, "pipeline:write")
-        if auth_error:
-            return auth_error
-
-        body = self._get_request_body(handler)
-
-        # POST /api/v1/pipeline/graph/{id}/promote
+        # Match route first so unknown paths return None (letting other handlers try)
         m = _GRAPH_PROMOTE.match(path)
         if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
             return self.handle_promote(m.group(1), body)
 
-        # POST /api/v1/pipeline/graph/{id}/node
         m = _GRAPH_NODE.match(path)
         if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
             return self.handle_add_node(m.group(1), body)
 
-        # POST /api/v1/pipeline/graph (create)
         m = _GRAPH_LIST.match(path)
         if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
             return self.handle_create_graph(body)
 
         return None
