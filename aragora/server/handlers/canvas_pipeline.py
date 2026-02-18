@@ -172,28 +172,32 @@ class CanvasPipelineHandler:
 
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests to the appropriate handler method."""
+        # Match route first so unknown paths return None (letting other handlers try)
+        route_map = {
+            "/from-debate": self.handle_from_debate,
+            "/from-ideas": self.handle_from_ideas,
+            "/pipeline/advance": self.handle_advance,
+            "/pipeline/run": self.handle_run,
+            "/pipeline/extract-goals": self.handle_extract_goals,
+            "/convert/debate": self.handle_convert_debate,
+            "/convert/workflow": self.handle_convert_workflow,
+        }
+
+        target = None
+        for suffix, method in route_map.items():
+            if path.endswith(suffix):
+                target = method
+                break
+
+        if target is None:
+            return None
+
         auth_error = self._check_permission(handler, "pipeline:write")
         if auth_error:
             return auth_error
 
         body = self._get_request_body(handler)
-
-        if path.endswith("/from-debate"):
-            return self.handle_from_debate(body)
-        elif path.endswith("/from-ideas"):
-            return self.handle_from_ideas(body)
-        elif path.endswith("/pipeline/advance"):
-            return self.handle_advance(body)
-        elif path.endswith("/pipeline/run"):
-            return self.handle_run(body)
-        elif path.endswith("/pipeline/extract-goals"):
-            return self.handle_extract_goals(body)
-        elif path.endswith("/convert/debate"):
-            return self.handle_convert_debate(body)
-        elif path.endswith("/convert/workflow"):
-            return self.handle_convert_workflow(body)
-
-        return None
+        return target(body)
 
     @staticmethod
     def _get_request_body(handler: Any) -> dict[str, Any]:
