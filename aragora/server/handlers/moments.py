@@ -73,8 +73,10 @@ class MomentsHandler(SecureHandler):
         "/api/moments/summary",
         "/api/moments/timeline",
         "/api/moments/trending",
+        "/api/moments/recent",
         "/api/moments/by-type/*",
         "/api/v1/moments/by-type",
+        "/api/v1/moments/recent",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -84,6 +86,8 @@ class MomentsHandler(SecureHandler):
             return True
         # Handle dynamic route: /api/moments/by-type/{type}
         if normalized.startswith("/api/moments/by-type/"):
+            return True
+        if normalized == "/api/moments/recent":
             return True
         return False
 
@@ -119,6 +123,10 @@ class MomentsHandler(SecureHandler):
             limit = get_int_param(query_params, "limit", 50)
             offset = get_int_param(query_params, "offset", 0)
             return self._get_timeline(max(1, min(limit, 200)), max(0, offset))
+
+        if normalized == "/api/moments/recent":
+            limit = get_int_param(query_params, "limit", 20)
+            return self._get_timeline(max(1, min(limit, 200)), 0)
 
         if normalized == "/api/moments/trending":
             limit = get_int_param(query_params, "limit", 10)

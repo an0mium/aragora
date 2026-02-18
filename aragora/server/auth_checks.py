@@ -113,6 +113,8 @@ class AuthChecksMixin:
             "/api/v1/consensus/active",
             "/api/pipeline/plans",
             "/api/v1/pipeline/plans",
+            "/api/plans",
+            "/api/v1/plans",
             # Metrics (public dashboard monitoring)
             "/api/metrics",
             "/api/v1/metrics",
@@ -141,6 +143,7 @@ class AuthChecksMixin:
     # These are public dashboard data endpoints that don't require auth for viewing
     AUTH_EXEMPT_GET_PREFIXES: tuple[str, ...] = (
         "/api/evidence/",  # Evidence read-only access
+        "/api/v1/evidence/",  # Evidence read-only access (v1)
         "/api/evolution/",  # Public evolution data
         "/api/v1/evolution/",  # Public evolution data (v1)
         "/api/analytics/",  # Public analytics dashboards (stubbed when unauthenticated)
@@ -175,6 +178,8 @@ class AuthChecksMixin:
         "/api/v1/metrics/",  # Public metrics dashboards (v1)
         "/api/breakpoints/",  # Public breakpoints status
         "/api/v1/breakpoints/",  # Public breakpoints status (v1)
+        "/api/plans/",  # Public decision plans
+        "/api/v1/plans/",  # Public decision plans (v1)
         "/api/nomic/",  # Public nomic state
         "/api/v1/nomic/",  # Public nomic state (v1)
     )

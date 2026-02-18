@@ -222,6 +222,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 self.ctx["evidence_collector"] = self._evidence_collector
         return self._evidence_collector
 
+    @handle_errors("evidence retrieval")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
         # Rate limit check for read operations
@@ -345,11 +346,21 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         source_filter = get_string_param(query_params, "source", None)
         min_reliability = get_float_param(query_params, "min_reliability", 0.0)
 
-        store = self._get_evidence_store()
+        try:
+            store = self._get_evidence_store()
+        except Exception as e:
+            logger.warning(f"Evidence store initialization failed: {e}")
+            return self.paginated_response(
+                items=[], total=0, limit=limit, offset=offset, items_key="evidence"
+            )
 
         # Get total count
-        stats = store.get_statistics()
-        total = stats.get("total_evidence", 0)
+        try:
+            stats = store.get_statistics()
+            total = stats.get("total_evidence", 0)
+        except Exception as e:
+            logger.debug(f"Evidence statistics failed: {e}")
+            total = 0
 
         # For listing, use a broad search or direct query
         # Since EvidenceStore doesn't have a list_all, we'll use search with empty query
@@ -362,8 +373,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 source_filter=source_filter,
                 min_reliability=min_reliability,
             )
-        except (ValueError, KeyError, RuntimeError) as e:
-            # FTS might not support * wildcard - fallback to empty results
+        except (ValueError, KeyError, RuntimeError, OSError) as e:
+            # FTS might not support * wildcard or SQLite OperationalError
             logger.debug(f"Evidence search with wildcard failed, returning empty: {e}")
             results = []
 
