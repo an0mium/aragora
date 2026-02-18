@@ -17,7 +17,7 @@ Aragora orchestrates 42+ AI agents to adversarially challenge every important de
 
 ### CTA
 
-[Get started in 5 minutes](GETTING_STARTED.md) | [View on GitHub](https://github.com/an0mium/aragora)
+[Get started in 5 minutes](guides/GETTING_STARTED.md) | [View on GitHub](https://github.com/an0mium/aragora)
 
 ### Hero code snippet
 
@@ -218,7 +218,7 @@ Commercial tiers add managed infrastructure, enterprise security, and compliance
 pip install aragora-debate
 ```
 
-[Read the Getting Started guide](GETTING_STARTED.md)
+[Read the Getting Started guide](guides/GETTING_STARTED.md)
 
 ### Secondary
 
@@ -228,7 +228,7 @@ pip install aragora-debate
 
 ## Footer
 
-- [Getting Started](GETTING_STARTED.md)
+- [Getting Started](guides/GETTING_STARTED.md)
 - [Documentation](SDK_GUIDE.md)
 - [API Reference](api/API_REFERENCE.md)
 - [Pricing](PRICING_PAGE.md)

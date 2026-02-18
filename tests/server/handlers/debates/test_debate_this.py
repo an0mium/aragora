@@ -74,9 +74,10 @@ def _bypass_rate_limits(monkeypatch):
     """Bypass rate limiting by making check always return allowed."""
     from aragora.server.middleware.rate_limit.user_limiter import RateLimitResult
 
+    allowed = RateLimitResult(allowed=True, key="test", remaining=100, limit=100, reset_at=0)
     monkeypatch.setattr(
-        "aragora.server.middleware.rate_limit.user_limiter.check_user_rate_limit",
-        lambda *a, **kw: RateLimitResult(allowed=True, key="test", remaining=100, limit=100, reset_at=0),
+        "aragora.server.middleware.rate_limit.decorators.check_user_rate_limit",
+        lambda *a, **kw: allowed,
     )
     from aragora.server.handlers.utils.rate_limit import clear_all_limiters
 

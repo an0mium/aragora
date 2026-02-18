@@ -104,6 +104,8 @@ class MetaPlannerConfig:
     min_cycle_similarity: float = 0.3
     # Quick mode: skip debate, use heuristic for concrete goals
     quick_mode: bool = False
+    # Use introspection data to select agents for planning debates
+    use_introspection_selection: bool = True
     # Trickster: detect hollow consensus in self-improvement debates
     enable_trickster: bool = True
     trickster_sensitivity: float = 0.7

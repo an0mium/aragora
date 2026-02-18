@@ -864,6 +864,43 @@ Return JSON with these exact fields:
                 )
             )
 
+    def _collect_agent_calibration(
+        self, participants: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Collect calibration snapshots for participating agents.
+
+        Args:
+            participants: List of agent names
+
+        Returns:
+            Dict mapping agent name to calibration data
+        """
+        if not participants:
+            return {}
+        try:
+            from aragora.agents.calibration import CalibrationTracker
+            from aragora.server.handlers.base import _compute_trust_tier
+
+            tracker = CalibrationTracker()
+            calibration_map: dict[str, dict[str, Any]] = {}
+            for agent_name in participants:
+                try:
+                    summary = tracker.get_calibration_summary(str(agent_name))
+                    if summary.total_predictions > 0:
+                        calibration_map[str(agent_name)] = {
+                            "brier_score": round(summary.brier_score, 4),
+                            "ece": round(summary.ece, 4),
+                            "trust_tier": _compute_trust_tier(
+                                summary.brier_score, summary.total_predictions
+                            ),
+                            "prediction_count": summary.total_predictions,
+                        }
+                except (AttributeError, TypeError, ValueError, OSError):
+                    continue
+            return calibration_map
+        except ImportError:
+            return {}
+
     def _fetch_trending_topic(self, category: str | None) -> Any | None:
         """Fetch a trending topic for the debate.
 

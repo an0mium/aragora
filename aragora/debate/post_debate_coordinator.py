@@ -43,7 +43,7 @@ class PostDebateConfig:
     auto_gauntlet_validate: bool = False
     gauntlet_min_confidence: float = 0.85
     auto_verify_arguments: bool = False
-    auto_queue_improvement: bool = False
+    auto_queue_improvement: bool = True
     improvement_min_confidence: float = 0.8
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
@@ -51,7 +51,7 @@ class PostDebateConfig:
     auto_push_calibration: bool = False
     calibration_min_predictions: int = 5  # Min predictions before pushing
     # Outcome feedback: feed systematic errors back to Nomic Loop
-    auto_outcome_feedback: bool = False
+    auto_outcome_feedback: bool = True
     # Canvas pipeline: auto-trigger idea-to-execution visualization
     auto_trigger_canvas: bool = False
     canvas_min_confidence: float = 0.7
@@ -830,6 +830,8 @@ DEFAULT_POST_DEBATE_CONFIG = PostDebateConfig(
     auto_persist_receipt=True,
     auto_gauntlet_validate=True,
     auto_push_calibration=True,
+    auto_queue_improvement=True,
+    auto_outcome_feedback=True,
 )
 
 

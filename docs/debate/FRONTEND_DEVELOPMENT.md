@@ -599,7 +599,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-production-key
 
 ## See Also
 
-- [GETTING_STARTED.md](../GETTING_STARTED.md) - CLI and server usage
+- [GETTING_STARTED.md](../guides/GETTING_STARTED.md) - CLI and server usage
 - [LIBRARY_USAGE.md](../reference/LIBRARY_USAGE.md) - Programmatic API
 - [API_REFERENCE.md](../api/API_REFERENCE.md) - Backend API endpoints
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture

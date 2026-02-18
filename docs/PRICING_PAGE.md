@@ -396,4 +396,4 @@ Pro is priced per seat at $99/month. A "seat" is a user account that can run deb
 - **Sales:** [sales@aragora.ai](mailto:sales@aragora.ai)
 - **Support:** [support@aragora.ai](mailto:support@aragora.ai)
 - **GitHub:** [github.com/an0mium/aragora](https://github.com/an0mium/aragora)
-- **Getting Started:** [GETTING_STARTED.md](GETTING_STARTED.md)
+- **Getting Started:** [GETTING_STARTED.md](guides/GETTING_STARTED.md)

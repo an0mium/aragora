@@ -16,9 +16,9 @@ from aragora.debate.post_debate_coordinator import (
 class TestOutcomeFeedbackConfig:
     """Tests for auto_outcome_feedback config flag."""
 
-    def test_default_disabled(self):
+    def test_default_enabled(self):
         config = PostDebateConfig()
-        assert config.auto_outcome_feedback is False
+        assert config.auto_outcome_feedback is True
 
     def test_can_enable(self):
         config = PostDebateConfig(auto_outcome_feedback=True)

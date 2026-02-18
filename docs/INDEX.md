@@ -6,7 +6,7 @@ This index intentionally links to actively maintained docs with validated paths.
 
 ## Getting Started
 
-- [Getting Started](GETTING_STARTED.md)
+- [Getting Started](guides/GETTING_STARTED.md)
 - [SDK Guide (Python)](SDK_GUIDE.md)
 - [CLI Reference (generated)](reference/CLI_REFERENCE.md)
 
