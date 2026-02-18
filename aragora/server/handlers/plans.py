@@ -119,14 +119,7 @@ class PlansHandler(BaseHandler):
         return False
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Handle GET requests."""
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-        _, perm_err = self.require_permission_or_error(handler, "plans:read")
-        if perm_err:
-            return perm_err
-
+        """Handle GET requests (public read-only)."""
         self.set_request_context(handler, query_params)
         result = self._get_dispatcher.dispatch(path, query_params)
         if result is not None:

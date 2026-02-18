@@ -373,8 +373,9 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 source_filter=source_filter,
                 min_reliability=min_reliability,
             )
-        except (ValueError, KeyError, RuntimeError, OSError) as e:
-            # FTS might not support * wildcard or SQLite OperationalError
+        except Exception as e:
+            # FTS might not support * wildcard, or pysqlite3 OperationalError
+            # for "unknown special query" — gracefully return empty list
             logger.debug(f"Evidence search with wildcard failed, returning empty: {e}")
             results = []
 
