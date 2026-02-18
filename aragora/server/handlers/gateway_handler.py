@@ -203,7 +203,7 @@ class GatewayHandler(BaseHandler):
         decision = check_permission(rbac_ctx, permission_key)
         if not decision.allowed:
             logger.warning(f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key}")
-            return error_response(f"Permission denied: {decision.reason}", 403)
+            return error_response("Permission denied", 403)
 
         return None
 

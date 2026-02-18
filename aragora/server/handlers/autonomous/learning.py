@@ -66,7 +66,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             learner = get_continuous_learner()
             ratings = learner.elo_updater.get_all_ratings()
@@ -113,7 +113,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             learner = get_continuous_learner()
             calibration = learner.get_calibration(agent_id)
@@ -179,7 +179,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             learner = get_continuous_learner()
             calibrations = learner.get_all_calibrations()
@@ -242,7 +242,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="record_debate_outcome")
             if err:
@@ -323,7 +323,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="record_user_feedback")
             if err:
@@ -397,7 +397,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             pattern_type = request.query.get("pattern_type")
 
@@ -457,7 +457,7 @@ class LearningHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             learner = get_continuous_learner()
             summary = await learner.run_periodic_learning()

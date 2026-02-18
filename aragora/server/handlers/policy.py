@@ -296,6 +296,8 @@ class PolicyHandler(BaseHandler):
         try:
             # Read request body
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
 
@@ -364,6 +366,8 @@ class PolicyHandler(BaseHandler):
         try:
             # Read request body
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
 
@@ -440,6 +444,8 @@ class PolicyHandler(BaseHandler):
         try:
             # Read request body for enabled state
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
 
@@ -590,6 +596,8 @@ class PolicyHandler(BaseHandler):
         try:
             # Read request body
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
 
@@ -652,6 +660,8 @@ class PolicyHandler(BaseHandler):
         try:
             # Read request body
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
 

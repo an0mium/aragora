@@ -81,7 +81,12 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             return error_response("Method not allowed", 405)
 
         # Read and store body for signature verification and parsing
-        content_length = int(handler.headers.get("Content-Length", 0))
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            return error_response("Invalid Content-Length", 400)
+        if content_length > 10 * 1024 * 1024:
+            return error_response("Request body too large", 413)
         body = handler.rfile.read(content_length).decode("utf-8")
 
         # Extract team_id for multi-workspace support

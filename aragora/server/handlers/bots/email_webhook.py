@@ -158,7 +158,12 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             # Verify signature if configured
             timestamp = handler.headers.get("X-Twilio-Email-Event-Webhook-Timestamp", "")
             signature = handler.headers.get("X-Twilio-Email-Event-Webhook-Signature", "")
-            content_length = int(handler.headers.get("Content-Length", 0))
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                return error_response("Invalid Content-Length", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length)
 
             if not verify_sendgrid_signature(body, timestamp, signature):
@@ -246,7 +251,12 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 InboundEmail,
             )
 
-            content_length = int(handler.headers.get("Content-Length", 0))
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                return error_response("Invalid Content-Length", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length)
 
             # Parse body to extract signature fields and email data
@@ -394,7 +404,12 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 handle_email_reply,
             )
 
-            content_length = int(handler.headers.get("Content-Length", 0))
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                return error_response("Invalid Content-Length", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length)
 
             try:

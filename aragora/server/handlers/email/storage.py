@@ -74,7 +74,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
             )
             return {
                 "success": False,
-                "error": f"Permission denied: {decision.reason}",
+                "error": "Permission denied",
             }
     except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning(f"RBAC check failed for {permission_key}: {e}")

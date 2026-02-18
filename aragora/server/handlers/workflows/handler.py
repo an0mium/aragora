@@ -421,7 +421,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     decision.reason,
                 )
                 record_rbac_check(permission_key, granted=False)
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
             record_rbac_check(permission_key, granted=True)
         except PermissionDeniedError as e:
             logger.warning(

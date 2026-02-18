@@ -201,7 +201,7 @@ class ComputerUseHandler(BaseHandler):
         if not decision.allowed:
             user_id = getattr(rbac_ctx, "user_id", "unknown")
             logger.warning(f"RBAC denied: user={user_id} permission={permission_key}")
-            return error_response(f"Permission denied: {decision.reason}", 403)
+            return error_response("Permission denied", 403)
 
         return None
 

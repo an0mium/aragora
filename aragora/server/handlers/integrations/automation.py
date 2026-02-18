@@ -139,7 +139,7 @@ class AutomationHandler(SecureHandler):
                     f"Permission denied: user={auth_ctx.user_id} permission={permission} "
                     f"reason={decision.reason}"
                 )
-                return error_response(f"Permission denied: {decision.reason}", status=403)
+                return error_response("Permission denied", status=403)
 
             return None  # Allowed
         except (ImportError, AttributeError, KeyError, ValueError, TypeError) as e:

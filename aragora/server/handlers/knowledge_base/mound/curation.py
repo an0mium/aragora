@@ -88,7 +88,7 @@ class CurationOperationsMixin:
             decision = checker.check_permission(context, permission)
             if not decision.allowed:
                 logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
             return None
         except (ImportError, AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"RBAC check failed: {e}")

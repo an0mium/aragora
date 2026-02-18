@@ -284,6 +284,9 @@ class BotHandlerMixin:
     # Request body utilities - consolidates ~80 lines of duplicated code
     # =========================================================================
 
+    # Maximum request body size (10MB) - prevents memory exhaustion DoS
+    _MAX_BODY_SIZE = 10 * 1024 * 1024
+
     def _read_request_body(self, handler: Any) -> bytes:
         """Read the request body from the handler.
 
@@ -294,10 +297,18 @@ class BotHandlerMixin:
 
         Returns:
             The raw request body as bytes.
+
+        Raises:
+            ValueError: If Content-Length is invalid or exceeds _MAX_BODY_SIZE.
         """
-        content_length = int(handler.headers.get("Content-Length", 0))
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            content_length = 0
         if content_length <= 0:
             return b""
+        if content_length > self._MAX_BODY_SIZE:
+            raise ValueError(f"Request body too large: {content_length} bytes (max {self._MAX_BODY_SIZE})")
         return handler.rfile.read(content_length)
 
     def _parse_json_body(

@@ -109,7 +109,7 @@ def _check_permission(
                 f"Permission denied: {permission_key} for user {auth_context.user_id}: {decision.reason}"
             )
             record_rbac_check(permission_key, granted=False)
-            return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
+            return error_dict("Permission denied", code="FORBIDDEN", status=403)
         record_rbac_check(permission_key, granted=True)
     except perm_error_type as e:  # type: ignore[misc]
         logger.warning(f"Permission denied: {permission_key} for user {auth_context.user_id}: {e}")

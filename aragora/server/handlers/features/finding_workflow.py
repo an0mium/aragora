@@ -226,7 +226,7 @@ class FindingWorkflowHandler(BaseHandler):
                 logger.warning(
                     f"Permission denied: {permission_key} for user {context.user_id}: {decision.reason}"
                 )
-                return self._error_response(403, f"Permission denied: {decision.reason}")
+                return self._error_response(403, "Permission denied")
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
             return self._error_response(403, "Permission denied")

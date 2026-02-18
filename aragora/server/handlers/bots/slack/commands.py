@@ -153,7 +153,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                         return json_response(
                             {
                                 "response_type": "ephemeral",
-                                "text": f"Permission denied: {decision.reason}",
+                                "text": "Permission denied",
                             }
                         )
             except (TypeError, ValueError, KeyError, AttributeError) as e:

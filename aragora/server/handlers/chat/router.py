@@ -804,6 +804,8 @@ if HANDLER_BASE_AVAILABLE:
                 content_length = int(headers.get("Content-Length", 0))
             except (ValueError, TypeError):
                 content_length = 0
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             if hasattr(handler, "rfile"):
                 raw_body = handler.rfile.read(content_length)
             else:

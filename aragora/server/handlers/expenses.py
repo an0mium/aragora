@@ -1174,7 +1174,7 @@ class ExpenseHandler(BaseHandler):
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, permission)
             if not decision.allowed:
-                return error_response(f"Permission denied: {decision.reason}", status=403)
+                return error_response("Permission denied", status=403)
             return None
         except (ImportError, AttributeError, ValueError) as e:
             logger.debug(f"Permission check failed: {e}")

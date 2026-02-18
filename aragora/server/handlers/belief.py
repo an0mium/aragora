@@ -236,7 +236,7 @@ class BeliefHandler(BaseHandler):
 
         if not decision.allowed:
             logger.warning(f"Permission denied for {permission}: {decision.reason}")
-            return error_response(f"Permission denied: {decision.reason}", 403)
+            return error_response("Permission denied", 403)
 
         return None
 

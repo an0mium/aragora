@@ -133,7 +133,7 @@ class DeliberationsHandler(BaseHandler):
                 f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
                 f"reason={decision.reason}"
             )
-            return (error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN"), 403)
+            return (error_dict("Permission denied", code="FORBIDDEN"), 403)
 
         return None
 

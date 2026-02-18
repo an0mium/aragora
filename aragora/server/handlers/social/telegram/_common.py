@@ -167,7 +167,7 @@ class TelegramRBACMixin:
             decision = check_permission(context, permission_key)
             if not decision.allowed:
                 logger.warning("Permission denied: %s for user %s", permission_key, context.user_id)
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("RBAC check failed: %s", e)
             return None

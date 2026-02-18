@@ -137,7 +137,7 @@ class WhatsAppHandler(BaseHandler):
             decision = check_permission(context, permission_key)
             if not decision.allowed:
                 logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
         except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return None
@@ -227,7 +227,7 @@ class WhatsAppHandler(BaseHandler):
                         f"WhatsApp permission denied: {permission_key} for user "
                         f"{user_display} ({context.user_id}), reason: {decision.reason}"
                     )
-                    return f"Permission denied: {decision.reason}"
+                    return "Permission denied"
         except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"WhatsApp RBAC check failed: {e}")
             # On error, allow by default (fail open)

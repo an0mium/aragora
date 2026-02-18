@@ -56,7 +56,7 @@ class DashboardOperationsMixin:
             decision = checker.check_permission(context, permission)
             if not decision.allowed:
                 logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
-                return error_response(f"Permission denied: {decision.reason}", status=403)
+                return error_response("Permission denied", status=403)
             return None
         except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"RBAC check failed: {e}")

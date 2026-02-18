@@ -185,7 +185,7 @@ class TeamsIntegrationHandler(BaseHandler):
             decision = check_permission(context, permission_key)
             if not decision.allowed:
                 logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
-                return error_response(f"Permission denied: {decision.reason}", 403)
+                return error_response("Permission denied", 403)
         except (TypeError, ValueError, AttributeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return None
@@ -1373,9 +1373,11 @@ class TeamsIntegrationHandler(BaseHandler):
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length == 0:
                 return None
+            if content_length > 10 * 1024 * 1024:
+                return None
             body = handler.rfile.read(content_length)
             return json.loads(body.decode("utf-8"))
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
 

@@ -748,10 +748,12 @@ h3 {{ color: #666; }}
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length == 0:
                 return error_response("Request body required", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
 
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request body", 400)
 
@@ -1022,10 +1024,12 @@ h3 {{ color: #666; }}
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length == 0:
                 return error_response("Request body required", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
 
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request body", 400)
 

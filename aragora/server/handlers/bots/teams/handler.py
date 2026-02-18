@@ -517,7 +517,7 @@ class TeamsBot:
                 )
                 return {
                     "error": "permission_denied",
-                    "message": f"Permission denied: {decision.reason}",
+                    "message": "Permission denied",
                     "permission": permission_key,
                 }
         except (TypeError, ValueError, KeyError, AttributeError) as e:

@@ -72,7 +72,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> Ha
         decision = check_permission(auth_context, permission_key)
         if not decision.allowed:
             logger.warning(f"RBAC denied: permission={permission_key} reason={decision.reason}")
-            return error_response(f"Permission denied: {decision.reason}", status=403)
+            return error_response("Permission denied", status=403)
     except (TypeError, ValueError, AttributeError, RuntimeError) as e:
         logger.warning(f"RBAC check failed: {e}")
         # Fail closed - deny access if RBAC check fails

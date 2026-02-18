@@ -100,7 +100,7 @@ class AlertHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, "alerts:read")
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             analyzer = get_alert_analyzer()
             alerts = analyzer.get_active_alerts()
@@ -165,7 +165,7 @@ class AlertHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, "alerts:write")
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="acknowledge_alert")
             if err:
@@ -223,7 +223,7 @@ class AlertHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, "alerts:write")
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             analyzer = get_alert_analyzer()
             success = analyzer.resolve_alert(alert_id)
@@ -281,7 +281,7 @@ class AlertHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, "alerts:admin")
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="set_threshold")
             if err:
@@ -348,7 +348,7 @@ class AlertHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, "alerts:write")
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="check_metric")
             if err:

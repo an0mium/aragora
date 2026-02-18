@@ -134,7 +134,7 @@ class ApprovalHandler:
                     logger.warning(
                         f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
                     )
-                    raise ForbiddenError(f"Permission denied: {decision.reason}")
+                    raise ForbiddenError("Permission denied")
 
             logger.debug(f"list_pending called by user {auth_ctx.user_id}")
 
@@ -218,7 +218,7 @@ class ApprovalHandler:
                     logger.warning(
                         f"User {auth_ctx.user_id} denied read permission: {decision.reason}"
                     )
-                    raise ForbiddenError(f"Permission denied: {decision.reason}")
+                    raise ForbiddenError("Permission denied")
 
             logger.debug(f"get_request {request_id} called by user {auth_ctx.user_id}")
 
@@ -311,7 +311,7 @@ class ApprovalHandler:
                     logger.warning(
                         f"User {auth_ctx.user_id} denied approval permission: {decision.reason}"
                     )
-                    raise ForbiddenError(f"Permission denied: {decision.reason}")
+                    raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="approve_request")
             if err:
@@ -402,7 +402,7 @@ class ApprovalHandler:
                     logger.warning(
                         f"User {auth_ctx.user_id} denied rejection permission: {decision.reason}"
                     )
-                    raise ForbiddenError(f"Permission denied: {decision.reason}")
+                    raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="reject_request")
             if err:

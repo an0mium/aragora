@@ -54,7 +54,7 @@ def _check_permission(
         decision = checker.check_permission(context, permission)
         if not decision.allowed:
             logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
-            return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
+            return error_dict("Permission denied", code="FORBIDDEN", status=403)
         return None
     except (ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.error(f"RBAC check failed: {e}")

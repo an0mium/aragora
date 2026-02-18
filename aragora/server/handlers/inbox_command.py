@@ -391,7 +391,7 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
                 decision.reason,
             )
             raise web.HTTPForbidden(
-                text=f"Permission denied: {decision.reason}",
+                text="Permission denied",
                 content_type="application/json",
             )
 

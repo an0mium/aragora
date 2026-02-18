@@ -268,6 +268,18 @@ class LocalStorageBackend:
         )
         self.base_path.mkdir(parents=True, exist_ok=True)
 
+    def _safe_path(self, bucket: str, path: str) -> Path:
+        """Resolve file path with traversal protection.
+
+        Ensures the resolved path stays within the bucket directory.
+        Raises ValueError if path traversal is detected.
+        """
+        bucket_path = (self.base_path / bucket).resolve()
+        file_path = (bucket_path / path).resolve()
+        if not str(file_path).startswith(str(bucket_path)):
+            raise ValueError("Path traversal detected")
+        return file_path
+
     async def upload_file(
         self,
         bucket: str,
@@ -277,23 +289,21 @@ class LocalStorageBackend:
         metadata: dict[str, str] | None = None,
     ) -> str:
         """Upload a file to local storage."""
-        bucket_path = self.base_path / bucket
-        bucket_path.mkdir(parents=True, exist_ok=True)
-        file_path = bucket_path / path
+        file_path = self._safe_path(bucket, path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_bytes(data)
         return f"file://{file_path}"
 
     async def download_file(self, bucket: str, path: str) -> bytes:
         """Download a file from local storage."""
-        file_path = self.base_path / bucket / path
+        file_path = self._safe_path(bucket, path)
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {bucket}/{path}")
         return file_path.read_bytes()
 
     async def delete_file(self, bucket: str, path: str) -> bool:
         """Delete a file from local storage."""
-        file_path = self.base_path / bucket / path
+        file_path = self._safe_path(bucket, path)
         if file_path.exists():
             file_path.unlink()
             return True
@@ -301,7 +311,7 @@ class LocalStorageBackend:
 
     async def file_exists(self, bucket: str, path: str) -> bool:
         """Check if a file exists in local storage."""
-        file_path = self.base_path / bucket / path
+        file_path = self._safe_path(bucket, path)
         return file_path.exists()
 
     async def get_presigned_url(
@@ -312,7 +322,7 @@ class LocalStorageBackend:
         method: str = "GET",
     ) -> str:
         """Generate a presigned URL (returns local file path for local storage)."""
-        file_path = self.base_path / bucket / path
+        file_path = self._safe_path(bucket, path)
         return f"file://{file_path}"
 
     async def list_files(

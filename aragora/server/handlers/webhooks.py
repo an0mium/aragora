@@ -240,7 +240,7 @@ class WebhookHandler(SecureHandler):
                 f"reason={decision.reason}"
             )
             return error_response(
-                f"Permission denied: {decision.reason}",
+                "Permission denied",
                 403,
             )
 

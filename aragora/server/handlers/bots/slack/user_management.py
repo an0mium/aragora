@@ -214,7 +214,7 @@ def check_user_permission(
                 team_id=team_id,
                 reason=decision.reason,
             )
-            return error_response(f"Permission denied: {decision.reason}", 403)
+            return error_response("Permission denied", 403)
 
         return None  # Permission granted
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:

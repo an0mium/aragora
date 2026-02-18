@@ -112,7 +112,7 @@ class DevOpsHandler(BaseHandler):
         checker = get_permission_checker()
         decision = checker.check_permission(auth_ctx, permission, resource_id)
         if not decision.allowed:
-            raise ForbiddenError(f"Permission denied: {decision.reason}", permission=permission)
+            raise ForbiddenError("Permission denied", permission=permission)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         if path.startswith("/api/v1/incidents"):

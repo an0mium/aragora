@@ -318,7 +318,7 @@ class OAuthHandler(
             logger.warning(
                 f"Permission denied: user={auth_ctx.user_id} permission={permission_key} reason={decision.reason}"
             )
-            return error_response(f"Permission denied: {decision.reason}", 403)
+            return error_response("Permission denied", 403)
 
         return None  # Allowed
 

@@ -63,6 +63,8 @@ def verify_signature(handler: Any) -> bool:
 
         # Read body for verification
         content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length > 10 * 1024 * 1024:
+            return False
         body = handler.rfile.read(content_length)
 
         # Compute expected signature
@@ -174,6 +176,8 @@ class WebhookProcessor:
         status = "success"
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
 

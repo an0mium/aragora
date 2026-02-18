@@ -295,7 +295,7 @@ class BudgetHandler(BaseHandler):
                     logger.warning(
                         f"User {user_ctx.user_id} denied {permission}: {decision.reason}"
                     )
-                    return error_response(f"Permission denied: {decision.reason}", 403)
+                    return error_response("Permission denied", 403)
             else:
                 # Read operations require budget.read
                 decision = checker.check_permission(auth_ctx, BUDGET_READ_PERMISSION)
@@ -303,7 +303,7 @@ class BudgetHandler(BaseHandler):
                     logger.warning(
                         f"User {user_ctx.user_id} denied {BUDGET_READ_PERMISSION}: {decision.reason}"
                     )
-                    return error_response(f"Permission denied: {decision.reason}", 403)
+                    return error_response("Permission denied", 403)
 
         except ImportError:
             # RBAC module not available, allow access (backwards compatibility)

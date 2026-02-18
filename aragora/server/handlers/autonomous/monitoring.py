@@ -414,7 +414,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="record_metric")
             if err:
@@ -513,7 +513,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             # Validate metric_name
             metric_name = request.match_info.get("metric_name")
@@ -603,7 +603,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trend_monitor = get_trend_monitor()
             trends = trend_monitor.get_all_trends()
@@ -672,7 +672,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             hours = safe_query_int(request.query, "hours", default=24, min_val=1, max_val=720)
             metric_name = None
@@ -764,7 +764,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             # Validate metric_name
             metric_name = request.match_info.get("metric_name")
@@ -832,7 +832,7 @@ class MonitoringHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             status = get_monitoring_circuit_breaker_status()
             return web.json_response(

@@ -249,8 +249,13 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             if not _verify_telegram_secret(secret_token):
                 return self.handle_webhook_auth_failed("secret_header")
 
-            # Read body
-            content_length = int(handler.headers.get("Content-Length", 0))
+            # Read body (with size limit to prevent memory exhaustion)
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                return error_response("Invalid Content-Length", 400)
+            if content_length > 10 * 1024 * 1024:
+                return error_response("Request body too large", 413)
             body = handler.rfile.read(content_length)
 
             # Parse update

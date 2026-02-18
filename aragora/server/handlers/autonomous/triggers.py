@@ -96,7 +96,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_READ_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             triggers = trigger.list_triggers()
@@ -172,7 +172,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             data, err = await parse_json_body(request, context="add_trigger")
             if err:
@@ -252,7 +252,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             if hasattr(trigger, "remove_trigger"):
@@ -320,7 +320,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             success = trigger.enable_trigger(trigger_id)
@@ -381,7 +381,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             success = trigger.disable_trigger(trigger_id)
@@ -432,7 +432,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             await trigger.start()
@@ -476,7 +476,7 @@ class TriggerHandler:
             checker = get_permission_checker()
             decision = checker.check_permission(auth_ctx, AUTONOMOUS_WRITE_PERMISSION)
             if not decision.allowed:
-                raise ForbiddenError(f"Permission denied: {decision.reason}")
+                raise ForbiddenError("Permission denied")
 
             trigger = get_scheduled_trigger()
             await trigger.stop()
