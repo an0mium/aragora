@@ -843,8 +843,13 @@ class TestPipelineDebugLoopIntegration:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_require_approval(self):
-        """Returns None when require_approval=True and not autonomous."""
+    async def test_debug_loop_runs_with_require_approval(self):
+        """Debug loop runs even when require_approval=True (gate removed).
+
+        The approval gate was removed so the debug loop is reachable under
+        default config. This test verifies it attempts execution rather
+        than short-circuiting to None.
+        """
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(
                 enable_debug_loop=True,
@@ -853,10 +858,32 @@ class TestPipelineDebugLoopIntegration:
             )
         )
         mock_instruction = MagicMock()
-        result = await pipeline._execute_with_debug_loop(
-            mock_instruction, "/tmp/wt"
-        )
-        assert result is None
+        mock_instruction.to_agent_prompt.return_value = "test prompt"
+
+        # Mock DebugLoop to avoid real agent/harness execution
+        with patch(
+            "aragora.nomic.self_improve.DebugLoop",
+            side_effect=ImportError("mocked"),
+        ) if False else patch(
+            "aragora.nomic.debug_loop.DebugLoop"
+        ) as MockDebug:
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.final_files_changed = []
+            mock_result.final_tests_passed = 1
+            mock_result.final_tests_failed = 0
+            mock_result.total_attempts = 1
+            MockDebug.return_value.execute_with_retry = AsyncMock(
+                return_value=mock_result
+            )
+            result = await pipeline._execute_with_debug_loop(
+                mock_instruction, "/tmp/wt"
+            )
+
+        # Debug loop now runs and returns a result dict (not None)
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result["debug_loop_success"] is True
 
     @pytest.mark.asyncio
     async def test_returns_none_on_import_error(self):
