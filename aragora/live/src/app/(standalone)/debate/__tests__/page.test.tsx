@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor } from '@/test-utils';
 import DebateViewerPage from '../[[...id]]/page';
 import { DebateViewerWrapper } from '../[[...id]]/DebateViewerWrapper';
 
