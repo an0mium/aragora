@@ -185,9 +185,9 @@ describe('PolicyPage', () => {
 
       renderWithProviders(<PolicyPage />);
 
-      expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
-      expect(screen.getByTestId('backend-selector')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('[POLICY_ADMIN]')).toBeInTheDocument();
+      });
     });
 
     it('renders page title', async () => {

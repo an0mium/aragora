@@ -125,11 +125,21 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Helper to mock window.location.pathname
+// JSDOM marks window.location as non-configurable; use jsdom.reconfigure() via the internal API.
 const mockPathname = (pathname: string) => {
-  Object.defineProperty(window, 'location', {
-    value: { pathname },
-    writable: true,
-  });
+  // jsdom's window has a reconfigure method on its internal implementation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsdomWindow = window as any;
+  if (jsdomWindow._jsdomUrl) {
+    // Direct URL override for newer JSDOM
+    jsdomWindow._jsdomUrl = new URL(`http://localhost${pathname}`);
+  }
+  // Also try the standard JSDOM reconfigure
+  if (typeof jsdomWindow.reconfigure === 'function') {
+    jsdomWindow.reconfigure({ url: `http://localhost${pathname}` });
+  }
+  // Fallback: use history.replaceState which actually changes the URL in JSDOM
+  window.history.replaceState({}, '', pathname);
 };
 
 describe('DebateViewerPage', () => {
@@ -144,6 +154,8 @@ describe('DebateViewerPage', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Reset URL back to root
+    window.history.replaceState({}, '', '/');
   });
 
   describe('initial render', () => {

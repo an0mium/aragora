@@ -4,7 +4,6 @@ import { PersonaEditor } from '../PersonaEditor';
 
 // Mock fetch
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 const mockPersonas = [
   {
@@ -33,9 +32,27 @@ const mockPersonas = [
   },
 ];
 
+/** Helper: set up mockFetch to return personas for /personas and options for /personas/options */
+function mockFetchSuccess(personas = mockPersonas) {
+  mockFetch.mockImplementation((url: string) => {
+    if (url.includes('/personas/options')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ traits: [], expertise_domains: [] }),
+      });
+    }
+    // /personas endpoint
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ personas }),
+    });
+  });
+}
+
 describe('PersonaEditor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = mockFetch;
   });
 
   describe('loading state', () => {
@@ -49,9 +66,12 @@ describe('PersonaEditor', () => {
 
   describe('error state', () => {
     it('shows error message on fetch failure', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
+      // fetchPersonas calls Promise.all with 2 fetches: /api/personas and /api/personas/options
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/personas/options')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        }
+        return Promise.resolve({ ok: false, status: 500 });
       });
 
       render(<PersonaEditor />);
@@ -63,9 +83,11 @@ describe('PersonaEditor', () => {
     });
 
     it('shows retry button on error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/personas/options')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        }
+        return Promise.resolve({ ok: false, status: 500 });
       });
 
       render(<PersonaEditor />);
@@ -76,15 +98,21 @@ describe('PersonaEditor', () => {
     });
 
     it('retries fetch when retry clicked', async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-        })
-        .mockResolvedValueOnce({
+      let personasCallCount = 0;
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/personas/options')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        }
+        // /api/personas: first call fails, second succeeds
+        personasCallCount++;
+        if (personasCallCount === 1) {
+          return Promise.resolve({ ok: false, status: 500 });
+        }
+        return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ personas: mockPersonas }),
         });
+      });
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -105,10 +133,7 @@ describe('PersonaEditor', () => {
 
   describe('persona display', () => {
     it('displays personas after loading', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -120,10 +145,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows persona count in header', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -133,10 +155,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows singular agent count', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: [mockPersonas[0]] }),
-      });
+      mockFetchSuccess([mockPersonas[0]]);
 
       render(<PersonaEditor />);
 
@@ -146,10 +165,7 @@ describe('PersonaEditor', () => {
     });
 
     it('displays persona descriptions', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -160,10 +176,7 @@ describe('PersonaEditor', () => {
     });
 
     it('displays persona traits (up to 3)', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -175,10 +188,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows +N for traits over 3', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -190,10 +200,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows empty state when no personas', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: [] }),
-      });
+      mockFetchSuccess([]);
 
       render(<PersonaEditor />);
 
@@ -205,10 +212,7 @@ describe('PersonaEditor', () => {
 
   describe('search functionality', () => {
     it('renders search input', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -220,10 +224,7 @@ describe('PersonaEditor', () => {
     });
 
     it('filters personas by name', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -245,10 +246,7 @@ describe('PersonaEditor', () => {
     });
 
     it('filters personas by trait', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -269,10 +267,7 @@ describe('PersonaEditor', () => {
     });
 
     it('filters personas by expertise', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -293,10 +288,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows empty state when search has no results', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -318,10 +310,7 @@ describe('PersonaEditor', () => {
 
   describe('view mode toggle', () => {
     it('renders grid and list buttons', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -332,10 +321,7 @@ describe('PersonaEditor', () => {
     });
 
     it('defaults to grid view', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 
@@ -346,10 +332,7 @@ describe('PersonaEditor', () => {
     });
 
     it('switches to list view', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -369,10 +352,7 @@ describe('PersonaEditor', () => {
 
   describe('persona selection', () => {
     it('opens detail panel when persona clicked', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -389,10 +369,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows all traits in detail panel', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -412,10 +389,7 @@ describe('PersonaEditor', () => {
     });
 
     it('shows all expertise in detail panel', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -432,10 +406,7 @@ describe('PersonaEditor', () => {
     });
 
     it('closes detail panel when close clicked', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -458,10 +429,7 @@ describe('PersonaEditor', () => {
     });
 
     it('toggles selection when same persona clicked twice', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       const user = userEvent.setup();
       render(<PersonaEditor />);
@@ -489,10 +457,7 @@ describe('PersonaEditor', () => {
 
   describe('custom apiBase', () => {
     it('uses custom apiBase for requests', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor apiBase="/custom-api" />);
 
@@ -504,10 +469,7 @@ describe('PersonaEditor', () => {
 
   describe('date formatting', () => {
     it('formats dates correctly', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ personas: mockPersonas }),
-      });
+      mockFetchSuccess();
 
       render(<PersonaEditor />);
 

@@ -7,7 +7,6 @@ import { PersonaEditor } from '../src/components/admin/PersonaEditor';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 describe('PersonaEditor', () => {
   const mockPersonas = [
@@ -39,6 +38,7 @@ describe('PersonaEditor', () => {
 
   beforeEach(() => {
     mockFetch.mockClear();
+    global.fetch = mockFetch;
   });
 
   describe('Loading State', () => {
@@ -71,12 +71,19 @@ describe('PersonaEditor', () => {
     });
 
     it('retries fetch on retry button click', async () => {
-      mockFetch
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce({
+      let callCount = 0;
+      mockFetch.mockImplementation(() => {
+        callCount++;
+        // First two calls (initial Promise.all): reject both
+        if (callCount <= 2) {
+          return Promise.reject(new Error('Network error'));
+        }
+        // Retry calls: succeed
+        return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ personas: mockPersonas }),
         });
+      });
 
       render(<PersonaEditor />);
 

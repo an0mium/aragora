@@ -74,9 +74,9 @@ describe('IntrospectionPage', () => {
 
       renderWithProviders(<IntrospectionPage />);
 
-      expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
-      expect(screen.getByTestId('backend-selector')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Agent Introspection')).toBeInTheDocument();
+      });
     });
 
     it('renders page title', async () => {

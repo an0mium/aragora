@@ -5,7 +5,7 @@
  * navigation to the appropriate results pages.
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, fireEvent, waitFor } from '@/test-utils';
 import { mockRouter } from 'next/navigation';
 
 // Enable React 18 act() support in tests
@@ -26,6 +26,7 @@ const jsonResponse = (data: unknown, ok = true, status = 200) => ({
 });
 
 jest.mock('../src/context/AuthContext', () => ({
+  ...jest.requireActual('../src/context/AuthContext'),
   useAuth: () => ({
     tokens: { access_token: 'test-token' },
     isLoading: false,
@@ -78,7 +79,7 @@ describe('DebateInput Mode Switching', () => {
   describe('Mode Selection UI', () => {
     it('renders all three mode tabs', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -90,7 +91,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('defaults to STANDARD mode', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -101,7 +102,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('switches to GRAPH mode when clicked', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -114,7 +115,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('switches to MATRIX mode when clicked', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -127,7 +128,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('shows the description for the selected mode', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -147,7 +148,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate') && !url.includes('/graph') && !url.includes('/matrix')) {
+        if (url.includes('/api/v1/debates') && !url.includes('/graph') && !url.includes('/matrix')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -159,7 +160,7 @@ describe('DebateInput Mode Switching', () => {
       });
 
       const onDebateStarted = jest.fn();
-      render(<DebateInput apiBase={apiBase} onDebateStarted={onDebateStarted} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} onDebateStarted={onDebateStarted} />);
 
       await waitForApiOnline();
 
@@ -171,7 +172,7 @@ describe('DebateInput Mode Switching', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/debate'),
+          expect.stringContaining('/api/v1/debates'),
           expect.objectContaining({
             method: 'POST',
           })
@@ -184,7 +185,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate')) {
+        if (url.includes('/api/v1/debates')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -195,7 +196,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
 
@@ -217,7 +218,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/graph')) {
+        if (url.includes('/api/v1/debates/graph')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -228,7 +229,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -245,7 +246,7 @@ describe('DebateInput Mode Switching', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/debates/graph'),
+          expect.stringContaining('/api/v1/debates/graph'),
           expect.objectContaining({
             method: 'POST',
           })
@@ -258,7 +259,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/graph')) {
+        if (url.includes('/api/v1/debates/graph')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -269,7 +270,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -296,7 +297,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/matrix')) {
+        if (url.includes('/api/v1/debates/matrix')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -307,7 +308,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -324,7 +325,7 @@ describe('DebateInput Mode Switching', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/debates/matrix'),
+          expect.stringContaining('/api/v1/debates/matrix'),
           expect.objectContaining({
             method: 'POST',
           })
@@ -337,7 +338,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/matrix')) {
+        if (url.includes('/api/v1/debates/matrix')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -348,7 +349,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -370,7 +371,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('shows matrix mode description in advanced options', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
 
@@ -387,7 +388,7 @@ describe('DebateInput Mode Switching', () => {
   describe('Mode-specific UI Changes', () => {
     it('updates description in GRAPH mode', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -400,7 +401,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('updates description in MATRIX mode', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -413,7 +414,7 @@ describe('DebateInput Mode Switching', () => {
 
     it('keeps the submit button label consistent across modes', async () => {
       setupHealthyApi();
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -441,7 +442,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/graph')) {
+        if (url.includes('/api/v1/debates/graph')) {
           return Promise.resolve(
             jsonResponse({ error: 'Graph debates require at least 2 agents' }, false, 400)
           );
@@ -450,7 +451,7 @@ describe('DebateInput Mode Switching', () => {
       });
 
       const onError = jest.fn();
-      render(<DebateInput apiBase={apiBase} onError={onError} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} onError={onError} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -475,7 +476,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/matrix')) {
+        if (url.includes('/api/v1/debates/matrix')) {
           return Promise.resolve(
             jsonResponse({ error: 'Matrix debates require variables' }, false, 400)
           );
@@ -484,7 +485,7 @@ describe('DebateInput Mode Switching', () => {
       });
 
       const onError = jest.fn();
-      render(<DebateInput apiBase={apiBase} onError={onError} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} onError={onError} />);
 
       await waitForApiOnline();
       openAdvancedOptions();
@@ -511,7 +512,7 @@ describe('DebateInput Mode Switching', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debates/graph')) {
+        if (url.includes('/api/v1/debates/graph')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -522,7 +523,7 @@ describe('DebateInput Mode Switching', () => {
         return Promise.resolve(jsonResponse({}));
       });
 
-      render(<DebateInput apiBase={apiBase} />);
+      renderWithProviders(<DebateInput apiBase={apiBase} />);
 
       await waitForApiOnline();
       openAdvancedOptions();

@@ -301,8 +301,8 @@ describe('AuditTemplatesPage', () => {
       renderWithProviders(<AuditTemplatesPage />);
 
       await waitFor(() => {
-        const homeLink = screen.getByTestId('ascii-banner').closest('a');
-        expect(homeLink).toHaveAttribute('href', '/');
+        // The banner is rendered but no longer wrapped in a link
+        expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       });
     });
   });
