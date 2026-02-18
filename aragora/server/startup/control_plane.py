@@ -263,7 +263,14 @@ async def init_persistent_task_queue() -> int:
                 except (OSError, RuntimeError, ValueError) as e:
                     logger.warning(f"Task cleanup failed: {e}")
 
-        asyncio.create_task(cleanup_loop())
+        task = asyncio.create_task(cleanup_loop())
+        task.add_done_callback(
+            lambda t: logger.error(
+                "Task queue cleanup loop crashed: %s", t.exception(),
+            )
+            if not t.cancelled() and t.exception()
+            else None
+        )
 
         if recovered > 0:
             logger.info(f"Persistent task queue started, recovered {recovered} tasks")

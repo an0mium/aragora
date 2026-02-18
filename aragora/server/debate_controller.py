@@ -369,7 +369,8 @@ class DebateController:
             # ValueError: invalid agent configuration
             # RuntimeError: agent initialization failure
             # OSError: credential file/network access issues
-            return str(e)
+            logger.warning("Agent credential validation failed: %s", e)
+            return "Failed to validate agent credentials"
 
         if filtered:
             missing_detail = "; ".join(f"{agent}: {reason}" for agent, reason in filtered)

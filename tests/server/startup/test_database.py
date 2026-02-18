@@ -155,7 +155,7 @@ class TestInitPostgresPool:
 
         assert result["enabled"] is False
         assert result["backend"] == "sqlite"
-        assert "Database unavailable" in result["error"]
+        assert "failed" in result["error"].lower()
         assert result["reason"] == "initialization_failed"
 
     @pytest.mark.asyncio

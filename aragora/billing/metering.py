@@ -521,7 +521,15 @@ class UsageMeter:
             self._events.append(event)
             if len(self._events) >= self.config.buffer_size:
                 # Trigger flush in background
-                asyncio.create_task(self._flush_events())
+                task = asyncio.create_task(self._flush_events())
+                task.add_done_callback(
+                    lambda t: logger.error(
+                        "Billing event flush failed: %s — events may be lost",
+                        t.exception(),
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
 
     async def record_api_call(
         self,

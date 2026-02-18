@@ -64,6 +64,23 @@ def _get_ai_agent() -> Any | None:
     return None
 
 
+def _persist_universal_graph(result: Any) -> None:
+    """Persist the UniversalGraph from a PipelineResult to GraphStore."""
+    if result.universal_graph is None:
+        return
+    try:
+        from aragora.pipeline.graph_store import get_graph_store
+        store = get_graph_store()
+        store.create(result.universal_graph)
+        logger.info(
+            "Persisted universal graph %s with %d nodes",
+            result.universal_graph.id,
+            len(result.universal_graph.nodes),
+        )
+    except (ImportError, OSError) as e:
+        logger.debug("Could not persist universal graph: %s", e)
+
+
 class CanvasPipelineHandler:
     """HTTP handler for the idea-to-execution canvas pipeline."""
 
@@ -177,8 +194,11 @@ class CanvasPipelineHandler:
             if not cartographer_data:
                 return {"error": "Missing required field: cartographer_data"}
 
+            use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
-            pipeline = IdeaToExecutionPipeline(agent=agent)
+            pipeline = IdeaToExecutionPipeline(
+                agent=agent, use_universal=use_universal,
+            )
             result = pipeline.from_debate(
                 cartographer_data,
                 auto_advance=auto_advance,
@@ -188,6 +208,9 @@ class CanvasPipelineHandler:
             result_dict = result.to_dict()
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
+
+            # Persist universal graph if generated
+            _persist_universal_graph(result)
 
             return {
                 "pipeline_id": result.pipeline_id,
@@ -204,6 +227,7 @@ class CanvasPipelineHandler:
                         else {}
                     )
                 ),
+                "has_universal_graph": result.universal_graph is not None,
                 "result": result_dict,
             }
         except (ImportError, ValueError, TypeError) as e:
@@ -229,18 +253,23 @@ class CanvasPipelineHandler:
             if not ideas:
                 return {"error": "Missing required field: ideas"}
 
+            use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
-            pipeline = IdeaToExecutionPipeline(agent=agent)
+            pipeline = IdeaToExecutionPipeline(
+                agent=agent, use_universal=use_universal,
+            )
             result = pipeline.from_ideas(ideas, auto_advance=auto_advance)
 
             result_dict = result.to_dict()
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
+            _persist_universal_graph(result)
 
             return {
                 "pipeline_id": result.pipeline_id,
                 "stage_status": result.stage_status,
                 "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+                "has_universal_graph": result.universal_graph is not None,
                 "result": result_dict,
             }
         except (ImportError, ValueError, TypeError) as e:
@@ -412,8 +441,11 @@ class CanvasPipelineHandler:
             except ImportError:
                 emitter = None
 
+            use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
-            pipeline = IdeaToExecutionPipeline(agent=agent)
+            pipeline = IdeaToExecutionPipeline(
+                agent=agent, use_universal=use_universal,
+            )
 
             async def _run_pipeline() -> None:
                 if emitter:
@@ -422,6 +454,7 @@ class CanvasPipelineHandler:
                 result_dict = result.to_dict()
                 _get_store().save(result.pipeline_id, result_dict)
                 _pipeline_objects[result.pipeline_id] = result
+                _persist_universal_graph(result)
 
             # Generate pipeline_id before launching task
             import uuid
@@ -433,6 +466,13 @@ class CanvasPipelineHandler:
             })
 
             task = asyncio.create_task(_run_pipeline())
+            task.add_done_callback(
+                lambda t: logger.error(
+                    "Canvas pipeline task failed: %s", t.exception(),
+                )
+                if not t.cancelled() and t.exception()
+                else None
+            )
             _pipeline_tasks[pipeline_id] = task
 
             return {

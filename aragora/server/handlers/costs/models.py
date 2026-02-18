@@ -135,7 +135,14 @@ def record_cost(
             # Record asynchronously if in async context, otherwise sync
             try:
                 asyncio.get_running_loop()  # Check if loop exists
-                asyncio.create_task(tracker.record(usage))
+                task = asyncio.create_task(tracker.record(usage))
+                task.add_done_callback(
+                    lambda t: logger.error(
+                        "Cost tracking record failed: %s", t.exception(),
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
             except RuntimeError:
                 # No running loop, run synchronously
                 asyncio.run(tracker.record(usage))

@@ -189,7 +189,8 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
         if not specs:
             specs = AgentSpec.coerce_list(DEFAULT_AGENTS, warn=False)
     except (ValueError, TypeError, ImportError) as e:
-        return None, str(e)
+        logger.warning("Agent spec parsing failed: %s", e)
+        return None, "Invalid agent configuration"
 
     agent_count = len(specs)
     agents_str = ",".join(spec.to_string() for spec in specs)

@@ -1174,7 +1174,14 @@ class UnifiedServer:
         def signal_handler(signum: int, frame: "FrameType | None") -> None:
             signame = signal.Signals(signum).name
             logger.info(f"Received {signame}, initiating graceful shutdown...")
-            asyncio.create_task(self.graceful_shutdown())
+            task = asyncio.create_task(self.graceful_shutdown())
+            task.add_done_callback(
+                lambda t: logger.critical(
+                    "Graceful shutdown failed: %s", t.exception(),
+                )
+                if not t.cancelled() and t.exception()
+                else None
+            )
 
         # Register handlers for common termination signals
         try:

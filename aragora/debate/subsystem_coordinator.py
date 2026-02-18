@@ -1161,7 +1161,14 @@ class SubsystemCoordinator:
         """Schedule an async task without blocking."""
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(coro)
+            task = loop.create_task(coro)
+            task.add_done_callback(
+                lambda t: logger.error(
+                    "Debate subsystem async task failed: %s", t.exception(),
+                )
+                if not t.cancelled() and t.exception()
+                else None
+            )
         except RuntimeError:
             try:
                 asyncio.run(coro)
