@@ -473,49 +473,32 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
     def _parse_form_data(self, body: bytes, content_type: str) -> dict[str, Any]:
         """Parse multipart form data or urlencoded data."""
-        import cgi
-        from io import BytesIO
-
         form_data: dict[str, Any] = {}
 
         if "multipart/form-data" in content_type:
-            # Parse boundary from content type
-            _, params = cgi.parse_header(content_type)
-            boundary = params.get("boundary")
+            # Parse boundary from content type using email module (cgi is deprecated)
+            from email.message import EmailMessage
+
+            header_msg = EmailMessage()
+            header_msg["Content-Type"] = content_type
+            boundary = header_msg.get_param("boundary")
 
             if boundary:
-                # Use cgi.parse_multipart for parsing
-                {
-                    "REQUEST_METHOD": "POST",
-                    "CONTENT_TYPE": content_type,
-                    "CONTENT_LENGTH": str(len(body)),
-                }
-                fp = BytesIO(body)
-
                 try:
-                    # Python 3.11+ changed parse_multipart signature
-                    import sys
+                    from email.parser import BytesParser
+                    from email.policy import default
 
-                    if sys.version_info >= (3, 11):
-                        from email.parser import BytesParser
-                        from email.policy import default
+                    # Reconstruct as email message for parsing
+                    msg_bytes = b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
+                    msg = BytesParser(policy=default).parsebytes(msg_bytes)
 
-                        # Reconstruct as email message
-                        msg_bytes = b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
-                        msg = BytesParser(policy=default).parsebytes(msg_bytes)
-
-                        if msg.is_multipart():
-                            for part in msg.walk():
-                                param = part.get_param("name", header="Content-Disposition")
-                                if param and isinstance(param, str):
-                                    payload = part.get_payload(decode=True)
-                                    if isinstance(payload, bytes):
-                                        form_data[param] = payload.decode("utf-8", errors="replace")
-                    else:
-                        parsed = cgi.parse_multipart(fp, {"boundary": boundary.encode()})
-                        for key, values in parsed.items():
-                            if values:
-                                form_data[key] = values[0] if len(values) == 1 else values
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            param = part.get_param("name", header="Content-Disposition")
+                            if param and isinstance(param, str):
+                                payload = part.get_payload(decode=True)
+                                if isinstance(payload, bytes):
+                                    form_data[param] = payload.decode("utf-8", errors="replace")
                 except (ValueError, KeyError, TypeError, UnicodeDecodeError) as e:
                     logger.warning(f"Multipart parse error: {e}")
 

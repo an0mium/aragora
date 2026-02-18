@@ -1019,13 +1019,15 @@ class TranscriptionHandler(BaseHandler):
         Returns:
             Tuple of (file_data, filename, params)
         """
-        import cgi
-        import io
-
         try:
+            from email.message import EmailMessage
+            from email.parser import BytesParser
+            from email.policy import default
+
             # Get boundary from content type
-            _, pdict = cgi.parse_header(content_type)
-            boundary = pdict.get("boundary")
+            header_msg = EmailMessage()
+            header_msg["Content-Type"] = content_type
+            boundary = header_msg.get_param("boundary")
             if not boundary:
                 return None, "", {}
 
@@ -1033,33 +1035,30 @@ class TranscriptionHandler(BaseHandler):
             content_length = int(handler.headers.get("Content-Length", 0))
             body = handler.rfile.read(content_length)
 
-            # Parse multipart
-            environ = {
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": content_type,
-                "CONTENT_LENGTH": str(len(body)),
-            }
-
-            # Use cgi.FieldStorage for parsing
-            fs = cgi.FieldStorage(
-                fp=io.BytesIO(body),
-                environ=environ,
-                keep_blank_values=True,
-            )
+            # Parse as email message
+            msg_bytes = b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
+            msg = BytesParser(policy=default).parsebytes(msg_bytes)
 
             file_data = None
             filename = ""
-            params = {}
+            params: dict[str, Any] = {}
 
-            for key in fs.keys():
-                item = fs[key]
-                if item.filename:
-                    # This is a file
-                    file_data = item.file.read()
-                    filename = item.filename
-                else:
-                    # This is a form field
-                    params[key] = item.value
+            if msg.is_multipart():
+                for part in msg.walk():
+                    name = part.get_param("name", header="Content-Disposition")
+                    fname = part.get_filename()
+
+                    if fname and isinstance(fname, str):
+                        # This is a file
+                        payload = part.get_payload(decode=True)
+                        if isinstance(payload, bytes):
+                            file_data = payload
+                            filename = fname
+                    elif name and isinstance(name, str):
+                        # This is a form field
+                        payload = part.get_payload(decode=True)
+                        if isinstance(payload, bytes):
+                            params[name] = payload.decode("utf-8", errors="replace")
 
             return file_data, filename, params
 
