@@ -71,18 +71,19 @@ def mixin_factory():
 
 @pytest.fixture(autouse=True)
 def _bypass_rate_limits(monkeypatch):
-    """Bypass rate limiting by clearing all limiter state and patching user check."""
-    from aragora.server.middleware.rate_limit import decorators as rl_mod
-    from aragora.server.middleware.rate_limit.limiter import RateLimitResult
-
-    allowed_result = RateLimitResult(allowed=True, key="test", remaining=100, limit=100)
-    monkeypatch.setattr(rl_mod, "check_user_rate_limit", lambda *a, **kw: allowed_result)
-
-    from aragora.server.handlers.utils.rate_limit import clear_all_limiters
-
-    clear_all_limiters()
-    yield
-    clear_all_limiters()
+    """Bypass rate limiting decorators for all tests in this module."""
+    # Patch the decorator factories to be transparent pass-throughs
+    _noop_decorator = lambda **kw: (lambda fn: fn)
+    monkeypatch.setattr(
+        "aragora.server.handlers.debates.create.rate_limit", _noop_decorator
+    )
+    monkeypatch.setattr(
+        "aragora.server.handlers.debates.create.user_rate_limit", _noop_decorator
+    )
+    monkeypatch.setattr(
+        "aragora.server.handlers.debates.create.require_quota",
+        lambda *a, **kw: (lambda fn: fn),
+    )
 
 
 class TestDebateThisEndpoint:
