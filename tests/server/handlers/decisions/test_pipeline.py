@@ -233,7 +233,7 @@ def test_execute_plan_accepts_execution_overrides() -> None:
         patch(
             "aragora.pipeline.executor.PlanExecutor", return_value=mock_executor
         ) as mock_exec_cls,
-        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
     ):
         result = handler._handle_execute_plan("plan-1", request, user)
 
@@ -307,7 +307,7 @@ def test_execute_plan_normalizes_execution_mode_alias() -> None:
     with (
         patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
         patch("aragora.pipeline.executor.PlanExecutor", return_value=mock_executor),
-        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch("aragora.utils.async_utils.get_event_loop_safe", return_value=mock_loop),
     ):
         result = handler._handle_execute_plan("plan-1", request, user)
 

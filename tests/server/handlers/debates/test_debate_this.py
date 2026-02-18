@@ -69,6 +69,19 @@ def mixin_factory():
     return _make
 
 
+@pytest.fixture(autouse=True)
+def _bypass_rate_limits(monkeypatch):
+    """Disable rate limiting for all tests in this module."""
+    monkeypatch.setattr(
+        "aragora.server.handlers.debates.create.rate_limit",
+        lambda **kw: (lambda fn: fn),
+    )
+    monkeypatch.setattr(
+        "aragora.server.handlers.debates.create.user_rate_limit",
+        lambda **kw: (lambda fn: fn),
+    )
+
+
 class TestDebateThisEndpoint:
     """Tests for _debate_this convenience endpoint."""
 
