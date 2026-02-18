@@ -328,7 +328,11 @@ class RouteRegistrationMixin:
         _register_optional_routes(app)
 
         # Start drain loop
-        asyncio.create_task(self._drain_loop())
+        _drain_task = asyncio.create_task(self._drain_loop())
+        _drain_task.add_done_callback(
+            lambda t: logger.critical("Server drain loop crashed: %s", t.exception())
+            if not t.cancelled() and t.exception() else None
+        )
 
         # Run server
         runner = web.AppRunner(app)

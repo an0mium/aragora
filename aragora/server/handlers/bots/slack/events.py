@@ -295,7 +295,11 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                         )
                     request = DecisionRequest(**request_kwargs)  # type: ignore[arg-type]
                     router = get_decision_router()
-                    asyncio.create_task(router.route(request))
+                    task = asyncio.create_task(router.route(request))
+                    task.add_done_callback(
+                        lambda t: logger.error("Slack debate routing failed: %s", t.exception())
+                        if not t.cancelled() and t.exception() else None
+                    )
                 except ImportError:
                     logger.debug("DecisionRouter not available for Slack app_mention")
                 except (RuntimeError, ValueError, KeyError, AttributeError, TypeError) as e:

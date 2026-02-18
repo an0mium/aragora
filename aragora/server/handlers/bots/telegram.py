@@ -745,7 +745,11 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         try:
             asyncio.get_running_loop()
             # Schedule as task and return preliminary ID
-            asyncio.create_task(route_debate())
+            task = asyncio.create_task(route_debate())
+            task.add_done_callback(
+                lambda t: logger.error("Telegram debate routing failed: %s", t.exception())
+                if not t.cancelled() and t.exception() else None
+            )
             return debate_id
         except RuntimeError:
             thread = threading.Thread(

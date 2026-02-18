@@ -198,7 +198,11 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(handle_email_reply(email_data))
+                _task = asyncio.create_task(handle_email_reply(email_data))
+                _task.add_done_callback(
+                    lambda t: logger.error("Email reply processing failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
 
@@ -357,7 +361,11 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(handle_email_reply(email_data))
+                _task = asyncio.create_task(handle_email_reply(email_data))
+                _task.add_done_callback(
+                    lambda t: logger.error("Email reply processing failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
 
@@ -446,7 +454,11 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
 
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(handle_email_reply(email_data))
+                _task = asyncio.create_task(handle_email_reply(email_data))
+                _task.add_done_callback(
+                    lambda t: logger.error("Email reply processing failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
 

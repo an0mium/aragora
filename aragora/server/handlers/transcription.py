@@ -399,7 +399,11 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
             try:
                 asyncio.get_running_loop()
                 # Schedule for later
-                asyncio.ensure_future(store.enqueue(job))
+                task = asyncio.ensure_future(store.enqueue(job))
+                task.add_done_callback(
+                    lambda t: logger.error("Transcription job enqueue failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(store.enqueue(job))

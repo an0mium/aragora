@@ -340,7 +340,11 @@ class AuditSessionsHandler(SecureHandler):
         )
 
         # Start audit in background (would trigger actual audit processing)
-        asyncio.create_task(self._run_audit_background(session_id))
+        task = asyncio.create_task(self._run_audit_background(session_id))
+        task.add_done_callback(
+            lambda t: logger.error("Background audit %s failed: %s", session_id, t.exception())
+            if not t.cancelled() and t.exception() else None
+        )
 
         logger.info(f"Started audit session {session_id}")
 
@@ -805,7 +809,7 @@ class AuditSessionsHandler(SecureHandler):
                     _sessions[session_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                 # Emit progress event (fire and forget)
-                asyncio.create_task(
+                _emit_task = asyncio.create_task(
                     self._emit_event(
                         session_id,
                         {
@@ -816,6 +820,10 @@ class AuditSessionsHandler(SecureHandler):
                             "timestamp": datetime.now(timezone.utc).isoformat(),
                         },
                     )
+                )
+                _emit_task.add_done_callback(
+                    lambda t: logger.warning("Audit progress emission failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
                 )
 
             # Try to use DocumentAuditor
@@ -833,7 +841,11 @@ class AuditSessionsHandler(SecureHandler):
 
                 def on_finding_sync(f: AuditFinding) -> None:
                     """Sync wrapper that fires and forgets the async callback."""
-                    asyncio.create_task(on_finding(f))
+                    _finding_task = asyncio.create_task(on_finding(f))
+                    _finding_task.add_done_callback(
+                        lambda t: logger.warning("Audit finding callback failed: %s", t.exception())
+                        if not t.cancelled() and t.exception() else None
+                    )
 
                 auditor = DocumentAuditor(
                     config=config,

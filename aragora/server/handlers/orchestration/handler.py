@@ -530,7 +530,11 @@ class OrchestrationHandler(SecureHandler):
                 return json_response(response_data)
             else:
                 # Async execution - queue and return immediately
-                asyncio.create_task(self._execute_and_store(request))
+                task = asyncio.create_task(self._execute_and_store(request))
+                task.add_done_callback(
+                    lambda t: logger.error("Async deliberation failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
                 response_data = {
                     "request_id": request.request_id,
                     "status": "queued",

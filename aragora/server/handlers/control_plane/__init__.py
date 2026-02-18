@@ -183,7 +183,11 @@ class ControlPlaneHandler(
         # Schedule the emission task without blocking
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(_do_emit_with_retry())
+            task = loop.create_task(_do_emit_with_retry())
+            task.add_done_callback(
+                lambda t: logger.error("Control plane emission failed: %s", t.exception())
+                if not t.cancelled() and t.exception() else None
+            )
         except RuntimeError:
             # No running event loop - use _run_async as fallback (single attempt)
             try:

@@ -554,7 +554,11 @@ class ConnectorsHandler(SecureHandler):
         connector["status"] = "syncing"
 
         # Start background sync task
-        asyncio.create_task(self._run_sync(sync_id, connector_id))
+        task = asyncio.create_task(self._run_sync(sync_id, connector_id))
+        task.add_done_callback(
+            lambda t: logger.error("Connector sync %s failed: %s", sync_id, t.exception())
+            if not t.cancelled() and t.exception() else None
+        )
 
         logger.info(f"Started sync {sync_id} for connector {connector_id}")
 

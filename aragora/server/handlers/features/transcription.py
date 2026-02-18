@@ -500,7 +500,11 @@ class TranscriptionHandler(BaseHandler):
         job = self._create_job(filename, len(file_content), metadata=ingest_metadata)
 
         # Queue for async processing
-        asyncio.create_task(self._process_transcription(job.id, file_content, filename))
+        task = asyncio.create_task(self._process_transcription(job.id, file_content, filename))
+        task.add_done_callback(
+            lambda t: logger.error("Transcription processing %s failed: %s", job.id, t.exception())
+            if not t.cancelled() and t.exception() else None
+        )
 
         logger.info(
             f"Transcription job created: {job.id} for {filename} ({len(file_content)} bytes)"

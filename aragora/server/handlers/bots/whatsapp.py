@@ -715,7 +715,11 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Run async in background
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(route_via_decision_router())
+                task = asyncio.create_task(route_via_decision_router())
+                task.add_done_callback(
+                    lambda t: logger.error("WhatsApp debate routing failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
                 return debate_id
             except RuntimeError:
                 asyncio.run(route_via_decision_router())
@@ -765,7 +769,11 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Run async enqueue in background
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(enqueue_job())
+                task = asyncio.create_task(enqueue_job())
+                task.add_done_callback(
+                    lambda t: logger.error("WhatsApp job enqueue failed: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(enqueue_job())
