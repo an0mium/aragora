@@ -52,6 +52,7 @@ class DebugAttempt:
     success: bool = False
     agent_stdout: str = ""
     agent_stderr: str = ""
+    diff_context: str = ""  # git diff after this attempt
 
 
 @dataclass
@@ -195,6 +196,9 @@ class DebugLoop:
         attempt.agent_stdout = stdout[:1000]
         attempt.agent_stderr = stderr[:500]
 
+        # Step 1b: Capture git diff for retry context
+        attempt.diff_context = self._get_diff(worktree_path)
+
         # Step 2: Run tests
         test_result = await self._run_tests(worktree_path, test_scope)
         attempt.tests_passed = test_result.get("passed", 0)
@@ -310,11 +314,27 @@ class DebugLoop:
                 + "\n... [truncated]"
             )
 
+        # Include diff of what the previous attempt changed
+        diff_section = ""
+        if failed_attempt.diff_context:
+            diff_text = failed_attempt.diff_context
+            if len(diff_text) > self.config.max_failure_context_chars:
+                diff_text = (
+                    diff_text[: self.config.max_failure_context_chars]
+                    + "\n... [truncated]"
+                )
+            diff_section = f"""
+CHANGES MADE SO FAR (git diff):
+```diff
+{diff_text}
+```
+"""
+
         return f"""RETRY ATTEMPT {failed_attempt.attempt_number + 1}: Fix the test failures below.
 
 ORIGINAL OBJECTIVE:
 {original_instruction[:1000]}
-
+{diff_section}
 TEST FAILURES (attempt {failed_attempt.attempt_number}):
 {failed_attempt.tests_passed} tests passed, {failed_attempt.tests_failed} tests failed.
 
@@ -327,6 +347,31 @@ INSTRUCTIONS:
 - Focus on the root cause of the failures
 - Run tests again after making changes
 """
+
+    @staticmethod
+    def _get_diff(worktree_path: str, max_chars: int = 5000) -> str:
+        """Capture current git diff in the worktree.
+
+        Returns the unified diff of all uncommitted changes, truncated to
+        *max_chars*.  Used to give retry attempts context about what the
+        previous attempt changed.
+        """
+        try:
+            result = subprocess.run(
+                ["git", "diff", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=worktree_path,
+                timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                diff = result.stdout
+                if len(diff) > max_chars:
+                    diff = diff[:max_chars] + "\n... [truncated]"
+                return diff
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        return ""
 
     def _get_changed_files(self, worktree_path: str) -> list[str]:
         """Get list of changed files in the worktree via git diff."""

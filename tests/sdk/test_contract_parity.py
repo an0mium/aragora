@@ -60,8 +60,10 @@ PIPELINE_ENDPOINTS: list[tuple[str, str]] = [
     ("POST", "/api/v1/canvas/pipeline/from-debate"),
     ("POST", "/api/v1/canvas/pipeline/from-ideas"),
     ("POST", "/api/v1/canvas/pipeline/advance"),
+    ("POST", "/api/v1/canvas/pipeline/{id}/approve-transition"),
     # Pipeline queries
     ("GET", "/api/v1/canvas/pipeline/{id}"),
+    ("PUT", "/api/v1/canvas/pipeline/{id}"),
     ("GET", "/api/v1/canvas/pipeline/{id}/status"),
     ("GET", "/api/v1/canvas/pipeline/{id}/stage/{id}"),
     ("GET", "/api/v1/canvas/pipeline/{id}/graph"),

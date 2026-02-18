@@ -41,6 +41,7 @@ class ExecutionInstruction:
     constraints: list[str]  # Don'ts and guardrails
     worktree_path: str | None = None  # Isolated worktree if applicable
     budget_limit_usd: float = 0.0  # Cost cap
+    file_contents: dict[str, str] = field(default_factory=dict)  # path -> content snippet
 
     def to_agent_prompt(self) -> str:
         """Render as a structured Markdown prompt for Claude Code."""
@@ -56,6 +57,14 @@ class ExecutionInstruction:
             for f in self.file_hints:
                 sections.append(f"- `{f}`")
             sections.append("")
+        if self.file_contents:
+            sections.append("## File Contents (key sections)")
+            for path, content in self.file_contents.items():
+                sections.append(f"### `{path}`")
+                sections.append("```python")
+                sections.append(content)
+                sections.append("```")
+                sections.append("")
         if self.success_criteria:
             sections.append("## Success Criteria")
             for c in self.success_criteria:
@@ -166,6 +175,7 @@ class ExecutionBridge:
         extra_constraints: list[str] | None = None,
         worktree_path: str | None = None,
         budget_limit_usd: float = 0.0,
+        file_contents: dict[str, str] | None = None,
     ) -> ExecutionInstruction:
         """Create an ExecutionInstruction from a SubTask.
 
@@ -220,6 +230,7 @@ class ExecutionBridge:
             constraints=constraints,
             worktree_path=worktree_path,
             budget_limit_usd=budget_limit_usd,
+            file_contents=file_contents or {},
         )
 
     def ingest_result(self, result: ExecutionResult) -> None:

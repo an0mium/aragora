@@ -183,7 +183,7 @@ class AnalyticsMetricsHandler(
             if not decision.allowed:
                 logger.warning(f"RBAC denied analytics metrics access: {decision.reason}")
                 return error_response(
-                    decision.reason or "Permission denied",
+                    "Permission denied",
                     403,
                     code="PERMISSION_DENIED",
                 )

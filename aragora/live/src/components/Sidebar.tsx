@@ -42,6 +42,15 @@ const startItems: NavItem[] = [
   { label: 'Document Audit', href: '/audit', icon: '|', minMode: 'standard' },
 ];
 
+// Pipeline section - Idea-to-Execution stages
+const pipelineItems: NavItem[] = [
+  { label: 'Pipeline', href: '/pipeline', icon: '|', minMode: 'standard' },
+  { label: 'Ideas', href: '/ideas', icon: '~', minMode: 'standard' },
+  { label: 'Goals', href: '/goals', icon: 'G', minMode: 'standard' },
+  { label: 'Actions', href: '/actions', icon: 'A', minMode: 'standard' },
+  { label: 'Orchestration', href: '/orchestration', icon: '!', minMode: 'advanced' },
+];
+
 // Browse section - viewing past content
 const browseItems: NavItem[] = [
   { label: 'Debates', href: '/debates', icon: '#' },
@@ -250,6 +259,9 @@ export function Sidebar() {
             ? [{ label: 'Get Started', href: '/onboarding', icon: '>', minMode: 'simple' as ProgressiveMode }, ...startItems]
             : startItems
           )}
+
+          {/* Pipeline - Idea-to-Execution stages */}
+          {renderNavSection('Pipeline', pipelineItems, 'standard')}
 
           {/* Browse - View past content */}
           {renderNavSection('Browse', browseItems)}

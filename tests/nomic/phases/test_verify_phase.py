@@ -322,83 +322,124 @@ class TestVerifyPhaseImportCheck:
 
 
 class TestVerifyPhaseRunTests:
-    """Tests for _run_tests method."""
+    """Tests for _run_tests method (uses TestRunner with fallback)."""
 
     @pytest.mark.asyncio
     async def test_tests_pass(self, mock_aragora_path, mock_log_fn):
-        """Should pass when all tests pass."""
+        """Should pass when all tests pass (via TestRunner)."""
         from aragora.nomic.phases.verify import VerifyPhase
+        from aragora.nomic.testfixer.runner import TestResult, TestFramework
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=mock_log_fn,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.returncode = 0
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"====== 10 passed in 2.5s ======", b"")
-            )
-            mock_exec.return_value = mock_proc
-
+        mock_result = TestResult(
+            command="pytest tests/ -x",
+            exit_code=0,
+            stdout="====== 10 passed in 2.5s ======",
+            stderr="",
+            total_tests=10,
+            passed=10,
+            failed=0,
+            failures=[],
+            framework=TestFramework.PYTEST,
+        )
+        with patch(
+            "aragora.nomic.testfixer.runner.TestRunner.run",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await phase._run_tests()
 
-            assert result["check"] == "tests"
-            assert result["passed"] is True
-            assert "10 passed" in result.get("output", "")
+        assert result["check"] == "tests"
+        assert result["passed"] is True
+        assert "10 passed" in result.get("output", "")
+        assert result.get("test_result") is mock_result
 
     @pytest.mark.asyncio
     async def test_tests_fail(self, mock_aragora_path, mock_log_fn):
-        """Should fail when tests fail."""
+        """Should fail when tests fail (via TestRunner)."""
         from aragora.nomic.phases.verify import VerifyPhase
+        from aragora.nomic.testfixer.runner import (
+            TestFailure,
+            TestFramework,
+            TestResult,
+        )
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=mock_log_fn,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.returncode = 1
-            mock_proc.communicate = AsyncMock(
-                return_value=(
-                    b"FAILED test_module.py::test_func - AssertionError",
-                    b"",
+        mock_result = TestResult(
+            command="pytest tests/ -x",
+            exit_code=1,
+            stdout="FAILED test_module.py::test_func - AssertionError",
+            stderr="",
+            total_tests=1,
+            passed=0,
+            failed=1,
+            failures=[
+                TestFailure(
+                    test_name="test_func",
+                    test_file="test_module.py",
+                    error_type="AssertionError",
+                    error_message="assert False",
+                    stack_trace="",
                 )
-            )
-            mock_exec.return_value = mock_proc
-
+            ],
+            framework=TestFramework.PYTEST,
+        )
+        with patch(
+            "aragora.nomic.testfixer.runner.TestRunner.run",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await phase._run_tests()
 
-            assert result["check"] == "tests"
-            assert result["passed"] is False
+        assert result["check"] == "tests"
+        assert result["passed"] is False
+        assert result.get("test_result") is mock_result
+        assert len(result.get("failure_details", [])) == 1
 
     @pytest.mark.asyncio
     async def test_no_tests_collected(self, mock_aragora_path, mock_log_fn):
         """Should pass when no tests are collected (exit code 5)."""
         from aragora.nomic.phases.verify import VerifyPhase
+        from aragora.nomic.testfixer.runner import TestFramework, TestResult
 
         phase = VerifyPhase(
             aragora_path=mock_aragora_path,
             log_fn=mock_log_fn,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.returncode = 5  # pytest "no tests ran" exit code
-            mock_proc.communicate = AsyncMock(return_value=(b"no tests ran in 0.1s", b""))
-            mock_exec.return_value = mock_proc
-
+        mock_result = TestResult(
+            command="pytest tests/ -x",
+            exit_code=5,
+            stdout="no tests ran in 0.1s",
+            stderr="",
+            total_tests=0,
+            passed=0,
+            failed=0,
+            failures=[],
+            framework=TestFramework.PYTEST,
+        )
+        with patch(
+            "aragora.nomic.testfixer.runner.TestRunner.run",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await phase._run_tests()
 
-            assert result["check"] == "tests"
-            assert result["passed"] is True
-            assert "no tests" in result.get("note", "").lower()
+        assert result["check"] == "tests"
+        assert result["passed"] is True
+        assert "no tests" in result.get("note", "").lower()
 
     @pytest.mark.asyncio
-    async def test_tests_timeout(self, mock_aragora_path, mock_log_fn):
-        """Should handle test execution timeout."""
+    async def test_tests_timeout_via_fallback(self, mock_aragora_path, mock_log_fn):
+        """Should handle timeout via raw fallback path."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -406,16 +447,46 @@ class TestVerifyPhaseRunTests:
             log_fn=mock_log_fn,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
-            mock_exec.return_value = mock_proc
+        # Force fallback to _run_tests_raw by making TestRunner import fail
+        with patch.dict("sys.modules", {"aragora.nomic.testfixer.runner": None}):
+            with patch("asyncio.create_subprocess_exec") as mock_exec:
+                mock_proc = AsyncMock()
+                mock_proc.communicate = AsyncMock(
+                    side_effect=asyncio.TimeoutError()
+                )
+                mock_proc.kill = AsyncMock()
+                mock_proc.wait = AsyncMock()
+                mock_exec.return_value = mock_proc
 
-            result = await phase._run_tests()
+                result = await phase._run_tests()
 
-            assert result["check"] == "tests"
-            assert result["passed"] is False
-            assert result.get("error") == "timeout"
+        assert result["check"] == "tests"
+        assert result["passed"] is False
+        assert result.get("error") == "timeout"
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_raw_subprocess(self, mock_aragora_path, mock_log_fn):
+        """Should fall back to _run_tests_raw when TestRunner import fails."""
+        from aragora.nomic.phases.verify import VerifyPhase
+
+        phase = VerifyPhase(
+            aragora_path=mock_aragora_path,
+            log_fn=mock_log_fn,
+        )
+
+        with patch.dict("sys.modules", {"aragora.nomic.testfixer.runner": None}):
+            with patch("asyncio.create_subprocess_exec") as mock_exec:
+                mock_proc = AsyncMock()
+                mock_proc.returncode = 0
+                mock_proc.communicate = AsyncMock(
+                    return_value=(b"5 passed in 1.0s", b"")
+                )
+                mock_exec.return_value = mock_proc
+
+                result = await phase._run_tests()
+
+        assert result["check"] == "tests"
+        assert result["passed"] is True
 
 
 # ============================================================================

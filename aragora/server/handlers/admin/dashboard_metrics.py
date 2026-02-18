@@ -92,7 +92,7 @@ def require_permission(
             if not decision.allowed:
                 if on_denied:
                     on_denied(decision)
-                raise PermissionDeniedError(decision.reason, decision)
+                raise PermissionDeniedError("Permission denied", decision)
 
             return func(*args, **kwargs)
 

@@ -237,6 +237,39 @@ export class PipelineNamespace {
   }
 
   /**
+   * Approve or reject a pending stage transition.
+   */
+  async approveTransition(
+    pipelineId: string,
+    options?: { approved?: boolean; notes?: string },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/approve-transition`,
+      {
+        body: {
+          approved: options?.approved ?? true,
+          ...(options?.notes ? { notes: options.notes } : {}),
+        },
+      }
+    );
+  }
+
+  /**
+   * Save/update a pipeline.
+   */
+  async save(
+    pipelineId: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'PUT',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}`,
+      { body: data }
+    );
+  }
+
+  /**
    * Convert ArgumentCartographer debate to React Flow ideas canvas.
    */
   async convertDebate(

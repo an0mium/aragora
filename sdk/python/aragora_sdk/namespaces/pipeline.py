@@ -136,6 +136,25 @@ class PipelineAPI:
             "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
         )
 
+    def approve_transition(
+        self, pipeline_id: str, *, approved: bool = True, notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a pending stage transition."""
+        payload: dict[str, Any] = {"approved": approved}
+        if notes:
+            payload["notes"] = notes
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Save/update a pipeline."""
+        return self._client.request(
+            "PUT", f"/api/v1/canvas/pipeline/{pipeline_id}", json=data,
+        )
+
     def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:
         """Convert ArgumentCartographer debate to React Flow ideas canvas."""
         return self._client.request(
@@ -266,6 +285,25 @@ class AsyncPipelineAPI:
             payload["config"] = config
         return await self._client.request(
             "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
+        )
+
+    async def approve_transition(
+        self, pipeline_id: str, *, approved: bool = True, notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a pending stage transition."""
+        payload: dict[str, Any] = {"approved": approved}
+        if notes:
+            payload["notes"] = notes
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    async def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Save/update a pipeline."""
+        return await self._client.request(
+            "PUT", f"/api/v1/canvas/pipeline/{pipeline_id}", json=data,
         )
 
     async def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:

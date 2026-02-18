@@ -147,7 +147,7 @@ class AnalyticsPerformanceHandler(BaseHandler):
             if not decision.allowed:
                 logger.warning(f"RBAC denied analytics performance access: {decision.reason}")
                 return error_response(
-                    decision.reason or "Permission denied",
+                    "Permission denied",
                     403,
                     code="PERMISSION_DENIED",
                 )

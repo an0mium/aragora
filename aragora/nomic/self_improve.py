@@ -571,16 +571,86 @@ class SelfImprovePipeline:
         subtasks: list[Any],
         cycle_id: str,
     ) -> list[dict[str, Any]]:
-        """Step 4: Execute subtasks, optionally in parallel worktrees."""
-        if self.config.use_worktrees:
-            return await self._execute_in_worktrees(subtasks, cycle_id)
+        """Step 4: Execute subtasks, respecting dependency order.
 
-        # Sequential execution without isolation
+        Groups subtasks into dependency waves using ``SubTask.dependencies``.
+        Subtasks within a wave (no unmet dependencies) execute in parallel;
+        waves execute sequentially.
+        """
+        waves = self._group_dependency_waves(subtasks)
+
+        if self.config.use_worktrees:
+            all_results: list[dict[str, Any]] = []
+            for wave in waves:
+                wave_results = await self._execute_in_worktrees(wave, cycle_id)
+                all_results.extend(wave_results)
+            return all_results
+
+        # Sequential execution respecting wave order
         results: list[dict[str, Any]] = []
-        for subtask in subtasks:
-            result = await self._execute_single(subtask, cycle_id)
-            results.append(result)
+        for wave in waves:
+            for subtask in wave:
+                result = await self._execute_single(subtask, cycle_id)
+                results.append(result)
         return results
+
+    @staticmethod
+    def _group_dependency_waves(subtasks: list[Any]) -> list[list[Any]]:
+        """Group subtasks into dependency waves for ordered execution.
+
+        Wave 0: subtasks with no dependencies (or no dependency field).
+        Wave N: subtasks whose dependencies are all in waves 0..N-1.
+
+        Falls back to a single wave (all parallel) if dependency data is
+        missing or if a cycle is detected.
+        """
+        # Build id -> subtask map
+        by_id: dict[str, Any] = {}
+        for st in subtasks:
+            st_id = getattr(st, "id", None)
+            if st_id:
+                by_id[st_id] = st
+
+        # If no subtask has dependencies, return single wave
+        has_deps = any(getattr(st, "dependencies", None) for st in subtasks)
+        if not has_deps:
+            return [subtasks]
+
+        assigned: set[str] = set()
+        waves: list[list[Any]] = []
+        remaining = list(subtasks)
+        max_iterations = len(subtasks) + 1  # cycle guard
+
+        for _ in range(max_iterations):
+            if not remaining:
+                break
+
+            wave: list[Any] = []
+            still_remaining: list[Any] = []
+
+            for st in remaining:
+                deps = getattr(st, "dependencies", None) or []
+                # A subtask is ready if all its deps are already assigned
+                # or if the dep ID doesn't exist in the subtask set
+                unmet = [d for d in deps if d in by_id and d not in assigned]
+                if not unmet:
+                    wave.append(st)
+                else:
+                    still_remaining.append(st)
+
+            if not wave:
+                # All remaining have unmet deps (cycle) — flush them
+                wave = still_remaining
+                still_remaining = []
+
+            waves.append(wave)
+            for st in wave:
+                st_id = getattr(st, "id", None)
+                if st_id:
+                    assigned.add(st_id)
+            remaining = still_remaining
+
+        return waves
 
     async def _execute_in_worktrees(
         self,
@@ -698,12 +768,17 @@ class SelfImprovePipeline:
 
         logger.info("execute_subtask cycle=%s task=%s", cycle_id, desc[:80])
 
+        # Read file contents for richer prompts
+        file_contents = self._read_file_contents(subtask)
+
         # Attempt to use ExecutionBridge to generate + dispatch instruction
         try:
             from aragora.nomic.execution_bridge import ExecutionBridge
 
             bridge = ExecutionBridge()
-            instruction = bridge.create_instruction(subtask)
+            instruction = bridge.create_instruction(
+                subtask, file_contents=file_contents
+            )
 
             logger.info(
                 "execution_instruction generated subtask=%s",
@@ -847,6 +922,49 @@ class SelfImprovePipeline:
                     test_dirs.append(hint)
 
         return test_dirs
+
+    @staticmethod
+    def _read_file_contents(
+        subtask: Any,
+        max_chars_per_file: int = 2000,
+        max_total_chars: int = 10000,
+    ) -> dict[str, str]:
+        """Read truncated file contents from subtask file_scope.
+
+        Gives the execution agent real code context instead of just file paths.
+        Reads the first ``max_chars_per_file`` characters of each file,
+        capped at ``max_total_chars`` total across all files.
+
+        Returns:
+            Dict mapping file path -> truncated content.
+        """
+        from pathlib import Path as P
+
+        file_hints: list[str] = getattr(subtask, "file_scope", [])
+        if not file_hints and hasattr(subtask, "goal"):
+            file_hints = getattr(subtask.goal, "file_hints", [])
+
+        contents: dict[str, str] = {}
+        total = 0
+
+        for hint in file_hints:
+            if total >= max_total_chars:
+                break
+            path = P(hint)
+            if not path.exists() or not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                budget = min(max_chars_per_file, max_total_chars - total)
+                snippet = text[:budget]
+                if len(text) > budget:
+                    snippet += "\n# ... [truncated]"
+                contents[hint] = snippet
+                total += len(snippet)
+            except OSError:
+                continue
+
+        return contents
 
     async def _dispatch_to_claude_code(
         self,
