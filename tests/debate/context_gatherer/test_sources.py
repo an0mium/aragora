@@ -819,9 +819,9 @@ class TestGatherEvidenceStoreContext:
         result = await g.gather_evidence_store_context("topic")
 
         assert result is not None
-        # Should only have 3 evidence lines
-        evidence_lines = [l for l in result.split("\n") if "snippet" in l]
-        assert len(evidence_lines) <= 3
+        # Should only have at most max_evidence_context_items bullet lines
+        bullet_lines = [l for l in result.split("\n") if l.startswith("- [")]
+        assert len(bullet_lines) <= 3
 
 
 # ===========================================================================
@@ -1458,8 +1458,10 @@ class TestRefreshEvidenceForRound:
 
         existing_snippet = MagicMock()
         existing_snippet.id = "old-1"
+        # Use a real list so we can verify extend was called with the new snippet
+        existing_snippets_list = [existing_snippet]
         existing_pack = MagicMock()
-        existing_pack.snippets = [existing_snippet]
+        existing_pack.snippets = existing_snippets_list
         existing_pack.total_searched = 10
 
         g = make_gatherer()
@@ -1469,8 +1471,8 @@ class TestRefreshEvidenceForRound:
         count, returned_pack = await g.refresh_evidence_for_round("text", collector, task)
 
         assert count == 1
-        # new snippet should be appended
-        existing_pack.snippets.extend.assert_called_once()
+        # new snippet should be appended to existing list
+        assert new_snippet in existing_snippets_list
         # total_searched updated
         assert existing_pack.total_searched == 13
         assert returned_pack is existing_pack
@@ -1488,20 +1490,21 @@ class TestRefreshEvidenceForRound:
         collector.collect_for_claims = AsyncMock(return_value=new_pack)
 
         existing_snippet = MagicMock()
-        existing_snippet.id = "existing-1"  # same id
+        existing_snippet.id = "existing-1"  # same id → should be deduped
+        existing_snippets_list = [existing_snippet]
         existing_pack = MagicMock()
-        existing_pack.snippets = [existing_snippet]
+        existing_pack.snippets = existing_snippets_list
         existing_pack.total_searched = 5
 
         g = make_gatherer()
         task_hash = g._get_task_hash(task)
         g._research_evidence_pack[task_hash] = existing_pack
 
-        count, _ = await g.refresh_evidence_for_round("text", collector, task)
+        await g.refresh_evidence_for_round("text", collector, task)
 
-        # Duplicate should be filtered out — extend called with empty list
-        call_args = existing_pack.snippets.extend.call_args[0][0]
-        assert len(list(call_args)) == 0
+        # The list should still be length 1 — duplicate was not appended
+        assert len(existing_snippets_list) == 1
+        assert existing_snippets_list[0].id == "existing-1"
 
     async def test_calls_evidence_store_callback(self):
         callback = MagicMock()
