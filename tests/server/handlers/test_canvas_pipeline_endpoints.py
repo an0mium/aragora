@@ -6,18 +6,16 @@ import pytest
 
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
+    _get_store,
     _pipeline_objects,
-    _pipeline_results,
 )
 
 
 @pytest.fixture(autouse=True)
 def _clear_stores():
     """Clear in-memory stores between tests."""
-    _pipeline_results.clear()
     _pipeline_objects.clear()
     yield
-    _pipeline_results.clear()
     _pipeline_objects.clear()
 
 
@@ -102,7 +100,7 @@ class TestHandleFromDebate:
             "cartographer_data": sample_cartographer_data,
         })
         pid = result["pipeline_id"]
-        assert pid in _pipeline_results
+        assert _get_store().get(pid) is not None
         assert pid in _pipeline_objects
 
     @pytest.mark.asyncio
@@ -165,7 +163,7 @@ class TestHandleFromIdeas:
             "ideas": ["Idea one", "Idea two"],
         })
         pid = result["pipeline_id"]
-        assert pid in _pipeline_results
+        assert _get_store().get(pid) is not None
         assert pid in _pipeline_objects
 
     @pytest.mark.asyncio
@@ -259,7 +257,9 @@ class TestHandleAdvance:
             "target_stage": "actions",
         })
         # Both stores should be updated
-        assert _pipeline_results[pid]["stage_status"]["actions"] == "complete"
+        stored = _get_store().get(pid)
+        assert stored is not None
+        assert stored["stage_status"]["actions"] == "complete"
 
 
 # =========================================================================

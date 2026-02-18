@@ -373,6 +373,7 @@ class TestPipeline:
                 use_worktrees=False,
                 capture_metrics=False,
                 persist_outcomes=False,
+                enable_codebase_indexing=False,
             )
         )
         with patch.object(pipeline, "_persist_outcome") as mock_persist:
@@ -389,6 +390,7 @@ class TestPipeline:
                 use_worktrees=False,
                 capture_metrics=False,
                 persist_outcomes=False,
+                enable_codebase_indexing=False,
             )
         )
         with (
@@ -792,6 +794,7 @@ class TestEndToEnd:
                 use_worktrees=False,
                 capture_metrics=False,
                 persist_outcomes=False,
+                enable_codebase_indexing=False,
             )
         )
 
