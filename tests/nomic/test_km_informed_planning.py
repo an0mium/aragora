@@ -76,7 +76,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -103,7 +103,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -130,7 +130,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -151,7 +151,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -172,7 +172,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -199,7 +199,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -227,7 +227,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -252,7 +252,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -275,7 +275,7 @@ class TestHighROIGoalTypes:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -312,7 +312,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -340,7 +340,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -369,7 +369,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -398,7 +398,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -419,7 +419,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -440,7 +440,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -463,7 +463,7 @@ class TestRecurringFailures:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -491,7 +491,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             side_effect=ImportError("no adapter"),
         ):
             result = await planner._enrich_context_with_history(
@@ -511,7 +511,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
@@ -532,7 +532,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
@@ -566,7 +566,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -587,7 +587,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             await planner._enrich_context_with_history(
@@ -612,7 +612,7 @@ class TestMetaPlannerKMEnrichment:
         )
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await planner._enrich_context_with_history(
@@ -631,7 +631,7 @@ class TestMetaPlannerKMEnrichment:
         context = PlanningContext()
 
         with patch(
-            "aragora.nomic.meta_planner.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             side_effect=RuntimeError("adapter broke"),
         ):
             result = await planner._enrich_context_with_history(
@@ -666,7 +666,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Fix test execution issues")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
@@ -694,7 +694,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Fix a bug")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
@@ -722,7 +722,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Original"), _make_subtask("s2", "Also original")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km("Add things", subtasks)
@@ -736,7 +736,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Original")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             side_effect=ImportError("no adapter"),
         ):
             result = await decomposer.enrich_subtasks_from_km("Test", subtasks)
@@ -751,7 +751,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Original")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             side_effect=RuntimeError("adapter broke"),
         ):
             result = await decomposer.enrich_subtasks_from_km("Test", subtasks)
@@ -775,7 +775,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Fix UI styling")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km(
@@ -801,7 +801,7 @@ class TestTaskDecomposerEnrichment:
         decomposer = TaskDecomposer()
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km("Test", [])
@@ -824,7 +824,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Something else entirely")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km("Do unique_pattern_xyz work", subtasks)
@@ -849,7 +849,7 @@ class TestTaskDecomposerEnrichment:
         subtasks = [_make_subtask("s1", "Original task")]
 
         with patch(
-            "aragora.nomic.task_decomposer.get_nomic_cycle_adapter",
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
             return_value=adapter,
         ):
             result = await decomposer.enrich_subtasks_from_km("Test weak pattern", subtasks)
@@ -947,7 +947,10 @@ class TestCodebaseIndexing:
             persist_outcomes=False,
         ))
 
-        with patch.object(pipeline, "_index_codebase", new_callable=AsyncMock) as mock_idx:
+        with (
+            patch.object(pipeline, "_index_codebase", new_callable=AsyncMock) as mock_idx,
+            patch.object(pipeline, "_enrich_file_scope", new_callable=AsyncMock),
+        ):
             await pipeline.run("Test with indexing")
 
         mock_idx.assert_called_once()

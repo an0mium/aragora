@@ -1,9 +1,9 @@
 """Tests for the CanvasPipelineHandler REST endpoints.
 
-Covers all 7 endpoints:
-- POST from-debate, from-ideas
-- GET pipeline/{id}, pipeline/{id}/stage/{stage}
-- POST advance (via advance → stage)
+Covers all 12 endpoints:
+- POST from-debate, from-ideas, advance, run, extract-goals
+- GET pipeline/{id}, pipeline/{id}/status, pipeline/{id}/stage/{stage},
+      pipeline/{id}/graph, pipeline/{id}/receipt
 - POST convert/debate, convert/workflow
 """
 
@@ -16,23 +16,31 @@ import pytest
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
     _pipeline_objects,
-    _pipeline_results,
 )
 
 
 @pytest.fixture(autouse=True)
 def _clear_pipeline_store():
-    """Clear in-memory pipeline results between tests."""
-    _pipeline_results.clear()
+    """Clear in-memory pipeline objects between tests."""
     _pipeline_objects.clear()
     yield
-    _pipeline_results.clear()
     _pipeline_objects.clear()
 
 
 @pytest.fixture
 def handler():
     return CanvasPipelineHandler()
+
+
+@pytest.fixture
+def mock_store():
+    """Provide a mock pipeline store for GET tests."""
+    store = MagicMock()
+    store.get.return_value = None
+    with patch(
+        "aragora.server.handlers.canvas_pipeline._get_store", return_value=store
+    ):
+        yield store
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +86,6 @@ class TestFromDebate:
         # Pipeline should succeed (may not advance all stages with minimal data)
         if "error" not in result:
             assert "pipeline_id" in result
-            assert result["pipeline_id"] in _pipeline_results
             assert "stage_status" in result
         else:
             # Import may fail in some envs — that's acceptable
@@ -178,14 +185,15 @@ class TestAdvance:
 
 class TestGetPipeline:
     @pytest.mark.asyncio
-    async def test_not_found(self, handler):
+    async def test_not_found(self, handler, mock_store):
+        mock_store.get.return_value = None
         result = await handler.handle_get_pipeline("nonexistent")
         assert "error" in result
         assert "not found" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_found(self, handler):
-        _pipeline_results["pipe-abc"] = {
+    async def test_found(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-abc",
             "ideas": {"nodes": []},
         }
@@ -200,26 +208,27 @@ class TestGetPipeline:
 
 class TestGetStage:
     @pytest.mark.asyncio
-    async def test_pipeline_not_found(self, handler):
+    async def test_pipeline_not_found(self, handler, mock_store):
+        mock_store.get.return_value = None
         result = await handler.handle_get_stage("nonexistent", "ideas")
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_stage_not_found(self, handler):
-        _pipeline_results["pipe-1"] = {"pipeline_id": "pipe-1"}
+    async def test_stage_not_found(self, handler, mock_store):
+        mock_store.get.return_value = {"pipeline_id": "pipe-1"}
         result = await handler.handle_get_stage("pipe-1", "ideas")
         # "ideas" key not in result dict
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_invalid_stage_name(self, handler):
-        _pipeline_results["pipe-1"] = {"pipeline_id": "pipe-1", "ideas": {}}
+    async def test_invalid_stage_name(self, handler, mock_store):
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "ideas": {}}
         result = await handler.handle_get_stage("pipe-1", "invalid_stage")
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_valid_stage(self, handler):
-        _pipeline_results["pipe-1"] = {
+    async def test_valid_stage(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-1",
             "ideas": {"nodes": [{"id": "n1"}]},
         }
@@ -228,8 +237,8 @@ class TestGetStage:
         assert result["data"]["nodes"][0]["id"] == "n1"
 
     @pytest.mark.asyncio
-    async def test_goals_stage(self, handler):
-        _pipeline_results["pipe-1"] = {
+    async def test_goals_stage(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-1",
             "goals": [{"id": "g1", "title": "Goal 1"}],
         }
@@ -237,8 +246,8 @@ class TestGetStage:
         assert result["stage"] == "goals"
 
     @pytest.mark.asyncio
-    async def test_orchestration_stage(self, handler):
-        _pipeline_results["pipe-1"] = {
+    async def test_orchestration_stage(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-1",
             "orchestration": {"agents": []},
         }
