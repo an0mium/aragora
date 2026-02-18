@@ -1129,7 +1129,9 @@ class TestWorktreePathFlow:
         """_execute_single extracts worktree_path from TrackAssignment."""
         from pathlib import Path
 
-        pipeline = SelfImprovePipeline()
+        pipeline = SelfImprovePipeline(
+            config=SelfImproveConfig(enable_debug_loop=False)
+        )
 
         # Create a TrackAssignment-like object with worktree_path
         subtask = MagicMock()

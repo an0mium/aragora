@@ -106,6 +106,188 @@ COST_SCHEMAS: dict[str, Any] = {
         },
         "required": ["success"],
     },
+    # --- Response schemas for v1 cost endpoints ---
+    "CostUsageResponse": {
+        "type": "object",
+        "description": "Detailed usage tracking data",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "time_range": {"type": "string"},
+            "group_by": {"type": "string"},
+            "total_cost_usd": {"type": "number"},
+            "total_tokens_in": {"type": "integer"},
+            "total_tokens_out": {"type": "integer"},
+            "total_api_calls": {"type": "integer"},
+            "usage": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "cost_usd": {"type": "number"},
+                        "api_calls": {"type": "integer"},
+                    },
+                },
+            },
+            "period_start": {"type": "string", "format": "date-time"},
+            "period_end": {"type": "string", "format": "date-time"},
+        },
+    },
+    "CostBudgetsListResponse": {
+        "type": "object",
+        "description": "List of budgets for a workspace",
+        "properties": {
+            "budgets": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "workspace_id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "monthly_limit_usd": {"type": "number", "nullable": True},
+                        "daily_limit_usd": {"type": "number", "nullable": True},
+                        "current_monthly_spend": {"type": "number"},
+                        "current_daily_spend": {"type": "number"},
+                        "active": {"type": "boolean"},
+                    },
+                },
+            },
+            "count": {"type": "integer"},
+            "workspace_id": {"type": "string"},
+        },
+        "required": ["budgets", "count"],
+    },
+    "CostBudgetCreateRequest": {
+        "type": "object",
+        "description": "Request to create a new budget",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "name": {"type": "string"},
+            "monthly_limit_usd": {"type": "number"},
+            "daily_limit_usd": {"type": "number"},
+            "alert_thresholds": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "Alert threshold percentages (e.g. [50, 75, 90, 100])",
+            },
+        },
+        "required": ["monthly_limit_usd"],
+    },
+    "CostConstraintCheckResponse": {
+        "type": "object",
+        "description": "Result of a pre-flight budget constraint check",
+        "properties": {
+            "allowed": {"type": "boolean"},
+            "reason": {"type": "string"},
+            "workspace_id": {"type": "string"},
+            "estimated_cost_usd": {"type": "number"},
+            "operation": {"type": "string"},
+            "remaining_monthly_budget": {"type": "number", "nullable": True},
+        },
+        "required": ["allowed", "reason"],
+    },
+    "CostEstimateResponse": {
+        "type": "object",
+        "description": "Estimated cost for an operation",
+        "properties": {
+            "estimated_cost_usd": {"type": "number"},
+            "breakdown": {
+                "type": "object",
+                "properties": {
+                    "input_tokens": {"type": "integer"},
+                    "output_tokens": {"type": "integer"},
+                    "input_cost_usd": {"type": "number"},
+                    "output_cost_usd": {"type": "number"},
+                },
+            },
+            "pricing": {
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string"},
+                    "provider": {"type": "string"},
+                    "input_per_1m": {"type": "number"},
+                    "output_per_1m": {"type": "number"},
+                },
+            },
+            "operation": {"type": "string"},
+        },
+        "required": ["estimated_cost_usd"],
+    },
+    "CostForecastDetailedResponse": {
+        "type": "object",
+        "description": "Detailed cost forecast with daily breakdowns",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "forecast_days": {"type": "integer"},
+            "summary": {"type": "object"},
+            "daily_forecasts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string", "format": "date"},
+                        "projected_cost_usd": {"type": "number"},
+                        "confidence_low": {"type": "number"},
+                        "confidence_high": {"type": "number"},
+                    },
+                },
+            },
+            "confidence_level": {"type": "number"},
+        },
+    },
+    "CostRecommendationsDetailedResponse": {
+        "type": "object",
+        "description": "Detailed cost optimization recommendations with implementation steps",
+        "properties": {
+            "recommendations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "type": {"type": "string"},
+                        "description": {"type": "string"},
+                        "estimated_savings_usd": {"type": "number"},
+                        "implementation_steps": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "difficulty": {"type": "string"},
+                        "time_to_implement": {"type": "string"},
+                    },
+                },
+            },
+            "count": {"type": "integer"},
+            "summary": {"type": "object"},
+            "workspace_id": {"type": "string"},
+            "total_potential_savings_usd": {"type": "number"},
+        },
+    },
+    "CostAlertCreateResponse": {
+        "type": "object",
+        "description": "Response after creating a cost alert",
+        "properties": {
+            "success": {"type": "boolean"},
+            "alert": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "workspace_id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "type": {"type": "string"},
+                    "threshold": {"type": "number"},
+                    "notification_channels": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "active": {"type": "boolean"},
+                    "created_at": {"type": "string", "format": "date-time"},
+                },
+            },
+        },
+        "required": ["success"],
+    },
     # Budget management schemas
     "BudgetPeriod": {
         "type": "string",

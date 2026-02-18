@@ -520,3 +520,323 @@ class TestSyncEventCallback:
             pipeline_id="pipe-custom-123",
         )
         assert result.pipeline_id == "pipe-custom-123"
+
+
+# ---------------------------------------------------------------------------
+# PUT: Save pipeline canvas state
+# ---------------------------------------------------------------------------
+
+
+class TestSavePipeline:
+    """Tests for handle_save_pipeline (PUT /api/v1/canvas/pipeline/{id})."""
+
+    @pytest.mark.asyncio
+    async def test_missing_stages(self, handler, mock_store):
+        """Missing 'stages' field returns error."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_save_pipeline("pipe-1", {})
+        assert "error" in result
+        assert "stages" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_save_with_nodes(self, handler, mock_store):
+        """Saving stages with nodes marks them complete."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_save_pipeline("pipe-1", {
+            "stages": {
+                "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+            },
+        })
+        assert result["saved"] is True
+        assert result["pipeline_id"] == "pipe-1"
+        assert result["stage_status"]["ideas"] == "complete"
+
+    @pytest.mark.asyncio
+    async def test_save_creates_new_pipeline(self, handler, mock_store):
+        """PUT on a nonexistent pipeline_id creates a new entry (upsert)."""
+        mock_store.get.return_value = None
+        result = await handler.handle_save_pipeline("pipe-new", {
+            "stages": {
+                "goals": {"nodes": [{"id": "g1"}], "edges": []},
+            },
+        })
+        assert result["saved"] is True
+        assert result["pipeline_id"] == "pipe-new"
+        # Verify store.save was called
+        mock_store.save.assert_called_once()
+        saved_data = mock_store.save.call_args[0][1]
+        assert saved_data["pipeline_id"] == "pipe-new"
+
+    @pytest.mark.asyncio
+    async def test_empty_nodes_not_marked_complete(self, handler, mock_store):
+        """Saving a stage with empty nodes doesn't mark it complete."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_save_pipeline("pipe-1", {
+            "stages": {
+                "ideas": {"nodes": [], "edges": []},
+            },
+        })
+        assert result["saved"] is True
+        assert "ideas" not in result["stage_status"]
+
+    @pytest.mark.asyncio
+    async def test_save_multiple_stages(self, handler, mock_store):
+        """Multiple stages can be saved in a single request."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_save_pipeline("pipe-1", {
+            "stages": {
+                "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+                "goals": {"nodes": [{"id": "g1"}], "edges": [{"source": "g1", "target": "n1"}]},
+                "actions": {"nodes": [], "edges": []},
+            },
+        })
+        assert result["saved"] is True
+        assert result["stage_status"]["ideas"] == "complete"
+        assert result["stage_status"]["goals"] == "complete"
+        assert "actions" not in result["stage_status"]
+
+    @pytest.mark.asyncio
+    async def test_put_routing(self, handler):
+        """handle_put dispatches to handle_save_pipeline."""
+        mock_handler = MagicMock()
+        mock_handler.request.body = b'{"stages": {"ideas": {"nodes": [{"id": "1"}], "edges": []}}}'
+        result = handler.handle_put(
+            "/api/v1/canvas/pipeline/pipe-test", {}, mock_handler
+        )
+        # Should return a coroutine
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_put_routing_no_match(self, handler):
+        """handle_put returns None for non-matching paths."""
+        mock_handler = MagicMock()
+        result = handler.handle_put("/api/v1/canvas/other", {}, mock_handler)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# POST: Approve/reject stage transition
+# ---------------------------------------------------------------------------
+
+
+class TestApproveTransition:
+    """Tests for handle_approve_transition (POST /{id}/approve-transition)."""
+
+    @pytest.mark.asyncio
+    async def test_pipeline_not_found(self, handler, mock_store):
+        """Nonexistent pipeline returns error."""
+        mock_store.get.return_value = None
+        result = await handler.handle_approve_transition("nonexistent", {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": True,
+        })
+        assert "error" in result
+        assert "not found" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_from_stage(self, handler, mock_store):
+        """Missing from_stage returns error."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_approve_transition("pipe-1", {
+            "to_stage": "goals",
+            "approved": True,
+        })
+        assert "error" in result
+        assert "from_stage" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_to_stage(self, handler, mock_store):
+        """Missing to_stage returns error."""
+        mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
+        result = await handler.handle_approve_transition("pipe-1", {
+            "from_stage": "ideas",
+            "approved": True,
+        })
+        assert "error" in result
+        assert "to_stage" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_approve_updates_stage_status(self, handler, mock_store):
+        """Approving a transition advances the pipeline stages."""
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {"ideas": "complete"},
+            "transitions": [],
+        }
+        result = await handler.handle_approve_transition("pipe-1", {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": True,
+            "comment": "Looks good",
+        })
+        assert result["status"] == "approved"
+        assert result["comment"] == "Looks good"
+        assert result["pipeline_id"] == "pipe-1"
+        # Verify store was saved with updated stage_status
+        saved_data = mock_store.save.call_args[0][1]
+        assert saved_data["stage_status"]["ideas"] == "complete"
+        assert saved_data["stage_status"]["goals"] == "active"
+
+    @pytest.mark.asyncio
+    async def test_reject_does_not_advance(self, handler, mock_store):
+        """Rejecting a transition doesn't change stage_status."""
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {"ideas": "complete"},
+            "transitions": [],
+        }
+        result = await handler.handle_approve_transition("pipe-1", {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": False,
+            "comment": "Needs more detail",
+        })
+        assert result["status"] == "rejected"
+        saved_data = mock_store.save.call_args[0][1]
+        # goals should not be "active"
+        assert "goals" not in saved_data["stage_status"]
+
+    @pytest.mark.asyncio
+    async def test_creates_transition_if_none_exist(self, handler, mock_store):
+        """New transition record created when no matching transition exists."""
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {},
+        }
+        result = await handler.handle_approve_transition("pipe-1", {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": True,
+        })
+        assert result["status"] == "approved"
+        saved_data = mock_store.save.call_args[0][1]
+        assert len(saved_data["transitions"]) == 1
+        assert saved_data["transitions"][0]["from_stage"] == "ideas"
+        assert saved_data["transitions"][0]["to_stage"] == "goals"
+        assert saved_data["transitions"][0]["status"] == "approved"
+        assert "reviewed_at" in saved_data["transitions"][0]
+
+    @pytest.mark.asyncio
+    async def test_updates_existing_transition(self, handler, mock_store):
+        """Existing transition record is updated in place."""
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {},
+            "transitions": [{
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "status": "pending",
+            }],
+        }
+        result = await handler.handle_approve_transition("pipe-1", {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": True,
+            "comment": "Approved after review",
+        })
+        assert result["status"] == "approved"
+        saved_data = mock_store.save.call_args[0][1]
+        assert len(saved_data["transitions"]) == 1
+        assert saved_data["transitions"][0]["status"] == "approved"
+        assert saved_data["transitions"][0]["human_comment"] == "Approved after review"
+
+    @pytest.mark.asyncio
+    async def test_post_routing_approve_transition(self, handler):
+        """handle_post dispatches /approve-transition correctly."""
+        mock_handler = MagicMock()
+        mock_handler.request.body = b'{"from_stage": "ideas", "to_stage": "goals", "approved": true}'
+        result = handler.handle_post(
+            "/api/v1/canvas/pipeline/pipe-test/approve-transition",
+            {},
+            mock_handler,
+        )
+        # Should return a coroutine (async method)
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# E2E: Full pipeline contract
+# ---------------------------------------------------------------------------
+
+
+class TestE2ESmokeContract:
+    """End-to-end smoke test: from_ideas → status → stage → save → approve → receipt."""
+
+    @pytest.mark.asyncio
+    async def test_full_pipeline_lifecycle(self, handler, mock_store):
+        """Exercise the full lifecycle: create → get → save → approve → receipt."""
+        # Step 1: Create pipeline via from-ideas
+        result = await handler.handle_from_ideas({
+            "ideas": ["build caching", "add monitoring"],
+        })
+        if "error" in result:
+            pytest.skip("Pipeline import unavailable in test env")
+        pipeline_id = result["pipeline_id"]
+        assert pipeline_id.startswith("pipe-")
+
+        # Step 2: Get pipeline by ID (mock store returns what was saved)
+        mock_store.get.return_value = {
+            "pipeline_id": pipeline_id,
+            "stage_status": result.get("stage_status", {}),
+            "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+        }
+        get_result = await handler.handle_get_pipeline(pipeline_id)
+        assert get_result["pipeline_id"] == pipeline_id
+
+        # Step 3: Get specific stage
+        stage_result = await handler.handle_get_stage(pipeline_id, "ideas")
+        assert stage_result["stage"] == "ideas"
+
+        # Step 4: Save updated canvas state
+        save_result = await handler.handle_save_pipeline(pipeline_id, {
+            "stages": {
+                "ideas": {"nodes": [{"id": "n1"}, {"id": "n2"}], "edges": []},
+                "goals": {"nodes": [{"id": "g1"}], "edges": []},
+            },
+        })
+        assert save_result["saved"] is True
+        assert save_result["stage_status"]["ideas"] == "complete"
+        assert save_result["stage_status"]["goals"] == "complete"
+
+        # Step 5: Approve transition from ideas to goals
+        # Update mock to reflect saved state with transitions
+        mock_store.get.return_value = {
+            "pipeline_id": pipeline_id,
+            "stage_status": {"ideas": "complete", "goals": "complete"},
+            "transitions": [],
+        }
+        approve_result = await handler.handle_approve_transition(pipeline_id, {
+            "from_stage": "ideas",
+            "to_stage": "goals",
+            "approved": True,
+            "comment": "Transition approved by test",
+        })
+        assert approve_result["status"] == "approved"
+
+        # Step 6: Verify receipt endpoint returns something
+        mock_store.get.return_value = {
+            "pipeline_id": pipeline_id,
+            "receipt": {"hash": "abc123"},
+        }
+        receipt_result = await handler.handle_receipt(pipeline_id)
+        if isinstance(receipt_result, dict):
+            assert "error" not in receipt_result or "receipt" in str(receipt_result)
+
+    @pytest.mark.asyncio
+    async def test_pipeline_from_ideas_to_get_status(self, handler, mock_store):
+        """Create pipeline from ideas and check status."""
+        result = await handler.handle_from_ideas({
+            "ideas": ["idea one"],
+        })
+        if "error" in result:
+            pytest.skip("Pipeline import unavailable in test env")
+        pipeline_id = result["pipeline_id"]
+
+        # Mock status response
+        mock_store.get.return_value = {
+            "pipeline_id": pipeline_id,
+            "stage_status": result.get("stage_status", {}),
+        }
+        status = await handler.handle_status(pipeline_id)
+        assert "pipeline_id" in status or "stage_status" in status

@@ -733,7 +733,36 @@ async def run_all():
         print("\nCollecting post-implementation metrics...")
         metrics_result = _collect_metrics_after(baseline)
 
-        await phase_verify()
+        # Verify with retry: if verify fails, re-implement with failure context
+        MAX_VERIFY_RETRIES = 1
+        design_data = load_phase("design")
+        for attempt in range(MAX_VERIFY_RETRIES + 1):
+            verify_data = await phase_verify()
+            checks = verify_data.get("checks", [])
+            all_passed = all(c.get("passed", False) for c in checks)
+
+            if all_passed or attempt == MAX_VERIFY_RETRIES:
+                break
+
+            # Build retry context from failures
+            failures = [c for c in checks if not c.get("passed", False)]
+            failure_summary = "\n".join(
+                f"- {c.get('check', c.get('name', '?'))}: {c.get('error', 'failed')}"
+                for c in failures
+            )
+
+            # Augment design with failure feedback
+            design_data["design"] = (
+                design_data["design"]
+                + f"\n\n## Previous Attempt Failures (attempt {attempt + 1})\n"
+                + failure_summary
+                + "\n\nFix these issues while preserving the original design intent."
+            )
+            save_phase("design", design_data)
+
+            print(f"\n[RETRY] Verify failed, retrying implementation (attempt {attempt + 2})...")
+            await phase_implement()
+
         await phase_commit()
 
         # Run gauntlet→improvement bridge to seed next cycle

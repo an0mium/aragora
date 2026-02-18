@@ -901,10 +901,13 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
     ) -> list[PrioritizedGoal]:
         """Prioritize from codebase signals without any LLM calls.
 
-        Gathers three signal sources:
+        Gathers six signal sources:
         1. ``git log`` — recently changed files mapped to tracks
         2. ``CodebaseIndexer`` — untested modules
         3. ``OutcomeTracker`` — past regression patterns
+        4. ``.pytest_cache`` — last-run test failures
+        5. ``ruff`` — lint violations
+        6. ``grep`` — TODO/FIXME/HACK comments
 
         Each signal contributes a candidate goal. Goals are ranked by signal
         count (more signals = higher priority).
@@ -978,6 +981,73 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
         except (ImportError, RuntimeError, ValueError, OSError):
             pass
 
+        # Signal 4: pytest last-run failures
+        try:
+            import json as _json
+            from pathlib import Path as _P
+
+            lastfailed_path = _P(".pytest_cache/v/cache/lastfailed")
+            if lastfailed_path.exists():
+                failed = _json.loads(lastfailed_path.read_text())
+                for node_id in list(failed.keys())[:20]:
+                    # Extract file path from node ID (e.g. "tests/foo.py::TestBar::test_baz")
+                    test_file = node_id.split("::")[0] if "::" in node_id else node_id
+                    track = self._file_to_track(test_file, available_tracks)
+                    if track and track.value in track_signals:
+                        track_signals[track.value].append(
+                            f"test_failure: {node_id}"
+                        )
+        except (OSError, ValueError, _json.JSONDecodeError):
+            pass
+
+        # Signal 5: ruff lint violations
+        try:
+            ruff_result = subprocess.run(
+                ["ruff", "check", "--quiet", "--output-format=concise", "."],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                cwd=".",
+            )
+            if ruff_result.stdout:
+                for i, line in enumerate(ruff_result.stdout.splitlines()):
+                    if i >= 20:
+                        break
+                    # Format: "path/to/file.py:42:1 E501 ..."
+                    parts = line.split(":", 1)
+                    if parts:
+                        track = self._file_to_track(parts[0], available_tracks)
+                        if track and track.value in track_signals:
+                            track_signals[track.value].append(
+                                f"lint: {line.strip()[:100]}"
+                            )
+        except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            pass
+
+        # Signal 6: TODO/FIXME/HACK comments
+        try:
+            todo_result = subprocess.run(
+                ["grep", "-rn", r"TODO\|FIXME\|HACK", "aragora/",
+                 "--include=*.py", "-l"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=".",
+            )
+            if todo_result.returncode == 0 and todo_result.stdout:
+                for i, filepath in enumerate(todo_result.stdout.splitlines()):
+                    if i >= 10:
+                        break
+                    filepath = filepath.strip()
+                    if filepath:
+                        track = self._file_to_track(filepath, available_tracks)
+                        if track and track.value in track_signals:
+                            track_signals[track.value].append(
+                                f"todo: {filepath}"
+                            )
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
         # Build goals from signals, ranked by signal count
         ranked = sorted(
             track_signals.items(),
@@ -1003,11 +1073,19 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                 f"{len(signals)} signals ({signal_summary})"
             )
 
+            # Enrich with file excerpts for grounded execution
+            excerpts = self._gather_file_excerpts(top_signals)
+            if excerpts:
+                excerpt_text = "\n".join(
+                    f"--- {p} ---\n{s[:500]}" for p, s in excerpts.items()
+                )
+                description += f"\n\nRelevant source:\n{excerpt_text}"
+
             goals.append(
                 PrioritizedGoal(
                     id=f"scan_{priority - 1}",
                     track=track,
-                    description=description[:200],
+                    description=description[:2000],
                     rationale=f"Scan mode: {len(signals)} codebase signals detected",
                     estimated_impact="high" if len(signals) >= 5 else "medium",
                     priority=priority,
@@ -1042,6 +1120,57 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             if track in available_tracks and any(p in fp for p in patterns):
                 return track
         return available_tracks[0] if available_tracks else None
+
+    @staticmethod
+    def _gather_file_excerpts(
+        signals: list[str],
+        max_files: int = 3,
+        max_chars_per_file: int = 1500,
+        max_total_chars: int = 5000,
+    ) -> dict[str, str]:
+        """Extract file paths from signal strings and read excerpts.
+
+        Provides real source code context to ground goals instead of
+        relying solely on signal labels.
+
+        Args:
+            signals: Signal strings like ``"recent_change: aragora/foo.py"``.
+            max_files: Maximum number of files to read.
+            max_chars_per_file: Max characters per file excerpt.
+            max_total_chars: Max total characters across all excerpts.
+
+        Returns:
+            Dict mapping file path to truncated content.
+        """
+        import re
+        from pathlib import Path as _P
+
+        # Extract file paths from signal strings
+        path_re = re.compile(r"(?:aragora|tests|scripts)/\S+\.py")
+        paths: list[str] = []
+        for sig in signals:
+            match = path_re.search(sig)
+            if match and match.group() not in paths:
+                paths.append(match.group())
+            if len(paths) >= max_files:
+                break
+
+        result: dict[str, str] = {}
+        total = 0
+        for path in paths:
+            try:
+                content = _P(path).read_text(errors="replace")[:max_chars_per_file]
+                if total + len(content) > max_total_chars:
+                    content = content[: max_total_chars - total]
+                if content:
+                    result[path] = content
+                    total += len(content)
+                if total >= max_total_chars:
+                    break
+            except OSError:
+                continue
+
+        return result
 
     def _gather_codebase_hints(
         self,

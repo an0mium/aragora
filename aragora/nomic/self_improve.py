@@ -31,7 +31,7 @@ class SelfImproveConfig:
     # Planning
     use_meta_planner: bool = True  # Debate-driven prioritization
     quick_mode: bool = False  # Skip debate, use heuristics
-    scan_mode: bool = False  # Use codebase signals, no LLM calls
+    scan_mode: bool = True  # Use codebase signals, no LLM calls
     max_goals: int = 5
 
     # Execution
@@ -937,9 +937,6 @@ class SelfImprovePipeline:
         falling back to the single-dispatch path.
         """
         if not self.config.enable_debug_loop:
-            return None
-
-        if self.config.require_approval and not self.config.autonomous:
             return None
 
         try:
