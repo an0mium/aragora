@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { TrustBadge, type CalibrationData } from '@/components/TrustBadge';
 
 export type AgentStatus = 'idle' | 'working' | 'error' | 'rate_limited' | 'offline';
 
@@ -15,6 +16,7 @@ export interface AgentInfo {
   win_rate?: number;
   calibration_score?: number;
   brier_score?: number;
+  calibration?: CalibrationData | null;
   expertise?: string[];
   tokens_used_today?: number;
   requests_today?: number;
@@ -127,7 +129,10 @@ export function AgentCard({
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-mono text-text truncate">{agent.name}</h4>
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-sm font-mono text-text truncate">{agent.name}</h4>
+            <TrustBadge calibration={agent.calibration} size="sm" />
+          </div>
           <p className="text-xs text-text-muted truncate">{agent.model}</p>
         </div>
 

@@ -230,9 +230,16 @@ class MetaPlanner:
             # Build debate topic
             topic = self._build_debate_topic(objective, available_tracks, constraints, context)
 
+            # Select agents: use introspection ranking if available
+            agent_types = (
+                self._select_agents_by_introspection(objective)
+                if self.config.use_introspection_selection
+                else self.config.agents
+            )
+
             # Create agents using get_secret pattern for API key resolution
             agents = []
-            for agent_type in self.config.agents:
+            for agent_type in agent_types:
                 try:
                     agent = self._create_agent(agent_type)
                     if agent is not None:
@@ -647,6 +654,141 @@ class MetaPlanner:
 
         logger.debug(f"Could not create agent {agent_type} via any path")
         return None
+
+    def _select_agents_by_introspection(self, domain: str) -> list[str]:
+        """Select agents using introspection data for better planning quality.
+
+        Ranks available agents by their reputation_score + calibration_score
+        for the given domain, preferring agents with proven track records.
+
+        Args:
+            domain: The planning domain or objective keyword to match expertise.
+
+        Returns:
+            List of agent names ranked by introspection scores, or the static
+            config list if introspection is unavailable.
+        """
+        try:
+            from aragora.introspection.api import get_agent_introspection
+
+            scored_agents: list[tuple[str, float]] = []
+            for agent_name in self.config.agents:
+                snapshot = get_agent_introspection(agent_name)
+                # Combined score: reputation + calibration, with domain expertise bonus
+                score = snapshot.reputation_score + snapshot.calibration_score
+                if domain and snapshot.top_expertise:
+                    domain_lower = domain.lower()
+                    if any(domain_lower in exp.lower() or exp.lower() in domain_lower
+                           for exp in snapshot.top_expertise):
+                        score += 0.2  # Domain expertise bonus
+                scored_agents.append((agent_name, score))
+
+            if not scored_agents:
+                return self.config.agents
+
+            # Sort by score descending
+            scored_agents.sort(key=lambda x: x[1], reverse=True)
+            selected = [name for name, _ in scored_agents]
+
+            logger.info(
+                "introspection_agent_selection domain=%s selected=%s",
+                domain[:50] if domain else "general",
+                selected,
+            )
+            return selected
+
+        except ImportError:
+            logger.debug("Introspection API not available, using static agent list")
+            return self.config.agents
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Introspection selection failed: %s", e)
+            return self.config.agents
+
+    def _explain_planning_decision(
+        self,
+        result: Any,
+        goals: list[PrioritizedGoal],
+    ) -> None:
+        """Generate a self-explanation for the planning decision.
+
+        Builds an explanation from the debate result and attaches the summary
+        as rationale to each goal. Persists the explanation to KM.
+
+        Args:
+            result: DebateResult from Arena.run()
+            goals: Parsed PrioritizedGoal list to annotate with rationale
+        """
+        if not self.config.explain_decisions:
+            return
+
+        try:
+            from aragora.explainability.builder import ExplanationBuilder
+
+            builder = ExplanationBuilder()
+
+            # build() is async, but we schedule it fire-and-forget
+            import asyncio
+
+            async def _explain() -> None:
+                try:
+                    decision = await builder.build(result)
+                    summary = builder.generate_summary(decision)
+                    for goal in goals:
+                        if not goal.rationale:
+                            goal.rationale = summary[:500]
+
+                    # Persist explanation to KM
+                    self._persist_explanation_to_km(summary, goals)
+                except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("Self-explanation build failed: %s", exc)
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_explain())
+            except RuntimeError:
+                logger.debug("No event loop, skipping async self-explanation")
+
+        except ImportError:
+            logger.debug("ExplanationBuilder not available, skipping self-explanation")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Self-explanation unavailable: %s", e)
+
+    def _persist_explanation_to_km(
+        self,
+        summary: str,
+        goals: list[PrioritizedGoal],
+    ) -> None:
+        """Persist a planning explanation to the Knowledge Mound."""
+        try:
+            from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
+
+            adapter = ReceiptAdapter()
+            import asyncio
+
+            async def _ingest() -> None:
+                try:
+                    from aragora.knowledge.mound.core import KnowledgeItem
+
+                    item = KnowledgeItem(
+                        content=summary[:2000],
+                        source="meta_planner_explanation",
+                        tags=["self_explanation", "meta_planner"]
+                        + [g.track.value for g in goals[:5]],
+                    )
+                    await adapter.ingest(item)
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("KM explanation ingestion failed: %s", exc)
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_ingest())
+            except RuntimeError:
+                pass
+
+        except ImportError:
+            logger.debug("ReceiptAdapter not available for explanation persistence")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Explanation KM persistence failed: %s", e)
 
     def _build_debate_topic(
         self,
