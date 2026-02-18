@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor, act } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import ControlPlanePage from '../page';
 
@@ -148,14 +148,14 @@ describe('ControlPlanePage', () => {
 
   describe('initial render', () => {
     it('renders visual effects', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByTestId('scanlines')).toBeInTheDocument();
       expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
     });
 
     it('renders header elements', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('ControlPlanePage', () => {
     });
 
     it('renders page title and description', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByText('Control Plane')).toBeInTheDocument();
       expect(screen.getByText(/Monitor and orchestrate multi-agent document processing/)).toBeInTheDocument();
@@ -172,13 +172,13 @@ describe('ControlPlanePage', () => {
     it('shows loading state initially', () => {
       mockFetch.mockReturnValue(new Promise(() => {})); // Never resolves
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByText('Loading control plane...')).toBeInTheDocument();
     });
 
     it('renders admin link', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       const adminLink = screen.getByText('[ADMIN]');
       expect(adminLink).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('ControlPlanePage', () => {
     });
 
     it('renders tab navigation', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -201,7 +201,7 @@ describe('ControlPlanePage', () => {
     });
 
     it('renders vetted decisionmaking console', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -267,7 +267,7 @@ describe('ControlPlanePage', () => {
     });
 
     const user = userEvent.setup();
-    render(<ControlPlanePage />);
+    renderWithProviders(<ControlPlanePage />);
 
     await waitFor(() => {
       expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -293,7 +293,7 @@ describe('ControlPlanePage', () => {
 
   describe('data fetching', () => {
     it('fetches agents, jobs, and metrics on mount', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/control-plane/agents');
@@ -303,7 +303,7 @@ describe('ControlPlanePage', () => {
     });
 
     it('fetches verticals data on mount', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/verticals');
@@ -313,7 +313,7 @@ describe('ControlPlanePage', () => {
     it('shows demo mode indicator when using mock data', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.getByText('DEMO MODE')).toBeInTheDocument();
@@ -357,7 +357,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.getByText('3')).toBeInTheDocument(); // active_jobs
@@ -369,7 +369,7 @@ describe('ControlPlanePage', () => {
     it('uses mock data when fetch fails', async () => {
       mockFetch.mockRejectedValue(new Error('API unavailable'));
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         // Should show mock agent data
@@ -383,7 +383,7 @@ describe('ControlPlanePage', () => {
     it('switches to agents tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -399,7 +399,7 @@ describe('ControlPlanePage', () => {
     it('switches to workflows tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -415,7 +415,7 @@ describe('ControlPlanePage', () => {
     it('switches to knowledge tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -431,7 +431,7 @@ describe('ControlPlanePage', () => {
     it('switches to connectors tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -447,7 +447,7 @@ describe('ControlPlanePage', () => {
     it('switches to executions tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -463,7 +463,7 @@ describe('ControlPlanePage', () => {
     it('switches to verticals tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -479,7 +479,7 @@ describe('ControlPlanePage', () => {
     it('switches to policy tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -495,7 +495,7 @@ describe('ControlPlanePage', () => {
     it('switches to workspace tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -511,7 +511,7 @@ describe('ControlPlanePage', () => {
     it('switches to settings tab', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -564,7 +564,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.getByText('ACTIVE JOBS')).toBeInTheDocument();
@@ -611,7 +611,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.getByText('No active jobs')).toBeInTheDocument();
@@ -660,7 +660,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.getByText('Agent Status')).toBeInTheDocument();
@@ -714,7 +714,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -768,7 +768,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -823,7 +823,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -884,7 +884,7 @@ describe('ControlPlanePage', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
       });
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -909,7 +909,7 @@ describe('ControlPlanePage', () => {
 
   describe('auto-refresh toggle', () => {
     it('displays polling status indicator', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       // By default when WS is not connected, it shows POLLING
       expect(screen.getByText('POLLING')).toBeInTheDocument();
@@ -918,7 +918,7 @@ describe('ControlPlanePage', () => {
     it('toggles auto-refresh when clicked', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       const toggleButton = screen.getByText('POLLING');
 
@@ -934,7 +934,7 @@ describe('ControlPlanePage', () => {
     it('displays processing settings', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -952,7 +952,7 @@ describe('ControlPlanePage', () => {
     it('displays audit settings', async () => {
       const user = userEvent.setup();
 
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
@@ -971,7 +971,7 @@ describe('ControlPlanePage', () => {
 
   describe('footer', () => {
     it('renders footer', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByText(/ARAGORA \/\/ CONTROL PLANE/)).toBeInTheDocument();
     });
@@ -979,7 +979,7 @@ describe('ControlPlanePage', () => {
 
   describe('error boundary', () => {
     it('wraps content in PanelErrorBoundary', async () => {
-      render(<ControlPlanePage />);
+      renderWithProviders(<ControlPlanePage />);
 
       expect(screen.getByTestId('panel-error-boundary')).toBeInTheDocument();
     });
