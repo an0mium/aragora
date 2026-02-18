@@ -493,9 +493,11 @@ class SlackOAuthHandler(SecureHandler):
                     "SLACK_REDIRECT_URI must be configured in production",
                     500,
                 )
-            # Development fallback only - construct from request host parameter
+            # Development fallback only - restrict to localhost to prevent open redirect
             host = query_params.get("host", "localhost:8080")
-            scheme = "https" if "localhost" not in host else "http"
+            if not host.startswith(("localhost", "127.0.0.1", "[::1]")):
+                return error_response("Only localhost allowed in development mode", 400)
+            scheme = "http"
             redirect_uri = f"{scheme}://{host}/api/integrations/slack/callback"
             logger.warning(f"Using fallback redirect_uri in development: {redirect_uri}")
 

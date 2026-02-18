@@ -108,6 +108,9 @@ class PartnerHandler(BaseHandler):
         }
         """
         try:
+            content_type = (handler.headers.get("Content-Type") or "").lower()
+            if not content_type.startswith("application/json"):
+                return error_response("Content-Type must be application/json", 415)
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 10 * 1024 * 1024:
                 return error_response("Request body too large", 413)
@@ -204,6 +207,9 @@ class PartnerHandler(BaseHandler):
             return error_response("Partner ID required", 400)
 
         try:
+            content_type = (handler.headers.get("Content-Type") or "").lower()
+            if not content_type.startswith("application/json"):
+                return error_response("Content-Type must be application/json", 415)
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 10 * 1024 * 1024:
                 return error_response("Request body too large", 413)
@@ -405,6 +411,9 @@ class PartnerHandler(BaseHandler):
             return error_response("Partner ID required", 400)
 
         try:
+            content_type = (handler.headers.get("Content-Type") or "").lower()
+            if not content_type.startswith("application/json"):
+                return error_response("Content-Type must be application/json", 415)
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length > 10 * 1024 * 1024:
                 return error_response("Request body too large", 413)

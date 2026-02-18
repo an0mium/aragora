@@ -344,9 +344,11 @@ class TeamsOAuthHandler(SecureHandler):
         # Build OAuth URL
         redirect_uri = TEAMS_REDIRECT_URI
         if not redirect_uri:
-            # Try to construct from request
+            # Development fallback only - restrict to localhost to prevent open redirect
             host = query_params.get("host", "localhost:8080")
-            scheme = "https" if "localhost" not in host else "http"
+            if not host.startswith(("localhost", "127.0.0.1", "[::1]")):
+                return error_response("Only localhost allowed without TEAMS_REDIRECT_URI", 400)
+            scheme = "http"
             redirect_uri = f"{scheme}://{host}/api/integrations/teams/callback"
 
         oauth_params = {
