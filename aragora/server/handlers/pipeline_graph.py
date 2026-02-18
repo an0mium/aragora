@@ -114,8 +114,40 @@ class PipelineGraphHandler:
 
         return None
 
+    def _check_permission(self, handler: Any, permission: str) -> Any:
+        """Check RBAC permission and return error response if denied."""
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request
+            from aragora.rbac.checker import get_permission_checker
+            from aragora.rbac.models import AuthorizationContext
+            from aragora.server.handlers.utils.responses import error_response
+
+            user_ctx = extract_user_from_request(handler, None)
+            if not user_ctx or not user_ctx.is_authenticated:
+                return error_response("Authentication required", status=401)
+
+            auth_ctx = AuthorizationContext(
+                user_id=user_ctx.user_id,
+                user_email=user_ctx.email,
+                org_id=user_ctx.org_id,
+                workspace_id=None,
+                roles={user_ctx.role} if user_ctx.role else {"member"},
+            )
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, permission)
+            if not decision.allowed:
+                return error_response("Permission denied", status=403)
+            return None
+        except (ImportError, AttributeError, ValueError) as e:
+            logger.debug("Permission check unavailable: %s", e)
+            return None
+
     def handle_delete(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch DELETE requests."""
+        auth_error = self._check_permission(handler, "pipeline:write")
+        if auth_error:
+            return auth_error
+
         # DELETE /api/v1/pipeline/graph/{id}/node/{node_id}
         m = _GRAPH_NODE_ID.match(path)
         if m:
@@ -130,6 +162,10 @@ class PipelineGraphHandler:
 
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests."""
+        auth_error = self._check_permission(handler, "pipeline:write")
+        if auth_error:
+            return auth_error
+
         body = self._get_request_body(handler)
 
         # POST /api/v1/pipeline/graph/{id}/promote
