@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, act, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import PolicyPage from '../page';
 
@@ -174,7 +174,7 @@ describe('PolicyPage', () => {
     it('renders visual effects', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       expect(screen.getByTestId('scanlines')).toBeInTheDocument();
       expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('PolicyPage', () => {
     it('renders header elements', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe('PolicyPage', () => {
     it('renders page title', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       expect(screen.getByText('[POLICY_ADMIN]')).toBeInTheDocument();
       expect(screen.getByText('Compliance policies and violation tracking')).toBeInTheDocument();
@@ -202,7 +202,7 @@ describe('PolicyPage', () => {
     it('shows loading state initially', () => {
       mockFetch.mockReturnValue(new Promise(() => {})); // Never resolves
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       expect(screen.getByText('Loading policy data...')).toBeInTheDocument();
     });
@@ -210,7 +210,7 @@ describe('PolicyPage', () => {
     it('renders tab navigation', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -223,7 +223,7 @@ describe('PolicyPage', () => {
     it('renders action buttons', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -238,7 +238,7 @@ describe('PolicyPage', () => {
     it('fetches policies, violations, and stats on mount', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/policies');
@@ -250,7 +250,7 @@ describe('PolicyPage', () => {
     it('displays policies when fetched successfully', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
@@ -288,7 +288,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No policies defined. Create your first compliance policy.')).toBeInTheDocument();
@@ -298,7 +298,7 @@ describe('PolicyPage', () => {
     it('displays error when fetch fails', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByTestId('error-display')).toBeInTheDocument();
@@ -310,7 +310,7 @@ describe('PolicyPage', () => {
     it('displays compliance score', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('75%')).toBeInTheDocument();
@@ -321,7 +321,7 @@ describe('PolicyPage', () => {
     it('displays active policies count', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('2/2')).toBeInTheDocument();
@@ -332,7 +332,7 @@ describe('PolicyPage', () => {
     it('displays open violations count', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         // Multiple elements may have "5" - just verify the label exists
@@ -348,7 +348,7 @@ describe('PolicyPage', () => {
     it('displays critical/high count', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         // Critical (2) + High (3) = 5
@@ -361,7 +361,7 @@ describe('PolicyPage', () => {
     it('displays resolved count', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         // Total (17) - Open (5) = 12
@@ -375,7 +375,7 @@ describe('PolicyPage', () => {
     it('displays policy cards with details', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
@@ -387,7 +387,7 @@ describe('PolicyPage', () => {
     it('displays severity badges', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       // Wait for policies to be displayed
       await waitFor(() => {
@@ -405,7 +405,7 @@ describe('PolicyPage', () => {
     it('displays violation counts', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('5 violations')).toBeInTheDocument();
@@ -416,7 +416,7 @@ describe('PolicyPage', () => {
     it('displays toggle buttons for policies', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         const toggleButtons = screen.getAllByRole('button', { name: '[ON]' });
@@ -427,7 +427,7 @@ describe('PolicyPage', () => {
     it('displays edit buttons for policies', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         const editButtons = screen.getAllByRole('button', { name: '[EDIT]' });
@@ -438,7 +438,7 @@ describe('PolicyPage', () => {
     it('displays delete buttons for policies', async () => {
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         const deleteButtons = screen.getAllByRole('button', { name: '[DEL]' });
@@ -450,7 +450,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
@@ -471,7 +471,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
@@ -493,7 +493,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -514,7 +514,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -532,7 +532,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -554,7 +554,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -572,7 +572,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -596,7 +596,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -644,7 +644,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -663,7 +663,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -681,7 +681,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -699,7 +699,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -722,7 +722,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -774,7 +774,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -803,7 +803,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -825,7 +825,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -852,7 +852,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -880,7 +880,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -907,7 +907,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -924,7 +924,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -941,7 +941,7 @@ describe('PolicyPage', () => {
       const user = userEvent.setup();
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -991,7 +991,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1055,7 +1055,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1118,7 +1118,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1170,7 +1170,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1192,7 +1192,7 @@ describe('PolicyPage', () => {
       mockConfirm.mockReturnValue(false);
       setupSuccessfulFetch();
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1250,7 +1250,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.getByTestId('error-display')).toBeInTheDocument();
@@ -1300,7 +1300,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
@@ -1356,7 +1356,7 @@ describe('PolicyPage', () => {
         });
       });
 
-      render(<PolicyPage />);
+      renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading policy data...')).not.toBeInTheDocument();
