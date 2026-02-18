@@ -1,7 +1,11 @@
 """
 Pulse Namespace API
 
-Provides access to trending topics and real-time signals from various sources.
+Provides access to trending topics and real-time signals:
+- Trending topics from HackerNews, Reddit, Twitter
+- Debate topic suggestions based on signals
+- Analytics on pulse data
+- Scheduler management for automated pulse ingestion
 """
 
 from __future__ import annotations
@@ -11,11 +15,27 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class PulseAPI:
-    """Synchronous Pulse API for trending topics and signals."""
+    """
+    Synchronous Pulse API for trending topics and signals.
+
+    Pulse monitors external sources (HackerNews, Reddit, Twitter) for
+    trending topics and suggests debate topics based on real-time signals.
+
+    Example:
+        >>> client = AragoraClient(base_url="https://api.aragora.ai")
+        >>> trending = client.pulse.get_trending(source="hackernews", limit=10)
+        >>> topic = client.pulse.suggest_debate_topic()
+        >>> scheduler = client.pulse.get_scheduler_status()
+    """
 
     def __init__(self, client: AragoraClient):
         self._client = client
+
+    # =========================================================================
+    # Trending & Suggestions
+    # =========================================================================
 
     def get_trending(
         self,
@@ -23,7 +43,8 @@ class PulseAPI:
         category: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        """Get trending topics.
+        """
+        Get trending topics from monitored sources.
 
         Args:
             source: Filter by source platform.
@@ -31,7 +52,8 @@ class PulseAPI:
             limit: Maximum number of topics to return.
 
         Returns:
-            Trending topics with scores and metadata.
+            Dict with trending topics including scores, sources,
+            and metadata.
         """
         params: dict[str, Any] = {"limit": limit}
         if source:
@@ -45,14 +67,15 @@ class PulseAPI:
         source: str | None = None,
         category: str | None = None,
     ) -> dict[str, Any]:
-        """Get a suggested debate topic from trending signals.
+        """
+        Get a suggested debate topic from trending signals.
 
         Args:
             source: Prefer topics from this source.
             category: Prefer topics in this category.
 
         Returns:
-            Suggested topic with context and reasoning.
+            Dict with suggested topic, context, and reasoning.
         """
         params: dict[str, Any] = {}
         if source:
@@ -61,23 +84,133 @@ class PulseAPI:
             params["category"] = category
         return self._client.request("GET", "/api/v1/pulse/suggest", params=params)
 
+    def create_debate_topic(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Create a debate from a pulse topic.
+
+        Args:
+            **kwargs: Debate parameters including:
+                - topic_id: Pulse topic to convert to debate
+                - task: Override task description
+                - agents: Specific agents to include
+
+        Returns:
+            Dict with created debate details.
+        """
+        return self._client.request("POST", "/api/v1/pulse/debate-topic", json=kwargs)
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    def get_analytics(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Get pulse analytics including topic distribution and trends.
+
+        Returns:
+            Dict with analytics data including topic counts by source,
+            category distribution, and daily trends.
+        """
+        return self._client.request("POST", "/api/v1/pulse/analytics", json=kwargs)
+
     def get_scheduler_analytics(self) -> dict[str, Any]:
-        """Get scheduler runtime metrics and store analytics.
+        """
+        Get scheduler runtime metrics and store analytics.
 
         Returns combined scheduler metrics (polls, debates created/failed,
         uptime) and store analytics (by platform, by category, daily counts).
 
         Returns:
-            Scheduler metrics and store analytics.
+            Dict with scheduler metrics and store analytics.
         """
         return self._client.request("GET", "/api/v1/pulse/scheduler/analytics")
 
+    # =========================================================================
+    # Scheduler Management
+    # =========================================================================
+
+    def get_scheduler_status(self) -> dict[str, Any]:
+        """
+        Get pulse scheduler status.
+
+        Returns:
+            Dict with scheduler running state, next poll time,
+            and configuration.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/status")
+
+    def get_scheduler_config(self) -> dict[str, Any]:
+        """
+        Get pulse scheduler configuration.
+
+        Returns:
+            Dict with scheduler configuration including poll interval,
+            sources, and filtering rules.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/config")
+
+    def get_scheduler_history(self) -> dict[str, Any]:
+        """
+        Get pulse scheduler execution history.
+
+        Returns:
+            Dict with recent scheduler runs, their results, and timing.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/history")
+
+    def start_scheduler(self) -> dict[str, Any]:
+        """
+        Start the pulse scheduler.
+
+        Returns:
+            Dict with scheduler start confirmation.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/start")
+
+    def stop_scheduler(self) -> dict[str, Any]:
+        """
+        Stop the pulse scheduler.
+
+        Returns:
+            Dict with scheduler stop confirmation.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/stop")
+
+    def pause_scheduler(self) -> dict[str, Any]:
+        """
+        Pause the pulse scheduler.
+
+        Returns:
+            Dict with scheduler pause confirmation.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/pause")
+
+    def resume_scheduler(self) -> dict[str, Any]:
+        """
+        Resume a paused pulse scheduler.
+
+        Returns:
+            Dict with scheduler resume confirmation.
+        """
+        return self._client.request("POST", "/api/v1/pulse/scheduler/resume")
+
 
 class AsyncPulseAPI:
-    """Asynchronous Pulse API for trending topics and signals."""
+    """
+    Asynchronous Pulse API for trending topics and signals.
+
+    Example:
+        >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+        ...     trending = await client.pulse.get_trending(source="hackernews")
+        ...     topic = await client.pulse.suggest_debate_topic()
+    """
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    # =========================================================================
+    # Trending & Suggestions
+    # =========================================================================
 
     async def get_trending(
         self,
@@ -85,7 +218,7 @@ class AsyncPulseAPI:
         category: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
-        """Get trending topics."""
+        """Get trending topics from monitored sources."""
         params: dict[str, Any] = {"limit": limit}
         if source:
             params["source"] = source
@@ -106,7 +239,50 @@ class AsyncPulseAPI:
             params["category"] = category
         return await self._client.request("GET", "/api/v1/pulse/suggest", params=params)
 
+    async def create_debate_topic(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a debate from a pulse topic."""
+        return await self._client.request("POST", "/api/v1/pulse/debate-topic", json=kwargs)
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    async def get_analytics(self, **kwargs: Any) -> dict[str, Any]:
+        """Get pulse analytics including topic distribution and trends."""
+        return await self._client.request("POST", "/api/v1/pulse/analytics", json=kwargs)
+
     async def get_scheduler_analytics(self) -> dict[str, Any]:
         """Get scheduler runtime metrics and store analytics."""
         return await self._client.request("GET", "/api/v1/pulse/scheduler/analytics")
 
+    # =========================================================================
+    # Scheduler Management
+    # =========================================================================
+
+    async def get_scheduler_status(self) -> dict[str, Any]:
+        """Get pulse scheduler status."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/status")
+
+    async def get_scheduler_config(self) -> dict[str, Any]:
+        """Get pulse scheduler configuration."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/config")
+
+    async def get_scheduler_history(self) -> dict[str, Any]:
+        """Get pulse scheduler execution history."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/history")
+
+    async def start_scheduler(self) -> dict[str, Any]:
+        """Start the pulse scheduler."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/start")
+
+    async def stop_scheduler(self) -> dict[str, Any]:
+        """Stop the pulse scheduler."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/stop")
+
+    async def pause_scheduler(self) -> dict[str, Any]:
+        """Pause the pulse scheduler."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/pause")
+
+    async def resume_scheduler(self) -> dict[str, Any]:
+        """Resume a paused pulse scheduler."""
+        return await self._client.request("POST", "/api/v1/pulse/scheduler/resume")
