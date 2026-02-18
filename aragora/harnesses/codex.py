@@ -434,7 +434,7 @@ class CodexHarness(CodeAnalysisHarness):
             logger.exception(f"Codex interactive session failed: {e}")
             return SessionResult(
                 session_id=context.session_id,
-                response=f"Error: {e}",
+                response="Error: session execution failed",
             )
 
     async def _gather_files(

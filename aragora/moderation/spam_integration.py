@@ -460,7 +460,7 @@ class SpamModerationIntegration:
                 fail_result = SpamCheckResult(
                     verdict=SpamVerdict.CLEAN,
                     confidence=0.0,
-                    reasons=[f"Check failed (fail-open): {str(e)}"],
+                    reasons=["Check failed (fail-open): internal error"],
                     should_block=False,
                     should_flag_for_review=True,  # Flag for manual review
                     check_duration_ms=(time.time() - start_time) * 1000,
@@ -470,7 +470,7 @@ class SpamModerationIntegration:
                 return fail_result
             else:
                 raise ContentModerationError(
-                    f"Spam check failed: {e}",
+                    "Spam check failed",
                     verdict=SpamVerdict.SUSPICIOUS,
                 )
 

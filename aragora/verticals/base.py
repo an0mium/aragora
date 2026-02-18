@@ -466,7 +466,7 @@ class VerticalSpecialistAgent(APIAgent):
             logger.error(f"[verticals] Generation failed for {self.name}: {e}")
             return Message(
                 role="assistant",
-                content=f"[{self._config.display_name}] Error generating response: {e}",
+                content=f"[{self._config.display_name}] Error generating response",
                 agent=self.name,
             )
 

@@ -176,7 +176,7 @@ class CapabilityProber:
         try:
             response = await run_agent_fn(target_agent, probe_prompt)
         except Exception as e:  # noqa: BLE001 - Probe can fail in many ways
-            response = f"Error: {str(e)}"
+            response = "Error: agent probe failed"
         end_time = datetime.now()
 
         response_time_ms = (end_time - start_time).total_seconds() * 1000
