@@ -71,15 +71,18 @@ def mixin_factory():
 
 @pytest.fixture(autouse=True)
 def _bypass_rate_limits(monkeypatch):
-    """Disable rate limiting for all tests in this module."""
+    """Bypass rate limiting by making check always return allowed."""
+    from aragora.server.middleware.rate_limit.user_limiter import RateLimitResult
+
     monkeypatch.setattr(
-        "aragora.server.handlers.debates.create.rate_limit",
-        lambda **kw: (lambda fn: fn),
+        "aragora.server.middleware.rate_limit.user_limiter.check_user_rate_limit",
+        lambda *a, **kw: RateLimitResult(allowed=True, key="test", remaining=100, limit=100, reset_at=0),
     )
-    monkeypatch.setattr(
-        "aragora.server.handlers.debates.create.user_rate_limit",
-        lambda **kw: (lambda fn: fn),
-    )
+    from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+    clear_all_limiters()
+    yield
+    clear_all_limiters()
 
 
 class TestDebateThisEndpoint:
