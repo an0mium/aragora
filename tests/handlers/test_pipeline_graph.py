@@ -16,11 +16,17 @@ Covers all 11 endpoints:
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from aragora.server.handlers.pipeline_graph import PipelineGraphHandler
+
+
+def _body(result: object) -> dict:
+    """Extract JSON body from a HandlerResult."""
+    return json.loads(result.body)
 
 
 # ---------------------------------------------------------------------------
@@ -258,24 +264,24 @@ class TestCreateGraph:
     @pytest.mark.asyncio
     async def test_success_with_name(self, handler, mock_store):
         result = await handler.handle_create_graph({"name": "My Graph"})
-        assert result["name"] == "My Graph"
-        assert result["created"] is True
+        assert _body(result)["name"] == "My Graph"
+        assert _body(result)["created"] is True
         mock_store.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_success_with_explicit_id(self, handler, mock_store):
         result = await handler.handle_create_graph({"id": "custom-id"})
-        assert result["id"] == "custom-id"
+        assert _body(result)["id"] == "custom-id"
 
     @pytest.mark.asyncio
     async def test_default_name(self, handler, mock_store):
         result = await handler.handle_create_graph({})
-        assert result["name"] == "Untitled Pipeline"
+        assert _body(result)["name"] == "Untitled Pipeline"
 
     @pytest.mark.asyncio
     async def test_auto_generated_id(self, handler, mock_store):
         result = await handler.handle_create_graph({})
-        assert result["id"].startswith("graph-")
+        assert _body(result)["id"].startswith("graph-")
 
     @pytest.mark.asyncio
     async def test_with_owner_and_workspace(self, handler, mock_store):
@@ -283,14 +289,14 @@ class TestCreateGraph:
             "owner_id": "user-1",
             "workspace_id": "ws-1",
         })
-        assert result["created"] is True
+        assert _body(result)["created"] is True
 
     @pytest.mark.asyncio
     async def test_with_metadata(self, handler, mock_store):
         result = await handler.handle_create_graph({
             "metadata": {"purpose": "test"},
         })
-        assert result["created"] is True
+        assert _body(result)["created"] is True
 
     @pytest.mark.asyncio
     async def test_with_nodes(self, handler, mock_store):
@@ -299,13 +305,13 @@ class TestCreateGraph:
                 {"stage": "ideas", "node_subtype": "concept", "label": "Idea 1"},
             ],
         })
-        assert result["node_count"] == 1
+        assert _body(result)["node_count"] == 1
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler, mock_store):
         with patch.dict("sys.modules", {"aragora.pipeline.universal_node": None}):
             result = await handler.handle_create_graph({"name": "X"})
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -318,13 +324,13 @@ class TestGetGraph:
         graph = _make_graph("g-1")
         mock_store.get.return_value = graph
         result = await handler.handle_get_graph("g-1")
-        assert result["id"] == "g-1"
+        assert _body(result)["id"] == "g-1"
 
     @pytest.mark.asyncio
     async def test_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
         result = await handler.handle_get_graph("nonexistent")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -333,7 +339,7 @@ class TestGetGraph:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_get_graph("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -344,8 +350,8 @@ class TestListGraphs:
     @pytest.mark.asyncio
     async def test_empty_list(self, handler, mock_store):
         result = await handler.handle_list_graphs({})
-        assert result["graphs"] == []
-        assert result["count"] == 0
+        assert _body(result)["graphs"] == []
+        assert _body(result)["count"] == 0
 
     @pytest.mark.asyncio
     async def test_with_results(self, handler, mock_store):
@@ -353,7 +359,7 @@ class TestListGraphs:
             {"id": "g-1", "name": "Graph 1", "node_count": 5},
         ]
         result = await handler.handle_list_graphs({})
-        assert result["count"] == 1
+        assert _body(result)["count"] == 1
 
     @pytest.mark.asyncio
     async def test_with_owner_filter(self, handler, mock_store):
@@ -399,7 +405,7 @@ class TestListGraphs:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_list_graphs({})
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -411,14 +417,14 @@ class TestDeleteGraph:
     async def test_found(self, handler, mock_store):
         mock_store.delete.return_value = True
         result = await handler.handle_delete_graph("g-1")
-        assert result["deleted"] is True
-        assert result["id"] == "g-1"
+        assert _body(result)["deleted"] is True
+        assert _body(result)["id"] == "g-1"
 
     @pytest.mark.asyncio
     async def test_not_found(self, handler, mock_store):
         mock_store.delete.return_value = False
         result = await handler.handle_delete_graph("nonexistent")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -427,7 +433,7 @@ class TestDeleteGraph:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_delete_graph("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -443,8 +449,8 @@ class TestAddNode:
             "node_subtype": "concept",
             "label": "New Idea",
         })
-        assert result["added"] is True
-        assert result["graph_id"] == "g-1"
+        assert _body(result)["added"] is True
+        assert _body(result)["graph_id"] == "g-1"
 
     @pytest.mark.asyncio
     async def test_graph_not_found(self, handler, mock_store):
@@ -452,28 +458,28 @@ class TestAddNode:
         result = await handler.handle_add_node("g-1", {
             "stage": "ideas", "node_subtype": "concept",
         })
-        assert "error" in result
-        assert "not found" in result["error"]
+        assert result.status_code >= 400
+        assert "not found" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_stage(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_add_node("g-1", {"node_subtype": "concept"})
-        assert "error" in result
-        assert "stage" in result["error"]
+        assert result.status_code >= 400
+        assert "stage" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_node_subtype(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_add_node("g-1", {"stage": "ideas"})
-        assert "error" in result
-        assert "node_subtype" in result["error"]
+        assert result.status_code >= 400
+        assert "node_subtype" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_both_fields(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_add_node("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler, mock_store):
@@ -481,7 +487,7 @@ class TestAddNode:
             result = await handler.handle_add_node("g-1", {
                 "stage": "ideas", "node_subtype": "concept",
             })
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -494,20 +500,20 @@ class TestRemoveNode:
         graph = _make_graph(nodes={"n-1": _make_node()})
         mock_store.get.return_value = graph
         result = await handler.handle_remove_node("g-1", "n-1")
-        assert result["removed"] is True
+        assert _body(result)["removed"] is True
 
     @pytest.mark.asyncio
     async def test_graph_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
         result = await handler.handle_remove_node("g-1", "n-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_node_not_found(self, handler, mock_store):
         mock_store.get.return_value = _make_graph(nodes={})
         result = await handler.handle_remove_node("g-1", "n-1")
-        assert "error" in result
-        assert "Node" in result["error"]
+        assert result.status_code >= 400
+        assert "Node" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -516,7 +522,7 @@ class TestRemoveNode:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_remove_node("g-1", "n-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -528,31 +534,31 @@ class TestQueryNodes:
     async def test_without_filters(self, handler, mock_store):
         mock_store.query_nodes.return_value = [_make_node()]
         result = await handler.handle_query_nodes("g-1", {})
-        assert result["count"] == 1
+        assert _body(result)["count"] == 1
 
     @pytest.mark.asyncio
     async def test_with_stage_filter(self, handler, mock_store):
         mock_store.query_nodes.return_value = []
         result = await handler.handle_query_nodes("g-1", {"stage": "ideas"})
-        assert result["count"] == 0
+        assert _body(result)["count"] == 0
 
     @pytest.mark.asyncio
     async def test_with_subtype_filter(self, handler, mock_store):
         mock_store.query_nodes.return_value = []
         result = await handler.handle_query_nodes("g-1", {"subtype": "concept"})
-        assert result["count"] == 0
+        assert _body(result)["count"] == 0
 
     @pytest.mark.asyncio
     async def test_with_both_filters(self, handler, mock_store):
         result = await handler.handle_query_nodes(
             "g-1", {"stage": "goals", "subtype": "goal"},
         )
-        assert result["count"] == 0
+        assert _body(result)["count"] == 0
 
     @pytest.mark.asyncio
     async def test_invalid_stage_returns_error(self, handler, mock_store):
         result = await handler.handle_query_nodes("g-1", {"stage": "invalid"})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -561,7 +567,7 @@ class TestQueryNodes:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_query_nodes("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -581,10 +587,10 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
             )
-        assert result["graph_id"] == "g-1"
-        assert result["target_stage"] == "goals"
-        assert result["promoted_count"] == 1
-        assert "goal-1" in result["new_node_ids"]
+        assert _body(result)["graph_id"] == "g-1"
+        assert _body(result)["target_stage"] == "goals"
+        assert _body(result)["promoted_count"] == 1
+        assert "goal-1" in _body(result)["new_node_ids"]
         mock_fn.assert_called_once_with(graph, ["n-1"])
         mock_store.update.assert_called_once_with(graph)
 
@@ -600,7 +606,7 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["goal-1"], "target_stage": "actions"},
             )
-        assert result["promoted_count"] == 1
+        assert _body(result)["promoted_count"] == 1
 
     @pytest.mark.asyncio
     async def test_actions_to_orchestration(self, handler, mock_store):
@@ -614,7 +620,7 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["action-1"], "target_stage": "orchestration"},
             )
-        assert result["promoted_count"] == 1
+        assert _body(result)["promoted_count"] == 1
 
     @pytest.mark.asyncio
     async def test_cannot_promote_to_ideas(self, handler, mock_store):
@@ -622,7 +628,7 @@ class TestPromote:
         result = await handler.handle_promote(
             "g-1", {"node_ids": ["n-1"], "target_stage": "ideas"},
         )
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_invalid_target_stage(self, handler, mock_store):
@@ -630,8 +636,8 @@ class TestPromote:
         result = await handler.handle_promote(
             "g-1", {"node_ids": ["n-1"], "target_stage": "invalid"},
         )
-        assert "error" in result
-        assert "Invalid" in result["error"]
+        assert result.status_code >= 400
+        assert "Invalid" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_node_ids(self, handler, mock_store):
@@ -639,8 +645,8 @@ class TestPromote:
         result = await handler.handle_promote(
             "g-1", {"target_stage": "goals"},
         )
-        assert "error" in result
-        assert "node_ids" in result["error"]
+        assert result.status_code >= 400
+        assert "node_ids" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_target_stage(self, handler, mock_store):
@@ -648,14 +654,14 @@ class TestPromote:
         result = await handler.handle_promote(
             "g-1", {"node_ids": ["n-1"]},
         )
-        assert "error" in result
-        assert "target_stage" in result["error"]
+        assert result.status_code >= 400
+        assert "target_stage" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_missing_both_fields(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_promote("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_graph_not_found(self, handler, mock_store):
@@ -663,8 +669,8 @@ class TestPromote:
         result = await handler.handle_promote(
             "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
         )
-        assert "error" in result
-        assert "not found" in result["error"]
+        assert result.status_code >= 400
+        assert "not found" in _body(result)["error"]
 
     @pytest.mark.asyncio
     async def test_transition_count_in_result(self, handler, mock_store):
@@ -679,7 +685,7 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
             )
-        assert result["transition_count"] == 2
+        assert _body(result)["transition_count"] == 2
 
     @pytest.mark.asyncio
     async def test_store_add_node_called_for_each_created(self, handler, mock_store):
@@ -693,7 +699,7 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
             )
-        assert result["promoted_count"] == 3
+        assert _body(result)["promoted_count"] == 3
         assert mock_store.add_node.call_count == 3
 
     @pytest.mark.asyncio
@@ -702,7 +708,7 @@ class TestPromote:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
             )
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -715,20 +721,20 @@ class TestProvenance:
         chain = [_make_node("n-1"), _make_node("n-2")]
         mock_store.get_provenance_chain.return_value = chain
         result = await handler.handle_provenance("g-1", "n-1")
-        assert result["depth"] == 2
-        assert len(result["chain"]) == 2
+        assert _body(result)["depth"] == 2
+        assert len(_body(result)["chain"]) == 2
 
     @pytest.mark.asyncio
     async def test_empty_chain(self, handler, mock_store):
         mock_store.get_provenance_chain.return_value = []
         result = await handler.handle_provenance("g-1", "n-1")
-        assert result["depth"] == 0
+        assert _body(result)["depth"] == 0
 
     @pytest.mark.asyncio
     async def test_single_node_chain(self, handler, mock_store):
         mock_store.get_provenance_chain.return_value = [_make_node()]
         result = await handler.handle_provenance("g-1", "n-1")
-        assert result["depth"] == 1
+        assert _body(result)["depth"] == 1
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -737,7 +743,7 @@ class TestProvenance:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_provenance("g-1", "n-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -754,41 +760,41 @@ class TestReactFlow:
         }
         mock_store.get.return_value = graph
         result = await handler.handle_react_flow("g-1", {})
-        assert result["node_count"] == 1
-        assert result["edge_count"] == 1
+        assert _body(result)["node_count"] == 1
+        assert _body(result)["edge_count"] == 1
 
     @pytest.mark.asyncio
     async def test_empty_graph(self, handler, mock_store):
         graph = _make_graph()
         mock_store.get.return_value = graph
         result = await handler.handle_react_flow("g-1", {})
-        assert result["node_count"] == 0
+        assert _body(result)["node_count"] == 0
 
     @pytest.mark.asyncio
     async def test_with_stage_filter(self, handler, mock_store):
         graph = _make_graph()
         mock_store.get.return_value = graph
         result = await handler.handle_react_flow("g-1", {"stage": "ideas"})
-        assert "graph_id" in result
+        assert "graph_id" in _body(result)
 
     @pytest.mark.asyncio
     async def test_without_stage_filter(self, handler, mock_store):
         graph = _make_graph()
         mock_store.get.return_value = graph
         result = await handler.handle_react_flow("g-1", {})
-        assert "graph_name" in result
+        assert "graph_name" in _body(result)
 
     @pytest.mark.asyncio
     async def test_graph_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
         result = await handler.handle_react_flow("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_invalid_stage_returns_error(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
         result = await handler.handle_react_flow("g-1", {"stage": "invalid"})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -797,7 +803,7 @@ class TestReactFlow:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_react_flow("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -810,22 +816,22 @@ class TestIntegrity:
         graph = _make_graph()
         mock_store.get.return_value = graph
         result = await handler.handle_integrity("g-1")
-        assert result["integrity_hash"] == "deadbeef12345678"
-        assert result["graph_id"] == "g-1"
+        assert _body(result)["integrity_hash"] == "deadbeef12345678"
+        assert _body(result)["graph_id"] == "g-1"
 
     @pytest.mark.asyncio
     async def test_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
         result = await handler.handle_integrity("nonexistent")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_empty_graph_integrity(self, handler, mock_store):
         graph = _make_graph(nodes={}, edges={})
         mock_store.get.return_value = graph
         result = await handler.handle_integrity("g-1")
-        assert "integrity_hash" in result
-        assert result["node_count"] == 0
+        assert "integrity_hash" in _body(result)
+        assert _body(result)["node_count"] == 0
 
     @pytest.mark.asyncio
     async def test_import_error_fallback(self, handler):
@@ -834,7 +840,7 @@ class TestIntegrity:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_integrity("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------
@@ -846,7 +852,7 @@ class TestImportFallbacks:
     async def test_create_graph_import_error(self, handler, mock_store):
         with patch.dict("sys.modules", {"aragora.pipeline.universal_node": None}):
             result = await handler.handle_create_graph({"name": "X"})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_get_graph_os_error(self, handler):
@@ -855,7 +861,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_get_graph("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_list_graphs_os_error(self, handler):
@@ -864,7 +870,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_list_graphs({})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_delete_graph_os_error(self, handler):
@@ -873,7 +879,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_delete_graph("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_add_node_value_error(self, handler, mock_store):
@@ -885,7 +891,7 @@ class TestImportFallbacks:
             result = await handler.handle_add_node("g-1", {
                 "stage": "ideas", "node_subtype": "concept",
             })
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_remove_node_os_error(self, handler):
@@ -894,7 +900,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_remove_node("g-1", "n-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_query_nodes_import_error(self, handler):
@@ -903,7 +909,7 @@ class TestImportFallbacks:
             side_effect=ImportError("no store"),
         ):
             result = await handler.handle_query_nodes("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_promote_import_error(self, handler, mock_store):
@@ -911,7 +917,7 @@ class TestImportFallbacks:
             result = await handler.handle_promote(
                 "g-1", {"node_ids": ["n-1"], "target_stage": "goals"},
             )
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_provenance_os_error(self, handler):
@@ -920,7 +926,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_provenance("g-1", "n-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_react_flow_os_error(self, handler):
@@ -929,7 +935,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_react_flow("g-1", {})
-        assert "error" in result
+        assert result.status_code >= 400
 
     @pytest.mark.asyncio
     async def test_integrity_os_error(self, handler):
@@ -938,7 +944,7 @@ class TestImportFallbacks:
             side_effect=OSError("disk"),
         ):
             result = await handler.handle_integrity("g-1")
-        assert "error" in result
+        assert result.status_code >= 400
 
 
 # ---------------------------------------------------------------------------

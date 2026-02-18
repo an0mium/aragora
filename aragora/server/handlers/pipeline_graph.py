@@ -26,7 +26,7 @@ import re
 import uuid
 from typing import Any
 
-from aragora.server.handlers.base import handle_errors
+from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +208,7 @@ class PipelineGraphHandler:
 
     # -- CRUD endpoints --
 
-    async def handle_create_graph(self, body: dict[str, Any]) -> dict[str, Any]:
+    async def handle_create_graph(self, body: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/pipeline/graph"""
         try:
             from aragora.pipeline.universal_node import UniversalGraph
@@ -234,31 +234,31 @@ class PipelineGraphHandler:
             store = _get_store()
             store.create(graph)
 
-            return {
+            return json_response({
                 "id": graph.id,
                 "name": graph.name,
                 "node_count": len(graph.nodes),
                 "created": True,
-            }
+            }, 201)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Create graph failed: %s", e)
-            return {"error": "Failed to create graph"}
+            return error_response("Failed to create graph", 500)
 
-    async def handle_get_graph(self, graph_id: str) -> dict[str, Any]:
+    async def handle_get_graph(self, graph_id: str) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}"""
         try:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
-            return graph.to_dict()
+                return error_response(f"Graph {graph_id} not found", 404)
+            return json_response(graph.to_dict())
         except (ImportError, OSError) as e:
             logger.warning("Get graph failed: %s", e)
-            return {"error": "Failed to retrieve graph"}
+            return error_response("Failed to retrieve graph", 500)
 
     async def handle_list_graphs(
         self, query_params: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/pipeline/graph"""
         try:
             store = _get_store()
@@ -271,29 +271,29 @@ class PipelineGraphHandler:
                 workspace_id=workspace_id,
                 limit=limit,
             )
-            return {"graphs": graphs, "count": len(graphs)}
+            return json_response({"graphs": graphs, "count": len(graphs)})
         except (ImportError, OSError, ValueError) as e:
             logger.warning("List graphs failed: %s", e)
-            return {"error": "Failed to list graphs"}
+            return error_response("Failed to list graphs", 500)
 
     @handle_errors("pipeline graph operation")
-    async def handle_delete_graph(self, graph_id: str) -> dict[str, Any]:
+    async def handle_delete_graph(self, graph_id: str) -> HandlerResult:
         """DELETE /api/v1/pipeline/graph/{id}"""
         try:
             store = _get_store()
             deleted = store.delete(graph_id)
             if not deleted:
-                return {"error": f"Graph {graph_id} not found"}
-            return {"id": graph_id, "deleted": True}
+                return error_response(f"Graph {graph_id} not found", 404)
+            return json_response({"id": graph_id, "deleted": True})
         except (ImportError, OSError) as e:
             logger.warning("Delete graph failed: %s", e)
-            return {"error": "Failed to delete graph"}
+            return error_response("Failed to delete graph", 500)
 
     # -- Node endpoints --
 
     async def handle_add_node(
         self, graph_id: str, body: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/pipeline/graph/{id}/node"""
         try:
             from aragora.pipeline.universal_node import UniversalNode
@@ -301,46 +301,46 @@ class PipelineGraphHandler:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
+                return error_response(f"Graph {graph_id} not found", 404)
 
             if "stage" not in body or "node_subtype" not in body:
-                return {"error": "Missing required fields: stage, node_subtype"}
+                return error_response("Missing required fields: stage, node_subtype", 400)
 
             node = UniversalNode.from_dict(body)
             store.add_node(graph_id, node)
 
-            return {
+            return json_response({
                 "graph_id": graph_id,
                 "node_id": node.id,
                 "stage": node.stage.value,
                 "added": True,
-            }
+            }, 201)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Add node failed: %s", e)
-            return {"error": "Failed to add node"}
+            return error_response("Failed to add node", 500)
 
     async def handle_remove_node(
         self, graph_id: str, node_id: str
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """DELETE /api/v1/pipeline/graph/{id}/node/{node_id}"""
         try:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
+                return error_response(f"Graph {graph_id} not found", 404)
 
             if node_id not in graph.nodes:
-                return {"error": f"Node {node_id} not found in graph {graph_id}"}
+                return error_response(f"Node {node_id} not found in graph {graph_id}", 404)
 
             store.remove_node(graph_id, node_id)
-            return {"graph_id": graph_id, "node_id": node_id, "removed": True}
+            return json_response({"graph_id": graph_id, "node_id": node_id, "removed": True})
         except (ImportError, OSError) as e:
             logger.warning("Remove node failed: %s", e)
-            return {"error": "Failed to remove node"}
+            return error_response("Failed to remove node", 500)
 
     async def handle_query_nodes(
         self, graph_id: str, query_params: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}/nodes"""
         try:
             from aragora.canvas.stages import PipelineStage
@@ -352,20 +352,20 @@ class PipelineGraphHandler:
             stage = PipelineStage(stage_str) if stage_str else None
             nodes = store.query_nodes(graph_id, stage=stage, subtype=subtype)
 
-            return {
+            return json_response({
                 "graph_id": graph_id,
                 "nodes": [n.to_dict() for n in nodes],
                 "count": len(nodes),
-            }
+            })
         except (ImportError, ValueError, OSError) as e:
             logger.warning("Query nodes failed: %s", e)
-            return {"error": "Failed to query nodes"}
+            return error_response("Failed to query nodes", 500)
 
     # -- Stage transition --
 
     async def handle_promote(
         self, graph_id: str, body: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/pipeline/graph/{id}/promote
 
         Promote nodes from one stage to the next.
@@ -385,20 +385,20 @@ class PipelineGraphHandler:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
+                return error_response(f"Graph {graph_id} not found", 404)
 
             node_ids = body.get("node_ids", [])
             target_stage_str = body.get("target_stage", "")
 
             if not node_ids:
-                return {"error": "Missing required field: node_ids"}
+                return error_response("Missing required field: node_ids", 400)
             if not target_stage_str:
-                return {"error": "Missing required field: target_stage"}
+                return error_response("Missing required field: target_stage", 400)
 
             try:
                 target_stage = PipelineStage(target_stage_str)
             except ValueError:
-                return {"error": f"Invalid target stage: {target_stage_str}"}
+                return error_response(f"Invalid target stage: {target_stage_str}", 400)
 
             # Dispatch to the appropriate transition function
             if target_stage == PipelineStage.GOALS:
@@ -408,47 +408,47 @@ class PipelineGraphHandler:
             elif target_stage == PipelineStage.ORCHESTRATION:
                 created = actions_to_orchestration(graph, node_ids)
             else:
-                return {"error": f"Cannot promote to stage: {target_stage_str}"}
+                return error_response(f"Cannot promote to stage: {target_stage_str}", 400)
 
             # Persist updated graph
             store.update(graph)
             for node in created:
                 store.add_node(graph_id, node)
 
-            return {
+            return json_response({
                 "graph_id": graph_id,
                 "target_stage": target_stage_str,
                 "promoted_count": len(created),
                 "new_node_ids": [n.id for n in created],
                 "transition_count": len(graph.transitions),
-            }
+            })
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Promote failed: %s", e)
-            return {"error": "Stage promotion failed"}
+            return error_response("Stage promotion failed", 500)
 
     # -- Provenance / analytics --
 
     async def handle_provenance(
         self, graph_id: str, node_id: str
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}/provenance/{node_id}"""
         try:
             store = _get_store()
             chain = store.get_provenance_chain(graph_id, node_id)
 
-            return {
+            return json_response({
                 "graph_id": graph_id,
                 "node_id": node_id,
                 "chain": [n.to_dict() for n in chain],
                 "depth": len(chain),
-            }
+            })
         except (ImportError, OSError) as e:
             logger.warning("Provenance query failed: %s", e)
-            return {"error": "Failed to retrieve provenance chain"}
+            return error_response("Failed to retrieve provenance chain", 500)
 
     async def handle_react_flow(
         self, graph_id: str, query_params: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}/react-flow"""
         try:
             from aragora.canvas.stages import PipelineStage
@@ -456,7 +456,7 @@ class PipelineGraphHandler:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
+                return error_response(f"Graph {graph_id} not found", 404)
 
             stage_str = query_params.get("stage")
             stage_filter = PipelineStage(stage_str) if stage_str else None
@@ -467,26 +467,26 @@ class PipelineGraphHandler:
             rf_data["node_count"] = len(rf_data.get("nodes", []))
             rf_data["edge_count"] = len(rf_data.get("edges", []))
 
-            return rf_data
+            return json_response(rf_data)
         except (ImportError, ValueError, OSError) as e:
             logger.warning("React Flow export failed: %s", e)
-            return {"error": "Failed to export React Flow data"}
+            return error_response("Failed to export React Flow data", 500)
 
-    async def handle_integrity(self, graph_id: str) -> dict[str, Any]:
+    async def handle_integrity(self, graph_id: str) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}/integrity"""
         try:
             store = _get_store()
             graph = store.get(graph_id)
             if not graph:
-                return {"error": f"Graph {graph_id} not found"}
+                return error_response(f"Graph {graph_id} not found", 404)
 
-            return {
+            return json_response({
                 "graph_id": graph_id,
                 "integrity_hash": graph.integrity_hash(),
                 "node_count": len(graph.nodes),
                 "edge_count": len(graph.edges),
                 "transition_count": len(graph.transitions),
-            }
+            })
         except (ImportError, OSError) as e:
             logger.warning("Integrity check failed: %s", e)
-            return {"error": "Failed to compute integrity hash"}
+            return error_response("Failed to compute integrity hash", 500)
