@@ -410,8 +410,16 @@ class HandlerRegistryMixin:
                 rate_limit_result = check_default_rate_limit(self)
                 if not rate_limit_result.allowed:
                     # Return 429 Too Many Requests
+                    body_429 = json.dumps(
+                        {
+                            "error": "Rate limit exceeded. Please try again later.",
+                            "code": "rate_limit_exceeded",
+                            "retry_after": int(rate_limit_result.retry_after) + 1,
+                        }
+                    ).encode()
                     self.send_response(429)
                     self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body_429)))
                     self.send_header("Retry-After", str(int(rate_limit_result.retry_after) + 1))
                     self.send_header("X-RateLimit-Limit", str(rate_limit_result.limit))
                     self.send_header("X-RateLimit-Remaining", str(rate_limit_result.remaining))
@@ -419,15 +427,7 @@ class HandlerRegistryMixin:
                     self._add_security_headers()
                     self._add_trace_headers()
                     self.end_headers()
-                    self.wfile.write(
-                        json.dumps(
-                            {
-                                "error": "Rate limit exceeded. Please try again later.",
-                                "code": "rate_limit_exceeded",
-                                "retry_after": int(rate_limit_result.retry_after) + 1,
-                            }
-                        ).encode()
-                    )
+                    self.wfile.write(body_429)
                     return True
 
             # Use matched path if available, otherwise fall back to normalized path
@@ -471,6 +471,7 @@ class HandlerRegistryMixin:
                 )
                 self.send_response(result.status_code)
                 self.send_header("Content-Type", result.content_type)
+                self.send_header("Content-Length", str(len(result.body)))
 
                 # Add API version headers
                 version_headers = version_response_headers(
