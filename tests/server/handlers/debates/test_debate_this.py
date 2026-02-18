@@ -81,20 +81,20 @@ class TestDebateThisEndpoint:
     def test_returns_debate_id(self, mixin):
         """Response includes debate_id."""
         result = mixin._debate_this(mixin)
-        data = json.loads(result.body) if isinstance(result.body, str) else result.body
+        data = json.loads(result.body)
         assert "debate_id" in data
 
     def test_returns_spectate_url(self, mixin):
         """Response includes spectate_url derived from debate_id."""
         result = mixin._debate_this(mixin)
-        data = json.loads(result.body) if isinstance(result.body, str) else result.body
+        data = json.loads(result.body)
         assert "spectate_url" in data
         assert data["spectate_url"].startswith("/spectate/")
 
     def test_spectate_url_matches_debate_id(self, mixin):
         """spectate_url path contains the debate_id."""
         result = mixin._debate_this(mixin)
-        data = json.loads(result.body) if isinstance(result.body, str) else result.body
+        data = json.loads(result.body)
         assert data["spectate_url"] == f"/spectate/{data['debate_id']}"
 
     def test_missing_question_returns_400(self, mixin_factory):
