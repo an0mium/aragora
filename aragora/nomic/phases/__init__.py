@@ -68,6 +68,8 @@ class VerifyResult(PhaseResult):
     tests_passed: bool
     test_output: str
     syntax_valid: bool
+    metrics_delta: dict | None
+    improvement_score: float | None
 
 
 class CommitResult(PhaseResult):

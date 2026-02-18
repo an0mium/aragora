@@ -46,6 +46,7 @@ class VerifyPhase:
         record_replay_fn: Callable[..., None] | None = None,
         save_state_fn: Callable[[dict], None] | None = None,
         test_quality_gate: TestQualityGate | None = None,
+        baseline: Any | None = None,
     ):
         """
         Initialize the verify phase.
@@ -60,6 +61,7 @@ class VerifyPhase:
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
             test_quality_gate: Optional TestQualityGate for quality thresholds
+            baseline: Optional BaselineSnapshot from before implementation
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -70,6 +72,7 @@ class VerifyPhase:
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
         self._test_quality_gate = test_quality_gate
+        self._baseline = baseline
 
     async def execute(self) -> VerifyResult:
         """
@@ -165,6 +168,26 @@ class VerifyPhase:
         if gate_decision:
             result_data["quality_gate"] = gate_decision.to_dict()
 
+        # Baseline comparison: measure improvement if baseline was provided
+        metrics_delta = None
+        improvement_score = None
+        if self._baseline and all_passed:
+            try:
+                from aragora.nomic.phases.baseline import BaselineCollector
+
+                post = await BaselineCollector(self.aragora_path).collect()
+                delta = self._baseline.compare(post)
+                metrics_delta = delta
+                improvement_score = delta.get("improvement_score", 0.0)
+                result_data["metrics_delta"] = delta
+                result_data["improvement_score"] = improvement_score
+                self._log(
+                    f"  [baseline] improvement_score={improvement_score:.2f} "
+                    f"improved={delta.get('improved', False)}"
+                )
+            except (ImportError, RuntimeError, OSError) as e:
+                logger.warning("Baseline comparison failed: %s", e)
+
         return VerifyResult(
             success=all_passed,
             data=result_data,
@@ -172,6 +195,8 @@ class VerifyPhase:
             tests_passed=gate_passed and all_passed,
             test_output=checks[-1].get("output", "") if checks else "",
             syntax_valid=checks[0].get("passed", False) if checks else False,
+            metrics_delta=metrics_delta,
+            improvement_score=improvement_score,
         )
 
     async def _check_syntax(self) -> dict:
