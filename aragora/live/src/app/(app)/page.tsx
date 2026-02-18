@@ -34,6 +34,7 @@ import { HeroSection } from '@/components/landing/HeroSection';
 import { LandingPage } from '@/components/LandingPage';
 import { DebateResultPreview, type DebateResponse } from '@/components/DebateResultPreview';
 import { RecentReceipts } from '@/components/RecentReceipts';
+import { DebateThisButton } from '@/components/DebateThisButton';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
@@ -406,6 +407,12 @@ export default function Home() {
               onDebateStarted={(debateId) => router.push(`/debate/${debateId}`)}
               onError={setError}
             />
+            {/* Quick Debate shortcut */}
+            <div className="flex items-center gap-3 px-1">
+              <span className="text-xs font-mono text-[var(--text-muted)]">Quick topics:</span>
+              <DebateThisButton question="Should we adopt AI-first workflows?" source="dashboard" variant="button" />
+              <DebateThisButton question="What are the risks of our current architecture?" source="dashboard" variant="button" />
+            </div>
             {hasVerdict && <VerdictCard events={events} />}
             {pendingDebateResult && (
               <div className="space-y-2">

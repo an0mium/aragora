@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '@/context/AuthContext';
+import { TrustBadge, type CalibrationData } from '@/components/TrustBadge';
 
 interface AgentProfile {
   name: string;
@@ -13,6 +14,7 @@ interface AgentProfile {
   win_rate: number;
   consistency_score?: number;
   calibration_score?: number;
+  calibration?: CalibrationData | null;
   domains?: string[];
 }
 
@@ -212,9 +214,13 @@ export function AgentComparePanel({ initialAgents = [], availableAgents = [] }: 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                  <th className="py-2 px-3 text-left text-blue-400">{agent1}</th>
+                  <th className="py-2 px-3 text-left text-blue-400">
+                    {agent1} <TrustBadge calibration={comparison.agents[0]?.calibration} size="sm" />
+                  </th>
                   <th className="py-2 px-3 text-center text-zinc-500 dark:text-zinc-400">Stat</th>
-                  <th className="py-2 px-3 text-right text-purple-400">{agent2}</th>
+                  <th className="py-2 px-3 text-right text-purple-400">
+                    {agent2} <TrustBadge calibration={comparison.agents[1]?.calibration} size="sm" />
+                  </th>
                 </tr>
               </thead>
               <tbody>

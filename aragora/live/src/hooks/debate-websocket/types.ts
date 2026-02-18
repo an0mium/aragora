@@ -11,6 +11,12 @@ export interface TranscriptMessage {
   round?: number;
   phase?: number;  // Current debate phase (0-8 for 9-round format)
   timestamp?: number;
+  calibration?: {
+    brier_score: number;
+    ece: number;
+    trust_tier: 'excellent' | 'good' | 'moderate' | 'poor' | 'unrated';
+    prediction_count: number;
+  } | null;
 }
 
 export interface StreamingMessage {

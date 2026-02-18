@@ -1,9 +1,4 @@
-"""Tests for Teams namespace API.
-
-Note: TeamsAPI uses self._client._request() which is an alias for
-self.request() that passes params/json/headers explicitly, so all
-assert_called_once_with calls must include params= and headers= kwargs.
-"""
+"""Tests for Teams namespace API."""
 
 from __future__ import annotations
 
@@ -25,8 +20,6 @@ class TestTeamsList:
             "GET",
             "/api/v1/teams",
             params={"limit": 50, "offset": 0},
-            json=None,
-            headers=None,
         )
         assert result[0]["team_id"] == "team_1"
 
@@ -64,7 +57,7 @@ class TestTeamsGet:
         result = client.teams.get("team_123")
 
         mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123", params=None, json=None, headers=None
+            "GET", "/api/v1/teams/team_123"
         )
         assert result["name"] == "Engineering"
         assert result["member_count"] == 15
@@ -82,9 +75,7 @@ class TestTeamsCreate:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/teams",
-            params=None,
             json={"name": "New Team"},
-            headers=None,
         )
         assert result["team_id"] == "team_new"
 
@@ -129,9 +120,7 @@ class TestTeamsUpdate:
         mock_request.assert_called_once_with(
             "PATCH",
             "/api/v1/teams/team_123",
-            params=None,
             json={"name": "Updated Name"},
-            headers=None,
         )
         assert result["name"] == "Updated Name"
 
@@ -163,7 +152,7 @@ class TestTeamsDelete:
         result = client.teams.delete("team_123")
 
         mock_request.assert_called_once_with(
-            "DELETE", "/api/v1/teams/team_123", params=None, json=None, headers=None
+            "DELETE", "/api/v1/teams/team_123"
         )
         assert result["deleted"] is True
 
@@ -181,7 +170,7 @@ class TestTeamsMembers:
         result = client.teams.list_members("team_123")
 
         mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123/members", params=None, json=None, headers=None
+            "GET", "/api/v1/teams/team_123/members"
         )
         assert len(result) == 2
         assert result[0]["role"] == "admin"
@@ -195,9 +184,7 @@ class TestTeamsMembers:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/teams/team_123/members",
-            params=None,
             json={"user_id": "user_new", "role": "member"},
-            headers=None,
         )
         assert result["role"] == "member"
 
@@ -220,9 +207,7 @@ class TestTeamsMembers:
         mock_request.assert_called_once_with(
             "PATCH",
             "/api/v1/teams/team_123/members/user_123",
-            params=None,
             json={"role": "admin"},
-            headers=None,
         )
         assert result["role"] == "admin"
 
@@ -235,9 +220,6 @@ class TestTeamsMembers:
         mock_request.assert_called_once_with(
             "DELETE",
             "/api/v1/teams/team_123/members/user_456",
-            params=None,
-            json=None,
-            headers=None,
         )
         assert result["removed"] is True
 
@@ -257,7 +239,7 @@ class TestTeamsStats:
         result = client.teams.get_stats("team_123")
 
         mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123/stats", params=None, json=None, headers=None
+            "GET", "/api/v1/teams/team_123/stats"
         )
         assert result["member_count"] == 10
         assert result["debates_count"] == 42

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { TrustBadge, type CalibrationData } from '@/components/TrustBadge';
 
 export interface AgentRankingEntry {
   rank: number;
@@ -12,6 +13,7 @@ export interface AgentRankingEntry {
   win_rate: number;
   games_played: number;
   calibration_score?: number;
+  calibration?: CalibrationData | null;
   response_time_ms?: number;
 }
 
@@ -181,6 +183,7 @@ export function AgentLeaderboard({
                 </td>
                 <td className="p-3">
                   <span className="font-mono text-acid-cyan">{agent.agent_name}</span>
+                  {agent.calibration && <TrustBadge calibration={agent.calibration} size="sm" />}
                 </td>
                 <td className="p-3 text-right">
                   <span className="font-mono text-purple-400">{Math.round(agent.elo)}</span>

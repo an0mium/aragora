@@ -384,6 +384,85 @@ class CreateOperationsMixin:
             }
         )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debate-this",
+        summary="One-click debate launcher",
+        description="Convenience endpoint for quick debate creation. Only requires a question; auto-detects format and selects agents.",
+        tags=["Debates"],
+        responses={
+            "200": {
+                "description": "Debate created successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DebateCreateResponse"}
+                    }
+                },
+            },
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Unauthorized"},
+            "402": {"description": "Quota exceeded"},
+            "429": {"description": "Rate limit exceeded"},
+        },
+    )
+    @require_permission("debates:create")
+    @with_timeout_sync(120.0)
+    @user_rate_limit(action="debate_create")
+    @rate_limit(requests_per_minute=5, limiter_name="debate_this")
+    @require_quota("debate")
+    def _debate_this(self: _DebatesHandlerProtocol, handler: Any) -> HandlerResult:
+        """One-click debate launcher.
+
+        Accepts a minimal JSON body with just a question. Auto-detects
+        format based on question length and always auto-selects agents.
+
+        Body:
+            question: The topic to debate (required)
+            context: Optional context string
+            source: Source surface identifier (default: "debate_this")
+        """
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid or missing JSON body", 400)
+
+        question = body.get("question", "").strip()
+        if not question:
+            return error_response("Missing required field: question", 400)
+
+        # Auto-detect format: longer questions get more thorough debates
+        rounds = 9 if len(question) > 200 else 4
+        source = body.get("source", "debate_this")
+
+        # Build the full debate body with defaults
+        debate_body: dict[str, Any] = {
+            "question": question,
+            "rounds": body.get("rounds", rounds),
+            "auto_select": True,
+            "metadata": {"source": source},
+        }
+
+        context = body.get("context")
+        if context:
+            debate_body["context"] = context
+
+        # Delegate to existing creation logic
+        result = self._create_debate_direct(handler, debate_body)
+
+        # Add spectate_url to successful responses
+        if result and result.status_code == 200 and result.body:
+            try:
+                import json as _json
+
+                data = _json.loads(result.body) if isinstance(result.body, str) else result.body
+                debate_id = data.get("debate_id")
+                if debate_id:
+                    data["spectate_url"] = f"/spectate/{debate_id}"
+                    return json_response(data, status=200)
+            except (ValueError, TypeError, AttributeError):
+                pass
+
+        return result
+
     def _check_spam_content(
         self: _DebatesHandlerProtocol, body: dict[str, Any]
     ) -> HandlerResult | None:

@@ -17,6 +17,7 @@ import {
   getConsistencyColor,
   getMomentIcon,
 } from './types';
+import { TrustBadge } from '@/components/TrustBadge';
 
 const DEFAULT_API_BASE = API_BASE_URL;
 
@@ -187,6 +188,17 @@ export function AgentProfileWrapper() {
               ← Back
             </button>
             <h1 className="text-2xl font-bold text-text font-mono">{agentName}</h1>
+            {profile?.calibration && (
+              <TrustBadge
+                calibration={{
+                  brier_score: profile.calibration.brier_score,
+                  ece: profile.calibration.ece ?? 0,
+                  trust_tier: profile.calibration.trust_tier ?? 'unrated',
+                  prediction_count: profile.calibration.prediction_count,
+                }}
+                size="lg"
+              />
+            )}
             {profile?.persona?.type && (
               <span className="px-2 py-1 bg-accent/20 text-accent text-sm rounded">
                 {profile.persona.type}

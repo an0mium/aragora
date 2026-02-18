@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import Link from 'next/link';
 import { IntrospectionListSkeleton } from '../Skeleton';
+import { TrustBadge } from '@/components/TrustBadge';
 import type { AgentIntrospection } from './types';
 
 interface MindsTabPanelProps {

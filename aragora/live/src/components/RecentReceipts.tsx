@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { DebateThisButton } from './DebateThisButton';
 
 interface ReceiptSummary {
   id: string;
@@ -111,6 +112,11 @@ export function RecentReceipts({ limit = 5 }: RecentReceiptsProps) {
                 <span className="text-[10px] font-mono text-[var(--text-muted)]">
                   {new Date(receipt.created_at).toLocaleDateString()}
                 </span>
+                <DebateThisButton
+                  question={receipt.input_summary || `Re-examine receipt ${(receipt.receipt_id || receipt.id).slice(0, 8)}`}
+                  source="receipt"
+                  variant="icon"
+                />
               </div>
             </div>
             {receipt.findings_count > 0 && (

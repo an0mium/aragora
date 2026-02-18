@@ -307,6 +307,10 @@ class DebatesHandler(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        # One-click debate launcher
+        if path in ("/api/v1/debate-this", "/api/debate-this"):
+            return self._debate_this(handler)
+
         # Create debate endpoint - both legacy and RESTful
         # POST /api/debates (canonical) or POST /api/debate (legacy, deprecated)
         # Note: path is normalized (version stripped), so check both versioned and unversioned

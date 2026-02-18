@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { DebateThisButton } from '../DebateThisButton';
 
 export interface TrendingTopic {
   topic: string;
@@ -163,20 +164,9 @@ export function TrendingTopicCard({
           )}
         </div>
 
-        {onStartDebate && (
-          <button
-            onClick={handleDebateClick}
-            className="
-              opacity-0 group-hover:opacity-100
-              px-3 py-1 text-xs font-mono
-              text-acid-cyan border border-acid-cyan/50
-              hover:bg-acid-cyan/10 hover:border-acid-cyan
-              transition-all duration-200 rounded
-            "
-          >
-            START DEBATE
-          </button>
-        )}
+        <div className="opacity-0 group-hover:opacity-100 transition-all duration-200">
+          <DebateThisButton question={topic.topic} source="pulse" variant="button" />
+        </div>
       </div>
 
       {/* Hover effect glow */}

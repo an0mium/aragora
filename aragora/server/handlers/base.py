@@ -449,8 +449,31 @@ def get_agent_name(agent: dict[str, Any] | AgentRating | Any | None) -> str | No
     return str(result) if result else None
 
 
+def _compute_trust_tier(brier_score: float, prediction_count: int) -> str:
+    """Compute a trust tier label from calibration metrics.
+
+    Args:
+        brier_score: Agent's Brier score (lower is better)
+        prediction_count: Number of resolved predictions
+
+    Returns:
+        One of "excellent", "good", "moderate", "poor", or "unrated"
+    """
+    if prediction_count < 20:
+        return "unrated"
+    if brier_score < 0.1:
+        return "excellent"
+    if brier_score < 0.2:
+        return "good"
+    if brier_score < 0.35:
+        return "moderate"
+    return "poor"
+
+
 def agent_to_dict(
-    agent: dict[str, Any] | AgentRating | Any | None, include_name: bool = True
+    agent: dict[str, Any] | AgentRating | Any | None,
+    include_name: bool = True,
+    calibration_tracker: CalibrationTracker | None = None,
 ) -> dict[str, Any]:
     """Convert agent object or dict to standardized dict with ELO fields.
 
@@ -460,6 +483,7 @@ def agent_to_dict(
     Args:
         agent: Dict or object containing agent data
         include_name: Whether to include name/agent_name fields (default: True)
+        calibration_tracker: Optional tracker to enrich with calibration data
 
     Returns:
         Dict with standardized ELO-related fields
@@ -481,7 +505,13 @@ def agent_to_dict(
         return {}
 
     if isinstance(agent, dict):
-        return agent.copy()
+        result = agent.copy()
+        # Enrich dict with calibration if tracker provided and agent has a name
+        if calibration_tracker is not None:
+            name = result.get("agent_name") or result.get("name")
+            if name:
+                result = _enrich_with_calibration(result, str(name), calibration_tracker)
+        return result
 
     # Extract standard ELO fields from object
     name = get_agent_name(agent) or "unknown"
@@ -499,6 +529,41 @@ def agent_to_dict(
         result["name"] = name
         result["agent_name"] = name
 
+    # Enrich with calibration data
+    if calibration_tracker is not None:
+        result = _enrich_with_calibration(result, name, calibration_tracker)
+
+    return result
+
+
+def _enrich_with_calibration(
+    result: dict[str, Any],
+    agent_name: str,
+    calibration_tracker: CalibrationTracker,
+) -> dict[str, Any]:
+    """Add calibration sub-dict to an agent result dict.
+
+    Args:
+        result: Existing agent dict to enrich
+        agent_name: Agent name for calibration lookup
+        calibration_tracker: Tracker instance
+
+    Returns:
+        The result dict (modified in-place and returned)
+    """
+    try:
+        summary = calibration_tracker.get_calibration_summary(agent_name)
+        if summary.total_predictions > 0:
+            result["calibration"] = {
+                "brier_score": round(summary.brier_score, 4),
+                "ece": round(summary.ece, 4),
+                "trust_tier": _compute_trust_tier(
+                    summary.brier_score, summary.total_predictions
+                ),
+                "prediction_count": summary.total_predictions,
+            }
+    except (AttributeError, TypeError, ValueError, OSError):
+        pass
     return result
 
 

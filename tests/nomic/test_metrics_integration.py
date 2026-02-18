@@ -593,7 +593,8 @@ class TestPipelineBaselineAfter:
         ):
             result = await pipeline.run("Test delta population")
 
-        assert result.metrics_delta == {"codebase": {"lint_delta": -5}}
+        # metrics_delta includes the codebase deltas plus any goal-achievement keys
+        assert result.metrics_delta["codebase"] == {"lint_delta": -5}
         assert result.improvement_score == 0.7
 
     @pytest.mark.asyncio

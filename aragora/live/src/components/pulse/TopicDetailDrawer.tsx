@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { TrendingTopic } from './TrendingTopicCard';
+import { DebateThisButton } from '../DebateThisButton';
 import { logger } from '@/utils/logger';
 
 export interface TopicDetailDrawerProps {
@@ -294,12 +295,16 @@ export function TopicDetailDrawer({
 
         {/* Footer with action buttons */}
         <div className="p-4 border-t border-border space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-mono text-text-muted">Quick launch:</span>
+            <DebateThisButton question={topic.topic} source="pulse" variant="button" />
+          </div>
           <button
             onClick={handleStartDebate}
             disabled={isStarting}
             className="w-full py-3 bg-acid-green text-bg font-mono font-bold rounded hover:bg-acid-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isStarting ? 'Starting Debate...' : 'START DEBATE'}
+            {isStarting ? 'Starting Debate...' : 'START WITH CONFIG'}
           </button>
           <button
             onClick={onClose}

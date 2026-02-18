@@ -58,6 +58,7 @@ ROUTES = [
     "/api/v1/debates/*/summary",  # GET - human-readable summary
     "/api/v1/debates/*/cancel",  # POST - cancel running debate
     "/api/v1/debates/*/decision-integrity",  # POST - receipt + plan bundle
+    "/api/v1/debate-this",  # POST - one-click debate launcher
     "/api/v1/search",  # Cross-debate search
     # Analytics and management endpoints
     "/api/v1/debates/analytics/consensus",  # GET - consensus analytics
@@ -360,7 +361,7 @@ class RoutingMixin:
         # Normalize to unversioned for consistent checking
         normalized = path.replace("/api/v1/", "/api/").replace("/api/v2/", "/api/")
 
-        if normalized in ("/api/debate", "/api/debates"):
+        if normalized in ("/api/debate", "/api/debates", "/api/debate-this"):
             return True  # POST - create debate, GET - list debates
         if normalized in ("/api/search", "/api/debates/search"):
             return True

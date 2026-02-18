@@ -32,6 +32,8 @@ export interface AgentProfile {
   } | null;
   calibration: {
     brier_score: number;
+    ece?: number;
+    trust_tier?: 'excellent' | 'good' | 'moderate' | 'poor' | 'unrated';
     prediction_count: number;
   } | null;
 }

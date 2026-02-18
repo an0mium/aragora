@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
+import { TrustBadge } from '@/components/TrustBadge';
 import type { TranscriptMessageCardProps, CruxClaim } from './types';
 
 /**
@@ -184,6 +185,7 @@ export function TranscriptMessageCard({ message, cruxes }: TranscriptMessageCard
           <span className={`font-mono font-bold text-sm ${colors.text}`}>
             {(message.agent || 'SYSTEM').toUpperCase()}
           </span>
+          {message.calibration && <TrustBadge calibration={message.calibration} size="sm" />}
           {message.role && (
             <span className="text-xs text-text-muted border border-text-muted/30 px-1">{message.role}</span>
           )}
