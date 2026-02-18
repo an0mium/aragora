@@ -198,7 +198,12 @@ async def init_gauntlet_worker() -> bool:
         # Start worker in background
         import asyncio
 
-        asyncio.create_task(worker.start())
+        task = asyncio.create_task(worker.start())
+        task.add_done_callback(
+            lambda t: logger.error("Gauntlet worker crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info(f"Gauntlet worker started (max_concurrent={max_concurrent})")
         return True
 
@@ -313,7 +318,12 @@ async def init_testfixer_worker() -> bool:
 
         import asyncio
 
-        asyncio.create_task(worker.start())
+        task = asyncio.create_task(worker.start())
+        task.add_done_callback(
+            lambda t: logger.error("TestFixer worker crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("TestFixer worker started")
         return True
     except ImportError as e:

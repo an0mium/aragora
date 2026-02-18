@@ -580,6 +580,14 @@ class RetentionEnforcementScheduler:
         import asyncio
 
         self._task = asyncio.create_task(self._run_loop())
+        self._task.add_done_callback(
+            lambda t: logger.critical(
+                "Retention enforcement scheduler crashed: %s — compliance processing stopped",
+                t.exception(),
+            )
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info(
             "Started retention enforcement scheduler (interval=%ds, workspaces=%s)",
             self._interval_seconds,

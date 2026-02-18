@@ -147,7 +147,12 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
                 return None
 
         scheduler.set_debate_creator(auto_create_debate)
-        asyncio.create_task(scheduler.start())
+        task = asyncio.create_task(scheduler.start())
+        task.add_done_callback(
+            lambda t: logger.error("Pulse scheduler crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("Pulse scheduler auto-started (PULSE_SCHEDULER_AUTOSTART=true)")
         return True
 
@@ -189,6 +194,11 @@ async def init_stuck_debate_watchdog() -> asyncio.Task | None:
         from aragora.server.debate_utils import watchdog_stuck_debates
 
         task = asyncio.create_task(watchdog_stuck_debates())
+        task.add_done_callback(
+            lambda t: logger.error("Stuck debate watchdog crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("Stuck debate watchdog started (10 min timeout)")
         return task
     except (ImportError, RuntimeError) as e:
@@ -235,6 +245,11 @@ async def init_titans_memory_sweep() -> asyncio.Task | None:
 
         task = asyncio.create_task(
             controller.run_sweep_loop(interval_seconds=float(interval))
+        )
+        task.add_done_callback(
+            lambda t: logger.error("Titans memory sweep crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
         )
         logger.info(
             "Titans memory sweep started (interval=%ds, triggers=%d)",
@@ -313,6 +328,11 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
                 await asyncio.sleep(refresh_interval)
 
         task = asyncio.create_task(_refresh_expiring_tokens())
+        task.add_done_callback(
+            lambda t: logger.error("Slack token refresh scheduler crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("Slack token refresh scheduler started (1 hour interval)")
         return task
 
