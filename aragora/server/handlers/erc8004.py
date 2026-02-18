@@ -80,8 +80,7 @@ def _get_provider():
             _provider = Web3Provider.from_env()
         except ImportError:
             raise ImportError(
-                "web3 is required for blockchain endpoints. "
-                "Install with: pip install aragora[blockchain]"
+                "web3 is required for blockchain endpoints"
             )
         except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to create Web3Provider: {e}")
@@ -176,9 +175,8 @@ async def handle_blockchain_config() -> HandlerResult:
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
         logger.error(f"Error getting blockchain config: {e}")
@@ -218,9 +216,8 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching agent {token_id}: {e}")
@@ -274,9 +271,8 @@ async def handle_get_reputation(
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching reputation for agent {token_id}: {e}")
@@ -326,9 +322,8 @@ async def handle_get_validations(
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
         logger.error(f"Error fetching validations for agent {token_id}: {e}")
@@ -382,9 +377,8 @@ async def handle_blockchain_sync(
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.error(f"Blockchain sync error: {e}")
@@ -428,8 +422,7 @@ async def handle_blockchain_health() -> HandlerResult:
         return json_response(
             {
                 "available": False,
-                "error": "ERC-8004 blockchain features require the 'web3' package. "
-                "Install with: pip install aragora[blockchain]",
+                "error": "Blockchain features are not available. Required dependencies are not installed.",
             }
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
@@ -451,7 +444,7 @@ async def handle_blockchain_health() -> HandlerResult:
     responses={
         "200": {"description": "Agent list returned"},
         "500": {"description": "Listing error"},
-        "501": {"description": "Blockchain dependencies not installed"},
+        "503": {"description": "Blockchain dependencies not installed"},
         "503": {"description": "Circuit breaker open"},
     },
 )
@@ -475,7 +468,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
         if not config.has_identity_registry:
             return error_response(
                 "Identity registry is not configured for the current chain",
-                status=501,
+                status=503,
             )
 
         contract = IdentityRegistryContract(provider)
@@ -526,9 +519,8 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.error(f"Error listing agents: {e}")
@@ -545,7 +537,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
         "201": {"description": "Agent registered"},
         "400": {"description": "Invalid request"},
         "500": {"description": "Registration error"},
-        "501": {"description": "Blockchain dependencies not installed"},
+        "503": {"description": "Blockchain dependencies not installed"},
         "503": {"description": "Circuit breaker open"},
     },
 )
@@ -574,7 +566,7 @@ async def handle_register_agent(
         if not config.has_identity_registry:
             return error_response(
                 "Identity registry is not configured for the current chain",
-                status=501,
+                status=503,
             )
 
         try:
@@ -611,9 +603,8 @@ async def handle_register_agent(
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
-            "ERC-8004 blockchain features require the 'web3' package. "
-            "Install with: pip install aragora[blockchain]",
-            status=501,
+            "Blockchain features are not available. Required dependencies are not installed.",
+            status=503,
         )
     except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
         logger.error(f"Error registering agent: {e}")

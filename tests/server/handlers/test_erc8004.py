@@ -293,16 +293,16 @@ class TestBlockchainConfig:
 
     @pytest.mark.asyncio
     async def test_config_import_error(self, mock_circuit_breaker):
-        """Should return 501 when blockchain module not installed."""
+        """Should return 503 when blockchain module not installed."""
         with (
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
             patch.object(erc8004, "_get_provider", side_effect=ImportError("web3 not installed")),
         ):
             result = await erc8004.handle_blockchain_config()
 
-            assert result["status"] == 501
+            assert result["status"] == 503
             data = json.loads(result["body"])
-            assert "web3" in data["error"].lower()
+            assert "not available" in data["error"].lower()
 
     @pytest.mark.asyncio
     async def test_config_provider_error(self, mock_circuit_breaker):
@@ -677,7 +677,7 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_list_agents_requires_identity_registry(self, mock_circuit_breaker):
-        """Should return 501 when identity registry is not configured."""
+        """Should return 503 when identity registry is not configured."""
         provider = MockProvider(config=MockChainConfig(identity_registry_address=None))
 
         with (
@@ -686,7 +686,7 @@ class TestListAndRegisterAgents:
         ):
             result = await erc8004.handle_list_agents()
 
-        assert result["status"] == 501
+        assert result["status"] == 503
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
