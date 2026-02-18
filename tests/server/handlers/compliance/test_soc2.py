@@ -538,11 +538,13 @@ class TestSOC2EdgeCases:
     @pytest.mark.asyncio
     async def test_report_invalid_period_format(self, compliance_handler):
         """Report handles invalid period format gracefully."""
-        # This should raise ValueError for invalid date format
-        with pytest.raises(ValueError):
-            await compliance_handler._get_soc2_report(
-                {"period_start": "not-a-date", "period_end": "2025-02-01"}
-            )
+        # Invalid date format returns a 400 error response
+        result = await compliance_handler._get_soc2_report(
+            {"period_start": "not-a-date", "period_end": "2025-02-01"}
+        )
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "Invalid date format" in body["error"]
 
     @pytest.mark.asyncio
     async def test_report_period_only_end(self, compliance_handler):
