@@ -354,7 +354,7 @@ class HandlerRegistryMixin:
             # Fallback: iterate through handlers for edge cases not in index
             for attr_name, _ in HANDLER_REGISTRY:
                 handler = getattr(self, attr_name, None)
-                if handler:
+                if handler and hasattr(handler, "can_handle"):
                     for candidate in candidate_paths:
                         if handler.can_handle(candidate):
                             route_match = (attr_name, handler)
