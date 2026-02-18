@@ -265,6 +265,35 @@ from aragora.nomic.self_improve import (
     SelfImproveResult,
 )
 
+# Cross-agent learning bus
+from aragora.nomic.learning_bus import (
+    Finding,
+    LearningBus,
+)
+
+# Business context scoring
+from aragora.nomic.business_context import (
+    BusinessContext,
+    BusinessContextConfig,
+    GoalScore,
+)
+
+# Batch pattern fixer
+from aragora.nomic.pattern_fixer import (
+    ANTIPATTERNS,
+    FixResult,
+    PatternFixer,
+    PatternMatch,
+)
+
+# Forward-fix diagnostics
+from aragora.nomic.forward_fixer import (
+    DiagnosisResult,
+    FailureType,
+    ForwardFix,
+    ForwardFixer,
+)
+
 # Codebase indexer (searchable code structure for planning agents)
 from aragora.nomic.codebase_indexer import (
     CodebaseIndexer,
@@ -658,4 +687,21 @@ __all__ = [
     "ExecutionBridge",
     "ExecutionInstruction",
     "ExecutionResult",
+    # Learning Bus
+    "Finding",
+    "LearningBus",
+    # Business Context
+    "BusinessContext",
+    "BusinessContextConfig",
+    "GoalScore",
+    # Pattern Fixer
+    "ANTIPATTERNS",
+    "PatternFixer",
+    "PatternMatch",
+    "FixResult",
+    # Forward Fixer
+    "ForwardFixer",
+    "ForwardFix",
+    "DiagnosisResult",
+    "FailureType",
 ]

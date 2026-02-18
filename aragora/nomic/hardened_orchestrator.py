@@ -1104,6 +1104,36 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         score = max(0, score)
 
+        # AST-based code review via CodeReviewerAgent
+        code_review_result = None
+        if diff_text:
+            try:
+                from aragora.nomic.code_reviewer import CodeReviewerAgent
+
+                reviewer = CodeReviewerAgent()
+                code_review_result = reviewer.review_diff(
+                    diff_text,
+                    goal=assignment.subtask.description if hasattr(assignment.subtask, "description") else "",
+                )
+                # Map code_review score (0.0-1.0) to deductions on the 0-10 scale.
+                # A perfect 1.0 deducts nothing; 0.0 deducts 4 points.
+                review_deduction = int((1.0 - code_review_result.score) * 4)
+                if review_deduction > 0:
+                    score -= review_deduction
+                    for ri in code_review_result.issues:
+                        issues.append(f"code_review:{ri.severity.value}:{ri.description}")
+                    logger.info(
+                        "review_gate_code_review subtask=%s review_score=%.2f deduction=%d issues=%d",
+                        assignment.subtask.id,
+                        code_review_result.score,
+                        review_deduction,
+                        len(code_review_result.issues),
+                    )
+            except Exception as exc:
+                logger.debug("review_gate code_reviewer unavailable: %s", exc)
+
+        score = max(0, score)
+
         logger.info(
             "review_gate subtask=%s score=%d/%d issues=%s",
             assignment.subtask.id,
@@ -1124,12 +1154,14 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 **(assignment.result or {}),
                 "review_gate_score": score,
                 "review_gate_issues": issues,
+                "code_review_score": code_review_result.score if code_review_result else None,
             }
             return False
 
         assignment.result = {
             **(assignment.result or {}),
             "review_gate_score": score,
+            "code_review_score": code_review_result.score if code_review_result else None,
         }
         return True
 
