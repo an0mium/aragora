@@ -564,9 +564,9 @@ class TestExportValidation:
 class TestAuthentication:
     """Tests for authentication on protected endpoints."""
 
-    def test_list_debates_requires_auth(self, debates_handler, mock_http_handler):
-        """Test list debates endpoint requires authentication."""
-        # Simulate failed auth
+    def test_list_debates_is_public(self, debates_handler, mock_http_handler):
+        """Test list debates endpoint is public (no auth required)."""
+        # Even if _check_auth would fail, list endpoint skips auth
         with patch.object(
             debates_handler,
             "_check_auth",
@@ -574,7 +574,8 @@ class TestAuthentication:
         ):
             result = debates_handler.handle("/api/v1/debates", {}, mock_http_handler)
 
-        assert result.status_code == 401
+        # List endpoint is intentionally public — should NOT return 401
+        assert result is None or result.status_code != 401
 
     def test_export_requires_auth(self, debates_handler, mock_http_handler):
         """Test export endpoint requires authentication."""

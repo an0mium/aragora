@@ -170,6 +170,7 @@ def _make_handler(method="GET", body=None, headers=None, partner_id=None):
     if body is not None:
         raw = json.dumps(body).encode()
         hdr["Content-Length"] = str(len(raw))
+        hdr["Content-Type"] = "application/json"
         h.rfile = io.BytesIO(raw)
     else:
         hdr["Content-Length"] = "0"
@@ -373,7 +374,7 @@ class TestRegisterPartner:
 
     def test_invalid_json(self, ph):
         h = MagicMock()
-        h.headers = {"Content-Length": "3"}
+        h.headers = {"Content-Length": "3", "Content-Type": "application/json"}
         h.rfile = io.BytesIO(b"abc")
         h.client_address = ("127.0.0.1", 1)
         assert ph._register_partner(h).status_code == 400
@@ -492,7 +493,7 @@ class TestCreateAPIKey:
 
     def test_invalid_json(self, ph):
         h = MagicMock()
-        h.headers = {"Content-Length": "5", "X-Partner-ID": "p"}
+        h.headers = {"Content-Length": "5", "X-Partner-ID": "p", "Content-Type": "application/json"}
         h.rfile = io.BytesIO(b"xxxxx")
         h.client_address = ("127.0.0.1", 1)
         assert ph._create_api_key(h, user=_mock_user()).status_code == 400
@@ -752,7 +753,7 @@ class TestConfigureWebhook:
 
     def test_invalid_json(self, ph):
         h = MagicMock()
-        h.headers = {"Content-Length": "4", "X-Partner-ID": "p"}
+        h.headers = {"Content-Length": "4", "X-Partner-ID": "p", "Content-Type": "application/json"}
         h.rfile = io.BytesIO(b"nope")
         h.client_address = ("127.0.0.1", 1)
         assert ph._configure_webhook(h, user=_mock_user()).status_code == 400
@@ -966,7 +967,7 @@ class TestPermissionDecorator:
 class TestEdgeCases:
     def test_zero_content_length(self, ph):
         h = MagicMock()
-        h.headers = {"Content-Length": "0"}
+        h.headers = {"Content-Length": "0", "Content-Type": "application/json"}
         h.rfile = io.BytesIO(b"")
         h.client_address = ("127.0.0.1", 1)
         assert ph._register_partner(h).status_code == 400

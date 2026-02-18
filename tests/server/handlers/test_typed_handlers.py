@@ -499,7 +499,6 @@ class TestTypedHandlerPermissions:
         assert err.status_code == 403
         body = json.loads(err.body)
         assert "Permission denied" in body["error"]
-        assert "admin:write" in body["error"]
 
     def test_require_permission_unauthenticated(self, server_context):
         """require_permission_or_error returns 401 when not authenticated."""

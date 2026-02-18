@@ -267,6 +267,7 @@ def make_mock_handler(
     if body is not None:
         body_bytes = json.dumps(body).encode("utf-8")
         handler.headers["Content-Length"] = str(len(body_bytes))
+        handler.headers["Content-Type"] = "application/json"
         handler.rfile = BytesIO(body_bytes)
     else:
         handler.rfile = BytesIO(b"")
@@ -417,7 +418,7 @@ class TestPartnerRegister:
         """Invalid JSON returns 400."""
         handler = MagicMock()
         handler.command = "POST"
-        handler.headers = {"Content-Length": "10"}
+        handler.headers = {"Content-Length": "10", "Content-Type": "application/json"}
         handler.rfile = BytesIO(b"not-json!!")
 
         result = partner_handler._register_partner(handler)
@@ -807,7 +808,7 @@ class TestPartnerErrorHandling:
         """Invalid JSON body returns 400."""
         handler = MagicMock()
         handler.command = "POST"
-        handler.headers = {"Content-Length": "10", "X-Partner-ID": "partner-123"}
+        handler.headers = {"Content-Length": "10", "X-Partner-ID": "partner-123", "Content-Type": "application/json"}
         handler.rfile = BytesIO(b"not-json!!")
 
         result = partner_handler._register_partner(handler)

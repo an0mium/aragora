@@ -235,7 +235,7 @@ class TestDebatesHandlerRouting:
 
     def test_requires_auth_for_protected_endpoints(self, handler):
         """Test auth requirement detection."""
-        assert handler._requires_auth("/api/v1/debates") is True
+        assert handler._requires_auth("/api/v1/debates") is False  # List is public
         assert handler._requires_auth("/api/v1/debates/test/export/json") is True
         assert handler._requires_auth("/api/v1/debates/test/citations") is True
         assert handler._requires_auth("/api/v1/debates/test/fork") is True

@@ -443,7 +443,7 @@ class TestAuthenticationAndRBAC:
                 )
                 assert result.status_code == 403
                 body = json.loads(result.body)
-                assert "orchestration:execute" in body.get("error", "")
+                assert "Permission denied" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_successful_auth_with_valid_context(

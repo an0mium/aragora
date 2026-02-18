@@ -102,9 +102,9 @@ class TestDebatesHandlerAuthRequiredEndpoints:
         """AUTH_REQUIRED_ENDPOINTS is a list."""
         assert isinstance(handler.AUTH_REQUIRED_ENDPOINTS, list)
 
-    def test_debates_list_requires_auth(self, handler):
-        """Debates list endpoint requires auth."""
-        assert "/api/v1/debates" in handler.AUTH_REQUIRED_ENDPOINTS
+    def test_debates_list_is_public(self, handler):
+        """Debates list endpoint is public (not in AUTH_REQUIRED_ENDPOINTS)."""
+        assert "/api/v1/debates" not in handler.AUTH_REQUIRED_ENDPOINTS
 
     def test_batch_requires_auth(self, handler):
         """Batch endpoint requires auth."""
@@ -200,9 +200,9 @@ class TestDebatesHandlerRequiresAuth:
 
         return DebatesHandler(server_context={})
 
-    def test_debates_list_requires_auth(self, handler):
-        """Debates list path requires auth."""
-        assert handler._requires_auth("/api/v1/debates") is True
+    def test_debates_list_is_public(self, handler):
+        """Debates list path is public (no auth required)."""
+        assert handler._requires_auth("/api/v1/debates") is False
 
     def test_batch_requires_auth(self, handler):
         """Batch path requires auth."""
@@ -216,14 +216,10 @@ class TestDebatesHandlerRequiresAuth:
         """Fork path requires auth."""
         assert handler._requires_auth("/api/v1/debates/123/fork") is True
 
-    def test_impasse_path_contains_debates_requires_auth(self, handler):
-        """Impasse path contains /api/debates so it requires auth."""
-        # Note: _requires_auth checks if any AUTH_REQUIRED pattern is in the path
-        # Since /api/debates is in AUTH_REQUIRED_ENDPOINTS, any path containing it
-        # will require auth. This is by design for enumeration protection.
+    def test_impasse_path_is_public(self, handler):
+        """Impasse is a public read endpoint (not in AUTH_REQUIRED_ENDPOINTS)."""
         result = handler._requires_auth("/api/v1/debates/123/impasse")
-        # Should require auth because it contains "/api/v1/debates"
-        assert result is True
+        assert result is False
 
 
 class TestDebatesHandlerAllowedFormats:

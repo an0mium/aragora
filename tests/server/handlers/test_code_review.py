@@ -820,11 +820,11 @@ class TestCodeReviewHandlerClass:
 
         handler = CodeReviewHandler({})
 
-        assert "POST /api/v1/code-review/review" in handler.ROUTES
-        assert "POST /api/v1/code-review/diff" in handler.ROUTES
-        assert "POST /api/v1/code-review/pr" in handler.ROUTES
-        assert "GET /api/v1/code-review/history" in handler.ROUTES
-        assert "POST /api/v1/code-review/security-scan" in handler.ROUTES
+        assert "/api/v1/code-review/review" in handler.ROUTES
+        assert "/api/v1/code-review/diff" in handler.ROUTES
+        assert "/api/v1/code-review/pr" in handler.ROUTES
+        assert "/api/v1/code-review/history" in handler.ROUTES
+        assert "/api/v1/code-review/security-scan" in handler.ROUTES
 
     def test_dynamic_routes_defined(self):
         """Test that dynamic routes are defined."""

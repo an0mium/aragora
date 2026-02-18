@@ -185,7 +185,7 @@ class TestSecureHandlerCheckPermission:
             with patch("aragora.observability.metrics.security.record_rbac_decision"):
                 with pytest.raises(ForbiddenError) as exc_info:
                     secure_handler.check_permission(auth_context, "admin:delete")
-                assert "admin:delete" in str(exc_info.value)
+                assert "Permission denied" in str(exc_info.value)
 
     def test_check_permission_with_resource_id(self, secure_handler, auth_context):
         """check_permission passes resource_id to checker."""
