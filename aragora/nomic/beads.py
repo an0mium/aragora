@@ -364,7 +364,7 @@ class BeadStore:
 
     async def _load_beads(self) -> None:
         """Load all beads from JSONL file into cache."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         cache, index = await loop.run_in_executor(None, self._load_beads_sync)
         self._beads_cache = cache
         self._index = index
@@ -376,7 +376,7 @@ class BeadStore:
 
     async def _append_bead(self, bead: Bead) -> None:
         """Append a bead to the JSONL file."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._append_bead_sync, bead)
 
     def _rewrite_file_sync(self) -> None:
@@ -396,7 +396,7 @@ class BeadStore:
 
     async def _rewrite_file(self) -> None:
         """Rewrite the entire JSONL file from cache (for updates)."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._rewrite_file_sync)
 
     def _record_event_sync(self, event: BeadEvent) -> None:
@@ -406,7 +406,7 @@ class BeadStore:
 
     async def _record_event(self, event: BeadEvent) -> None:
         """Record a bead event to the events log."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._record_event_sync, event)
 
     async def create(self, bead: Bead) -> str:

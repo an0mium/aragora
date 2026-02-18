@@ -226,7 +226,7 @@ class HookQueue:
 
     async def _load_entries(self) -> None:
         """Load hook entries from file."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self._entries = await loop.run_in_executor(None, self._load_entries_sync)
 
     def _save_entries_sync(self) -> None:
@@ -244,7 +244,7 @@ class HookQueue:
 
     async def _save_entries(self) -> None:
         """Save all entries to file."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._save_entries_sync)
 
     async def push(

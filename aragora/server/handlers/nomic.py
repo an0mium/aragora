@@ -749,11 +749,11 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             if auto_approve:
                 cmd.append("--auto-approve")
 
-            # Start in background
+            # Start in background (DEVNULL since output is not read)
             process = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 cwd=str(nomic_dir.parent.parent),
                 start_new_session=True,
             )

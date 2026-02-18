@@ -385,9 +385,9 @@ class DecisionPipelineHandler(SecureHandler):
             return error_response("debate_id is required", 400)
 
         # Load debate result
-        import asyncio
+        from aragora.utils.async_utils import get_event_loop_safe
 
-        debate_result = asyncio.get_event_loop().run_until_complete(
+        debate_result = get_event_loop_safe().run_until_complete(
             _load_debate_result(debate_id, self.ctx)
         )
         if debate_result is None:
@@ -619,7 +619,7 @@ class DecisionPipelineHandler(SecureHandler):
         self, plan_id: str, handler: HTTPRequestHandler, user: Any
     ) -> HandlerResult:
         """Execute an approved decision plan."""
-        import asyncio
+        from aragora.utils.async_utils import get_event_loop_safe
 
         from aragora.pipeline.executor import PlanExecutor, get_plan
         from aragora.rbac.models import AuthorizationContext
@@ -682,7 +682,7 @@ class DecisionPipelineHandler(SecureHandler):
         executor = PlanExecutor(max_parallel=max_parallel)
 
         try:
-            outcome = asyncio.get_event_loop().run_until_complete(
+            outcome = get_event_loop_safe().run_until_complete(
                 executor.execute(
                     plan,
                     auth_context=auth_context,

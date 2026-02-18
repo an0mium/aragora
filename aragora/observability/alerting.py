@@ -382,7 +382,7 @@ class EmailNotificationChannel(NotificationChannel):
 
         try:
             # Run SMTP in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._send_email_sync, alert, rule)
             logger.info(
                 f"Email notification sent for alert {alert.rule_name} "

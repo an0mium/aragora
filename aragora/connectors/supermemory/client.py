@@ -220,7 +220,7 @@ class SupermemoryClient:
 
         try:
             # Run SDK call in executor to avoid blocking
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
                 None,
                 lambda: self._sdk_client.memories.add(
@@ -279,7 +279,7 @@ class SupermemoryClient:
         start_time = time.time()
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # Build search kwargs
             search_kwargs: dict[str, Any] = {"q": query}

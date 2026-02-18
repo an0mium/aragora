@@ -87,16 +87,18 @@ def _get_cost_tracker() -> Any | None:
 def _run_async(coro: Any) -> Any:
     """Run an async coroutine from sync context."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Already in an async context, create a task
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                return pool.submit(asyncio.run, coro).result(timeout=10)
-        return loop.run_until_complete(coro)
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        loop = None
+
+    if loop is not None and loop.is_running():
+        # Already in an async context, run in thread pool
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result(timeout=10)
+
+    return asyncio.run(coro)
 
 
 def get_sme_kpis(

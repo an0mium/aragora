@@ -307,7 +307,7 @@ class MemoryPrefetchManager:
             domain: Domain context
         """
         # Run sync prefetch in thread pool to avoid blocking
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.prefetch_for_task, task, domain)
 
     def prefetch_tier_cascade(self, starting_tier: MemoryTier) -> None:
@@ -1360,7 +1360,7 @@ class MemoryManager:
         Returns:
             Dict mapping memory IDs to their entries
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.retrieve_memories_batch, memory_ids)
 
     def prefetch_for_debate(self, task: str, domain: str | None = None) -> None:
@@ -1402,7 +1402,7 @@ class MemoryManager:
         actual_domain = domain or self._get_domain()
 
         # Run prefetch in background
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await asyncio.gather(
             loop.run_in_executor(None, self._prefetch_manager.prefetch_for_domain, actual_domain),
             self._prefetch_manager.prefetch_for_task_async(task, actual_domain),

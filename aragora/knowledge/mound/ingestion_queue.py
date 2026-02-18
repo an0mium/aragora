@@ -101,11 +101,13 @@ class IngestionDeadLetterQueue:
             try:
                 result_dict = json.loads(item["result_json"])
                 if asyncio.iscoroutinefunction(ingest_fn):
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        asyncio.get_running_loop()
                         # Cannot await in sync context; skip
                         continue
-                    loop.run_until_complete(ingest_fn(result_dict))
+                    except RuntimeError:
+                        pass
+                    asyncio.run(ingest_fn(result_dict))
                 else:
                     ingest_fn(result_dict)
                 success_ids.append(item["id"])

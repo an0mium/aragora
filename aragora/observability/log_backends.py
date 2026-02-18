@@ -176,7 +176,7 @@ class LocalFileBackend(AuditLogBackend):
 
     async def append(self, entry: AuditEntry) -> None:
         """Append entry to log file."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._append_sync, entry)
 
     def _get_entry_sync(self, entry_id: str) -> AuditEntry | None:
@@ -198,7 +198,7 @@ class LocalFileBackend(AuditLogBackend):
 
     async def get_entry(self, entry_id: str) -> AuditEntry | None:
         """Get entry by ID."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._get_entry_sync, entry_id)
 
     def _get_by_sequence_sync(self, sequence_number: int) -> AuditEntry | None:
@@ -220,7 +220,7 @@ class LocalFileBackend(AuditLogBackend):
 
     async def get_by_sequence(self, sequence_number: int) -> AuditEntry | None:
         """Get entry by sequence number."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._get_by_sequence_sync, sequence_number)
 
     async def get_last_entry(self) -> AuditEntry | None:
@@ -317,7 +317,7 @@ class LocalFileBackend(AuditLogBackend):
         offset: int = 0,
     ) -> list[AuditEntry]:
         """Query entries with filters."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             functools.partial(
@@ -375,7 +375,7 @@ class LocalFileBackend(AuditLogBackend):
         event_types: list[str] | None = None,
     ) -> int:
         """Count entries matching filters."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             functools.partial(
@@ -400,7 +400,7 @@ class LocalFileBackend(AuditLogBackend):
 
     async def save_anchor(self, anchor: DailyAnchor) -> None:
         """Save daily anchor."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._save_anchor_sync, anchor)
 
     def _get_anchor_sync(self, date: str) -> DailyAnchor | None:
@@ -428,7 +428,7 @@ class LocalFileBackend(AuditLogBackend):
 
     async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor for date."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._get_anchor_sync, date)
 
 

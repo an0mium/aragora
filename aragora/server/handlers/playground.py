@@ -545,7 +545,9 @@ class PlaygroundHandler(BaseHandler):
                 import nest_asyncio  # type: ignore[import-untyped]
 
                 nest_asyncio.apply()
-                loop = asyncio.get_event_loop()
+                from aragora.utils.async_utils import get_event_loop_safe
+
+                loop = get_event_loop_safe()
                 result = loop.run_until_complete(arena.run())
             except ImportError:
                 # Fallback: create a new loop in a thread

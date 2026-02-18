@@ -315,9 +315,9 @@ class SMESuccessDashboardHandler(SecureHandler):
         analytics = self._get_debate_analytics()
         if analytics is not None:
             try:
-                import asyncio
+                from aragora.utils.async_utils import get_event_loop_safe
 
-                debate_stats = asyncio.get_event_loop().run_until_complete(
+                debate_stats = get_event_loop_safe().run_until_complete(
                     analytics.get_debate_stats(org_id=org_id, days_back=days_back)
                 )
             except RuntimeError:

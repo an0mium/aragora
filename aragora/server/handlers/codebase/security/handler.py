@@ -154,9 +154,9 @@ class SecurityHandler(BaseHandler):
         if path.startswith("/api/v1/cve/"):
             cve_id = path.split("/api/v1/cve/", 1)[1].rstrip("/")
             if cve_id:
-                import asyncio
+                from aragora.utils.async_utils import get_event_loop_safe
 
-                return asyncio.get_event_loop().run_until_complete(
+                return get_event_loop_safe().run_until_complete(
                     self.handle_get_cve(params, cve_id)
                 )
         if path == "/api/v1/cve":
@@ -167,9 +167,9 @@ class SecurityHandler(BaseHandler):
         if not repo_id:
             return None
 
-        import asyncio
+        from aragora.utils.async_utils import get_event_loop_safe
 
-        loop = asyncio.get_event_loop()
+        loop = get_event_loop_safe()
 
         # Vulnerability scan status
         if sub_path == "/scan/latest":

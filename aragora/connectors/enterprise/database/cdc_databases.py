@@ -557,7 +557,7 @@ class MySQLCDCHandler(BaseCDCHandler):
         except ImportError:
             return
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def get_next_event() -> Any:
             """Get next event from binlog stream (blocking)."""

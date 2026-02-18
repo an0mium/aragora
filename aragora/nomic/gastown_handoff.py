@@ -334,7 +334,7 @@ class HandoffStore:
         """Initialize storage, loading existing handoffs."""
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         # Load bead handoffs
         self._handoffs = await loop.run_in_executor(None, self._load_bead_handoffs_sync)
@@ -418,7 +418,7 @@ class HandoffStore:
 
     async def _persist_bead_handoffs(self) -> None:
         """Persist bead handoffs to JSONL."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._persist_bead_handoffs_sync)
 
     def _persist_molecule_handoffs_sync(self) -> None:
@@ -430,7 +430,7 @@ class HandoffStore:
 
     async def _persist_molecule_handoffs(self) -> None:
         """Persist molecule handoffs to JSONL."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._persist_molecule_handoffs_sync)
 
 

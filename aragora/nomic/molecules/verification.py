@@ -224,8 +224,8 @@ class DeadlockDetector:
                 )
 
         # Wait for lock with timeout
-        start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < timeout:
+        start_time = asyncio.get_running_loop().time()
+        while asyncio.get_running_loop().time() - start_time < timeout:
             await asyncio.sleep(0.1)
             async with self._lock:
                 if resource_id not in self._locks:
