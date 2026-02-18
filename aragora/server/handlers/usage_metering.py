@@ -47,11 +47,9 @@ class UsageMeteringHandler(SecureHandler):
     RESOURCE_TYPE = "billing_usage"
 
     ROUTES = [
-        "/api/v1/billing/usage",
         "/api/v1/billing/usage/breakdown",
         "/api/v1/billing/limits",
         "/api/v1/billing/usage/summary",
-        "/api/v1/billing/usage/export",
         "/api/v1/quotas",
     ]
 
