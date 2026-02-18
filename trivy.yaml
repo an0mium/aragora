@@ -1,0 +1,12 @@
+# Trivy configuration for Aragora
+# Auto-detected when trivy.yaml is in the scan root directory.
+# See https://trivy.dev/docs/latest/references/configuration/config-file/
+
+scan:
+  # Skip scanning directories that contain third-party code we don't control
+  skip-dirs:
+    - .comparison
+    - node_modules
+    - .venv
+    - venv
+    - .git

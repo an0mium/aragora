@@ -14,12 +14,20 @@ jobs:
     steps:
       - name: Check Cloudflare Pages (Frontend)
         run: |
-          response=$(curl -sf -o /dev/null -w "%{http_code}" "https://aragora.pages.dev" || echo "000")
-          if [ "$response" != "200" ]; then
-            echo "::error::Frontend returned $response"
-            exit 1
-          fi
-          echo "Frontend: OK ($response)"
+          # Follow redirects (-L) and retry once on transient failure
+          for attempt in 1 2; do
+            response=$(curl -sL -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "https://aragora.pages.dev" || echo "000")
+            if [ "$response" = "200" ]; then
+              echo "Frontend: OK ($response)"
+              exit 0
+            fi
+            if [ "$attempt" -eq 1 ]; then
+              echo "Frontend returned $response on attempt 1, retrying in 10s..."
+              sleep 10
+            fi
+          done
+          echo "::error::Frontend returned $response after 2 attempts"
+          exit 1
 
       - name: Check Production API (Lightsail)
         run: |
