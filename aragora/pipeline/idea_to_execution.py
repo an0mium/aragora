@@ -69,6 +69,7 @@ class PipelineConfig:
     dry_run: bool = False
     enable_receipts: bool = True
     event_callback: Any | None = None  # callable(event_type: str, data: dict)
+    worktree_path: str | None = None  # Git worktree for agent execution
 
 
 @dataclass
@@ -244,16 +245,43 @@ class IdeaToExecutionPipeline:
         self._emit_sync(event_callback, "stage_started", {"stage": "goals"})
         result = self._advance_to_goals(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
+        # Emit node-level events for goals
+        if result.goal_graph:
+            for goal in result.goal_graph.goals:
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "goals",
+                    "node_id": goal.id,
+                    "node_type": goal.goal_type.value,
+                    "label": goal.title,
+                })
 
         # Stage 3: Actions
         self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
+        # Emit node-level events for action steps
+        if result.actions_canvas:
+            for node_id, node in result.actions_canvas.nodes.items():
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "actions",
+                    "node_id": node_id,
+                    "node_type": node.data.get("step_type", "task"),
+                    "label": node.label,
+                })
 
         # Stage 4: Orchestration
         self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
+        # Emit node-level events for orchestration tasks
+        if result.orchestration_canvas:
+            for node_id, node in result.orchestration_canvas.nodes.items():
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "orchestration",
+                    "node_id": node_id,
+                    "node_type": node.data.get("orch_type", "agent_task"),
+                    "label": node.label,
+                })
 
         self._build_universal_graph(result)
         return result
@@ -312,10 +340,27 @@ class IdeaToExecutionPipeline:
 
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
+        # Emit node-level events for ideas
+        for node_id, node in result.ideas_canvas.nodes.items():
+            self._emit_sync(event_callback, "pipeline_node_added", {
+                "stage": "ideas",
+                "node_id": node_id,
+                "node_type": "idea",
+                "label": node.label,
+            })
 
         # Goals already extracted via extract_from_raw_ideas
         result.stage_status[PipelineStage.GOALS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
+        # Emit node-level events for goals
+        if result.goal_graph:
+            for goal in result.goal_graph.goals:
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "goals",
+                    "node_id": goal.id,
+                    "node_type": goal.goal_type.value,
+                    "label": goal.title,
+                })
 
         if not auto_advance:
             return result
@@ -324,11 +369,29 @@ class IdeaToExecutionPipeline:
         self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
+        # Emit node-level events for action steps
+        if result.actions_canvas:
+            for node_id, node in result.actions_canvas.nodes.items():
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "actions",
+                    "node_id": node_id,
+                    "node_type": node.data.get("step_type", "task"),
+                    "label": node.label,
+                })
 
         # Stage 4: Orchestration
         self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
+        # Emit node-level events for orchestration tasks
+        if result.orchestration_canvas:
+            for node_id, node in result.orchestration_canvas.nodes.items():
+                self._emit_sync(event_callback, "pipeline_node_added", {
+                    "stage": "orchestration",
+                    "node_id": node_id,
+                    "node_type": node.data.get("orch_type", "agent_task"),
+                    "label": node.label,
+                })
 
         self._build_universal_graph(result)
         return result
@@ -640,33 +703,68 @@ class IdeaToExecutionPipeline:
         goal_graph: GoalGraph | None,
         cfg: PipelineConfig,
     ) -> StageResult:
-        """Stage 4: Run orchestration on workflow."""
+        """Stage 4: Run orchestration on workflow.
+
+        Builds an execution plan from the workflow/goal_graph, then executes
+        each task using DebugLoop (with graceful fallback). Emits node-level
+        events for real-time frontend updates.
+        """
         sr = StageResult(stage_name="orchestration", status="running")
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "orchestration"})
 
         try:
-            orch_result: dict[str, Any] = {}
+            execution_plan = self._build_execution_plan(workflow, goal_graph)
 
-            try:
-                from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+            if not execution_plan.get("tasks"):
+                sr.output = {"orchestration": {"status": "skipped", "reason": "no tasks"}}
+                sr.status = "completed"
+                sr.duration = time.monotonic() - start
+                return sr
 
-                orchestrator = AutonomousOrchestrator()
-                tracks = cfg.orchestration_tracks or ["core"]
+            results: list[dict[str, Any]] = []
+            for task in execution_plan["tasks"]:
+                if task["type"] == "human_gate":
+                    results.append({
+                        "task_id": task["id"],
+                        "status": "awaiting_approval",
+                        "name": task["name"],
+                    })
+                    self._emit(cfg, "pipeline_node_added", {
+                        "stage": "orchestration",
+                        "node_id": task["id"],
+                        "node_type": "human_gate",
+                        "label": task["name"],
+                    })
+                    continue
 
-                if goal_graph and goal_graph.goals:
-                    goal_dict = goal_graph.goals[0].to_prioritized_goal(tracks[0])
-                    result = await orchestrator.execute_goal(
-                        goal_dict,
-                        max_cycles=cfg.max_orchestration_cycles,
-                    )
-                    orch_result = (
-                        result.to_dict() if hasattr(result, "to_dict") else {"status": "completed"}
-                    )
-                else:
-                    orch_result = {"status": "skipped", "reason": "no goals"}
-            except (ImportError, Exception):
-                orch_result = {"status": "fallback", "reason": "orchestrator unavailable"}
+                self._emit(cfg, "pipeline_agent_started", {
+                    "task_id": task["id"],
+                    "name": task["name"],
+                })
+
+                task_result = await self._execute_task(task, cfg)
+                results.append(task_result)
+
+                self._emit(cfg, "pipeline_agent_completed", {
+                    "task_id": task["id"],
+                    "status": task_result["status"],
+                })
+                self._emit(cfg, "pipeline_node_added", {
+                    "stage": "orchestration",
+                    "node_id": task["id"],
+                    "node_type": "agent_task",
+                    "label": task["name"],
+                })
+
+            completed = sum(1 for r in results if r["status"] == "completed")
+            total = len(results)
+            orch_result: dict[str, Any] = {
+                "status": "executed",
+                "tasks_completed": completed,
+                "tasks_total": total,
+                "results": results,
+            }
 
             sr.output = {"orchestration": orch_result}
             sr.status = "completed"
@@ -682,6 +780,86 @@ class IdeaToExecutionPipeline:
             logger.warning("Orchestration failed: %s", exc)
 
         return sr
+
+    def _build_execution_plan(
+        self,
+        workflow: dict[str, Any] | None,
+        goal_graph: GoalGraph | None,
+    ) -> dict[str, Any]:
+        """Build a flat task list from workflow steps or goal graph nodes.
+
+        Extracts tasks from the workflow (preferred) or falls back to the
+        goal graph. Each task has an id, name, description, type, and
+        optional test_scope.
+        """
+        tasks: list[dict[str, Any]] = []
+        if workflow and workflow.get("steps"):
+            for step in workflow["steps"]:
+                tasks.append({
+                    "id": step["id"],
+                    "name": step["name"],
+                    "description": step.get("description", ""),
+                    "type": (
+                        "human_gate"
+                        if step.get("step_type") == "human_checkpoint"
+                        else "agent_task"
+                    ),
+                    "test_scope": step.get("config", {}).get("test_scope", []),
+                })
+        elif goal_graph and goal_graph.goals:
+            for goal in goal_graph.goals:
+                tasks.append({
+                    "id": goal.id,
+                    "name": goal.title,
+                    "description": goal.description,
+                    "type": "agent_task",
+                    "test_scope": [],
+                })
+        return {"tasks": tasks}
+
+    async def _execute_task(
+        self,
+        task: dict[str, Any],
+        cfg: PipelineConfig,
+    ) -> dict[str, Any]:
+        """Execute a single task, using DebugLoop if available.
+
+        Falls back to ``planned`` status when the execution engine
+        (DebugLoop / ClaudeCodeHarness) is not installed or raises.
+        """
+        try:
+            from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
+
+            loop_cfg = DebugLoopConfig(max_retries=2)
+            loop = DebugLoop(loop_cfg)
+            result = await loop.execute_with_retry(
+                instruction=(
+                    f"Implement: {task['name']}\n\n{task.get('description', '')}"
+                ),
+                worktree_path=getattr(cfg, "worktree_path", None) or "/tmp/aragora-worktree",
+                test_scope=task.get("test_scope", []),
+            )
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed" if result.success else "failed",
+                "output": result.to_dict() if hasattr(result, "to_dict") else {},
+            }
+        except (ImportError, AttributeError):
+            # DebugLoop not available — fall back to planned status
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "planned",
+                "output": {"reason": "execution_engine_unavailable"},
+            }
+        except (RuntimeError, OSError):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "failed",
+                "output": {"error": "Task execution failed"},
+            }
 
     def _emit(self, cfg: PipelineConfig, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event via the configured callback."""
@@ -703,25 +881,55 @@ class IdeaToExecutionPipeline:
                 pass
 
     def _generate_receipt(self, result: PipelineResult) -> dict[str, Any] | None:
-        """Generate a DecisionReceipt for the completed pipeline."""
+        """Generate a decision receipt for the completed pipeline.
+
+        Collects participants from orchestration results, evidence from
+        each stage, and builds a rich receipt. Falls back to a lightweight
+        dict when the gauntlet receipt module is unavailable.
+        """
+        # Collect participants from orchestration result
+        participants: list[str] = []
+        if result.orchestration_result and isinstance(result.orchestration_result, dict):
+            for task_result in result.orchestration_result.get("results", []):
+                name = task_result.get("name", "unknown")
+                if name not in participants:
+                    participants.append(name)
+
+        # Collect evidence from stage results
+        evidence: list[dict[str, Any]] = []
+        for sr in result.stage_results:
+            evidence.append({
+                "stage": sr.stage_name,
+                "status": sr.status,
+                "duration": sr.duration,
+            })
+
+        stages_completed = sum(
+            1 for sr in result.stage_results if sr.status == "completed"
+        )
+
         try:
             from aragora.gauntlet.receipts import DecisionReceipt
 
             receipt = DecisionReceipt(
                 decision_id=result.pipeline_id,
-                decision_summary=f"Pipeline completed with {len(result.stage_results)} stages",
+                decision_summary=(
+                    f"Pipeline completed: {len(result.stage_results)} stages, "
+                    f"{len(result.provenance)} provenance links"
+                ),
                 confidence=result.transitions[-1].confidence if result.transitions else 0.5,
-                participants=[],
-                evidence=[],
+                participants=participants,
+                evidence=evidence,
             )
             return receipt.to_dict()
         except (ImportError, Exception):
             return {
                 "pipeline_id": result.pipeline_id,
                 "integrity_hash": result._compute_integrity_hash(),
-                "stages_completed": sum(
-                    1 for sr in result.stage_results if sr.status == "completed"
-                ),
+                "stages_completed": stages_completed,
+                "provenance_count": len(result.provenance),
+                "participants": participants,
+                "evidence": evidence,
             }
 
     # =========================================================================

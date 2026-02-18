@@ -28,7 +28,7 @@ import re
 import time
 from typing import Any
 
-from aragora.server.handlers.base import handle_errors
+from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -115,17 +115,12 @@ class CanvasPipelineHandler:
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch GET requests to the appropriate handler method."""
-        from aragora.server.handlers.utils.responses import json_response, error_response
-
         body = self._get_request_body(handler)
 
         # GET /api/v1/canvas/pipeline/{id}/status
         m = _PIPELINE_STATUS.match(path)
         if m:
-            result = self.handle_status(m.group(1))
-            if asyncio.iscoroutine(result):
-                return result
-            return json_response(result)
+            return self.handle_status(m.group(1))
 
         # GET /api/v1/canvas/pipeline/{id}/graph
         m = _PIPELINE_GRAPH.match(path)
@@ -247,7 +242,7 @@ class CanvasPipelineHandler:
             pass
         return {}
 
-    async def handle_from_debate(self, request_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_from_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/from-debate
 
         Run full pipeline from an ArgumentCartographer debate export.
@@ -264,7 +259,7 @@ class CanvasPipelineHandler:
             use_ai = request_data.get("use_ai", False)
 
             if not cartographer_data:
-                return {"error": "Missing required field: cartographer_data"}
+                return error_response("Missing required field: cartographer_data", 400)
 
             use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
@@ -296,7 +291,7 @@ class CanvasPipelineHandler:
             # Persist universal graph if generated
             _persist_universal_graph(result)
 
-            return {
+            return json_response({
                 "pipeline_id": result.pipeline_id,
                 "stage_status": result.stage_status,
                 "stages_completed": sum(
@@ -313,12 +308,12 @@ class CanvasPipelineHandler:
                 ),
                 "has_universal_graph": result.universal_graph is not None,
                 "result": result_dict,
-            }
+            }, 201)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-debate failed: %s", e)
-            return {"error": "Pipeline execution failed"}
+            return error_response("Pipeline execution failed", 500)
 
-    async def handle_from_ideas(self, request_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_from_ideas(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/from-ideas
 
         Run full pipeline from raw idea strings.
@@ -335,7 +330,7 @@ class CanvasPipelineHandler:
             use_ai = request_data.get("use_ai", False)
 
             if not ideas:
-                return {"error": "Missing required field: ideas"}
+                return error_response("Missing required field: ideas", 400)
 
             use_universal = request_data.get("use_universal", False)
             agent = _get_ai_agent() if use_ai else None
@@ -362,18 +357,18 @@ class CanvasPipelineHandler:
             _pipeline_objects[result.pipeline_id] = result
             _persist_universal_graph(result)
 
-            return {
+            return json_response({
                 "pipeline_id": result.pipeline_id,
                 "stage_status": result.stage_status,
                 "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
                 "has_universal_graph": result.universal_graph is not None,
                 "result": result_dict,
-            }
+            }, 201)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-ideas failed: %s", e)
-            return {"error": "Pipeline execution failed"}
+            return error_response("Pipeline execution failed", 500)
 
-    async def handle_advance(self, request_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_advance(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/advance
 
         Advance a pipeline to the next stage.
@@ -390,18 +385,18 @@ class CanvasPipelineHandler:
             target_stage = request_data.get("target_stage", "")
 
             if not pipeline_id:
-                return {"error": "Missing required field: pipeline_id"}
+                return error_response("Missing required field: pipeline_id", 400)
             if not target_stage:
-                return {"error": "Missing required field: target_stage"}
+                return error_response("Missing required field: target_stage", 400)
 
             result_obj = _pipeline_objects.get(pipeline_id)
             if not result_obj:
-                return {"error": f"Pipeline {pipeline_id} not found"}
+                return error_response(f"Pipeline {pipeline_id} not found", 404)
 
             try:
                 stage = PipelineStage(target_stage)
             except ValueError:
-                return {"error": f"Invalid stage: {target_stage}"}
+                return error_response(f"Invalid stage: {target_stage}", 400)
 
             pipeline = IdeaToExecutionPipeline()
             result_obj = pipeline.advance_stage(result_obj, stage)
@@ -411,32 +406,32 @@ class CanvasPipelineHandler:
             _get_store().save(pipeline_id, result_dict)
             _pipeline_objects[pipeline_id] = result_obj
 
-            return {
+            return json_response({
                 "pipeline_id": pipeline_id,
                 "advanced_to": target_stage,
                 "stage_status": result_obj.stage_status,
                 "result": result_dict,
-            }
+            })
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline advance failed: %s", e)
-            return {"error": "Pipeline advance failed"}
+            return error_response("Pipeline advance failed", 500)
 
     async def handle_get_pipeline(
         self, pipeline_id: str
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}"""
         result = _get_store().get(pipeline_id)
         if not result:
-            return {"error": f"Pipeline {pipeline_id} not found"}
-        return result
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
+        return json_response(result)
 
     async def handle_get_stage(
         self, pipeline_id: str, stage: str
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/stage/{stage}"""
         result = _get_store().get(pipeline_id)
         if not result:
-            return {"error": f"Pipeline {pipeline_id} not found"}
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
 
         stage_key = {
             "ideas": "ideas",
@@ -446,13 +441,13 @@ class CanvasPipelineHandler:
         }.get(stage)
 
         if not stage_key or stage_key not in result:
-            return {"error": f"Stage {stage} not found"}
+            return error_response(f"Stage {stage} not found", 404)
 
-        return {"stage": stage, "data": result[stage_key]}
+        return json_response({"stage": stage, "data": result[stage_key]})
 
     async def handle_convert_debate(
         self, request_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/canvas/convert/debate
 
         Convert a debate graph to a React Flow-compatible ideas canvas.
@@ -462,17 +457,17 @@ class CanvasPipelineHandler:
 
             cartographer_data = request_data.get("cartographer_data", {})
             if not cartographer_data:
-                return {"error": "Missing required field: cartographer_data"}
+                return error_response("Missing required field: cartographer_data", 400)
 
             canvas = debate_to_ideas_canvas(cartographer_data)
-            return to_react_flow(canvas)
+            return json_response(to_react_flow(canvas))
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Convert debate failed: %s", e)
-            return {"error": "Conversion failed"}
+            return error_response("Conversion failed", 500)
 
     async def handle_convert_workflow(
         self, request_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/canvas/convert/workflow
 
         Convert a WorkflowDefinition to a React Flow-compatible actions canvas.
@@ -485,19 +480,19 @@ class CanvasPipelineHandler:
 
             workflow_data = request_data.get("workflow_data", {})
             if not workflow_data:
-                return {"error": "Missing required field: workflow_data"}
+                return error_response("Missing required field: workflow_data", 400)
 
             canvas = workflow_to_actions_canvas(workflow_data)
-            return to_react_flow(canvas)
+            return json_response(to_react_flow(canvas))
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Convert workflow failed: %s", e)
-            return {"error": "Conversion failed"}
+            return error_response("Conversion failed", 500)
 
     # =========================================================================
     # Async pipeline endpoints (run/status/graph/receipt)
     # =========================================================================
 
-    async def handle_run(self, request_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_run(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/run
 
         Start an async pipeline execution. Returns immediately with pipeline_id.
@@ -519,7 +514,7 @@ class CanvasPipelineHandler:
             input_text = request_data.get("input_text", "")
             use_ai = request_data.get("use_ai", False)
             if not input_text:
-                return {"error": "Missing required field: input_text"}
+                return error_response("Missing required field: input_text", 400)
 
             config = PipelineConfig(
                 stages_to_run=request_data.get("stages", [
@@ -572,23 +567,23 @@ class CanvasPipelineHandler:
             )
             _pipeline_tasks[pipeline_id] = task
 
-            return {
+            return json_response({
                 "pipeline_id": pipeline_id,
                 "status": "running",
                 "stages": config.stages_to_run,
-            }
+            }, 202)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline run failed: %s", e)
-            return {"error": "Pipeline execution failed"}
+            return error_response("Pipeline execution failed", 500)
 
-    async def handle_status(self, pipeline_id: str) -> dict[str, Any]:
+    async def handle_status(self, pipeline_id: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/status
 
         Get per-stage status for a pipeline.
         """
         result = _get_store().get(pipeline_id)
         if not result:
-            return {"error": f"Pipeline {pipeline_id} not found"}
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
 
         # Check if async task is still running
         task = _pipeline_tasks.get(pipeline_id)
@@ -605,11 +600,11 @@ class CanvasPipelineHandler:
         if result.get("duration"):
             status_info["duration"] = result["duration"]
 
-        return status_info
+        return json_response(status_info)
 
     async def handle_graph(
         self, pipeline_id: str, request_data: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/graph
 
         Get React Flow JSON for any stage of the pipeline.
@@ -619,7 +614,7 @@ class CanvasPipelineHandler:
         """
         result = _get_store().get(pipeline_id)
         if not result:
-            return {"error": f"Pipeline {pipeline_id} not found"}
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
 
         stage = (request_data or {}).get("stage", "")
 
@@ -675,25 +670,25 @@ class CanvasPipelineHandler:
                     })
                 graphs["workflow"] = {"nodes": rf_nodes, "edges": rf_edges}
 
-        return {"pipeline_id": pipeline_id, "graphs": graphs}
+        return json_response({"pipeline_id": pipeline_id, "graphs": graphs})
 
-    async def handle_receipt(self, pipeline_id: str) -> dict[str, Any]:
+    async def handle_receipt(self, pipeline_id: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/receipt
 
         Get the DecisionReceipt for a completed pipeline.
         """
         result = _get_store().get(pipeline_id)
         if not result:
-            return {"error": f"Pipeline {pipeline_id} not found"}
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
 
         if result.get("receipt"):
-            return {"pipeline_id": pipeline_id, "receipt": result["receipt"]}
+            return json_response({"pipeline_id": pipeline_id, "receipt": result["receipt"]})
 
-        return {"error": f"No receipt available for pipeline {pipeline_id}"}
+        return error_response(f"No receipt available for pipeline {pipeline_id}", 404)
 
     async def handle_extract_goals(
         self, request_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/extract-goals
 
         Extract goals from an ideas canvas using GoalExtractor.
@@ -726,7 +721,7 @@ class CanvasPipelineHandler:
                     logger.debug("Could not load canvas from store: %s", e)
 
             if not canvas_data:
-                return {"error": "Missing ideas_canvas_data or valid ideas_canvas_id"}
+                return error_response("Missing ideas_canvas_data or valid ideas_canvas_id", 400)
 
             # Build extraction config from request
             config_data = request_data.get("config", {})
@@ -755,10 +750,10 @@ class CanvasPipelineHandler:
             result["source_canvas_id"] = canvas_id
             result["goals_count"] = len(goal_graph.goals)
 
-            return result
+            return json_response(result)
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Goal extraction failed: %s", e)
-            return {"error": "Goal extraction failed"}
+            return error_response("Goal extraction failed", 500)
 
     # =========================================================================
     # PUT: Save canvas state
@@ -766,7 +761,7 @@ class CanvasPipelineHandler:
 
     async def handle_save_pipeline(
         self, pipeline_id: str, request_data: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """PUT /api/v1/canvas/pipeline/{id}
 
         Save the current canvas state (nodes + edges) for all stages.
@@ -791,7 +786,7 @@ class CanvasPipelineHandler:
 
         stages = request_data.get("stages", {})
         if not stages:
-            return {"error": "Missing required field: stages"}
+            return error_response("Missing required field: stages", 400)
 
         # Merge each stage's canvas data into the stored result
         for stage_name in ("ideas", "goals", "actions", "orchestration"):
@@ -807,11 +802,11 @@ class CanvasPipelineHandler:
 
         store.save(pipeline_id, existing)
 
-        return {
+        return json_response({
             "pipeline_id": pipeline_id,
             "saved": True,
             "stage_status": existing.get("stage_status", {}),
-        }
+        })
 
     # =========================================================================
     # POST: Approve/reject stage transition
@@ -819,7 +814,7 @@ class CanvasPipelineHandler:
 
     async def handle_approve_transition(
         self, pipeline_id: str, request_data: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/{id}/approve-transition
 
         Approve or reject a pending stage transition.
@@ -833,7 +828,7 @@ class CanvasPipelineHandler:
         store = _get_store()
         existing = store.get(pipeline_id)
         if not existing:
-            return {"error": f"Pipeline {pipeline_id} not found"}
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
 
         from_stage = request_data.get("from_stage", "")
         to_stage = request_data.get("to_stage", "")
@@ -841,7 +836,7 @@ class CanvasPipelineHandler:
         comment = request_data.get("comment", "")
 
         if not from_stage or not to_stage:
-            return {"error": "Missing required fields: from_stage, to_stage"}
+            return error_response("Missing required fields: from_stage, to_stage", 400)
 
         # Find and update the matching transition
         transitions = existing.get("transitions", [])
@@ -877,10 +872,10 @@ class CanvasPipelineHandler:
 
         store.save(pipeline_id, existing)
 
-        return {
+        return json_response({
             "pipeline_id": pipeline_id,
             "from_stage": from_stage,
             "to_stage": to_stage,
             "status": "approved" if approved else "rejected",
             "comment": comment,
-        }
+        })

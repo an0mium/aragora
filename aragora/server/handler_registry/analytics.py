@@ -85,6 +85,16 @@ GoalCanvasHandler = _safe_import(
     "aragora.server.handlers.goal_canvas", "GoalCanvasHandler"
 )
 
+# Action Canvas
+ActionCanvasHandler = _safe_import(
+    "aragora.server.handlers.action_canvas", "ActionCanvasHandler"
+)
+
+# Orchestration Canvas
+OrchestrationCanvasHandler = _safe_import(
+    "aragora.server.handlers.orchestration_canvas", "OrchestrationCanvasHandler"
+)
+
 # Universal Graph Pipeline
 UniversalGraphHandler = _safe_import(
     "aragora.server.handlers.pipeline.universal_graph", "UniversalGraphHandler"
@@ -130,6 +140,10 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_idea_canvas_handler", IdeaCanvasHandler),
     # Goal canvas
     ("_goal_canvas_handler", GoalCanvasHandler),
+    # Action canvas
+    ("_action_canvas_handler", ActionCanvasHandler),
+    # Orchestration canvas
+    ("_orchestration_canvas_handler", OrchestrationCanvasHandler),
     # Universal graph pipeline
     ("_universal_graph_handler", UniversalGraphHandler),
     # Outcome tracking
@@ -163,6 +177,8 @@ __all__ = [
     "CanvasPipelineHandler",
     "IdeaCanvasHandler",
     "GoalCanvasHandler",
+    "ActionCanvasHandler",
+    "OrchestrationCanvasHandler",
     "UniversalGraphHandler",
     # Outcome tracking
     "OutcomeHandler",

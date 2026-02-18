@@ -746,6 +746,372 @@ class GoalExtractor:
 
         return " ".join(parts)
 
+    # =========================================================================
+    # Semantic clustering (2A)
+    # =========================================================================
+
+    def cluster_ideas_semantically(
+        self,
+        idea_canvas_data: dict[str, Any],
+        similarity_threshold: float = 0.2,
+        min_cluster_size: int = 2,
+    ) -> dict[str, Any]:
+        """Cluster ideas by semantic similarity using word overlap.
+
+        Uses Jaccard similarity with stopword removal to find related ideas,
+        then applies agglomerative clustering to group them.
+
+        Args:
+            idea_canvas_data: Canvas.to_dict() from Stage 1
+            similarity_threshold: Minimum Jaccard similarity to link ideas (0.0-1.0)
+            min_cluster_size: Minimum number of ideas to form a cluster
+
+        Returns:
+            Enriched canvas data with cluster nodes and membership edges added
+        """
+        import copy
+
+        result = copy.deepcopy(idea_canvas_data)
+        nodes = result.get("nodes", [])
+        edges = result.get("edges", [])
+
+        if len(nodes) < min_cluster_size:
+            return result
+
+        # Extract tokenized text for each node
+        node_tokens: list[tuple[str, frozenset[str]]] = []
+        for node in nodes:
+            nid = node.get("id", "")
+            label = node.get("label", "")
+            full_content = node.get("data", {}).get("full_content", "")
+            text = f"{label} {full_content}"
+            tokens = _tokenize(text)
+            node_tokens.append((nid, tokens))
+
+        # Build pairwise similarity matrix
+        n = len(node_tokens)
+        similarity: dict[tuple[int, int], float] = {}
+        for i in range(n):
+            for j in range(i + 1, n):
+                sim = _jaccard_similarity(node_tokens[i][1], node_tokens[j][1])
+                similarity[(i, j)] = sim
+
+        # Agglomerative clustering: each node starts as its own cluster
+        # cluster_id -> set of node indices
+        clusters: dict[int, set[int]] = {i: {i} for i in range(n)}
+
+        while True:
+            # Find the most similar pair of clusters
+            best_sim = -1.0
+            best_pair: tuple[int, int] | None = None
+
+            cluster_ids = sorted(clusters.keys())
+            for ci_idx in range(len(cluster_ids)):
+                for cj_idx in range(ci_idx + 1, len(cluster_ids)):
+                    ci = cluster_ids[ci_idx]
+                    cj = cluster_ids[cj_idx]
+                    # Average linkage: mean similarity between all pairs
+                    total = 0.0
+                    count = 0
+                    for ni in clusters[ci]:
+                        for nj in clusters[cj]:
+                            key = (min(ni, nj), max(ni, nj))
+                            total += similarity.get(key, 0.0)
+                            count += 1
+                    avg_sim = total / max(count, 1)
+                    if avg_sim > best_sim:
+                        best_sim = avg_sim
+                        best_pair = (ci, cj)
+
+            if best_pair is None or best_sim < similarity_threshold:
+                break
+
+            # Merge the two clusters
+            ci, cj = best_pair
+            clusters[ci] = clusters[ci] | clusters[cj]
+            del clusters[cj]
+
+        # Create cluster nodes for clusters meeting min_cluster_size
+        for cluster_id, member_indices in clusters.items():
+            if len(member_indices) < min_cluster_size:
+                continue
+
+            # Generate cluster name from top terms
+            cluster_name = _name_cluster(
+                [node_tokens[i][1] for i in member_indices]
+            )
+            cluster_node_id = f"cluster-{uuid.uuid4().hex[:8]}"
+
+            # Add cluster node
+            nodes.append({
+                "id": cluster_node_id,
+                "label": cluster_name,
+                "data": {
+                    "idea_type": "cluster",
+                    "member_count": len(member_indices),
+                    "auto_generated": True,
+                },
+            })
+
+            # Add membership edges
+            for idx in member_indices:
+                member_id = node_tokens[idx][0]
+                edges.append({
+                    "source": member_id,
+                    "target": cluster_node_id,
+                    "type": "member_of",
+                })
+
+        result["nodes"] = nodes
+        result["edges"] = edges
+        return result
+
+    # =========================================================================
+    # Goal conflict detection (2B)
+    # =========================================================================
+
+    def detect_goal_conflicts(
+        self,
+        goal_graph: GoalGraph,
+    ) -> list[dict[str, Any]]:
+        """Detect conflicts between goals.
+
+        Checks for:
+        1. Contradictory keywords (maximize vs minimize, increase vs decrease)
+        2. Circular dependencies in goal graph
+        3. Near-duplicate detection (goals with very similar titles)
+
+        Args:
+            goal_graph: GoalGraph to analyze
+
+        Returns:
+            List of conflict dicts with keys: type, severity, goal_ids,
+            description, suggestion
+        """
+        conflicts: list[dict[str, Any]] = []
+
+        goals = goal_graph.goals
+        if not goals:
+            return conflicts
+
+        # 1. Contradictory keywords
+        conflicts.extend(self._detect_contradictions(goals))
+
+        # 2. Circular dependencies
+        conflicts.extend(self._detect_circular_dependencies(goals))
+
+        # 3. Near-duplicate detection
+        conflicts.extend(self._detect_near_duplicates(goals))
+
+        return conflicts
+
+    def _detect_contradictions(
+        self, goals: list[GoalNode]
+    ) -> list[dict[str, Any]]:
+        """Find goals with contradictory action keywords."""
+        conflicts: list[dict[str, Any]] = []
+
+        for i in range(len(goals)):
+            text_i = f"{goals[i].title} {goals[i].description}".lower()
+            words_i = set(text_i.split())
+            for j in range(i + 1, len(goals)):
+                text_j = f"{goals[j].title} {goals[j].description}".lower()
+                words_j = set(text_j.split())
+
+                for word_a, word_b in _CONTRADICTORY_PAIRS:
+                    if (word_a in words_i and word_b in words_j) or (
+                        word_b in words_i and word_a in words_j
+                    ):
+                        conflicts.append({
+                            "type": "contradiction",
+                            "severity": "high",
+                            "goal_ids": [goals[i].id, goals[j].id],
+                            "description": (
+                                f"Goals may conflict: '{goals[i].title}' vs "
+                                f"'{goals[j].title}' (contradictory terms: "
+                                f"{word_a}/{word_b})"
+                            ),
+                            "suggestion": (
+                                "Review these goals to ensure they are not "
+                                "working against each other. Consider merging "
+                                "or prioritizing one over the other."
+                            ),
+                        })
+                        break  # One contradiction per pair is enough
+
+        return conflicts
+
+    def _detect_circular_dependencies(
+        self, goals: list[GoalNode]
+    ) -> list[dict[str, Any]]:
+        """Detect cycles in the goal dependency graph using DFS."""
+        conflicts: list[dict[str, Any]] = []
+
+        # Build adjacency: goal_id -> list of dependency goal_ids
+        dep_map: dict[str, list[str]] = {}
+        goal_ids = {g.id for g in goals}
+        for g in goals:
+            # Only include deps that reference actual goals in this graph
+            dep_map[g.id] = [d for d in g.dependencies if d in goal_ids]
+
+        # DFS cycle detection
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color: dict[str, int] = {gid: WHITE for gid in goal_ids}
+        parent: dict[str, str | None] = {gid: None for gid in goal_ids}
+
+        def _dfs(node: str, path: list[str]) -> list[str] | None:
+            """Return cycle path if found, else None."""
+            color[node] = GRAY
+            path.append(node)
+            for dep in dep_map.get(node, []):
+                if color.get(dep) == GRAY:
+                    # Found a cycle — extract it
+                    cycle_start = path.index(dep)
+                    return path[cycle_start:]
+                if color.get(dep) == WHITE:
+                    result = _dfs(dep, path)
+                    if result is not None:
+                        return result
+            path.pop()
+            color[node] = BLACK
+            return None
+
+        seen_cycles: set[frozenset[str]] = set()
+        for gid in goal_ids:
+            if color[gid] == WHITE:
+                cycle = _dfs(gid, [])
+                if cycle is not None:
+                    cycle_key = frozenset(cycle)
+                    if cycle_key not in seen_cycles:
+                        seen_cycles.add(cycle_key)
+                        # Build goal title lookup
+                        title_map = {g.id: g.title for g in goals}
+                        cycle_desc = " -> ".join(
+                            title_map.get(c, c) for c in cycle
+                        )
+                        conflicts.append({
+                            "type": "circular_dependency",
+                            "severity": "high",
+                            "goal_ids": list(cycle),
+                            "description": (
+                                f"Circular dependency detected: {cycle_desc}"
+                            ),
+                            "suggestion": (
+                                "Break the dependency cycle by removing at "
+                                "least one dependency link or reordering goals."
+                            ),
+                        })
+                    # Reset colors for remaining nodes to find more cycles
+                    for node_id in goal_ids:
+                        if color[node_id] == GRAY:
+                            color[node_id] = WHITE
+
+        return conflicts
+
+    def _detect_near_duplicates(
+        self, goals: list[GoalNode]
+    ) -> list[dict[str, Any]]:
+        """Find goals with very similar titles (potential duplicates)."""
+        conflicts: list[dict[str, Any]] = []
+
+        for i in range(len(goals)):
+            tokens_i = _tokenize(goals[i].title)
+            for j in range(i + 1, len(goals)):
+                tokens_j = _tokenize(goals[j].title)
+                sim = _jaccard_similarity(tokens_i, tokens_j)
+                if sim > 0.6:
+                    conflicts.append({
+                        "type": "near_duplicate",
+                        "severity": "medium",
+                        "goal_ids": [goals[i].id, goals[j].id],
+                        "description": (
+                            f"Goals appear very similar "
+                            f"(similarity: {sim:.1%}): "
+                            f"'{goals[i].title}' vs '{goals[j].title}'"
+                        ),
+                        "suggestion": (
+                            "Consider merging these goals into a single, "
+                            "more comprehensive goal."
+                        ),
+                    })
+
+        return conflicts
+
+    # =========================================================================
+    # Enhanced SMART scoring (2C)
+    # =========================================================================
+
+    def score_smart(self, goal: GoalNode) -> dict[str, float]:
+        """Score a goal on all SMART dimensions.
+
+        - Specific: Technical details and scope constraints
+        - Measurable: Quantitative success criteria
+        - Achievable: Scope-limited, concrete deliverable
+        - Relevant: References domain-specific terms
+        - Time-bound: Has timeline or deadline references
+
+        Returns:
+            Dict with keys: specific, measurable, achievable, relevant,
+            time_bound, overall
+        """
+        text = f"{goal.title} {goal.description}"
+
+        specific = _score_specificity(text)
+        measurable = _score_measurability(text)
+        achievable = _score_achievability(text)
+        relevant = _score_relevance(text, goal.source_idea_ids)
+        time_bound = _score_time_bound(text)
+
+        overall = (
+            0.25 * specific
+            + 0.25 * measurable
+            + 0.20 * achievable
+            + 0.15 * relevant
+            + 0.15 * time_bound
+        )
+
+        return {
+            "specific": specific,
+            "measurable": measurable,
+            "achievable": achievable,
+            "relevant": relevant,
+            "time_bound": time_bound,
+            "overall": overall,
+        }
+
+    def suggest_improvements(self, goal: GoalNode) -> list[str]:
+        """Suggest improvements for low-scoring SMART dimensions.
+
+        Analyzes each SMART dimension and provides actionable advice
+        for dimensions scoring below 0.5.
+
+        Args:
+            goal: GoalNode to analyze
+
+        Returns:
+            List of improvement suggestion strings
+        """
+        scores = self.score_smart(goal)
+        suggestions: list[str] = []
+        if scores["specific"] < 0.5:
+            suggestions.append(
+                "Add specific technical details or scope constraints"
+            )
+        if scores["measurable"] < 0.5:
+            suggestions.append(
+                "Add quantitative success criteria "
+                "(e.g., percentages, counts, response times)"
+            )
+        if scores["achievable"] < 0.5:
+            suggestions.append(
+                "Narrow the scope to a concrete, single-step deliverable"
+            )
+        if scores["time_bound"] < 0.5:
+            suggestions.append(
+                "Add a timeline or deadline (e.g., 'within 2 sprints')"
+            )
+        return suggestions
+
 
 # =========================================================================
 # SMART scoring helpers
@@ -792,3 +1158,137 @@ _STOP_WORDS = frozenset({
     "before", "after", "above", "below", "between", "and", "but", "or",
     "not", "no", "this", "that", "these", "those", "it", "its",
 })
+
+# Contradictory keyword pairs for conflict detection
+_CONTRADICTORY_PAIRS: list[tuple[str, str]] = [
+    ("maximize", "minimize"),
+    ("increase", "decrease"),
+    ("add", "remove"),
+    ("enable", "disable"),
+    ("expand", "reduce"),
+    ("accelerate", "decelerate"),
+    ("centralize", "decentralize"),
+    ("simplify", "complicate"),
+    ("automate", "manual"),
+    ("open", "close"),
+]
+
+# Achievability patterns — scope-limiting words score higher
+_ACHIEVABILITY_PATTERNS = [
+    re.compile(r"\b(single|one|specific|particular|individual)\b", re.I),
+    re.compile(r"\b(implement|add|create|build|fix|update|write)\b", re.I),
+    re.compile(r"\b(module|component|function|endpoint|page|file)\b", re.I),
+    re.compile(r"\b(step|phase|iteration|sprint|task)\b", re.I),
+]
+
+# Over-ambition patterns — broad scope reduces achievability
+_OVERAMBITION_PATTERNS = [
+    re.compile(r"\b(everything|all|entire|complete|total|whole)\b", re.I),
+    re.compile(r"\b(transform|revolutionize|overhaul|rewrite)\b", re.I),
+    re.compile(r"\b(always|never|every|universal)\b", re.I),
+]
+
+# Time-bound patterns
+_TIME_BOUND_PATTERNS = [
+    re.compile(r"\b(by|within|before|deadline)\b", re.I),
+    re.compile(r"\b(sprint|week|month|quarter|year|day)\b", re.I),
+    re.compile(r"\b(q[1-4]|h[12])\b", re.I),  # Q1, Q2, H1, H2
+    re.compile(r"\b\d{4}[-/]\d{2}([-/]\d{2})?\b"),  # Date patterns
+    re.compile(r"\b(timeline|schedule|milestone|phase)\b", re.I),
+]
+
+# Domain relevance patterns — technical and business terms
+_RELEVANCE_PATTERNS = [
+    re.compile(r"\b(api|database|server|client|service|endpoint|module)\b", re.I),
+    re.compile(r"\b(user|customer|team|stakeholder|developer)\b", re.I),
+    re.compile(r"\b(performance|security|reliability|scalability)\b", re.I),
+    re.compile(r"\b(test|deploy|monitor|audit|review)\b", re.I),
+    re.compile(r"\b(revenue|cost|budget|roi|efficiency)\b", re.I),
+]
+
+
+# =========================================================================
+# Tokenization and similarity helpers
+# =========================================================================
+
+
+def _tokenize(text: str) -> frozenset[str]:
+    """Tokenize text into a set of meaningful words.
+
+    Lowercases, splits on non-alphanumeric, removes stop words
+    and very short tokens.
+    """
+    words = re.split(r"[^a-zA-Z0-9]+", text.lower())
+    return frozenset(
+        w for w in words if w and len(w) > 1 and w not in _STOP_WORDS
+    )
+
+
+def _jaccard_similarity(a: frozenset[str], b: frozenset[str]) -> float:
+    """Compute Jaccard similarity between two token sets."""
+    if not a and not b:
+        return 0.0
+    intersection = len(a & b)
+    union = len(a | b)
+    if union == 0:
+        return 0.0
+    return intersection / union
+
+
+def _name_cluster(token_sets: list[frozenset[str]]) -> str:
+    """Generate a cluster name from the most common terms across members."""
+    from collections import Counter
+
+    term_counts: Counter[str] = Counter()
+    for tokens in token_sets:
+        term_counts.update(tokens)
+
+    # Pick top 3 most common terms
+    top_terms = [term for term, _ in term_counts.most_common(3)]
+    if not top_terms:
+        return "Unnamed cluster"
+    return " / ".join(top_terms)
+
+
+def _score_achievability(text: str) -> float:
+    """Score how achievable/scoped a goal text appears (0.0 to 1.0).
+
+    Higher scores for concrete, scoped tasks.
+    Lower scores for overly ambitious language.
+    """
+    if not text:
+        return 0.0
+
+    positive = sum(1 for p in _ACHIEVABILITY_PATTERNS if p.search(text))
+    negative = sum(1 for p in _OVERAMBITION_PATTERNS if p.search(text))
+
+    score = positive / len(_ACHIEVABILITY_PATTERNS)
+    penalty = negative / len(_OVERAMBITION_PATTERNS) * 0.5
+    return max(0.0, min(1.0, score - penalty))
+
+
+def _score_time_bound(text: str) -> float:
+    """Score whether a goal has time references (0.0 to 1.0)."""
+    if not text:
+        return 0.0
+    matches = sum(1 for p in _TIME_BOUND_PATTERNS if p.search(text))
+    return min(1.0, matches / len(_TIME_BOUND_PATTERNS))
+
+
+def _score_relevance(text: str, source_idea_ids: list[str] | None = None) -> float:
+    """Score how relevant/domain-specific a goal is (0.0 to 1.0).
+
+    Checks for domain-specific terminology. Having source ideas
+    provides a small baseline boost (goal was derived from evidence).
+    """
+    if not text:
+        return 0.0
+
+    matches = sum(1 for p in _RELEVANCE_PATTERNS if p.search(text))
+    base_score = matches / len(_RELEVANCE_PATTERNS)
+
+    # Bonus for having source ideas (means it's grounded)
+    if source_idea_ids:
+        base_score += 0.1
+
+    return min(1.0, base_score)
