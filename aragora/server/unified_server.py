@@ -530,7 +530,24 @@ class UnifiedHandler(  # type: ignore[misc]
             if self._try_modular_handler(path, {}):
                 return
 
-        self.send_error(404, f"Unknown POST endpoint: {path}")
+        # Include diagnostic info in 404 for auth paths to debug intermittent routing failures
+        if "/auth/" in path:
+            from aragora.server.handler_registry.core import get_route_index
+
+            ri = get_route_index()
+            self._send_json(
+                {
+                    "error": f"Unknown POST endpoint: {path}",
+                    "code": 404,
+                    "diag_initialized": getattr(self.__class__, "_handlers_initialized", "unknown"),
+                    "diag_route_count": len(ri._exact_routes),
+                    "diag_auth_routes": sorted(r for r in ri._exact_routes if "/auth/" in r),
+                    "diag_auth_handler": type(getattr(self, "_auth_handler", None)).__name__,
+                },
+                status=404,
+            )
+        else:
+            self.send_error(404, f"Unknown POST endpoint: {path}")
 
     def do_DELETE(self) -> None:
         """Handle HTTP DELETE requests.
