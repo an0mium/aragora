@@ -198,7 +198,7 @@ class TeamSelector:
             try:
                 from aragora.agents.calibration import CalibrationTracker
 
-                calibration_tracker = CalibrationTracker()
+                calibration_tracker = CalibrationTracker()  # type: ignore[assignment]  # CalibrationTracker satisfies CalibrationScorer at runtime
                 logger.debug("Auto-detected CalibrationTracker as default calibration scorer")
             except (ImportError, RuntimeError, TypeError, OSError, ValueError):
                 # Graceful degradation: calibration scoring is optional.
@@ -1043,7 +1043,7 @@ class TeamSelector:
 
         try:
             # Get trending topics from pulse manager
-            topics = []
+            topics: list[Any] = []
             if hasattr(self.pulse_manager, "get_trending_topics"):
                 topics = self.pulse_manager.get_trending_topics(limit=10) or []
             elif hasattr(self.pulse_manager, "trending_topics"):

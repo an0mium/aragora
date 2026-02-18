@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
@@ -8,8 +8,63 @@ import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { DebatesEmptyState } from '@/components/ui/EmptyState';
 import { useRightSidebar } from '@/context/RightSidebarContext';
+import { API_BASE_URL } from '@/config';
 
 const PAGE_SIZE = 20;
+
+// Backend API response shape for debates list
+interface BackendDebatesResponse {
+  debates?: Array<{
+    id: string;
+    debate_id?: string;
+    task?: string;
+    question?: string;
+    agents: string[];
+    consensus_reached: boolean;
+    confidence: number;
+    winning_proposal?: string | null;
+    vote_tally?: Record<string, number> | null;
+    created_at: string;
+    loop_id?: string;
+    cycle_number?: number;
+    phase?: string;
+  }>;
+  results?: Array<{
+    id: string;
+    debate_id?: string;
+    task?: string;
+    question?: string;
+    agents: string[];
+    consensus_reached: boolean;
+    confidence: number;
+    winning_proposal?: string | null;
+    vote_tally?: Record<string, number> | null;
+    created_at: string;
+    loop_id?: string;
+    cycle_number?: number;
+    phase?: string;
+  }>;
+  total?: number;
+  has_more?: boolean;
+}
+
+// Normalize backend debate data to DebateArtifact shape
+function normalizeBackendDebate(d: NonNullable<BackendDebatesResponse['debates']>[number]): DebateArtifact {
+  return {
+    id: d.debate_id || d.id,
+    loop_id: d.loop_id || '',
+    cycle_number: d.cycle_number || 0,
+    phase: d.phase || 'completed',
+    task: d.task || d.question || 'Untitled debate',
+    agents: d.agents || [],
+    transcript: [],
+    consensus_reached: d.consensus_reached ?? false,
+    confidence: d.confidence ?? 0,
+    winning_proposal: d.winning_proposal ?? null,
+    vote_tally: d.vote_tally ?? null,
+    created_at: d.created_at || new Date().toISOString(),
+  };
+}
 
 export default function DebatesPage() {
   const [debates, setDebates] = useState<DebateArtifact[]>([]);
@@ -19,6 +74,7 @@ export default function DebatesPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState<'all' | 'consensus' | 'no-consensus'>('all');
+  const [dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -82,13 +138,52 @@ export default function DebatesPage() {
     return () => clearContext();
   }, [debates, setContext, clearContext]);
 
+  // Fetch debates from backend API, falling back to Supabase
+  const fetchDebatesFromBackend = useCallback(async (limit: number, offset: number): Promise<{ debates: DebateArtifact[]; hasMore: boolean; source: 'backend' | 'supabase' } | null> => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/debates?limit=${limit}&offset=${offset}&sort=created_at:desc`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data: BackendDebatesResponse = await response.json();
+      const debateList = data.debates || data.results || [];
+      const normalized = debateList.map(normalizeBackendDebate);
+      const moreAvailable = data.has_more ?? normalized.length === limit;
+      return { debates: normalized, hasMore: moreAvailable, source: 'backend' };
+    } catch (err) {
+      logger.warn('Backend debates fetch failed, trying Supabase:', err);
+      return null;
+    }
+  }, []);
+
+  const fetchDebatesFromSupabase = useCallback(async (limit: number): Promise<{ debates: DebateArtifact[]; hasMore: boolean; source: 'supabase' }> => {
+    const data = await fetchRecentDebates(limit);
+    return { debates: data, hasMore: data.length === limit, source: 'supabase' };
+  }, []);
+
   useEffect(() => {
     async function loadDebates() {
       try {
         setLoading(true);
-        const data = await fetchRecentDebates(PAGE_SIZE);
-        setDebates(data);
-        setHasMore(data.length === PAGE_SIZE);
+
+        // Try backend first
+        const backendResult = await fetchDebatesFromBackend(PAGE_SIZE, 0);
+        if (backendResult && backendResult.debates.length > 0) {
+          setDebates(backendResult.debates);
+          setHasMore(backendResult.hasMore);
+          setDataSource('backend');
+          return;
+        }
+
+        // Fall back to Supabase
+        const supabaseResult = await fetchDebatesFromSupabase(PAGE_SIZE);
+        setDebates(supabaseResult.debates);
+        setHasMore(supabaseResult.hasMore);
+        setDataSource(supabaseResult.debates.length > 0 ? 'supabase' : 'none');
       } catch (e) {
         logger.error('Failed to load debates:', e);
       } finally {
@@ -97,7 +192,7 @@ export default function DebatesPage() {
     }
 
     loadDebates();
-  }, []);
+  }, [fetchDebatesFromBackend, fetchDebatesFromSupabase]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -106,7 +201,21 @@ export default function DebatesPage() {
       setLoadingMore(true);
       const nextPage = page + 1;
       const offset = page * PAGE_SIZE;
-      // Fetch next batch (simplified - using limit + offset simulation)
+
+      if (dataSource === 'backend') {
+        // Fetch next page from backend API with offset
+        const result = await fetchDebatesFromBackend(PAGE_SIZE, offset);
+        if (result) {
+          if (result.debates.length < PAGE_SIZE) {
+            setHasMore(false);
+          }
+          setDebates(prev => [...prev, ...result.debates]);
+          setPage(nextPage);
+          return;
+        }
+      }
+
+      // Supabase fallback for pagination
       const data = await fetchRecentDebates(PAGE_SIZE * (nextPage + 1));
       const newDebates = data.slice(offset, offset + PAGE_SIZE);
 
@@ -188,8 +297,13 @@ export default function DebatesPage() {
                 ))}
               </div>
             </div>
-            <div className="mt-2 text-xs text-[var(--text-muted)] font-mono">
-              Showing {filteredDebates.length} of {debates.length} debates
+            <div className="mt-2 text-xs text-[var(--text-muted)] font-mono flex items-center gap-2">
+              <span>Showing {filteredDebates.length} of {debates.length} debates</span>
+              {dataSource !== 'none' && (
+                <span className="text-[10px] text-[var(--text-muted)]" title={dataSource === 'backend' ? 'Fetched from API' : 'Fetched from Supabase'}>
+                  [{dataSource === 'backend' ? 'API' : 'DB'}]
+                </span>
+              )}
             </div>
           </div>
 

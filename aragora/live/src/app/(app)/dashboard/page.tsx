@@ -9,29 +9,220 @@ import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
+
+// Backend API response shape for debates list
+interface BackendDebatesResponse {
+  debates?: Array<{
+    id: string;
+    debate_id?: string;
+    task?: string;
+    question?: string;
+    agents: string[];
+    consensus_reached: boolean;
+    confidence: number;
+    winning_proposal?: string | null;
+    vote_tally?: Record<string, number> | null;
+    created_at: string;
+    loop_id?: string;
+    cycle_number?: number;
+    phase?: string;
+  }>;
+  results?: Array<{
+    id: string;
+    debate_id?: string;
+    task?: string;
+    question?: string;
+    agents: string[];
+    consensus_reached: boolean;
+    confidence: number;
+    winning_proposal?: string | null;
+    vote_tally?: Record<string, number> | null;
+    created_at: string;
+    loop_id?: string;
+    cycle_number?: number;
+    phase?: string;
+  }>;
+}
+
+// Normalize backend debate data to DebateArtifact shape
+function normalizeDebate(d: NonNullable<BackendDebatesResponse['debates']>[number]): DebateArtifact {
+  return {
+    id: d.debate_id || d.id,
+    loop_id: d.loop_id || '',
+    cycle_number: d.cycle_number || 0,
+    phase: d.phase || 'completed',
+    task: d.task || d.question || 'Untitled debate',
+    agents: d.agents || [],
+    transcript: [],
+    consensus_reached: d.consensus_reached ?? false,
+    confidence: d.confidence ?? 0,
+    winning_proposal: d.winning_proposal ?? null,
+    vote_tally: d.vote_tally ?? null,
+    created_at: d.created_at || new Date().toISOString(),
+  };
+}
+
+// Backend health response shape
+interface HealthResponse {
+  status?: string;
+  components?: Record<string, { status?: string; healthy?: boolean }>;
+  uptime_percent?: number;
+  uptime?: number;
+  services?: Record<string, string>;
+}
+
+const DEFAULT_STATUS_ITEMS = [
+  { name: 'Debate Engine', key: 'debate_engine', icon: '' },
+  { name: 'Agent Pool', key: 'agent_pool', icon: '' },
+  { name: 'Knowledge Mound', key: 'knowledge_mound', icon: '' },
+  { name: 'Channel Integrations', key: 'channels', icon: '' },
+  { name: 'Audit System', key: 'audit', icon: '' },
+];
+
+function SystemStatusPanel() {
+  const { data: health, error: healthError } = useSWRFetch<HealthResponse>(
+    '/api/health',
+    { refreshInterval: 30000 }
+  );
+
+  const getComponentStatus = (key: string): string => {
+    if (healthError || !health) return 'unknown';
+    // Check components map if available
+    if (health.components?.[key]) {
+      const comp = health.components[key];
+      if (comp.status) return comp.status;
+      if (comp.healthy === true) return 'operational';
+      if (comp.healthy === false) return 'degraded';
+    }
+    // Check services map if available
+    if (health.services?.[key]) {
+      return health.services[key];
+    }
+    // If overall health is ok, assume operational
+    if (health.status === 'ok' || health.status === 'healthy') return 'operational';
+    return 'unknown';
+  };
+
+  const overallUp = !healthError && health && (health.status === 'ok' || health.status === 'healthy');
+  const uptimePercent = health?.uptime_percent ?? (overallUp ? 99.9 : null);
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)]">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+          {'>'} SYSTEM STATUS
+        </h3>
+        <div className="flex items-center gap-2">
+          {overallUp ? (
+            <span className="px-2 py-0.5 text-[10px] font-mono bg-green-500/20 text-green-400 border border-green-500/30">LIVE</span>
+          ) : healthError ? (
+            <span className="px-2 py-0.5 text-[10px] font-mono bg-red-500/20 text-red-400 border border-red-500/30">OFFLINE</span>
+          ) : (
+            <span className="px-2 py-0.5 text-[10px] font-mono bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse">CHECKING</span>
+          )}
+          <Link
+            href="/admin"
+            className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          >
+            ADMIN
+          </Link>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {DEFAULT_STATUS_ITEMS.map((item) => {
+          const status = getComponentStatus(item.key);
+          return (
+            <div key={item.name} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{item.icon}</span>
+                <span className="text-xs font-mono text-[var(--text)]">{item.name}</span>
+              </div>
+              <span
+                className={`px-2 py-0.5 text-[10px] font-mono uppercase ${
+                  status === 'operational'
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : status === 'degraded'
+                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                    : status === 'unknown'
+                    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}
+              >
+                {status}
+              </span>
+            </div>
+          );
+        })}
+
+        <div className="pt-3 mt-3 border-t border-[var(--border)]">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--text-muted)]">30-day uptime</span>
+            <span className={uptimePercent !== null ? 'text-green-400' : 'text-[var(--text-muted)]'}>
+              {uptimePercent !== null ? `${uptimePercent.toFixed(2)}%` : '--'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [recentDebates, setRecentDebates] = useState<DebateArtifact[]>([]);
   const [loadingDebates, setLoadingDebates] = useState(true);
+  const [dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
 
   const { setContext, clearContext } = useRightSidebar();
 
-  // Load recent debates
+  // Fetch debates from backend API
+  const { data: backendDebates, error: backendError, isLoading: backendLoading } = useSWRFetch<BackendDebatesResponse>(
+    '/api/v1/debates?limit=5&sort=created_at:desc',
+    { refreshInterval: 30000 }
+  );
+
+  // When backend data arrives, use it; otherwise fall back to Supabase
   useEffect(() => {
-    async function loadDebates() {
-      try {
-        setLoadingDebates(true);
-        const data = await fetchRecentDebates(5);
-        setRecentDebates(data);
-      } catch (e) {
-        logger.error('Failed to load recent debates:', e);
-      } finally {
-        setLoadingDebates(false);
-      }
+    if (backendLoading) {
+      setLoadingDebates(true);
+      return;
     }
 
-    loadDebates();
-  }, []);
+    const debateList = backendDebates?.debates || backendDebates?.results;
+    if (debateList && debateList.length > 0) {
+      setRecentDebates(debateList.map(normalizeDebate));
+      setDataSource('backend');
+      setLoadingDebates(false);
+      return;
+    }
+
+    // Backend returned empty or errored -- fall back to Supabase
+    if (backendError || !debateList) {
+      if (backendError) {
+        logger.warn('Backend debates fetch failed, falling back to Supabase:', backendError);
+      }
+      (async () => {
+        try {
+          const data = await fetchRecentDebates(5);
+          setRecentDebates(data);
+          setDataSource(data.length > 0 ? 'supabase' : 'none');
+        } catch (e) {
+          logger.error('Failed to load recent debates from Supabase:', e);
+          setRecentDebates([]);
+          setDataSource('none');
+        } finally {
+          setLoadingDebates(false);
+        }
+      })();
+      return;
+    }
+
+    // Backend returned empty array (legitimate: no debates yet)
+    setRecentDebates([]);
+    setDataSource('backend');
+    setLoadingDebates(false);
+  }, [backendDebates, backendError, backendLoading]);
 
   // Set up right sidebar
   useEffect(() => {
@@ -127,12 +318,19 @@ export default function DashboardPage() {
                 <h3 className="text-sm font-mono text-[var(--acid-green)]">
                   {'>'} RECENT DEBATES
                 </h3>
-                <Link
-                  href="/debates"
-                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-                >
-                  VIEW ALL
-                </Link>
+                <div className="flex items-center gap-2">
+                  {dataSource !== 'none' && (
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]" title={dataSource === 'backend' ? 'Fetched from API' : 'Fetched from Supabase'}>
+                      [{dataSource === 'backend' ? 'API' : 'DB'}]
+                    </span>
+                  )}
+                  <Link
+                    href="/debates"
+                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                  >
+                    VIEW ALL
+                  </Link>
+                </div>
               </div>
 
               {loadingDebates ? (
@@ -196,56 +394,7 @@ export default function DashboardPage() {
             </div>
 
             {/* System Status */}
-            <div className="bg-[var(--surface)] border border-[var(--border)]">
-              <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-                <h3 className="text-sm font-mono text-[var(--acid-green)]">
-                  {'>'} SYSTEM STATUS
-                </h3>
-                <Link
-                  href="/admin"
-                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-                >
-                  ADMIN
-                </Link>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {/* Status Items */}
-                {[
-                  { name: 'Debate Engine', status: 'operational', icon: '' },
-                  { name: 'Agent Pool', status: 'operational', icon: '' },
-                  { name: 'Knowledge Mound', status: 'operational', icon: '' },
-                  { name: 'Channel Integrations', status: 'degraded', icon: '' },
-                  { name: 'Audit System', status: 'operational', icon: '' },
-                ].map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{item.icon}</span>
-                      <span className="text-xs font-mono text-[var(--text)]">{item.name}</span>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 text-[10px] font-mono uppercase ${
-                        item.status === 'operational'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : item.status === 'degraded'
-                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Uptime */}
-                <div className="pt-3 mt-3 border-t border-[var(--border)]">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-[var(--text-muted)]">30-day uptime</span>
-                    <span className="text-green-400">99.87%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <SystemStatusPanel />
           </div>
 
           {/* Cost Overview */}

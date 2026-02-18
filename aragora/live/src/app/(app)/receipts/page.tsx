@@ -8,6 +8,7 @@ import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
 import { logger } from '@/utils/logger';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 interface GauntletResult {
   id: string;
@@ -77,6 +78,13 @@ interface DecisionReceipt {
 
 type TabType = 'list' | 'detail';
 
+// Backend response shapes for receipts
+interface ReceiptsListResponse {
+  results?: GauntletResult[];
+  receipts?: GauntletResult[];
+  data?: GauntletResult[];
+}
+
 export default function ReceiptsPage() {
   const { config } = useBackend();
   const backendUrl = config.api;
@@ -84,28 +92,80 @@ export default function ReceiptsPage() {
   const [results, setResults] = useState<GauntletResult[]>([]);
   const [selectedReceipt, setSelectedReceipt] = useState<DecisionReceipt | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'PASS' | 'CONDITIONAL' | 'FAIL'>('all');
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
 
-  const fetchResults = useCallback(async () => {
-    try {
-      const response = await fetch(`${backendUrl}/api/gauntlet/results?limit=50`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      setResults(data.results || []);
-    } catch (err) {
-      logger.error('Failed to fetch results:', err);
-      throw err;
+  // Fetch receipts from the v2 receipts endpoint via SWR (caching + revalidation)
+  const {
+    data: receiptsData,
+    error: receiptsError,
+    isLoading: receiptsLoading,
+    mutate: mutateReceipts,
+  } = useSWRFetch<ReceiptsListResponse>(
+    '/api/v2/receipts?limit=50',
+    {
+      refreshInterval: 30000,
+      baseUrl: backendUrl,
     }
-  }, [backendUrl]);
+  );
+
+  // Fallback: try gauntlet endpoint if v2 receipts returns nothing
+  const {
+    data: gauntletData,
+    error: gauntletError,
+    isLoading: gauntletLoading,
+  } = useSWRFetch<ReceiptsListResponse>(
+    // Only fetch gauntlet if v2 receipts failed or returned empty
+    (!receiptsLoading && !receiptsData) ? '/api/gauntlet/results?limit=50' : null,
+    {
+      refreshInterval: 30000,
+      baseUrl: backendUrl,
+    }
+  );
+
+  // Consolidate data from either endpoint
+  const loading = receiptsLoading || (gauntletLoading && !receiptsData);
+
+  useEffect(() => {
+    const receiptsList = receiptsData?.receipts || receiptsData?.results || receiptsData?.data;
+    if (receiptsList) {
+      setResults(receiptsList);
+      setError(null);
+      return;
+    }
+
+    const gauntletList = gauntletData?.results || gauntletData?.receipts || gauntletData?.data;
+    if (gauntletList) {
+      setResults(gauntletList);
+      setError(null);
+      return;
+    }
+
+    if (receiptsError && gauntletError) {
+      setError(receiptsError.message || 'Failed to load receipts');
+    }
+  }, [receiptsData, gauntletData, receiptsError, gauntletError]);
+
+  const loadData = useCallback(async () => {
+    setError(null);
+    mutateReceipts();
+  }, [mutateReceipts]);
 
   const fetchReceipt = useCallback(async (gauntletId: string) => {
     setReceiptLoading(true);
     try {
-      const response = await fetch(`${backendUrl}/api/gauntlet/${gauntletId}/receipt`);
+      // Try v2 receipts endpoint first, then fall back to gauntlet
+      let response = await fetch(`${backendUrl}/api/v2/receipts/${gauntletId}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        // Fallback to gauntlet endpoint
+        response = await fetch(`${backendUrl}/api/gauntlet/${gauntletId}/receipt`, {
+          signal: AbortSignal.timeout(10000),
+        });
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setSelectedReceipt(data);
@@ -118,27 +178,15 @@ export default function ReceiptsPage() {
     }
   }, [backendUrl]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await fetchResults();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchResults]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   const downloadReceipt = async (format: 'json' | 'html' | 'markdown') => {
     if (!selectedId) return;
 
     try {
-      const response = await fetch(`${backendUrl}/api/gauntlet/${selectedId}/receipt?format=${format}`);
+      // Try v2 endpoint first, then fall back to gauntlet
+      let response = await fetch(`${backendUrl}/api/v2/receipts/${selectedId}?format=${format}`);
+      if (!response.ok) {
+        response = await fetch(`${backendUrl}/api/gauntlet/${selectedId}/receipt?format=${format}`);
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const blob = await response.blob();
