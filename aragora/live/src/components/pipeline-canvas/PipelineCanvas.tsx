@@ -27,6 +27,7 @@ import {
   type PipelineResultResponse,
 } from './types';
 import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
+import { StageTransitionGate } from '../pipeline/StageTransitionGate';
 
 // =============================================================================
 // Constants
@@ -438,50 +439,20 @@ function PipelineCanvasInner({
             {pendingTransitions.length > 0 && !readOnly && (
               <Panel position="bottom-right" className="space-y-2">
                 {pendingTransitions.map((transition, idx) => (
-                  <div
+                  <StageTransitionGate
                     key={(transition.id as string) || idx}
-                    className="bg-surface border border-border rounded-lg p-3 max-w-xs"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                      <span className="text-xs font-mono font-bold text-text uppercase">
-                        {transition.from_stage as string} &rarr; {transition.to_stage as string}
-                      </span>
-                    </div>
-                    <p className="text-xs text-text-muted mb-2">{transition.ai_rationale as string}</p>
-                    <div className="flex items-center gap-1 mb-2">
-                      <span className="text-xs text-text-muted font-mono">Confidence:</span>
-                      <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-400 rounded-full"
-                          style={{ width: `${Math.round(((transition.confidence as number) || 0) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-text font-mono">
-                        {Math.round(((transition.confidence as number) || 0) * 100)}%
-                      </span>
-                    </div>
-                    {(onTransitionApprove || onTransitionReject) && pipelineId && (
-                      <div className="flex gap-2 mt-2">
-                        {onTransitionApprove && (
-                          <button
-                            onClick={() => onTransitionApprove(pipelineId, transition.id as string)}
-                            className="flex-1 px-2 py-1 bg-emerald-600 text-white text-xs font-mono rounded hover:bg-emerald-500 transition-colors"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {onTransitionReject && (
-                          <button
-                            onClick={() => onTransitionReject(pipelineId, transition.id as string)}
-                            className="flex-1 px-2 py-1 bg-red-600 text-white text-xs font-mono rounded hover:bg-red-500 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    transition={{
+                      id: transition.id as string,
+                      from_stage: transition.from_stage as string,
+                      to_stage: transition.to_stage as string,
+                      ai_rationale: transition.ai_rationale as string | undefined,
+                      confidence: transition.confidence as number | undefined,
+                      status: transition.status as string | undefined,
+                    }}
+                    pipelineId={pipelineId || ''}
+                    onApprove={onTransitionApprove}
+                    onReject={onTransitionReject}
+                  />
                 ))}
               </Panel>
             )}

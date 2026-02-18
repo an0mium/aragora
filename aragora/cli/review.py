@@ -858,6 +858,20 @@ def cmd_review(args: argparse.Namespace) -> int:
     # Extract findings
     findings = extract_review_findings(result)
 
+    # Persist review findings to Knowledge Mound
+    try:
+        from aragora.gauntlet.receipts import DecisionReceipt
+        from aragora.knowledge.mound.adapters.receipt_adapter import get_receipt_adapter
+
+        receipt = DecisionReceipt.from_review_result(result, findings)
+        adapter = get_receipt_adapter()
+        adapter.ingest(receipt)
+        logger.info("Review findings persisted to Knowledge Mound")
+    except ImportError:
+        logger.debug("KM persistence unavailable: missing dependencies")
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
+        logger.debug("KM persistence failed: %s", e)
+
     # Generate shareable link if requested
     share_url = None
     if getattr(args, "share", False):

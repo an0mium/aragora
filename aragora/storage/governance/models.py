@@ -148,8 +148,56 @@ class DecisionRecord:
         }
 
 
+@dataclass
+class OutcomeRecord:
+    """Persistent outcome tracking record for decision follow-up.
+
+    Links a measured real-world outcome back to the decision that produced it,
+    enabling closed-loop learning: decision -> action -> outcome -> next decision.
+    """
+
+    outcome_id: str
+    decision_id: str
+    debate_id: str
+    outcome_type: str  # success, failure, partial, unknown
+    outcome_description: str
+    impact_score: float  # 0.0 - 1.0
+    measured_at: datetime
+    kpis_before_json: str  # JSON serialized dict[str, Any]
+    kpis_after_json: str  # JSON serialized dict[str, Any]
+    lessons_learned: str = ""
+    tags_json: str = "[]"  # JSON serialized list[str]
+    org_id: str | None = None
+    workspace_id: str | None = None
+    metadata_json: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "outcome_id": self.outcome_id,
+            "decision_id": self.decision_id,
+            "debate_id": self.debate_id,
+            "outcome_type": self.outcome_type,
+            "outcome_description": self.outcome_description,
+            "impact_score": self.impact_score,
+            "measured_at": (
+                self.measured_at.isoformat()
+                if isinstance(self.measured_at, datetime)
+                else self.measured_at
+            ),
+            "kpis_before": json.loads(self.kpis_before_json) if self.kpis_before_json else {},
+            "kpis_after": json.loads(self.kpis_after_json) if self.kpis_after_json else {},
+            "lessons_learned": self.lessons_learned,
+            "tags": json.loads(self.tags_json) if self.tags_json else [],
+            "org_id": self.org_id,
+            "workspace_id": self.workspace_id,
+            "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
+        }
+
+
 __all__ = [
     "ApprovalRecord",
     "VerificationRecord",
     "DecisionRecord",
+    "OutcomeRecord",
 ]
