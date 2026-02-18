@@ -9,27 +9,41 @@ import pytest
 
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
-    _pipeline_results,
+    _get_store,
+    _pipeline_objects,
     _pipeline_tasks,
-    _pipeline_receipts,
 )
+
+
+def _store_put(pipeline_id: str, data: dict) -> None:
+    """Helper to insert test data into the pipeline store."""
+    _get_store().save(pipeline_id, data)
 
 
 @pytest.fixture(autouse=True)
 def _clear_stores():
     """Clear in-memory stores between tests."""
-    _pipeline_results.clear()
+    _pipeline_objects.clear()
     _pipeline_tasks.clear()
-    _pipeline_receipts.clear()
     yield
-    _pipeline_results.clear()
+    _pipeline_objects.clear()
     _pipeline_tasks.clear()
-    _pipeline_receipts.clear()
 
 
 @pytest.fixture
 def handler():
     return CanvasPipelineHandler()
+
+
+@pytest.fixture
+def mock_store():
+    """Provide a mock pipeline store for GET tests."""
+    store = MagicMock()
+    store.get.return_value = None
+    with patch(
+        "aragora.server.handlers.canvas_pipeline._get_store", return_value=store
+    ):
+        yield store
 
 
 # =========================================================================
@@ -88,13 +102,14 @@ class TestHandleRun:
         assert result["stages"] == ["ideation", "goals"]
 
     @pytest.mark.asyncio
-    async def test_run_stores_in_results(self, handler):
+    async def test_run_stores_pipeline(self, handler):
         result = await handler.handle_run({
             "input_text": "Store test",
             "dry_run": True,
         })
         pid = result["pipeline_id"]
-        assert pid in _pipeline_results
+        # Pipeline should be tracked (either in objects or tasks)
+        assert pid in _pipeline_objects or pid in _pipeline_tasks
 
 
 # =========================================================================
@@ -146,13 +161,14 @@ class TestHandleStatus:
 
 class TestHandleGraph:
     @pytest.mark.asyncio
-    async def test_graph_not_found(self, handler):
+    async def test_graph_not_found(self, handler, mock_store):
+        mock_store.get.return_value = None
         result = await handler.handle_graph("nonexistent")
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_graph_empty_pipeline(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_graph_empty_pipeline(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "stage_status": {},
         }
@@ -161,8 +177,8 @@ class TestHandleGraph:
         assert "graphs" in result
 
     @pytest.mark.asyncio
-    async def test_graph_with_goals(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_graph_with_goals(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "goals": {
                 "goals": [
@@ -177,8 +193,8 @@ class TestHandleGraph:
         assert len(goals_graph.get("edges", [])) == 1
 
     @pytest.mark.asyncio
-    async def test_graph_with_workflow(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_graph_with_workflow(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "final_workflow": {
                 "steps": [
@@ -196,8 +212,8 @@ class TestHandleGraph:
         assert len(wf_graph.get("edges", [])) == 1
 
     @pytest.mark.asyncio
-    async def test_graph_stage_filter(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_graph_stage_filter(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "goals": {"goals": [{"id": "g1", "title": "G1", "dependencies": []}]},
             "actions": {"nodes": [], "edges": []},
@@ -208,8 +224,8 @@ class TestHandleGraph:
         assert "actions" not in result["graphs"]
 
     @pytest.mark.asyncio
-    async def test_graph_goal_nodes_have_rf_format(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_graph_goal_nodes_have_rf_format(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "goals": {
                 "goals": [{"id": "g1", "title": "Test Goal", "dependencies": []}],
@@ -228,19 +244,14 @@ class TestHandleGraph:
 
 class TestHandleReceipt:
     @pytest.mark.asyncio
-    async def test_receipt_not_found(self, handler):
+    async def test_receipt_not_found(self, handler, mock_store):
+        mock_store.get.return_value = None
         result = await handler.handle_receipt("nonexistent")
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_receipt_from_receipts_store(self, handler):
-        _pipeline_receipts["pipe-test"] = {"hash": "abc123", "decision_id": "pipe-test"}
-        result = await handler.handle_receipt("pipe-test")
-        assert result["receipt"]["hash"] == "abc123"
-
-    @pytest.mark.asyncio
-    async def test_receipt_from_result(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_receipt_from_result(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "receipt": {"integrity_hash": "def456"},
         }
@@ -248,8 +259,8 @@ class TestHandleReceipt:
         assert result["receipt"]["integrity_hash"] == "def456"
 
     @pytest.mark.asyncio
-    async def test_no_receipt_available(self, handler):
-        _pipeline_results["pipe-test"] = {
+    async def test_no_receipt_available(self, handler, mock_store):
+        mock_store.get.return_value = {
             "pipeline_id": "pipe-test",
             "stage_status": {},
         }

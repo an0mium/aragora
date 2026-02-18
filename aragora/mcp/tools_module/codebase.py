@@ -11,9 +11,17 @@ Provides tools for searching and navigating codebases:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_codebase_path(codebase_path: str) -> str | None:
+    """Return an error message if the codebase path does not exist, else None."""
+    if not os.path.isdir(codebase_path):
+        return f"Codebase path does not exist: {codebase_path}"
+    return None
 
 
 async def search_codebase_tool(
@@ -34,6 +42,10 @@ async def search_codebase_tool(
     Returns:
         Dict with matching files, symbols, and snippets
     """
+    path_err = _validate_codebase_path(codebase_path)
+    if path_err:
+        return {"error": path_err, "query": query}
+
     results: list[dict[str, Any]] = []
 
     try:
