@@ -17,6 +17,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    handle_errors,
     json_response,
     get_int_param,
     get_string_param,
@@ -123,6 +124,7 @@ class TemplateRegistryHandler(BaseHandler):
     # POST
     # =====================================================================
 
+    @handle_errors("workflow registry submission")
     @require_permission("workflows:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

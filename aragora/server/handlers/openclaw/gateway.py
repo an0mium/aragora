@@ -40,7 +40,7 @@ from typing import Any
 
 from aragora.observability.metrics import track_handler
 from aragora.resilience import CircuitBreaker
-from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.base import BaseHandler, HandlerResult, handle_errors
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.openclaw.credentials import CredentialHandlerMixin
 from aragora.server.handlers.openclaw.orchestrator import SessionOrchestrationMixin
@@ -224,6 +224,7 @@ class OpenClawGatewayHandler(
     # POST Handlers
     # =========================================================================
 
+    @handle_errors("openclaw gateway operation")
     @track_handler("gateway/openclaw", method="POST")
     @require_permission("openclaw:write")
     def handle_post(

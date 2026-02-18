@@ -18,6 +18,7 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    handle_errors,
     json_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
@@ -71,6 +72,7 @@ class WorkflowBuilderHandler(BaseHandler):
     # POST
     # -----------------------------------------------------------------
 
+    @handle_errors("workflow generation")
     @track_handler("workflows/builder", method="POST")
     @require_permission("workflows:read")
     def handle_post(

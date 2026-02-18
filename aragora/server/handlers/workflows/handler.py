@@ -15,6 +15,7 @@ from aragora.server.handlers.base import (
     HandlerResult,
     PaginatedHandlerMixin,
     error_response,
+    handle_errors,
     json_response,
     get_int_param,
     get_string_param,
@@ -519,6 +520,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @handle_errors("workflow creation")
     @require_permission("workflows:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -608,6 +610,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         return None
 
+    @handle_errors("workflow update")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

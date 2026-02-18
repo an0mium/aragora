@@ -3,18 +3,20 @@ Canvas Pipeline REST Handler.
 
 Exposes the idea-to-execution pipeline via REST endpoints:
 
-- POST /api/v1/canvas/pipeline/from-debate    → Full pipeline from debate
-- POST /api/v1/canvas/pipeline/from-ideas     → Full pipeline from raw ideas
-- POST /api/v1/canvas/pipeline/advance        → Advance to next stage
-- POST /api/v1/canvas/pipeline/run            → Start async pipeline
-- GET  /api/v1/canvas/pipeline/{id}           → Get pipeline result
-- GET  /api/v1/canvas/pipeline/{id}/status    → Per-stage status
-- GET  /api/v1/canvas/pipeline/{id}/stage/{s} → Get specific stage canvas
-- GET  /api/v1/canvas/pipeline/{id}/graph     → React Flow JSON for any stage
-- GET  /api/v1/canvas/pipeline/{id}/receipt   → DecisionReceipt
-- POST /api/v1/canvas/pipeline/extract-goals  → Extract goals from ideas canvas
-- POST /api/v1/canvas/convert/debate          → Convert debate to ideas canvas
-- POST /api/v1/canvas/convert/workflow        → Convert workflow to actions canvas
+- POST /api/v1/canvas/pipeline/from-debate              → Full pipeline from debate
+- POST /api/v1/canvas/pipeline/from-ideas               → Full pipeline from raw ideas
+- POST /api/v1/canvas/pipeline/advance                  → Advance to next stage
+- POST /api/v1/canvas/pipeline/run                      → Start async pipeline
+- POST /api/v1/canvas/pipeline/{id}/approve-transition  → Approve/reject stage transition
+- PUT  /api/v1/canvas/pipeline/{id}                     → Save canvas state
+- GET  /api/v1/canvas/pipeline/{id}                     → Get pipeline result
+- GET  /api/v1/canvas/pipeline/{id}/status              → Per-stage status
+- GET  /api/v1/canvas/pipeline/{id}/stage/{s}           → Get specific stage canvas
+- GET  /api/v1/canvas/pipeline/{id}/graph               → React Flow JSON for any stage
+- GET  /api/v1/canvas/pipeline/{id}/receipt              → DecisionReceipt
+- POST /api/v1/canvas/pipeline/extract-goals            → Extract goals from ideas canvas
+- POST /api/v1/canvas/convert/debate                    → Convert debate to ideas canvas
+- POST /api/v1/canvas/convert/workflow                  → Convert workflow to actions canvas
 """
 
 from __future__ import annotations
@@ -23,7 +25,10 @@ import asyncio
 import json
 import logging
 import re
+import time
 from typing import Any
+
+from aragora.server.handlers.base import handle_errors
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +94,13 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/from-ideas",
         "POST /api/v1/canvas/pipeline/advance",
         "POST /api/v1/canvas/pipeline/run",
+        "POST /api/v1/canvas/pipeline/{id}/approve-transition",
         "GET /api/v1/canvas/pipeline/{id}",
         "GET /api/v1/canvas/pipeline/{id}/status",
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
         "GET /api/v1/canvas/pipeline/{id}/graph",
         "GET /api/v1/canvas/pipeline/{id}/receipt",
+        "PUT /api/v1/canvas/pipeline/{id}",
         "POST /api/v1/canvas/pipeline/extract-goals",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
@@ -170,6 +177,7 @@ class CanvasPipelineHandler:
             logger.debug("Permission check unavailable: %s", e)
             return None
 
+    @handle_errors("canvas pipeline operation")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch POST requests to the appropriate handler method."""
         # Match route first so unknown paths return None (letting other handlers try)
@@ -182,6 +190,17 @@ class CanvasPipelineHandler:
             "/convert/debate": self.handle_convert_debate,
             "/convert/workflow": self.handle_convert_workflow,
         }
+
+        # Check for transition approval: /api/v1/canvas/pipeline/{id}/approve-transition
+        if "/approve-transition" in path:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
+            m = re.match(r".*/pipeline/([a-zA-Z0-9_-]+)/approve-transition$", path)
+            if m:
+                return self.handle_approve_transition(m.group(1), body)
+            return None
 
         target = None
         for suffix, method in route_map.items():
@@ -198,6 +217,22 @@ class CanvasPipelineHandler:
 
         body = self._get_request_body(handler)
         return target(body)
+
+    def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
+        """Dispatch PUT requests — save canvas state.
+
+        PUT /api/v1/canvas/pipeline/{id}
+        """
+        m = _PIPELINE_ID.match(path)
+        if not m:
+            return None
+
+        auth_error = self._check_permission(handler, "pipeline:write")
+        if auth_error:
+            return auth_error
+
+        body = self._get_request_body(handler)
+        return self.handle_save_pipeline(m.group(1), body)
 
     @staticmethod
     def _get_request_body(handler: Any) -> dict[str, Any]:
@@ -723,3 +758,128 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Goal extraction failed: %s", e)
             return {"error": "Goal extraction failed"}
+
+    # =========================================================================
+    # PUT: Save canvas state
+    # =========================================================================
+
+    async def handle_save_pipeline(
+        self, pipeline_id: str, request_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """PUT /api/v1/canvas/pipeline/{id}
+
+        Save the current canvas state (nodes + edges) for all stages.
+
+        Body:
+            pipeline_id: str
+            stages: {
+                ideas: { nodes: [...], edges: [...] },
+                goals: { nodes: [...], edges: [...] },
+                actions: { nodes: [...], edges: [...] },
+                orchestration: { nodes: [...], edges: [...] },
+            }
+        """
+        store = _get_store()
+        existing = store.get(pipeline_id)
+        if not existing:
+            # Allow creating a new pipeline via PUT
+            existing = {
+                "pipeline_id": pipeline_id,
+                "stage_status": {},
+            }
+
+        stages = request_data.get("stages", {})
+        if not stages:
+            return {"error": "Missing required field: stages"}
+
+        # Merge each stage's canvas data into the stored result
+        for stage_name in ("ideas", "goals", "actions", "orchestration"):
+            stage_data = stages.get(stage_name)
+            if stage_data is not None:
+                existing[stage_name] = {
+                    "nodes": stage_data.get("nodes", []),
+                    "edges": stage_data.get("edges", []),
+                }
+                # Mark stage as complete if it has nodes
+                if stage_data.get("nodes"):
+                    existing.setdefault("stage_status", {})[stage_name] = "complete"
+
+        store.save(pipeline_id, existing)
+
+        return {
+            "pipeline_id": pipeline_id,
+            "saved": True,
+            "stage_status": existing.get("stage_status", {}),
+        }
+
+    # =========================================================================
+    # POST: Approve/reject stage transition
+    # =========================================================================
+
+    async def handle_approve_transition(
+        self, pipeline_id: str, request_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """POST /api/v1/canvas/pipeline/{id}/approve-transition
+
+        Approve or reject a pending stage transition.
+
+        Body:
+            from_stage: str — Source stage (e.g., "ideas")
+            to_stage: str — Target stage (e.g., "goals")
+            approved: bool — Whether to approve the transition
+            comment: str (optional) — Human reviewer comment
+        """
+        store = _get_store()
+        existing = store.get(pipeline_id)
+        if not existing:
+            return {"error": f"Pipeline {pipeline_id} not found"}
+
+        from_stage = request_data.get("from_stage", "")
+        to_stage = request_data.get("to_stage", "")
+        approved = request_data.get("approved", False)
+        comment = request_data.get("comment", "")
+
+        if not from_stage or not to_stage:
+            return {"error": "Missing required fields: from_stage, to_stage"}
+
+        # Find and update the matching transition
+        transitions = existing.get("transitions", [])
+        updated = False
+        for transition in transitions:
+            t_from = transition.get("from_stage", "")
+            t_to = transition.get("to_stage", "")
+            if t_from == from_stage and t_to == to_stage:
+                transition["status"] = "approved" if approved else "rejected"
+                transition["human_comment"] = comment
+                transition["reviewed_at"] = time.time()
+                updated = True
+                break
+
+        if not updated:
+            # Create a new transition record if none exists
+            transitions.append({
+                "from_stage": from_stage,
+                "to_stage": to_stage,
+                "status": "approved" if approved else "rejected",
+                "human_comment": comment,
+                "reviewed_at": time.time(),
+            })
+            existing["transitions"] = transitions
+
+        # If approved, advance the pipeline to the next stage
+        if approved:
+            stage_status = existing.get("stage_status", {})
+            stage_status[from_stage] = "complete"
+            if to_stage not in stage_status or stage_status[to_stage] == "pending":
+                stage_status[to_stage] = "active"
+            existing["stage_status"] = stage_status
+
+        store.save(pipeline_id, existing)
+
+        return {
+            "pipeline_id": pipeline_id,
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "status": "approved" if approved else "rejected",
+            "comment": comment,
+        }

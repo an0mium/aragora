@@ -30,6 +30,7 @@ from .base import (
     HandlerResult,
     error_response,
     get_bounded_string_param,
+    handle_errors,
     json_response,
 )
 from .utils.rate_limit import RateLimiter, get_client_ip
@@ -179,6 +180,7 @@ class ExternalAgentsHandler(BaseHandler):
 
         return None
 
+    @handle_errors("external agent task submission")
     @require_permission("debates:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

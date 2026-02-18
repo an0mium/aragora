@@ -34,6 +34,7 @@ from .base import (
     error_response,
     get_int_param,
     get_string_param,
+    handle_errors,
     json_response,
     validate_string,
 )
@@ -363,6 +364,7 @@ class PersonaHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @handle_errors("persona creation")
     @require_permission("persona:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle POST requests for persona endpoints."""
@@ -433,6 +435,7 @@ class PersonaHandler(BaseHandler):
     # PUT Handlers
     # =========================================================================
 
+    @handle_errors("persona update")
     @require_permission("persona:update")
     def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Handle PUT requests for persona endpoints."""

@@ -28,7 +28,7 @@ from aragora.events.handler_events import (
     STARTED,
     emit_handler_event,
 )
-from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, json_response
+from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response, handle_errors, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.tasks.router import VALID_TASK_TYPES, TaskRouter
 
@@ -223,6 +223,7 @@ class TaskExecutionHandler(BaseHandler):
     # POST dispatcher
     # ------------------------------------------------------------------
 
+    @handle_errors("task execution")
     @rate_limit(requests_per_minute=30)
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

@@ -44,6 +44,7 @@ from aragora.integrations.n8n import N8nIntegration, get_n8n_integration
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     error_response,
+    handle_errors,
     json_response,
     safe_error_message,
 )
@@ -306,6 +307,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # POST Handlers
     # =========================================================================
 
+    @handle_errors("external integration creation")
     @require_permission("integrations:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -366,6 +368,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # DELETE Handlers
     # =========================================================================
 
+    @handle_errors("external integration deletion")
     @require_permission("integrations:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
