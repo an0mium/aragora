@@ -190,4 +190,59 @@ export class SelfImproveAPI {
   }> {
     return this.client.request('POST', '/api/v1/self-improve/worktrees/cleanup');
   }
+
+  /**
+   * Start a new self-improvement run (canonical endpoint).
+   *
+   * This is the primary endpoint for starting runs. Accepts all configuration
+   * options including scan_mode, quick_mode, and require_approval.
+   */
+  async run(request: StartRunRequest & {
+    scan_mode?: boolean;
+    quick_mode?: boolean;
+    require_approval?: boolean;
+  }): Promise<{
+    run_id: string;
+    status: string;
+    plan?: Record<string, unknown>;
+  }> {
+    return this.client.request('POST', '/api/v1/self-improve/run', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get current self-improvement cycle status.
+   *
+   * Returns whether a cycle is running or idle, along with active run details.
+   */
+  async getStatus(): Promise<{
+    state: 'idle' | 'running';
+    active_runs: number;
+    runs: SelfImproveRun[];
+  }> {
+    return this.client.request('GET', '/api/v1/self-improve/status');
+  }
+
+  /**
+   * Start a hierarchical planner/worker/judge coordination cycle.
+   *
+   * Uses HierarchicalCoordinator for structured goal execution with
+   * automatic decomposition, parallel workers, and judge review.
+   */
+  async coordinate(request: {
+    goal: string;
+    tracks?: string[];
+    max_cycles?: number;
+    quality_threshold?: number;
+    max_parallel_workers?: number;
+  }): Promise<{
+    run_id: string;
+    status: string;
+    mode: string;
+  }> {
+    return this.client.request('POST', '/api/v1/self-improve/coordinate', {
+      json: request as unknown as Record<string, unknown>,
+    });
+  }
 }

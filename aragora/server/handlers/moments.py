@@ -70,6 +70,7 @@ class MomentsHandler(SecureHandler):
     RESOURCE_TYPE = "moments"
 
     ROUTES = [
+        "/api/moments",
         "/api/moments/summary",
         "/api/moments/timeline",
         "/api/moments/trending",
@@ -82,6 +83,8 @@ class MomentsHandler(SecureHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
+        if normalized == "/api/moments":
+            return True
         if normalized in self.ROUTES:
             return True
         # Handle dynamic route: /api/moments/by-type/{type}
@@ -115,6 +118,9 @@ class MomentsHandler(SecureHandler):
         if not _moments_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for moments endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if normalized == "/api/moments":
+            return self._get_summary()
 
         if normalized == "/api/moments/summary":
             return self._get_summary()

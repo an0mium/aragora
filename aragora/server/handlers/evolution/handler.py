@@ -53,10 +53,12 @@ class EvolutionHandler(BaseHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/evolution",
         "/api/evolution/patterns",
         "/api/evolution/summary",
         "/api/evolution/*/history",
         "/api/evolution/*/prompt",
+        "/api/v1/evolution",
         "/api/v1/evolution/patterns",
         "/api/v1/evolution/summary",
         "/api/v1/evolution/*/history",
@@ -66,6 +68,8 @@ class EvolutionHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
+        if normalized == "/api/evolution":
+            return True
         if normalized == "/api/evolution/patterns":
             return True
         if normalized == "/api/evolution/summary":
@@ -99,6 +103,10 @@ class EvolutionHandler(BaseHandler):
         if not _evolution_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for evolution endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Root endpoint - return summary
+        if normalized == "/api/evolution":
+            return self._get_summary()
 
         # Global patterns endpoint
         if normalized == "/api/evolution/patterns":

@@ -50,6 +50,7 @@ class BreakpointsHandler(BaseHandler):
     """Handler for breakpoint management endpoints."""
 
     ROUTES = [
+        "/api/v1/breakpoints",
         "/api/v1/breakpoints/pending",
     ]
 
@@ -95,6 +96,9 @@ class BreakpointsHandler(BaseHandler):
         if not _breakpoints_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for breakpoints endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if path == "/api/v1/breakpoints":
+            return self._get_pending_breakpoints()
 
         if path == "/api/v1/breakpoints/pending":
             return self._get_pending_breakpoints()

@@ -125,4 +125,19 @@ export class MomentsAPI {
       params: options as Record<string, unknown> | undefined,
     });
   }
+
+  /**
+   * Get recent moments (shortcut for timeline with offset=0).
+   */
+  async getRecent(options?: { limit?: number }): Promise<{
+    moments: Moment[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  }> {
+    return this.client.request('GET', '/api/v1/moments/recent', {
+      params: options as Record<string, unknown> | undefined,
+    });
+  }
 }

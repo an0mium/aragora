@@ -159,6 +159,34 @@ class MomentsAPI:
         )
 
 
+    def get_recent(
+        self,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get recent moments (shortcut for timeline with offset=0).
+
+        GET /api/v1/moments/recent
+
+        Args:
+            limit: Maximum number of moments to return (default 20, max 200)
+
+        Returns:
+            Dict with:
+            - moments: List of recent moments in reverse chronological order
+            - total: Total number of moments
+            - limit: Applied limit
+            - offset: Always 0
+            - has_more: Whether more moments exist
+        """
+        params: dict[str, Any] = {}
+        if limit:
+            params["limit"] = limit
+        return self._client.request(
+            "GET", "/api/v1/moments/recent", params=params if params else None
+        )
+
+
 class AsyncMomentsAPI:
     """
     Asynchronous Moments API.
@@ -230,4 +258,16 @@ class AsyncMomentsAPI:
             "GET",
             f"/api/v1/moments/by-type/{moment_type}",
             params=params if params else None,
+        )
+
+    async def get_recent(
+        self,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Get recent moments (shortcut for timeline with offset=0)."""
+        params: dict[str, Any] = {}
+        if limit:
+            params["limit"] = limit
+        return await self._client.request(
+            "GET", "/api/v1/moments/recent", params=params if params else None
         )

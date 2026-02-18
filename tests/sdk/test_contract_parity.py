@@ -393,6 +393,132 @@ class TestBlockchainContractParity:
 
 
 # =========================================================================
+# Actions (Stage 3) parity tests
+# =========================================================================
+
+ACTIONS_ENDPOINTS: list[tuple[str, str]] = [
+    ("GET", "/api/v1/actions"),
+    ("POST", "/api/v1/actions"),
+    ("GET", "/api/v1/actions/{id}"),
+    ("PUT", "/api/v1/actions/{id}"),
+    ("DELETE", "/api/v1/actions/{id}"),
+    ("POST", "/api/v1/actions/{id}/nodes"),
+    ("PUT", "/api/v1/actions/{id}/nodes/{id}"),
+    ("DELETE", "/api/v1/actions/{id}/nodes/{id}"),
+    ("POST", "/api/v1/actions/{id}/edges"),
+    ("DELETE", "/api/v1/actions/{id}/edges/{id}"),
+    ("GET", "/api/v1/actions/{id}/export"),
+    ("POST", "/api/v1/actions/{id}/advance"),
+]
+
+ORCHESTRATION_CANVAS_ENDPOINTS: list[tuple[str, str]] = [
+    ("GET", "/api/v1/orchestration/canvas"),
+    ("POST", "/api/v1/orchestration/canvas"),
+    ("GET", "/api/v1/orchestration/canvas/{id}"),
+    ("PUT", "/api/v1/orchestration/canvas/{id}"),
+    ("DELETE", "/api/v1/orchestration/canvas/{id}"),
+    ("POST", "/api/v1/orchestration/canvas/{id}/nodes"),
+    ("PUT", "/api/v1/orchestration/canvas/{id}/nodes/{id}"),
+    ("DELETE", "/api/v1/orchestration/canvas/{id}/nodes/{id}"),
+    ("POST", "/api/v1/orchestration/canvas/{id}/edges"),
+    ("DELETE", "/api/v1/orchestration/canvas/{id}/edges/{id}"),
+    ("GET", "/api/v1/orchestration/canvas/{id}/export"),
+    ("POST", "/api/v1/orchestration/canvas/{id}/execute"),
+]
+
+
+class TestActionsContractParity:
+    """Verify SDK surfaces match the server's Actions endpoints."""
+
+    def _unique_endpoints(self, endpoints: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        return set(endpoints)
+
+    def test_python_sdk_covers_all_endpoints(self):
+        """Python SDK actions covers every server Action endpoint."""
+        sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/actions.py"
+        sdk_paths = self._unique_endpoints(_extract_python_sdk_paths(sdk_file))
+        canonical = set(ACTIONS_ENDPOINTS)
+
+        missing = canonical - sdk_paths
+        assert not missing, (
+            f"Python SDK actions missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_typescript_sdk_covers_all_endpoints(self):
+        """TypeScript SDK actions covers every server Action endpoint."""
+        ts_file = ROOT / "sdk/typescript/src/namespaces/actions.ts"
+        ts_paths = self._unique_endpoints(_extract_ts_paths(ts_file))
+        canonical = set(ACTIONS_ENDPOINTS)
+
+        missing = canonical - ts_paths
+        assert not missing, (
+            f"TypeScript SDK actions missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_python_sdk_method_count(self):
+        """Python SDK actions has both sync and async classes."""
+        from aragora_sdk.namespaces.actions import AsyncActionsAPI, ActionsAPI
+
+        sync_methods = [m for m in dir(ActionsAPI) if not m.startswith("_")]
+        async_methods = [m for m in dir(AsyncActionsAPI) if not m.startswith("_")]
+
+        assert set(sync_methods) == set(async_methods), (
+            f"Sync/async method mismatch. "
+            f"Only in sync: {set(sync_methods) - set(async_methods)}. "
+            f"Only in async: {set(async_methods) - set(sync_methods)}"
+        )
+
+
+class TestOrchestrationCanvasContractParity:
+    """Verify SDK surfaces match the server's Orchestration Canvas endpoints."""
+
+    def _unique_endpoints(self, endpoints: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        return set(endpoints)
+
+    def test_python_sdk_covers_all_endpoints(self):
+        """Python SDK orchestration_canvas covers every server endpoint."""
+        sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/orchestration_canvas.py"
+        sdk_paths = self._unique_endpoints(_extract_python_sdk_paths(sdk_file))
+        canonical = set(ORCHESTRATION_CANVAS_ENDPOINTS)
+
+        missing = canonical - sdk_paths
+        assert not missing, (
+            f"Python SDK orchestration_canvas missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_typescript_sdk_covers_all_endpoints(self):
+        """TypeScript SDK orchestration_canvas covers every server endpoint."""
+        ts_file = ROOT / "sdk/typescript/src/namespaces/orchestration_canvas.ts"
+        ts_paths = self._unique_endpoints(_extract_ts_paths(ts_file))
+        canonical = set(ORCHESTRATION_CANVAS_ENDPOINTS)
+
+        missing = canonical - ts_paths
+        assert not missing, (
+            f"TypeScript SDK orchestration_canvas missing {len(missing)} endpoints:\n"
+            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        )
+
+    def test_python_sdk_method_count(self):
+        """Python SDK orchestration_canvas has both sync and async classes."""
+        from aragora_sdk.namespaces.orchestration_canvas import (
+            AsyncOrchestrationCanvasAPI,
+            OrchestrationCanvasAPI,
+        )
+
+        sync_methods = [m for m in dir(OrchestrationCanvasAPI) if not m.startswith("_")]
+        async_methods = [m for m in dir(AsyncOrchestrationCanvasAPI) if not m.startswith("_")]
+
+        assert set(sync_methods) == set(async_methods), (
+            f"Sync/async method mismatch. "
+            f"Only in sync: {set(sync_methods) - set(async_methods)}. "
+            f"Only in async: {set(async_methods) - set(sync_methods)}"
+        )
+
+
+# =========================================================================
 # Cross-surface consistency checks
 # =========================================================================
 
@@ -434,6 +560,32 @@ class TestCrossSurfaceConsistency:
         """Python and TypeScript SDKs hit the same Blockchain paths."""
         py_file = ROOT / "sdk/python/aragora_sdk/namespaces/blockchain.py"
         ts_file = ROOT / "sdk/typescript/src/namespaces/blockchain.ts"
+        py_paths = set(_extract_python_sdk_paths(py_file))
+        ts_paths = set(_extract_ts_paths(ts_file))
+
+        only_in_py = py_paths - ts_paths
+        only_in_ts = ts_paths - py_paths
+
+        assert not only_in_py, f"Paths only in Python SDK: {only_in_py}"
+        assert not only_in_ts, f"Paths only in TypeScript SDK: {only_in_ts}"
+
+    def test_actions_python_ts_path_agreement(self):
+        """Python and TypeScript SDKs hit the same Actions paths."""
+        py_file = ROOT / "sdk/python/aragora_sdk/namespaces/actions.py"
+        ts_file = ROOT / "sdk/typescript/src/namespaces/actions.ts"
+        py_paths = set(_extract_python_sdk_paths(py_file))
+        ts_paths = set(_extract_ts_paths(ts_file))
+
+        only_in_py = py_paths - ts_paths
+        only_in_ts = ts_paths - py_paths
+
+        assert not only_in_py, f"Paths only in Python SDK: {only_in_py}"
+        assert not only_in_ts, f"Paths only in TypeScript SDK: {only_in_ts}"
+
+    def test_orchestration_canvas_python_ts_path_agreement(self):
+        """Python and TypeScript SDKs hit the same Orchestration Canvas paths."""
+        py_file = ROOT / "sdk/python/aragora_sdk/namespaces/orchestration_canvas.py"
+        ts_file = ROOT / "sdk/typescript/src/namespaces/orchestration_canvas.ts"
         py_paths = set(_extract_python_sdk_paths(py_file))
         ts_paths = set(_extract_ts_paths(ts_file))
 

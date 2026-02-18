@@ -179,6 +179,14 @@ from .compliance_adapter import (
     CheckOutcome,
     ViolationOutcome,
 )
+from .pipeline_adapter import (
+    PipelineAdapter,
+    PipelineAdapterError,
+    PipelineIngestionResult,
+    SimilarPipeline,
+    PipelineStatus,
+    get_pipeline_adapter,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -326,4 +334,11 @@ __all__ = [
     "ComplianceSearchResult",
     "CheckOutcome",
     "ViolationOutcome",
+    # Pipeline adapter (Idea-to-Execution Pipeline → Knowledge Mound)
+    "PipelineAdapter",
+    "PipelineAdapterError",
+    "PipelineIngestionResult",
+    "SimilarPipeline",
+    "PipelineStatus",
+    "get_pipeline_adapter",
 ]

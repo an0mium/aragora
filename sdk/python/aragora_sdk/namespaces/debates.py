@@ -520,6 +520,38 @@ class DebatesAPI:
         """Get streaming info for a debate."""
         return self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
 
+    # ========== One-Click Debate ==========
+
+    def debate_this(
+        self,
+        question: str,
+        *,
+        context: str | None = None,
+        source: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        One-click debate launcher.
+
+        POST /api/v1/debate-this
+
+        Convenience endpoint for quick debate creation. Only requires a
+        question; auto-detects format and selects agents.
+
+        Args:
+            question: The topic to debate (required).
+            context: Optional additional context string.
+            source: Source surface identifier (default: "debate_this").
+
+        Returns:
+            Created debate response with debate_id and spectate_url.
+        """
+        data: dict[str, Any] = {"question": question}
+        if context is not None:
+            data["context"] = context
+        if source is not None:
+            data["source"] = source
+        return self._client.request("POST", "/api/v1/debate-this", json=data)
+
 
 class AsyncDebatesAPI:
     """
@@ -1010,3 +1042,20 @@ class AsyncDebatesAPI:
     async def stream_debate(self, debate_id: str) -> dict[str, Any]:
         """Get streaming info for a debate."""
         return await self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
+
+    # ========== One-Click Debate ==========
+
+    async def debate_this(
+        self,
+        question: str,
+        *,
+        context: str | None = None,
+        source: str | None = None,
+    ) -> dict[str, Any]:
+        """One-click debate launcher. POST /api/v1/debate-this"""
+        data: dict[str, Any] = {"question": question}
+        if context is not None:
+            data["context"] = context
+        if source is not None:
+            data["source"] = source
+        return await self._client.request("POST", "/api/v1/debate-this", json=data)

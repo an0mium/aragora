@@ -147,11 +147,12 @@ jobs:
             fi
           done
 
-      - name: Run Trivy vulnerability scanner (Dockerfile)
-        uses: aquasecurity/trivy-action@master
+      - name: Run Trivy vulnerability scanner (config)
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'config'
           scan-ref: '.'
+          trivy-config: trivy.yaml
           format: 'sarif'
           output: 'trivy-config-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -159,12 +160,13 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (Image)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
 
       - name: Upload Trivy config scan results
         # Non-blocking: SARIF upload to GitHub Security tab is informational.

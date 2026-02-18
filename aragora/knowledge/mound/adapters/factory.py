@@ -502,6 +502,19 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_genesis_adapter",
         },
     ),
+    # --- Pipeline adapters ---
+    (
+        ".pipeline_adapter",
+        "PipelineAdapter",
+        {
+            "name": "pipeline",
+            "required_deps": [],
+            "forward_method": "ingest_pipeline_result",
+            "reverse_method": "find_similar_pipelines",
+            "priority": 20,
+            "config_key": "km_pipeline_adapter",
+        },
+    ),
 ]
 
 
@@ -910,6 +923,11 @@ class AdapterFactory:
                 adapter = adapter_class(
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "pipeline":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                    on_event=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -1004,6 +1022,8 @@ class AdapterFactory:
                     )
                 elif spec.name in ("idea_canvas", "goal_canvas"):
                     return adapter_class()
+                elif spec.name == "pipeline":
+                    return adapter_class(mound=deps.get("mound"))
                 else:
                     return adapter_class(**deps)
             except (RuntimeError, ValueError, OSError, AttributeError) as e2:

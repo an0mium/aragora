@@ -66,6 +66,7 @@ class AnalyticsHandler(SecureHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/analytics",
         "/api/analytics/disagreements",
         "/api/analytics/role-rotation",
         "/api/analytics/early-stops",
@@ -96,6 +97,22 @@ class AnalyticsHandler(SecureHandler):
         if not _analytics_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for analytics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Root analytics endpoint is public (dashboard index)
+        if path == "/api/analytics":
+            return json_response({
+                "endpoints": [
+                    "/api/analytics/disagreements",
+                    "/api/analytics/role-rotation",
+                    "/api/analytics/early-stops",
+                    "/api/analytics/consensus-quality",
+                    "/api/analytics/cross-pollination",
+                    "/api/analytics/learning-efficiency",
+                    "/api/analytics/voting-accuracy",
+                    "/api/analytics/calibration",
+                ],
+                "description": "Analytics and metrics endpoints (authentication required for data access)",
+            })
 
         # RBAC: Require authentication and analytics:read permission
         try:

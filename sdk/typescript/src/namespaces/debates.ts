@@ -2934,4 +2934,38 @@ export class DebatesAPI {
       currency: string;
     }>;
   }
+
+  // ===========================================================================
+  // One-Click Debate
+  // ===========================================================================
+
+  /**
+   * One-click debate launcher.
+   *
+   * Convenience endpoint for quick debate creation. Only requires a
+   * question; auto-detects format based on question length and
+   * auto-selects agents.
+   *
+   * @param question - The topic to debate
+   * @param options - Optional context and source
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.debateThis('Should we adopt Kubernetes?');
+   * console.log(`Debate created: ${result.debate_id}`);
+   * console.log(`Spectate: ${result.spectate_url}`);
+   * ```
+   */
+  async debateThis(
+    question: string,
+    options?: { context?: string; source?: string }
+  ): Promise<{
+    debate_id: string;
+    spectate_url?: string;
+  }> {
+    const body: Record<string, unknown> = { question };
+    if (options?.context) body.context = options.context;
+    if (options?.source) body.source = options.source;
+    return this.client.request('POST', '/api/v1/debate-this', { body });
+  }
 }

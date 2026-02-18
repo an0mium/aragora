@@ -71,6 +71,8 @@ ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
     "erc8004": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
     # Document extraction adapter - external LLM calls
     "langextract": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
+    # Pipeline adapter
+    "pipeline": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
 }
 
 
