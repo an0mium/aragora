@@ -270,6 +270,9 @@ class MetaPlanner:
             # Parse goals from debate result
             goals = self._parse_goals_from_debate(result, available_tracks, objective)
 
+            # Self-explanation: annotate goals with rationale from debate
+            self._explain_planning_decision(result, goals)
+
             logger.info(
                 f"meta_planner_completed goal_count={len(goals)} objectives={[g.description[:50] for g in goals]}"
             )
