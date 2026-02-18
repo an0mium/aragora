@@ -48,6 +48,11 @@ class AuditTrailHandler(BaseHandler):
     for compliance documentation and integrity verification.
     """
 
+    ROUTES = [
+        "/api/v1/audit-trails",
+        "/api/v1/receipts",
+    ]
+
     # Legacy in-memory storage (kept for backward compatibility during migration)
     _trails: dict[str, dict[str, Any]] = {}
     _receipts: dict[str, dict[str, Any]] = {}

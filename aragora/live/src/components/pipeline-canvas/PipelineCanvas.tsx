@@ -35,10 +35,20 @@ const nodeTypes: NodeTypes = {
 
 type ViewMode = PipelineStageType | 'all';
 
+const STAGE_KEYS: Record<string, ViewMode> = {
+  '1': 'ideas',
+  '2': 'goals',
+  '3': 'actions',
+  '4': 'orchestration',
+  a: 'all',
+};
+
 interface PipelineCanvasProps {
   pipelineId?: string;
   initialData?: PipelineResultResponse;
   onStageAdvance?: (pipelineId: string, stage: PipelineStageType) => void;
+  onTransitionApprove?: (pipelineId: string, transitionId: string) => void;
+  onTransitionReject?: (pipelineId: string, transitionId: string) => void;
   readOnly?: boolean;
 }
 
@@ -132,6 +142,8 @@ function PipelineCanvasInner({
   pipelineId,
   initialData,
   onStageAdvance,
+  onTransitionApprove,
+  onTransitionReject,
   readOnly = false,
 }: PipelineCanvasProps) {
   const [activeView, setActiveView] = useState<ViewMode>('all');
@@ -155,6 +167,29 @@ function PipelineCanvasInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(stageData?.nodes ?? []);
   const [edges, setEdges, onEdgesChange] = useEdgesState(stageData?.edges ?? []);
+
+  // Keyboard shortcuts: 1-4 for stages, A for all
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      const view = STAGE_KEYS[e.key];
+      if (view) {
+        e.preventDefault();
+        if (view === 'all') {
+          setActiveView('all');
+        } else {
+          setActiveView(view);
+        }
+        setSelectedNodeId(null);
+        setShowProvenance(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Update nodes/edges when stage changes
   useEffect(() => {
@@ -307,6 +342,7 @@ function PipelineCanvasInner({
                     <span className="text-acid-green uppercase font-bold">ALL STAGES</span>
                   </>
                 )}
+                <span className="ml-2 opacity-50">1-4: stages | A: all</span>
               </div>
             </Panel>
 
@@ -349,6 +385,26 @@ function PipelineCanvasInner({
                         {Math.round(((transition.confidence as number) || 0) * 100)}%
                       </span>
                     </div>
+                    {(onTransitionApprove || onTransitionReject) && pipelineId && (
+                      <div className="flex gap-2 mt-2">
+                        {onTransitionApprove && (
+                          <button
+                            onClick={() => onTransitionApprove(pipelineId, transition.id as string)}
+                            className="flex-1 px-2 py-1 bg-emerald-600 text-white text-xs font-mono rounded hover:bg-emerald-500 transition-colors"
+                          >
+                            Approve
+                          </button>
+                        )}
+                        {onTransitionReject && (
+                          <button
+                            onClick={() => onTransitionReject(pipelineId, transition.id as string)}
+                            className="flex-1 px-2 py-1 bg-red-600 text-white text-xs font-mono rounded hover:bg-red-500 transition-colors"
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </Panel>

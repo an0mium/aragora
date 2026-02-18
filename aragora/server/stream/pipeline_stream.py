@@ -209,10 +209,98 @@ def get_pipeline_emitter() -> PipelineStreamEmitter:
     return _pipeline_emitter
 
 
-def set_pipeline_emitter(emitter: PipelineStreamEmitter) -> None:
+def set_pipeline_emitter(emitter: PipelineStreamEmitter | None) -> None:
     """Set the global pipeline stream emitter (for testing)."""
     global _pipeline_emitter
     _pipeline_emitter = emitter
+
+
+async def pipeline_websocket_handler(request: web.Request) -> web.WebSocketResponse:
+    """WebSocket handler for pipeline events.
+
+    Endpoint: /ws/pipeline
+
+    Query params:
+        pipeline_id: Required — the pipeline to observe
+        subscribe: Comma-separated event types to filter (optional)
+
+    Incoming messages:
+        {"type": "ping"}
+        {"type": "subscribe", "events": ["pipeline_completed"]}
+        {"type": "unsubscribe", "events": ["pipeline_step_progress"]}
+        {"type": "get_history", "limit": 50}
+    """
+    from aiohttp import WSMsgType
+
+    ws = web.WebSocketResponse(heartbeat=30)
+    await ws.prepare(request)
+
+    pipeline_id = request.query.get("pipeline_id", "")
+    if not pipeline_id:
+        await ws.send_json({"type": "error", "message": "Missing pipeline_id query param"})
+        await ws.close()
+        return ws
+
+    subscribe_param = request.query.get("subscribe", "")
+    subscriptions = set(subscribe_param.split(",")) if subscribe_param else set()
+
+    emitter = get_pipeline_emitter()
+    client_id = emitter.add_client(ws, pipeline_id, subscriptions)
+
+    await ws.send_json({
+        "type": "connected",
+        "client_id": client_id,
+        "pipeline_id": pipeline_id,
+        "subscriptions": list(subscriptions),
+        "timestamp": time.time(),
+    })
+
+    try:
+        async for msg in ws:
+            if msg.type == WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    msg_type = data.get("type")
+
+                    if msg_type == "ping":
+                        await ws.send_json({"type": "pong", "timestamp": time.time()})
+
+                    elif msg_type == "subscribe":
+                        events = data.get("events", [])
+                        if client_id in emitter._clients:
+                            emitter._clients[client_id].subscriptions.update(events)
+                            await ws.send_json({"type": "subscribed", "events": events})
+
+                    elif msg_type == "unsubscribe":
+                        events = data.get("events", [])
+                        if client_id in emitter._clients:
+                            emitter._clients[client_id].subscriptions.difference_update(events)
+                            await ws.send_json({"type": "unsubscribed", "events": events})
+
+                    elif msg_type == "get_history":
+                        limit = data.get("limit", 100)
+                        history = emitter.get_history(pipeline_id, limit)
+                        await ws.send_json({
+                            "type": "history",
+                            "events": history,
+                            "count": len(history),
+                        })
+
+                except json.JSONDecodeError:
+                    await ws.send_json({"type": "error", "message": "Invalid JSON"})
+
+            elif msg.type == WSMsgType.ERROR:
+                logger.error("Pipeline WS error: %s", ws.exception())
+                break
+    finally:
+        emitter.remove_client(client_id)
+
+    return ws
+
+
+def register_pipeline_stream_routes(app: web.Application) -> None:
+    """Register the pipeline stream WebSocket route."""
+    app.router.add_get("/ws/pipeline", pipeline_websocket_handler)
 
 
 __all__ = [
@@ -220,4 +308,6 @@ __all__ = [
     "PipelineStreamEmitter",
     "get_pipeline_emitter",
     "set_pipeline_emitter",
+    "pipeline_websocket_handler",
+    "register_pipeline_stream_routes",
 ]

@@ -314,12 +314,27 @@ class TitansMemoryController:
                 errors += 1
 
         duration = time.time() - start
-        return SweepResult(
+        result = SweepResult(
             items_processed=len(states),
             actions=actions,
             errors=errors,
             duration_seconds=round(duration, 4),
         )
+
+        # Report to Prometheus if available
+        try:
+            from aragora.observability.metrics.memory import record_sweep_result
+
+            record_sweep_result(
+                items_processed=result.items_processed,
+                actions=result.actions,
+                errors=result.errors,
+                duration_seconds=result.duration_seconds,
+            )
+        except ImportError:
+            pass
+
+        return result
 
     async def run_sweep_loop(
         self,

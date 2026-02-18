@@ -364,6 +364,8 @@ def workflow_to_actions_canvas(
             data={
                 "stage": PipelineStage.ACTIONS.value,
                 "step_type": step_type,
+                "phase": step.get("phase", ""),
+                "source_goal_id": step.get("source_goal_id", ""),
                 "description": step.get("description", ""),
                 "timeout": step.get("timeout_seconds", 0),
                 "retries": step.get("retries", 0),

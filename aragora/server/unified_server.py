@@ -343,93 +343,6 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rate_limit():
                 return
 
-        # Temporary auth diagnostic endpoint (no secrets exposed)
-        if path == "/api/auth/debug":
-            try:
-                import hashlib as _h
-                import json as _json
-                import os as _os
-
-                diag: dict[str, Any] = {}
-                try:
-                    from aragora.billing.auth.config import _get_jwt_secret, MIN_SECRET_LENGTH
-
-                    secret = _get_jwt_secret()
-                    diag["jwt_secret_set"] = bool(secret)
-                    diag["jwt_secret_length"] = len(secret) if secret else 0
-                    diag["jwt_secret_fingerprint"] = (
-                        _h.sha256(secret.encode()).hexdigest()[:8] if secret else None
-                    )
-                    diag["jwt_secret_strong"] = (
-                        len(secret) >= MIN_SECRET_LENGTH if secret else False
-                    )
-                except (ImportError, ValueError, RuntimeError, OSError) as e:
-                    diag["jwt_secret_error"] = f"{type(e).__name__}: {e}"
-                try:
-                    from aragora.server.handlers.oauth.config import (
-                        _get_google_client_id,
-                        _get_oauth_success_url,
-                        _get_allowed_redirect_hosts,
-                        _is_production,
-                        _get_google_redirect_uri,
-                    )
-
-                    diag["google_client_id_set"] = bool(_get_google_client_id())
-                    diag["oauth_success_url"] = _get_oauth_success_url()
-                    diag["google_redirect_uri"] = _get_google_redirect_uri()
-                    diag["allowed_redirect_hosts"] = sorted(_get_allowed_redirect_hosts())
-                    diag["is_production"] = _is_production()
-                except (ImportError, ValueError, RuntimeError, AttributeError) as e:
-                    diag["oauth_config_error"] = f"{type(e).__name__}: {e}"
-                auth_header = self.headers.get("Authorization", "")
-                diag["auth_header_present"] = bool(auth_header)
-                diag["auth_header_type"] = auth_header.split(" ")[0] if auth_header else None
-                if auth_header.startswith("Bearer "):
-                    token = auth_header[7:]
-                    diag["token_length"] = len(token)
-                    diag["token_fingerprint"] = _h.sha256(token.encode()).hexdigest()[:8]
-                    try:
-                        from aragora.billing.auth.tokens import decode_jwt
-
-                        payload = decode_jwt(token)
-                        if payload:
-                            diag["jwt_valid"] = True
-                            diag["jwt_user_id"] = str(payload.user_id)
-                            diag["jwt_email"] = str(payload.email)
-                            # Convert exp to string to handle datetime or int
-                            diag["jwt_exp"] = str(payload.exp) if payload.exp is not None else None
-                        else:
-                            diag["jwt_valid"] = False
-                    except (ImportError, ValueError, RuntimeError, KeyError) as e:
-                        diag["jwt_decode_error"] = f"{type(e).__name__}: {e}"
-                diag["aragora_env"] = _os.environ.get("ARAGORA_ENV", "(not set)")
-                diag["aragora_environment"] = _os.environ.get("ARAGORA_ENVIRONMENT", "(not set)")
-                # Use default=str as safety net for any non-serializable values
-                content = _json.dumps(diag, default=str).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            except Exception as e:  # noqa: BLE001 - Debug endpoint safety net: must not crash server
-                # Fallback: send minimal response bypassing _send_json entirely
-                try:
-                    err = _json.dumps(
-                        {"error": f"Debug endpoint error: {type(e).__name__}: {e}"}
-                    ).encode()
-                except (ValueError, TypeError) as json_err:
-                    logger.debug("Failed to serialize error response: %s", json_err)
-                    err = b'{"error": "Debug endpoint critically failed"}'
-                try:
-                    self.send_response(500)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(err)))
-                    self.end_headers()
-                    self.wfile.write(err)
-                except (OSError, ConnectionError, RuntimeError) as send_err:
-                    logger.debug("Failed to send error response: %s", send_err)
-            return
-
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
@@ -530,24 +443,7 @@ class UnifiedHandler(  # type: ignore[misc]
             if self._try_modular_handler(path, {}):
                 return
 
-        # Include diagnostic info in 404 for auth paths to debug intermittent routing failures
-        if "/auth/" in path:
-            from aragora.server.handler_registry.core import get_route_index
-
-            ri = get_route_index()
-            self._send_json(
-                {
-                    "error": f"Unknown POST endpoint: {path}",
-                    "code": 404,
-                    "diag_initialized": getattr(self.__class__, "_handlers_initialized", "unknown"),
-                    "diag_route_count": len(ri._exact_routes),
-                    "diag_auth_routes": sorted(r for r in ri._exact_routes if "/auth/" in r),
-                    "diag_auth_handler": type(getattr(self, "_auth_handler", None)).__name__,
-                },
-                status=404,
-            )
-        else:
-            self.send_error(404, f"Unknown POST endpoint: {path}")
+        self.send_error(404, f"Unknown POST endpoint: {path}")
 
     def do_DELETE(self) -> None:
         """Handle HTTP DELETE requests.

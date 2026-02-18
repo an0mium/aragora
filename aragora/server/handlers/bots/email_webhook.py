@@ -72,7 +72,6 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         "/api/v1/bots/email/webhook/mailgun",
         "/api/v1/bots/email/webhook/ses",
         "/api/v1/bots/email/status",
-        "/api/v1/bots/slack/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

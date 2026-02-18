@@ -448,6 +448,19 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_idea_canvas_adapter",
         },
     ),
+    (
+        ".goal_canvas_adapter",
+        "GoalCanvasAdapter",
+        {
+            "name": "goal_canvas",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": None,
+            "priority": 13,
+            "enabled_by_default": False,
+            "config_key": "km_goal_canvas_adapter",
+        },
+    ),
     # --- Unified memory adapters ---
     (
         ".claude_mem_adapter",
@@ -879,7 +892,7 @@ class AdapterFactory:
                     search_fn=deps.get("rlm_context_search_fn"),
                     event_callback=self._event_callback,
                 )
-            elif spec.name == "idea_canvas":
+            elif spec.name in ("idea_canvas", "goal_canvas"):
                 adapter = adapter_class(
                     event_callback=self._event_callback,
                 )
@@ -975,7 +988,7 @@ class AdapterFactory:
                         store_fn=deps.get("rlm_context_store_fn"),
                         search_fn=deps.get("rlm_context_search_fn"),
                     )
-                elif spec.name == "idea_canvas":
+                elif spec.name in ("idea_canvas", "goal_canvas"):
                     return adapter_class()
                 else:
                     return adapter_class(**deps)

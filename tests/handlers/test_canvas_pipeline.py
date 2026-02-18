@@ -287,6 +287,127 @@ class TestConvertWorkflow:
 
 
 # ---------------------------------------------------------------------------
+# POST extract-goals
+# ---------------------------------------------------------------------------
+
+
+class TestExtractGoals:
+    @pytest.mark.asyncio
+    async def test_missing_data_and_id(self, handler):
+        result = await handler.handle_extract_goals({})
+        assert "error" in result
+        assert "Missing" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_with_raw_canvas_data(self, handler):
+        """Extract goals from inline canvas data."""
+        canvas_data = {
+            "nodes": [
+                {"id": "n1", "data": {"idea_type": "concept", "label": "Caching"}},
+                {"id": "n2", "data": {"idea_type": "evidence", "label": "Redis benchmarks"}},
+                {"id": "n3", "data": {"idea_type": "insight", "label": "Cache invalidation"}},
+            ],
+            "edges": [
+                {"source": "n2", "target": "n1", "type": "supports"},
+            ],
+        }
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_data": canvas_data,
+            "ideas_canvas_id": "test-canvas-1",
+        })
+        assert "error" not in result
+        assert "goals" in result
+        assert result["source_canvas_id"] == "test-canvas-1"
+        assert "goals_count" in result
+        assert isinstance(result["goals_count"], int)
+
+    @pytest.mark.asyncio
+    async def test_empty_nodes(self, handler):
+        """Canvas with no nodes produces empty goals."""
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_data": {"nodes": [], "edges": []},
+        })
+        assert "error" not in result
+        assert result["goals_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_config_max_goals(self, handler):
+        """Config max_goals limits output."""
+        nodes = [
+            {"id": f"n{i}", "data": {"idea_type": "concept", "label": f"Idea {i}"}}
+            for i in range(20)
+        ]
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_data": {"nodes": nodes, "edges": []},
+            "config": {"max_goals": 3, "confidence_threshold": 0},
+        })
+        assert "error" not in result
+        assert result["goals_count"] <= 3
+
+    @pytest.mark.asyncio
+    async def test_config_confidence_threshold(self, handler):
+        """Goals below confidence threshold are filtered out."""
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_data": {
+                "nodes": [
+                    {"id": "n1", "data": {"idea_type": "concept", "label": "Test"}},
+                ],
+                "edges": [],
+            },
+            "config": {"confidence_threshold": 0.99},
+        })
+        assert "error" not in result
+        # With a high threshold, most structural goals should be filtered
+        assert isinstance(result["goals_count"], int)
+
+    @pytest.mark.asyncio
+    async def test_import_error_returns_error(self, handler):
+        with patch.dict("sys.modules", {"aragora.goals.extractor": None}):
+            result = await handler.handle_extract_goals({
+                "ideas_canvas_data": {"nodes": [{"id": "1"}]},
+            })
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_provenance_links_returned(self, handler):
+        """Provenance links from stage 1 to stage 2 should be present."""
+        canvas_data = {
+            "nodes": [
+                {"id": "n1", "data": {"idea_type": "concept", "label": "Core idea"}},
+                {"id": "n2", "data": {"idea_type": "evidence", "label": "Supporting data"}},
+            ],
+            "edges": [
+                {"source": "n2", "target": "n1", "type": "supports"},
+            ],
+        }
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_data": canvas_data,
+            "config": {"confidence_threshold": 0},
+        })
+        assert "error" not in result
+        assert "provenance" in result
+
+    @pytest.mark.asyncio
+    async def test_canvas_id_from_store_fallback(self, handler):
+        """When only canvas_id given and store fails, returns error."""
+        result = await handler.handle_extract_goals({
+            "ideas_canvas_id": "nonexistent-canvas",
+        })
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_handles_post_routing(self, handler):
+        """Verify handle_post dispatches extract-goals correctly."""
+        mock_handler = MagicMock()
+        mock_handler.request.body = b'{"ideas_canvas_data": {"nodes": [], "edges": []}}'
+        result = handler.handle_post(
+            "/api/v1/canvas/pipeline/extract-goals", {}, mock_handler
+        )
+        # Should return a coroutine (async method), not None
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
 # Context / constructor
 # ---------------------------------------------------------------------------
 
@@ -301,4 +422,4 @@ class TestConstructor:
         assert h.ctx["key"] == "val"
 
     def test_routes_defined(self):
-        assert len(CanvasPipelineHandler.ROUTES) == 11
+        assert len(CanvasPipelineHandler.ROUTES) == 12

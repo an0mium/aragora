@@ -277,6 +277,21 @@ class CanvasStreamServer:
             elif msg_type == "ideas:node:unlock":
                 await self._handle_idea_node_lock(canvas_id, user_id, data, lock=False)
 
+            elif msg_type == "goals:cursor:move":
+                await self._handle_goal_cursor_move(canvas_id, user_id, data)
+
+            elif msg_type == "goals:presence:join":
+                await self._handle_goal_presence(canvas_id, user_id, "join")
+
+            elif msg_type == "goals:presence:leave":
+                await self._handle_goal_presence(canvas_id, user_id, "leave")
+
+            elif msg_type == "goals:node:lock":
+                await self._handle_goal_node_lock(canvas_id, user_id, data, lock=True)
+
+            elif msg_type == "goals:node:unlock":
+                await self._handle_goal_node_lock(canvas_id, user_id, data, lock=False)
+
             else:
                 logger.debug(f"Unknown message type: {msg_type}")
 
@@ -530,6 +545,66 @@ class CanvasStreamServer:
         if not node_id:
             return
         event_type = "ideas:node:lock" if lock else "ideas:node:unlock"
+        await self.broadcast_to_canvas(
+            canvas_id,
+            {
+                "type": event_type,
+                "canvas_id": canvas_id,
+                "user_id": user_id,
+                "node_id": node_id,
+                "timestamp": time.time(),
+            },
+        )
+
+    # =========================================================================
+    # Goal Canvas collaboration handlers
+    # =========================================================================
+
+    async def _handle_goal_cursor_move(
+        self, canvas_id: str, user_id: str, data: dict[str, Any]
+    ):
+        """Broadcast cursor position to other clients (fire-and-forget)."""
+        await self.broadcast_to_canvas(
+            canvas_id,
+            {
+                "type": "goals:cursor:move",
+                "canvas_id": canvas_id,
+                "user_id": user_id,
+                "position": data.get("position", {}),
+                "timestamp": time.time(),
+            },
+        )
+
+    async def _handle_goal_presence(
+        self, canvas_id: str, user_id: str, action: str
+    ):
+        """Broadcast presence join/leave events."""
+        await self.broadcast_to_canvas(
+            canvas_id,
+            {
+                "type": f"goals:presence:{action}",
+                "canvas_id": canvas_id,
+                "user_id": user_id,
+                "users": [
+                    u["user_id"] for u in self.get_connected_users(canvas_id)
+                ],
+                "timestamp": time.time(),
+            },
+        )
+
+    async def _handle_goal_node_lock(
+        self,
+        canvas_id: str,
+        user_id: str,
+        data: dict[str, Any],
+        *,
+        lock: bool,
+    ):
+        """Broadcast advisory node lock/unlock."""
+        node_id = data.get("node_id")
+        if not node_id:
+            return
+        event_type = "goals:node:lock" if lock else "goals:node:unlock"
         await self.broadcast_to_canvas(
             canvas_id,
             {

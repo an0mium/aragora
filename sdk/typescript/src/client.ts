@@ -281,6 +281,8 @@ import {
   VoiceNamespace,
   OpenClawNamespace,
   BlockchainNamespace,
+  PipelineNamespace,
+  IdeasNamespace,
 } from './namespaces';
 
 interface RequestOptions {
@@ -874,6 +876,15 @@ export class AragoraClient {
   /** Blockchain API - ERC-8004 identity, reputation, and validation endpoints. */
   readonly blockchain: BlockchainNamespace;
 
+  /** Ideas API - Idea Canvas CRUD, node/edge management, export, and promotion. */
+  readonly ideas: IdeasNamespace;
+
+  /**
+   * Pipeline API namespace.
+   * Provides methods for idea-to-execution pipeline orchestration.
+   */
+  readonly pipeline: PipelineNamespace;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -1026,6 +1037,8 @@ export class AragoraClient {
     this.voice = new VoiceNamespace(this);
     this.openclaw = new OpenClawNamespace(this);
     this.blockchain = new BlockchainNamespace(this);
+    this.ideas = new IdeasNamespace(this);
+    this.pipeline = new PipelineNamespace(this);
   }
 
   // ===========================================================================

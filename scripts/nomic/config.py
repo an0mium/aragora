@@ -63,8 +63,8 @@ NOMIC_OUTCOME_TRACKING = os.environ.get("NOMIC_OUTCOME_TRACKING", "1") == "1"
 # TESTFIXER FLAGS - Automated test repair loop integration
 # =============================================================================
 
-# Enable TestFixer integration in the nomic loop (default OFF)
-NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "0") == "1"
+# Enable TestFixer integration in the nomic loop (default ON)
+NOMIC_TESTFIXER_ENABLED = os.environ.get("NOMIC_TESTFIXER_ENABLED", "1") == "1"
 
 # Test command to run inside TestFixer
 NOMIC_TESTFIXER_TEST_COMMAND = os.environ.get(
@@ -140,8 +140,10 @@ NOMIC_TESTFIXER_REDTEAM_MIN_ROBUSTNESS = float(
 )
 
 # Pattern learning
-NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "0") == "1"
-NOMIC_TESTFIXER_PATTERN_STORE = os.environ.get("NOMIC_TESTFIXER_PATTERN_STORE", "")
+NOMIC_TESTFIXER_PATTERN_LEARNING = os.environ.get("NOMIC_TESTFIXER_PATTERN_LEARNING", "1") == "1"
+NOMIC_TESTFIXER_PATTERN_STORE = os.environ.get(
+    "NOMIC_TESTFIXER_PATTERN_STORE", ".nomic/testfixer/patterns.json"
+)
 NOMIC_TESTFIXER_GENERATION_TIMEOUT = float(
     os.environ.get("NOMIC_TESTFIXER_GENERATION_TIMEOUT", "600")
 )

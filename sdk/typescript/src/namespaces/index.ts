@@ -1503,6 +1503,15 @@ export {
   type CanvasActionRequest,
 } from './canvas';
 
+// Ideas (Idea Canvas - Stage 1)
+export {
+  IdeasNamespace,
+  type IdeaCanvas,
+  type IdeaNode,
+  type IdeaEdge,
+  type PromotionResult,
+} from './ideas';
+
 // Costs (Cost Tracking)
 export {
   CostsNamespace,
@@ -1579,6 +1588,17 @@ export {
   BlockchainNamespace,
   type BlockchainSyncRequest,
 } from './blockchain';
+
+// Pipeline (Idea-to-Execution)
+export {
+  PipelineNamespace,
+  type PipelineRunRequest,
+  type PipelineRunResponse,
+  type PipelineStageStatus,
+  type PipelineStatusResponse,
+  type PipelineGraphResponse,
+  type PipelineReceiptResponse,
+} from './pipeline';
 
 // DevOps (Incident Management)
 export {

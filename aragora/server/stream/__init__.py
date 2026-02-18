@@ -213,6 +213,14 @@ _EXPORTS = {
         "aragora.server.stream.pipeline_stream",
         "set_pipeline_emitter",
     ),
+    "pipeline_websocket_handler": (
+        "aragora.server.stream.pipeline_stream",
+        "pipeline_websocket_handler",
+    ),
+    "register_pipeline_stream_routes": (
+        "aragora.server.stream.pipeline_stream",
+        "register_pipeline_stream_routes",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -310,6 +318,8 @@ __all__ = [
     "PipelineStreamClient",
     "get_pipeline_emitter",
     "set_pipeline_emitter",
+    "pipeline_websocket_handler",
+    "register_pipeline_stream_routes",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

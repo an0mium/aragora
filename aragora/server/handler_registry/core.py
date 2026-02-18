@@ -93,6 +93,8 @@ HANDLER_TIERS: dict[str, str] = {
     "_unified_memory_handler": "extended",
     "_canvas_pipeline_handler": "extended",
     "_idea_canvas_handler": "extended",
+    "_goal_canvas_handler": "extended",
+    "_universal_graph_handler": "extended",
     # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
     "_admin_handler": "enterprise",
     "_control_plane_handler": "enterprise",
@@ -372,6 +374,8 @@ class RouteIndex:
             "_unified_memory_handler": ["/api/v1/memory/unified/"],
             "_canvas_pipeline_handler": ["/api/v1/canvas/", "/api/canvas/"],
             "_idea_canvas_handler": ["/api/v1/ideas"],
+            "_goal_canvas_handler": ["/api/v1/goals"],
+            "_universal_graph_handler": ["/api/v1/pipeline/graphs"],
             "_document_handler": ["/api/documents/"],
             "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
             "_auditing_handler": [
@@ -589,6 +593,14 @@ class RouteIndex:
             "_voice_handler": [
                 "/api/v1/voice/",
                 "/api/voice/",
+            ],
+            "_automation_handler": [
+                "/api/v1/webhooks/",
+                "/api/v1/n8n/",
+            ],
+            "_audit_trail_handler": [
+                "/api/v1/audit-trails",
+                "/api/v1/receipts",
             ],
         }
 

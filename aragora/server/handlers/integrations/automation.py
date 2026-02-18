@@ -71,13 +71,12 @@ class AutomationHandler(SecureHandler):
 
     RESOURCE_TYPE = "webhook"
 
-    HANDLED_PATHS = [
+    ROUTES = [
         "/api/v1/webhooks",
         "/api/v1/webhooks/subscribe",
         "/api/v1/webhooks/events",
         "/api/v1/webhooks/dispatch",
         "/api/v1/webhooks/platforms",
-        # n8n-specific endpoints
         "/api/v1/n8n/node",
         "/api/v1/n8n/credentials",
         "/api/v1/n8n/trigger",

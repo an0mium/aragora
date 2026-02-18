@@ -92,6 +92,7 @@ from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
 from .persona import AsyncPersonaAPI, PersonaAPI
+from .pipeline import AsyncPipelineAPI, PipelineAPI
 from .plugins import AsyncPluginsAPI, PluginsAPI
 from .podcast import AsyncPodcastAPI, PodcastAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
@@ -315,6 +316,8 @@ __all__ = [
     "AsyncPaymentsAPI",
     "PersonaAPI",
     "AsyncPersonaAPI",
+    "PipelineAPI",
+    "AsyncPipelineAPI",
     "PluginsAPI",
     "AsyncPluginsAPI",
     "PodcastAPI",

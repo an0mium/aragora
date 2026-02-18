@@ -9,6 +9,7 @@ Tests cover advanced scenarios not covered by test_memory_streams.py:
 - Global provider reference behavior
 """
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -32,6 +33,23 @@ import aragora.memory.streams as streams_module
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure a fresh event loop is available for run_async() calls.
+
+    Prior tests can leave the default event loop in a closed state, causing
+    ``RuntimeError: Event loop is closed`` when ``run_async()`` tries to
+    schedule coroutines via ``asyncio.run()`` / ``nest_asyncio``.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    try:
+        loop.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture

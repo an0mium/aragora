@@ -100,6 +100,7 @@ class MemoryTriggerEngine:
                         TriggerResult(trigger_name=trigger.name, success=True)
                     )
                     triggered.append(trigger.name)
+                    _record_trigger_metric(trigger.name, True)
                 except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as exc:
                     logger.warning(
                         "Trigger %s action failed: %s", trigger.name, exc
@@ -112,12 +113,14 @@ class MemoryTriggerEngine:
                         )
                     )
                     triggered.append(trigger.name)
+                    _record_trigger_metric(trigger.name, False)
             else:
                 # No action -- trigger matched but has no handler
                 self._fire_log.append(
                     TriggerResult(trigger_name=trigger.name, success=True)
                 )
                 triggered.append(trigger.name)
+                _record_trigger_metric(trigger.name, True)
 
         return triggered
 
@@ -195,6 +198,16 @@ class MemoryTriggerEngine:
                 action=_extract_pattern,
             )
         )
+
+
+def _record_trigger_metric(trigger_name: str, success: bool) -> None:
+    """Emit a Prometheus metric for a trigger fire (best-effort)."""
+    try:
+        from aragora.observability.metrics.memory import record_trigger_fire
+
+        record_trigger_fire(trigger_name, success)
+    except ImportError:
+        pass
 
 
 # -----------------------------------------------------------------------

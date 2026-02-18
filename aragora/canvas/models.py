@@ -96,6 +96,13 @@ class CanvasEventType(Enum):
     IDEA_NODE_LOCK = "ideas:node:lock"
     IDEA_NODE_UNLOCK = "ideas:node:unlock"
 
+    # Goal Canvas collaboration
+    GOAL_CURSOR_MOVE = "goals:cursor:move"
+    GOAL_PRESENCE_JOIN = "goals:presence:join"
+    GOAL_PRESENCE_LEAVE = "goals:presence:leave"
+    GOAL_NODE_LOCK = "goals:node:lock"
+    GOAL_NODE_UNLOCK = "goals:node:unlock"
+
     # Error events
     ERROR = "canvas:error"
 

@@ -59,6 +59,23 @@ except (ImportError, ModuleNotFoundError):  # pragma: no cover - handled by MCP_
 
 MAX_QUERY_LENGTH = 1000
 
+# Tools allowed in implementation mode (ARAGORA_MCP_IMPL_MODE=1)
+# Scoped to codebase exploration, knowledge query, and memory — no debate/audit/control
+IMPL_MODE_TOOLS = frozenset({
+    "search_codebase",
+    "get_symbol",
+    "get_dependencies",
+    "get_codebase_structure",
+    "query_knowledge",
+    "store_knowledge",
+    "get_knowledge_stats",
+    "query_memory",
+    "store_memory",
+    "get_memory_pressure",
+    "search_evidence",
+    "cite_evidence",
+})
+
 
 # =============================================================================
 # Rate Limiting
@@ -183,12 +200,14 @@ class AragoraMCPServer:
         tools_metadata: list[dict[str, Any]] | None = None,
         require_mcp: bool = True,
         rate_limits: dict[str, int] | None = None,
+        impl_mode: bool = False,
     ) -> None:
         if require_mcp and not MCP_AVAILABLE:
             raise ImportError("MCP package not installed")
 
         self.name = name
         self.version = version
+        self._impl_mode = impl_mode
         self._tools_metadata = tools_metadata or TOOLS_METADATA
         self._tools: dict[str, MCPTool] = {}
         self._resources: dict[str, MCPResource] = {}
@@ -229,6 +248,9 @@ class AragoraMCPServer:
         for meta in self._tools_metadata:
             name = meta.get("name")
             if not name:
+                continue
+            # In impl mode, only register tools in the allowed set
+            if self._impl_mode and str(name) not in IMPL_MODE_TOOLS:
                 continue
             description = meta.get("description", "")
             input_schema = _build_input_schema(dict(meta.get("parameters", {})))  # type: ignore[arg-type]
@@ -561,10 +583,15 @@ def build_fastmcp_app(server: AragoraMCPServer) -> Any:
 
 async def run_server(transport: str = "stdio") -> None:
     """Run the MCP server using FastMCP."""
+    import os
+
     if not MCP_AVAILABLE:
         raise SystemExit(1)
 
-    server = AragoraMCPServer(require_mcp=True)
+    impl_mode = os.environ.get("ARAGORA_MCP_IMPL_MODE") == "1"
+    server = AragoraMCPServer(require_mcp=True, impl_mode=impl_mode)
+    if impl_mode:
+        logger.info("MCP server running in implementation mode (%d tools)", len(server._tools))
     app = build_fastmcp_app(server)
     app.run(transport=transport)
 

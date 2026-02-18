@@ -40,6 +40,7 @@ from aragora.server.startup.background import (
     init_slack_token_refresh_scheduler,
     init_state_cleanup_task,
     init_stuck_debate_watchdog,
+    init_titans_memory_sweep,
 )
 from aragora.server.startup.control_plane import (
     get_mayor_coordinator,
@@ -404,6 +405,7 @@ def _build_initial_status(
         "mayor_coordinator": False,
         "postgres_pool": {"enabled": False},
         "slack_token_refresh_scheduler": False,
+        "titans_memory_sweep": None,
         "budget_notifications": False,
     }
 
@@ -534,6 +536,7 @@ async def _init_all_components(
     status["testfixer_worker"] = await init_testfixer_worker()
     status["testfixer_task_worker"] = await init_testfixer_task_worker()
     status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
+    status["titans_memory_sweep"] = await init_titans_memory_sweep()
 
     # Scaling and routing
     status["redis_state_backend"] = await init_redis_state_backend()
@@ -677,6 +680,7 @@ __all__ = [
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
     "init_slack_token_refresh_scheduler",
+    "init_titans_memory_sweep",
     "init_control_plane_coordinator",
     "init_shared_control_plane_state",
     "init_tts_integration",

@@ -29,13 +29,6 @@ async def run_decide(
     implementation_profile: dict[str, Any] | None = None,
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
-    enable_knowledge_retrieval: bool | None = None,
-    enable_knowledge_ingestion: bool | None = None,
-    enable_cross_debate_memory: bool | None = None,
-    enable_supermemory: bool | None = None,
-    supermemory_context_container_tag: str | None = None,
-    supermemory_max_context_items: int | None = None,
-    enable_belief_guidance: bool | None = None,
     template: str | None = None,
     mode: str = "standard",
     verbose: bool = False,
@@ -137,13 +130,6 @@ async def run_decide(
         documents=documents,
         auto_select=auto_select,
         auto_select_config=auto_select_config,
-        enable_knowledge_retrieval=enable_knowledge_retrieval,
-        enable_knowledge_ingestion=enable_knowledge_ingestion,
-        enable_cross_debate_memory=enable_cross_debate_memory,
-        enable_supermemory=enable_supermemory,
-        supermemory_context_container_tag=supermemory_context_container_tag,
-        supermemory_max_context_items=supermemory_max_context_items,
-        enable_belief_guidance=enable_belief_guidance,
         **kwargs,
     )
     result["debate_result"] = debate_result
@@ -435,6 +421,9 @@ def cmd_decide(args: argparse.Namespace) -> None:
         getattr(args, "documents", None),
     )
 
+    # Build MemoryConfig from CLI args (replaces individual deprecated params)
+    from aragora.debate.arena_primary_configs import MemoryConfig
+
     no_knowledge = bool(getattr(args, "no_knowledge", False))
     no_cross_memory = bool(getattr(args, "no_cross_memory", False))
     enable_supermemory = bool(getattr(args, "enable_supermemory", False))
@@ -444,6 +433,18 @@ def cmd_decide(args: argparse.Namespace) -> None:
 
     if supermemory_container or supermemory_max_items is not None:
         enable_supermemory = True
+
+    memory_config = MemoryConfig(
+        enable_knowledge_retrieval=not no_knowledge,
+        enable_knowledge_ingestion=not no_knowledge,
+        enable_cross_debate_memory=not no_cross_memory,
+        enable_supermemory=enable_supermemory,
+        enable_belief_guidance=enable_belief_guidance,
+    )
+    if supermemory_container:
+        memory_config.supermemory_context_container_tag = supermemory_container
+    if supermemory_max_items is not None:
+        memory_config.supermemory_max_context_items = supermemory_max_items
 
     # Apply preset configuration if specified
     extra_kwargs: dict[str, Any] = {}
@@ -477,13 +478,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             implementation_profile=implementation_profile,
             auto_select=auto_select,
             auto_select_config=auto_select_config,
-            enable_knowledge_retrieval=None if not no_knowledge else False,
-            enable_knowledge_ingestion=None if not no_knowledge else False,
-            enable_cross_debate_memory=None if not no_cross_memory else False,
-            enable_supermemory=True if enable_supermemory else None,
-            supermemory_context_container_tag=supermemory_container,
-            supermemory_max_context_items=supermemory_max_items,
-            enable_belief_guidance=True if enable_belief_guidance else None,
+            memory_config=memory_config,
             template=getattr(args, "template", None),
             mode=getattr(args, "mode", "standard") or "standard",
             verbose=getattr(args, "verbose", False),

@@ -466,36 +466,69 @@ Follow existing code style and tests.""",
 
         return min(base + file_bonus, 1800)  # Cap at 30 min
 
+    def _read_claude_md_fallback(self) -> str:
+        """Read key patterns from CLAUDE.md as cold-start context.
+
+        Extracts the Common Patterns and Architecture sections, capped at 1500 chars.
+        """
+        claude_md = Path(self.repo_path) / "CLAUDE.md"
+        if not claude_md.exists():
+            return ""
+        try:
+            text = claude_md.read_text(encoding="utf-8")
+            # Extract useful sections
+            sections: list[str] = []
+            in_section = False
+            for line in text.split("\n"):
+                if line.startswith("## Common Patterns") or line.startswith("## Architecture"):
+                    in_section = True
+                    sections.append(line)
+                elif line.startswith("## ") and in_section:
+                    in_section = False
+                elif in_section:
+                    sections.append(line)
+            result = "\n".join(sections).strip()
+            return result[:1500] if result else ""
+        except OSError:
+            return ""
+
     async def _fetch_memory_context(self, description: str) -> str:
         """Fetch relevant historical context from the unified memory gateway.
 
-        Returns formatted context string or placeholder if unavailable.
+        Falls back to CLAUDE.md key patterns when gateway is unavailable or empty.
         """
-        if self._memory_gateway is None:
-            return "(No historical context available)"
+        gateway_result = None
 
-        try:
-            from aragora.memory.gateway import UnifiedMemoryQuery
+        if self._memory_gateway is not None:
+            try:
+                from aragora.memory.gateway import UnifiedMemoryQuery
 
-            response = await asyncio.wait_for(
-                self._memory_gateway.query(
-                    UnifiedMemoryQuery(query=description, limit=5, min_confidence=0.3)
-                ),
-                timeout=10.0,
-            )
-            if not response.results:
-                return "(No relevant historical context found)"
+                response = await asyncio.wait_for(
+                    self._memory_gateway.query(
+                        UnifiedMemoryQuery(query=description, limit=5, min_confidence=0.3)
+                    ),
+                    timeout=10.0,
+                )
+                if response.results:
+                    lines = []
+                    for r in response.results:
+                        source = getattr(r, "source", "unknown")
+                        confidence = getattr(r, "confidence", 0.0)
+                        content = getattr(r, "content", str(r))
+                        lines.append(f"[{source}, {confidence:.0%}] {content}")
+                    gateway_result = "\n".join(lines)
+            except Exception as exc:
+                logger.debug("Memory context fetch failed: %s", exc)
 
-            lines = []
-            for r in response.results:
-                source = getattr(r, "source", "unknown")
-                confidence = getattr(r, "confidence", 0.0)
-                content = getattr(r, "content", str(r))
-                lines.append(f"[{source}, {confidence:.0%}] {content}")
-            return "\n".join(lines)
-        except Exception as exc:
-            logger.debug("Memory context fetch failed: %s", exc)
-            return "(No historical context available)"
+        if gateway_result:
+            return gateway_result
+
+        # Cold-start fallback: read key patterns from CLAUDE.md
+        fallback = self._read_claude_md_fallback()
+        if fallback:
+            return f"[CLAUDE.md patterns]\n{fallback}"
+
+        return "(No historical context available)"
 
     def _build_prompt(
         self, task: ImplementTask, feedback: str | None = None, memory_context: str = ""

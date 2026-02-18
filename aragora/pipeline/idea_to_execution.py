@@ -120,6 +120,8 @@ class PipelineResult:
     orchestration_result: dict[str, Any] | None = None
     receipt: dict[str, Any] | None = None
     duration: float = 0.0
+    # Universal graph (populated when use_universal=True)
+    universal_graph: Any | None = None  # UniversalGraph
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -147,6 +149,8 @@ class PipelineResult:
             result["receipt"] = self.receipt
         if self.duration > 0:
             result["duration"] = self.duration
+        if self.universal_graph is not None and hasattr(self.universal_graph, "to_dict"):
+            result["universal_graph"] = self.universal_graph.to_dict()
         return result
 
     def _compute_integrity_hash(self) -> str:
@@ -170,15 +174,18 @@ class IdeaToExecutionPipeline:
         self,
         goal_extractor: GoalExtractor | None = None,
         agent: Any | None = None,
+        use_universal: bool = False,
     ):
         """Initialize the pipeline.
 
         Args:
             goal_extractor: Custom GoalExtractor (defaults to structural mode)
             agent: Optional AI agent for synthesis across stages
+            use_universal: If True, build a UniversalGraph alongside Canvas outputs
         """
         self._goal_extractor = goal_extractor or GoalExtractor(agent=agent)
         self._agent = agent
+        self._use_universal = use_universal
 
     @classmethod
     def from_demo(cls) -> PipelineResult:
@@ -237,6 +244,7 @@ class IdeaToExecutionPipeline:
         # Stage 4: Orchestration
         result = self._advance_to_orchestration(result)
 
+        self._build_universal_graph(result)
         return result
 
     def from_ideas(
@@ -297,6 +305,7 @@ class IdeaToExecutionPipeline:
         # Stage 4: Orchestration
         result = self._advance_to_orchestration(result)
 
+        self._build_universal_graph(result)
         return result
 
     def advance_stage(
@@ -811,71 +820,191 @@ class IdeaToExecutionPipeline:
         return result
 
     # =========================================================================
+    # Universal graph integration
+    # =========================================================================
+
+    def _build_universal_graph(self, result: PipelineResult) -> None:
+        """Build a UniversalGraph from completed pipeline stages."""
+        if not self._use_universal:
+            return
+        try:
+            from aragora.pipeline.adapters import (
+                canvas_to_universal_graph,
+                from_goal_node,
+            )
+            from aragora.pipeline.universal_node import UniversalGraph
+
+            graph = UniversalGraph(
+                id=f"ugraph-{result.pipeline_id}",
+                name=f"Pipeline {result.pipeline_id}",
+            )
+
+            # Stage 1: Ideas
+            if result.ideas_canvas:
+                ideas_ug = canvas_to_universal_graph(
+                    result.ideas_canvas, PipelineStage.IDEAS
+                )
+                for node in ideas_ug.nodes.values():
+                    graph.add_node(node)
+                for edge in ideas_ug.edges.values():
+                    graph.edges[edge.id] = edge
+
+            # Stage 2: Goals
+            if result.goal_graph:
+                for goal in result.goal_graph.goals:
+                    unode = from_goal_node(goal)
+                    graph.add_node(unode)
+
+            # Stage 3: Actions
+            if result.actions_canvas:
+                actions_ug = canvas_to_universal_graph(
+                    result.actions_canvas, PipelineStage.ACTIONS
+                )
+                for node in actions_ug.nodes.values():
+                    graph.add_node(node)
+                for edge in actions_ug.edges.values():
+                    graph.edges[edge.id] = edge
+
+            # Stage 4: Orchestration
+            if result.orchestration_canvas:
+                orch_ug = canvas_to_universal_graph(
+                    result.orchestration_canvas, PipelineStage.ORCHESTRATION
+                )
+                for node in orch_ug.nodes.values():
+                    graph.add_node(node)
+                for edge in orch_ug.edges.values():
+                    graph.edges[edge.id] = edge
+
+            graph.transitions = list(result.transitions)
+            result.universal_graph = graph
+        except Exception as exc:
+            logger.warning("Failed to build universal graph: %s", exc)
+
+    # =========================================================================
     # Conversion helpers
     # =========================================================================
 
     def _goals_to_workflow(self, goal_graph: GoalGraph) -> dict[str, Any]:
         """Convert goals into a workflow definition.
 
-        Each goal becomes one or more workflow steps:
-        - Goals → task steps (the work to do)
-        - Milestones → checkpoint steps (verification points)
-        - Principles → constraint validation steps
-        - Risks → verification steps
+        Each goal decomposes into multiple workflow steps based on type:
+        - Goals → research + implement + test + review
+        - Milestones → checkpoint + verification
+        - Principles → define + validate
+        - Strategies → research + design + implement
+        - Metrics → instrument + baseline + monitor
+        - Risks → assess + mitigate + verify
         """
         steps: list[dict[str, Any]] = []
         transitions: list[dict[str, Any]] = []
 
-        for i, goal in enumerate(goal_graph.goals):
-            step_type = {
-                "goal": "task",
-                "milestone": "human_checkpoint",
-                "principle": "verification",
-                "strategy": "task",
-                "metric": "verification",
-                "risk": "verification",
-            }.get(goal.goal_type.value, "task")
+        # Decomposition templates by goal type
+        decomposition = {
+            "goal": [
+                ("research", "task", "Research: {title}"),
+                ("implement", "task", "Implement: {title}"),
+                ("test", "verification", "Test: {title}"),
+                ("review", "human_checkpoint", "Review: {title}"),
+            ],
+            "milestone": [
+                ("checkpoint", "human_checkpoint", "Checkpoint: {title}"),
+                ("verify", "verification", "Verify: {title}"),
+            ],
+            "principle": [
+                ("define", "task", "Define: {title}"),
+                ("validate", "verification", "Validate: {title}"),
+            ],
+            "strategy": [
+                ("research", "task", "Research: {title}"),
+                ("design", "task", "Design: {title}"),
+                ("implement", "task", "Implement: {title}"),
+            ],
+            "metric": [
+                ("instrument", "task", "Instrument: {title}"),
+                ("baseline", "verification", "Baseline: {title}"),
+                ("monitor", "task", "Monitor: {title}"),
+            ],
+            "risk": [
+                ("assess", "task", "Assess: {title}"),
+                ("mitigate", "task", "Mitigate: {title}"),
+                ("verify", "verification", "Verify mitigation: {title}"),
+            ],
+        }
 
-            step = {
-                "id": f"step-{goal.id}",
-                "name": goal.title,
-                "description": goal.description,
-                "step_type": step_type,
-                "source_goal_id": goal.id,
-                "config": {
-                    "priority": goal.priority,
-                    "measurable": goal.measurable,
-                },
-                "timeout_seconds": 3600,
-                "retries": 1,
-                "optional": goal.priority == "low",
-            }
-            steps.append(step)
+        for goal in goal_graph.goals:
+            template = decomposition.get(goal.goal_type.value, [
+                ("execute", "task", "{title}"),
+            ])
 
-            # Create transitions from dependencies
+            goal_step_ids: list[str] = []
+            for phase, step_type, name_fmt in template:
+                step_id = f"step-{goal.id}-{phase}"
+                step = {
+                    "id": step_id,
+                    "name": name_fmt.format(title=goal.title),
+                    "description": goal.description,
+                    "step_type": step_type,
+                    "source_goal_id": goal.id,
+                    "phase": phase,
+                    "config": {
+                        "priority": goal.priority,
+                        "measurable": goal.measurable,
+                    },
+                    "timeout_seconds": 3600,
+                    "retries": 1,
+                    "optional": goal.priority == "low",
+                }
+                steps.append(step)
+
+                # Chain phases within a goal sequentially
+                if goal_step_ids:
+                    transitions.append({
+                        "id": f"seq-{goal_step_ids[-1]}-{step_id}",
+                        "from_step": goal_step_ids[-1],
+                        "to_step": step_id,
+                        "condition": "",
+                        "label": "then",
+                        "priority": 0,
+                    })
+
+                goal_step_ids.append(step_id)
+
+            # Create transitions from goal dependencies (link last step of dep
+            # to first step of this goal)
             for dep_goal_id in goal.dependencies:
+                dep_steps = [
+                    s for s in steps if s.get("source_goal_id") == dep_goal_id
+                ]
+                if dep_steps and goal_step_ids:
+                    transitions.append({
+                        "id": f"dep-{dep_goal_id}-{goal.id}",
+                        "from_step": dep_steps[-1]["id"],
+                        "to_step": goal_step_ids[0],
+                        "condition": "",
+                        "label": "after",
+                        "priority": 0,
+                    })
+
+        # Chain independent goal groups sequentially (link last step of one
+        # to first step of next, only for goals with no explicit dependencies)
+        prev_last_step: str | None = None
+        for goal in goal_graph.goals:
+            g_steps = [s for s in steps if s.get("source_goal_id") == goal.id]
+            if not g_steps:
+                continue
+            first_id = g_steps[0]["id"]
+            last_id = g_steps[-1]["id"]
+            has_dep = any(t["to_step"] == first_id for t in transitions)
+            if not has_dep and prev_last_step:
                 transitions.append({
-                    "id": f"trans-{dep_goal_id}-{goal.id}",
-                    "from_step": f"step-{dep_goal_id}",
-                    "to_step": f"step-{goal.id}",
+                    "id": f"seq-{prev_last_step}-{first_id}",
+                    "from_step": prev_last_step,
+                    "to_step": first_id,
                     "condition": "",
-                    "label": "after",
+                    "label": "then",
                     "priority": 0,
                 })
-
-        # Chain non-dependent steps sequentially
-        independent = [s for s in steps if not any(
-            t["to_step"] == s["id"] for t in transitions
-        )]
-        for i in range(len(independent) - 1):
-            transitions.append({
-                "id": f"seq-{independent[i]['id']}-{independent[i+1]['id']}",
-                "from_step": independent[i]["id"],
-                "to_step": independent[i + 1]["id"],
-                "condition": "",
-                "label": "then",
-                "priority": 0,
-            })
+            prev_last_step = last_id
 
         return {
             "id": f"wf-{goal_graph.id}",
@@ -890,19 +1019,22 @@ class IdeaToExecutionPipeline:
     ) -> dict[str, Any]:
         """Convert action canvas nodes into a multi-agent execution plan.
 
-        Assigns tasks to agents based on step type:
-        - task → general agent (Claude/GPT)
-        - verification → review agent
-        - human_checkpoint → human gate (no agent)
-        - implementation → code agent (Codex/Claude)
+        Assigns tasks to specialized agents based on step phase and type,
+        using Aragora's agent archetypes for heterogeneous model consensus.
         """
-        # Define available agent archetypes
+        # Agent pool with diverse model providers for adversarial vetting
         agents = [
             {
-                "id": "agent-analyst",
-                "name": "Analyst",
-                "type": "claude",
+                "id": "agent-researcher",
+                "name": "Researcher",
+                "type": "anthropic-api",
                 "capabilities": ["research", "analysis", "synthesis"],
+            },
+            {
+                "id": "agent-designer",
+                "name": "Designer",
+                "type": "openai-api",
+                "capabilities": ["design", "architecture", "planning"],
             },
             {
                 "id": "agent-implementer",
@@ -911,31 +1043,74 @@ class IdeaToExecutionPipeline:
                 "capabilities": ["code", "implementation", "debugging"],
             },
             {
+                "id": "agent-tester",
+                "name": "Tester",
+                "type": "anthropic-api",
+                "capabilities": ["testing", "verification", "validation"],
+            },
+            {
                 "id": "agent-reviewer",
                 "name": "Reviewer",
-                "type": "claude",
-                "capabilities": ["review", "verification", "testing"],
+                "type": "gemini",
+                "capabilities": ["review", "critique", "quality"],
+            },
+            {
+                "id": "agent-monitor",
+                "name": "Monitor",
+                "type": "mistral",
+                "capabilities": ["monitoring", "metrics", "observability"],
             },
         ]
 
+        # Map step phases to best-fit agent
+        phase_agent_map = {
+            "research": "agent-researcher",
+            "design": "agent-designer",
+            "implement": "agent-implementer",
+            "test": "agent-tester",
+            "verify": "agent-tester",
+            "review": "agent-reviewer",
+            "checkpoint": "",  # human gate
+            "define": "agent-researcher",
+            "validate": "agent-tester",
+            "assess": "agent-researcher",
+            "mitigate": "agent-implementer",
+            "instrument": "agent-implementer",
+            "baseline": "agent-tester",
+            "monitor": "agent-monitor",
+            "execute": "agent-implementer",
+        }
+
         tasks: list[dict[str, Any]] = []
+        used_agents: set[str] = set()
+
         for node_id, node in actions_canvas.nodes.items():
             step_type = node.data.get("step_type", "task")
+            phase = node.data.get("phase", "")
 
-            # Assign agent based on step type
-            if step_type in ("verification", "human_checkpoint"):
-                assigned = "agent-reviewer"
-                task_type = "verification"
-            elif step_type == "implementation":
+            # Determine assignment: prefer phase-based, fall back to step-type
+            if phase and phase in phase_agent_map:
+                assigned = phase_agent_map[phase]
+            elif step_type == "human_checkpoint":
+                assigned = ""
+            elif step_type == "verification":
+                assigned = "agent-tester"
+            elif step_type == "task":
                 assigned = "agent-implementer"
-                task_type = "agent_task"
             else:
-                assigned = "agent-analyst"
-                task_type = "agent_task"
+                assigned = "agent-researcher"
 
+            # Determine task type
             if step_type == "human_checkpoint":
                 task_type = "human_gate"
                 assigned = ""
+            elif step_type == "verification":
+                task_type = "verification"
+            else:
+                task_type = "agent_task"
+
+            if assigned:
+                used_agents.add(assigned)
 
             # Find dependencies from canvas edges
             deps = [
@@ -953,4 +1128,7 @@ class IdeaToExecutionPipeline:
                 "source_action_id": node_id,
             })
 
-        return {"agents": agents, "tasks": tasks}
+        # Only include agents that are actually assigned tasks
+        active_agents = [a for a in agents if a["id"] in used_agents]
+
+        return {"agents": active_agents, "tasks": tasks}

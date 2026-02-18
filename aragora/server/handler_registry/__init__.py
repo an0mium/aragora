@@ -364,16 +364,6 @@ class HandlerRegistryMixin:
                     break
 
         if route_match is None:
-            # Log diagnostic info for auth path misses to debug intermittent 404s
-            if "/auth/" in path:
-                logger.warning(
-                    "[route-miss] No handler for %s | candidates=%s | initialized=%s | routes=%d | auth=%s",
-                    path,
-                    candidate_paths,
-                    cls._handlers_initialized,
-                    len(route_index._exact_routes),
-                    type(getattr(self, "_auth_handler", None)).__name__,
-                )
             return False
 
         attr_name, handler = route_match

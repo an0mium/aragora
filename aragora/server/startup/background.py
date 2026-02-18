@@ -196,6 +196,61 @@ async def init_stuck_debate_watchdog() -> asyncio.Task | None:
         return None
 
 
+async def init_titans_memory_sweep() -> asyncio.Task | None:
+    """Start the Titans memory sweep loop as a background task.
+
+    The sweep controller periodically evaluates memory items using
+    RetentionGate (retain/forget/consolidate/demote) and fires
+    reactive triggers on memory events.
+
+    Environment:
+        ARAGORA_MEMORY_SWEEP_ENABLED: "true" to enable (default: "false")
+        ARAGORA_MEMORY_SWEEP_INTERVAL: Seconds between sweeps (default: 300)
+
+    Returns:
+        The sweep task if started, None otherwise
+    """
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "ARAGORA_TEST_ENABLE_BACKGROUND_TASKS"
+    ):
+        return None
+
+    if os.environ.get("ARAGORA_MEMORY_SWEEP_ENABLED", "false").lower() not in (
+        "true",
+        "1",
+        "yes",
+    ):
+        logger.debug("Titans memory sweep disabled (set ARAGORA_MEMORY_SWEEP_ENABLED=true)")
+        return None
+
+    try:
+        from aragora.memory.titans_controller import TitansMemoryController
+        from aragora.memory.triggers import MemoryTriggerEngine
+
+        interval = int(os.environ.get("ARAGORA_MEMORY_SWEEP_INTERVAL", "300"))
+        trigger_engine = MemoryTriggerEngine()
+        controller = TitansMemoryController(trigger_engine=trigger_engine)
+
+        task = asyncio.create_task(
+            controller.run_sweep_loop(interval_seconds=float(interval))
+        )
+        logger.info(
+            "Titans memory sweep started (interval=%ds, triggers=%d)",
+            interval,
+            len(trigger_engine.list_triggers()),
+        )
+        return task
+
+    except ImportError as e:
+        logger.debug("Titans memory sweep not available: %s", e)
+        return None
+    except (RuntimeError, OSError, ValueError) as e:
+        logger.warning("Failed to start Titans memory sweep: %s", e)
+        return None
+
+
 async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
     """Start Slack token refresh scheduler.
 

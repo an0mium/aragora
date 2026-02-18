@@ -573,6 +573,20 @@ Examples:
     # Resolve repo path (used by both pipeline and orchestration modes)
     resolved_repo = Path(args.repo).resolve() if args.repo else None
 
+    # Ingest repo knowledge when --repo is provided
+    if resolved_repo and not args.dry_run:
+        try:
+            from aragora.memory.codebase_builder import CodebaseKnowledgeBuilder
+            from aragora.memory.fabric import MemoryFabric
+
+            fabric = MemoryFabric()
+            builder = CodebaseKnowledgeBuilder(fabric=fabric, repo_path=resolved_repo)
+            ingested = asyncio.run(builder.ingest_structure())
+            imports = asyncio.run(builder.ingest_imports())
+            print(f"[repo] Ingested {ingested} structure entries, {imports} import relationships")
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            logger.debug("Codebase knowledge ingestion skipped: %s", e)
+
     # Self-improve mode: unified pipeline with Claude Code dispatch
     if args.self_improve:
         try:

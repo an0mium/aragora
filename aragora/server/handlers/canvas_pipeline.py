@@ -6,8 +6,13 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 - POST /api/v1/canvas/pipeline/from-debate    → Full pipeline from debate
 - POST /api/v1/canvas/pipeline/from-ideas     → Full pipeline from raw ideas
 - POST /api/v1/canvas/pipeline/advance        → Advance to next stage
+- POST /api/v1/canvas/pipeline/run            → Start async pipeline
 - GET  /api/v1/canvas/pipeline/{id}           → Get pipeline result
+- GET  /api/v1/canvas/pipeline/{id}/status    → Per-stage status
 - GET  /api/v1/canvas/pipeline/{id}/stage/{s} → Get specific stage canvas
+- GET  /api/v1/canvas/pipeline/{id}/graph     → React Flow JSON for any stage
+- GET  /api/v1/canvas/pipeline/{id}/receipt   → DecisionReceipt
+- POST /api/v1/canvas/pipeline/extract-goals  → Extract goals from ideas canvas
 - POST /api/v1/canvas/convert/debate          → Convert debate to ideas canvas
 - POST /api/v1/canvas/convert/workflow        → Convert workflow to actions canvas
 """
@@ -15,10 +20,19 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Path patterns for route dispatch
+_PIPELINE_ID = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)$")
+_PIPELINE_STATUS = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/status$")
+_PIPELINE_STAGE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/stage/(\w+)$")
+_PIPELINE_GRAPH = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/graph$")
+_PIPELINE_RECEIPT = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/receipt$")
 
 # In-memory pipeline result store (production would use persistence)
 _pipeline_results: dict[str, Any] = {}
@@ -43,6 +57,7 @@ class CanvasPipelineHandler:
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
         "GET /api/v1/canvas/pipeline/{id}/graph",
         "GET /api/v1/canvas/pipeline/{id}/receipt",
+        "POST /api/v1/canvas/pipeline/extract-goals",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
     ]
@@ -53,6 +68,75 @@ class CanvasPipelineHandler:
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/canvas/") or path.startswith("/api/canvas/")
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
+        """Dispatch GET requests to the appropriate handler method."""
+        from aragora.server.handlers.utils.responses import json_response, error_response
+
+        body = self._get_request_body(handler)
+
+        # GET /api/v1/canvas/pipeline/{id}/status
+        m = _PIPELINE_STATUS.match(path)
+        if m:
+            result = self.handle_status(m.group(1))
+            if asyncio.iscoroutine(result):
+                return result
+            return json_response(result)
+
+        # GET /api/v1/canvas/pipeline/{id}/graph
+        m = _PIPELINE_GRAPH.match(path)
+        if m:
+            return self.handle_graph(m.group(1), query_params)
+
+        # GET /api/v1/canvas/pipeline/{id}/receipt
+        m = _PIPELINE_RECEIPT.match(path)
+        if m:
+            return self.handle_receipt(m.group(1))
+
+        # GET /api/v1/canvas/pipeline/{id}/stage/{stage}
+        m = _PIPELINE_STAGE.match(path)
+        if m:
+            return self.handle_get_stage(m.group(1), m.group(2))
+
+        # GET /api/v1/canvas/pipeline/{id}
+        m = _PIPELINE_ID.match(path)
+        if m:
+            return self.handle_get_pipeline(m.group(1))
+
+        return None
+
+    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
+        """Dispatch POST requests to the appropriate handler method."""
+        body = self._get_request_body(handler)
+
+        if path.endswith("/from-debate"):
+            return self.handle_from_debate(body)
+        elif path.endswith("/from-ideas"):
+            return self.handle_from_ideas(body)
+        elif path.endswith("/pipeline/advance"):
+            return self.handle_advance(body)
+        elif path.endswith("/pipeline/run"):
+            return self.handle_run(body)
+        elif path.endswith("/pipeline/extract-goals"):
+            return self.handle_extract_goals(body)
+        elif path.endswith("/convert/debate"):
+            return self.handle_convert_debate(body)
+        elif path.endswith("/convert/workflow"):
+            return self.handle_convert_workflow(body)
+
+        return None
+
+    @staticmethod
+    def _get_request_body(handler: Any) -> dict[str, Any]:
+        """Extract JSON body from the request handler."""
+        try:
+            if hasattr(handler, "request") and hasattr(handler.request, "body"):
+                raw = handler.request.body
+                if raw:
+                    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            pass
+        return {}
 
     async def handle_from_debate(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/canvas/pipeline/from-debate
@@ -451,3 +535,72 @@ class CanvasPipelineHandler:
             return {"pipeline_id": pipeline_id, "receipt": result["receipt"]}
 
         return {"error": f"No receipt available for pipeline {pipeline_id}"}
+
+    async def handle_extract_goals(
+        self, request_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """POST /api/v1/canvas/pipeline/extract-goals
+
+        Extract goals from an ideas canvas using GoalExtractor.
+
+        Body:
+            ideas_canvas_id: str — ID of the ideas canvas to extract from
+            ideas_canvas_data: dict (optional) — Raw canvas data (if not using store)
+            config: dict (optional) — GoalExtractionConfig overrides
+        """
+        try:
+            from aragora.goals.extractor import GoalExtractor, GoalExtractionConfig
+
+            canvas_data = request_data.get("ideas_canvas_data")
+            canvas_id = request_data.get("ideas_canvas_id", "")
+
+            # If no raw data provided, try loading from store
+            if not canvas_data and canvas_id:
+                try:
+                    from aragora.canvas.idea_store import get_idea_canvas_store
+                    from aragora.canvas import get_canvas_manager
+
+                    manager = get_canvas_manager()
+                    canvas = await manager.get_canvas(canvas_id)
+                    if canvas:
+                        canvas_data = {
+                            "nodes": [n.to_dict() for n in canvas.nodes.values()],
+                            "edges": [e.to_dict() for e in canvas.edges.values()],
+                        }
+                except (ImportError, RuntimeError, OSError) as e:
+                    logger.debug("Could not load canvas from store: %s", e)
+
+            if not canvas_data:
+                return {"error": "Missing ideas_canvas_data or valid ideas_canvas_id"}
+
+            # Build extraction config from request
+            config_data = request_data.get("config", {})
+            config = GoalExtractionConfig(
+                confidence_threshold=float(config_data.get("confidence_threshold", 0.6)),
+                max_goals=int(config_data.get("max_goals", 10)),
+                require_consensus=bool(config_data.get("require_consensus", True)),
+                smart_scoring=bool(config_data.get("smart_scoring", True)),
+            )
+
+            extractor = GoalExtractor()
+            goal_graph = extractor.extract_from_ideas(canvas_data)
+
+            # Filter by confidence threshold
+            if config.confidence_threshold > 0:
+                goal_graph.goals = [
+                    g for g in goal_graph.goals
+                    if g.confidence >= config.confidence_threshold
+                ]
+
+            # Limit to max_goals
+            if config.max_goals and len(goal_graph.goals) > config.max_goals:
+                goal_graph.goals = goal_graph.goals[:config.max_goals]
+
+            result = goal_graph.to_dict()
+            result["source_canvas_id"] = canvas_id
+            result["goals_count"] = len(goal_graph.goals)
+
+            return result
+        except (ImportError, ValueError, TypeError) as e:
+            logger.warning("Goal extraction failed: %s", e)
+            return {"error": "Goal extraction failed"}

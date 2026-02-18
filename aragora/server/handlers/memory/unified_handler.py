@@ -90,7 +90,7 @@ class UnifiedMemoryHandler(SecureHandler):
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
             logger.warning("Unified memory search failed: %s", e)
             return {
-                "error": str(e),
+                "error": "Unified memory search failed",
                 "results": [],
             }
 

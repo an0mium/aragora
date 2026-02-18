@@ -164,6 +164,7 @@ class AragoraClient:
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
+        from .namespaces.pipeline import PipelineAPI
         from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
         from .namespaces.code_review import CodeReviewAPI
@@ -201,6 +202,7 @@ class AragoraClient:
         from .namespaces.health import HealthAPI
         from .namespaces.hybrid_debates import HybridDebatesAPI
         from .namespaces.inbox_command import InboxCommandAPI
+        from .namespaces.ideas import IdeasAPI
         from .namespaces.index import IndexAPI
         from .namespaces.insights import InsightsAPI
         from .namespaces.integrations import IntegrationsAPI
@@ -293,6 +295,7 @@ class AragoraClient:
         self.calibration = CalibrationAPI(self)
         self.canvas = CanvasAPI(self)
         self.chat = ChatAPI(self)
+        self.pipeline = PipelineAPI(self)
         self.checkpoints = CheckpointsAPI(self)
         self.classify = ClassifyAPI(self)
         self.code_review = CodeReviewAPI(self)
@@ -330,6 +333,7 @@ class AragoraClient:
         self.health = HealthAPI(self)
         self.hybrid_debates = HybridDebatesAPI(self)
         self.inbox_command = InboxCommandAPI(self)
+        self.ideas = IdeasAPI(self)
         self.index = IndexAPI(self)
         self.integrations = IntegrationsAPI(self)
         self.insights = InsightsAPI(self)
@@ -698,6 +702,7 @@ class AragoraAsyncClient:
         from .namespaces.calibration import AsyncCalibrationAPI
         from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
+        from .namespaces.pipeline import AsyncPipelineAPI
         from .namespaces.checkpoints import AsyncCheckpointsAPI
         from .namespaces.classify import AsyncClassifyAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
@@ -735,6 +740,7 @@ class AragoraAsyncClient:
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
         from .namespaces.inbox_command import AsyncInboxCommandAPI
+        from .namespaces.ideas import AsyncIdeasAPI
         from .namespaces.index import AsyncIndexAPI
         from .namespaces.insights import AsyncInsightsAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
@@ -827,6 +833,7 @@ class AragoraAsyncClient:
         self.calibration = AsyncCalibrationAPI(self)
         self.canvas = AsyncCanvasAPI(self)
         self.chat = AsyncChatAPI(self)
+        self.pipeline = AsyncPipelineAPI(self)
         self.checkpoints = AsyncCheckpointsAPI(self)
         self.classify = AsyncClassifyAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)
@@ -864,6 +871,7 @@ class AragoraAsyncClient:
         self.health = AsyncHealthAPI(self)
         self.hybrid_debates = AsyncHybridDebatesAPI(self)
         self.inbox_command = AsyncInboxCommandAPI(self)
+        self.ideas = AsyncIdeasAPI(self)
         self.index = AsyncIndexAPI(self)
         self.integrations = AsyncIntegrationsAPI(self)
         self.insights = AsyncInsightsAPI(self)

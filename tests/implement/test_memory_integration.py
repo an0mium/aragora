@@ -94,21 +94,22 @@ class TestMemoryContextInPrompt:
         assert "No historical context available" in result
 
     @pytest.mark.asyncio
-    async def test_fetch_memory_context_empty_results(self, executor):
-        """Returns message when gateway returns no results."""
+    async def test_fetch_memory_context_empty_results_falls_through(self, executor, tmp_path):
+        """Empty gateway results fall through to CLAUDE.md fallback."""
         gw = AsyncMock()
         response = MagicMock()
         response.results = []
         gw.query.return_value = response
         executor._memory_gateway = gw
 
+        # No CLAUDE.md in tmp_path → falls to final placeholder
         result = await executor._fetch_memory_context("obscure query")
 
-        assert "No relevant historical context found" in result
+        assert "No historical context available" in result
 
     @pytest.mark.asyncio
     async def test_fetch_memory_context_timeout(self, executor):
-        """Gateway timeout doesn't crash the executor."""
+        """Gateway timeout doesn't crash the executor, falls through to fallback."""
 
         async def slow_query(*args, **kwargs):
             await asyncio.sleep(100)
@@ -119,15 +120,47 @@ class TestMemoryContextInPrompt:
 
         result = await executor._fetch_memory_context("query")
 
-        assert "No historical context available" in result
+        # Falls through to CLAUDE.md fallback or placeholder
+        assert result is not None
+        assert len(result) > 0
 
     @pytest.mark.asyncio
-    async def test_fetch_memory_context_exception(self, executor):
-        """Gateway exceptions are caught gracefully."""
+    async def test_fetch_memory_context_exception_falls_back_to_claude_md(self, executor, tmp_path):
+        """Gateway exceptions fall back to CLAUDE.md patterns."""
         gw = AsyncMock()
         gw.query.side_effect = RuntimeError("Connection refused")
         executor._memory_gateway = gw
 
+        # Create a CLAUDE.md with patterns
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("# Guide\n## Common Patterns\n### Running a Debate\nUse Arena class\n## Other\n")
+
+        result = await executor._fetch_memory_context("query")
+
+        assert "CLAUDE.md patterns" in result
+        assert "Running a Debate" in result
+
+    @pytest.mark.asyncio
+    async def test_fetch_memory_no_gateway_no_claude_md(self, executor, tmp_path):
+        """No gateway and no CLAUDE.md returns placeholder."""
+        executor._memory_gateway = None
+        # tmp_path has no CLAUDE.md — repo_path is tmp_path
+
         result = await executor._fetch_memory_context("query")
 
         assert "No historical context available" in result
+
+    @pytest.mark.asyncio
+    async def test_claude_md_fallback_extracts_patterns(self, executor, tmp_path):
+        """CLAUDE.md fallback extracts Common Patterns section."""
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text(
+            "# Project\n## Quick Ref\nSome table\n## Common Patterns\n"
+            "### Memory Tiers\n| Fast | 1 min |\n## Commands\nbash stuff\n"
+        )
+
+        result = executor._read_claude_md_fallback()
+
+        assert "Common Patterns" in result
+        assert "Memory Tiers" in result
+        assert "Commands" not in result
