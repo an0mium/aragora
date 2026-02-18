@@ -182,9 +182,9 @@ class TestHandle:
 
     @pytest.mark.asyncio
     async def test_handle_requires_authentication(self):
-        """Should return 401 when not authenticated."""
+        """Should return 401 when not authenticated on POST."""
         handler = create_handler()
-        mock_http = MockHandler()
+        mock_http = MockHandler(command="POST")
 
         from aragora.server.handlers.secure import UnauthorizedError
 
@@ -200,10 +200,10 @@ class TestHandle:
         assert "Authentication required" in body.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_handle_requires_moments_read_permission(self):
-        """Should return 403 when user lacks moments:read permission."""
+    async def test_handle_requires_moments_write_permission(self):
+        """Should return 403 when user lacks moments:write permission on POST."""
         handler = create_handler()
-        mock_http = MockHandler()
+        mock_http = MockHandler(command="POST")
         mock_auth = MockAuthContext(permissions=set())
 
         with patch.object(handler, "get_auth_context", return_value=mock_auth):
