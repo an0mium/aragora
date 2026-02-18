@@ -58,7 +58,7 @@ from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as Bu
 
 
 # Global circuit breaker instance for the budget manager
-_circuit_breaker = BudgetCircuitBreaker()
+_circuit_breaker = BudgetCircuitBreaker(name="budget", half_open_max_calls=2)
 _circuit_breaker_lock = threading.Lock()
 
 

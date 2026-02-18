@@ -806,8 +806,8 @@ Follow existing code style and tests.""",
 
         Retry strategy:
         1. First attempt with Claude (primary)
-        2. If timeout, retry with Claude + 2x timeout
-        3. If still fails, try Codex as fallback with 2x timeout
+        2. If retryable error, retry with error analysis hint
+        3. If timeout, try Codex as fallback with 2x timeout
 
         Returns:
             Best TaskResult from attempts
@@ -819,20 +819,36 @@ Follow existing code style and tests.""",
                 return await self._review_and_revise(task, result)
             return result
 
-        # Check if it was a timeout (worth retrying) vs other error
-        is_timeout = result.error and "timeout" in result.error.lower()
+        # Analyze the failure for structured retry enrichment
+        from aragora.implement.error_analyzer import ErrorAnalyzer
 
-        if is_timeout and self.max_retries >= 2:
-            # Attempt 2: Claude with 2x timeout
-            logger.info(f"    Retrying {task.id} with extended timeout...")
-            result = await self.execute_task(task, attempt=2, use_fallback=False)
+        analyzer = ErrorAnalyzer()
+        analysis = analyzer.analyze(
+            result.error or "", getattr(result, "stderr", "")
+        )
+
+        # Non-retryable errors: return immediately
+        if not analysis.retryable:
+            return result
+
+        is_timeout = analysis.category == "timeout"
+        retry_hint = analyzer.build_retry_hint(analysis, task.description)
+
+        if self.max_retries >= 2:
+            # Attempt 2: retry with error context injected as feedback
+            logger.info(
+                f"    Retrying {task.id} ({analysis.category} error)..."
+            )
+            result = await self.execute_task(
+                task, attempt=2, use_fallback=False, feedback=retry_hint,
+            )
             if result.success:
                 if self._should_review():
                     return await self._review_and_revise(task, result)
                 return result
 
         if is_timeout and self.max_retries >= 3:
-            # Attempt 3: Fallback to Codex
+            # Attempt 3: Fallback to Codex on timeout
             logger.info(f"    Falling back to Codex for {task.id}...")
             result = await self.execute_task(task, attempt=3, use_fallback=True)
 

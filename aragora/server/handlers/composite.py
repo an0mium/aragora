@@ -61,7 +61,7 @@ def _get_circuit_breaker(subsystem: str) -> CompositeCircuitBreaker:
     """Get or create a circuit breaker for a subsystem."""
     with _circuit_breaker_lock:
         if subsystem not in _circuit_breakers:
-            _circuit_breakers[subsystem] = CompositeCircuitBreaker()
+            _circuit_breakers[subsystem] = CompositeCircuitBreaker(name=subsystem, failure_threshold=3, half_open_max_calls=2)
         return _circuit_breakers[subsystem]
 
 
