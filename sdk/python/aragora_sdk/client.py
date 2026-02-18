@@ -166,6 +166,7 @@ class AragoraClient:
         from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
         from .namespaces.pipeline import PipelineAPI
+        from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
         from .namespaces.code_review import CodeReviewAPI
@@ -302,6 +303,7 @@ class AragoraClient:
         self.canvas = CanvasAPI(self)
         self.chat = ChatAPI(self)
         self.pipeline = PipelineAPI(self)
+        self.pipeline_transitions = PipelineTransitionsAPI(self)
         self.checkpoints = CheckpointsAPI(self)
         self.classify = ClassifyAPI(self)
         self.code_review = CodeReviewAPI(self)
@@ -714,6 +716,7 @@ class AragoraAsyncClient:
         from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
         from .namespaces.pipeline import AsyncPipelineAPI
+        from .namespaces.pipeline_transitions import AsyncPipelineTransitionsAPI
         from .namespaces.checkpoints import AsyncCheckpointsAPI
         from .namespaces.classify import AsyncClassifyAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
@@ -850,6 +853,7 @@ class AragoraAsyncClient:
         self.canvas = AsyncCanvasAPI(self)
         self.chat = AsyncChatAPI(self)
         self.pipeline = AsyncPipelineAPI(self)
+        self.pipeline_transitions = AsyncPipelineTransitionsAPI(self)
         self.checkpoints = AsyncCheckpointsAPI(self)
         self.classify = AsyncClassifyAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)

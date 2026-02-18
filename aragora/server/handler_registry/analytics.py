@@ -100,6 +100,11 @@ UniversalGraphHandler = _safe_import(
     "aragora.server.handlers.pipeline.universal_graph", "UniversalGraphHandler"
 )
 
+# Pipeline Stage Transitions
+PipelineTransitionsHandler = _safe_import(
+    "aragora.server.handlers.pipeline.transitions", "PipelineTransitionsHandler"
+)
+
 # Outcome Tracking
 OutcomeHandler = _safe_import(
     "aragora.server.handlers.governance.outcomes", "OutcomeHandler"
@@ -146,6 +151,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_orchestration_canvas_handler", OrchestrationCanvasHandler),
     # Universal graph pipeline
     ("_universal_graph_handler", UniversalGraphHandler),
+    # Pipeline stage transitions
+    ("_pipeline_transitions_handler", PipelineTransitionsHandler),
     # Outcome tracking
     ("_outcome_handler", OutcomeHandler),
     # Decision benchmarking
@@ -180,6 +187,7 @@ __all__ = [
     "ActionCanvasHandler",
     "OrchestrationCanvasHandler",
     "UniversalGraphHandler",
+    "PipelineTransitionsHandler",
     # Outcome tracking
     "OutcomeHandler",
     # Decision benchmarking
