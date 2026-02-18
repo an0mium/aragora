@@ -186,7 +186,7 @@ class WorkspaceSettingsMixin:
         workspace_id = query_params.get("workspace_id")
         action_str = query_params.get("action")
         outcome_str = query_params.get("outcome")
-        limit = int(query_params.get("limit", "100"))
+        limit = max(1, min(int(query_params.get("limit", "100")), 1000))
 
         action = m.AuditAction(action_str) if action_str else None
         outcome = m.AuditOutcome(outcome_str) if outcome_str else None

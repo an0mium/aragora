@@ -281,8 +281,8 @@ async def handle_get_activity(
         type: str (optional) - Filter by activity type
     """
     try:
-        limit = min(int(data.get("limit", 20)), 100)
-        offset = int(data.get("offset", 0))
+        limit = max(1, min(int(data.get("limit", 20)), 100))
+        offset = max(0, int(data.get("offset", 0)))
         activity_type = data.get("type")
 
         now = datetime.now(timezone.utc)

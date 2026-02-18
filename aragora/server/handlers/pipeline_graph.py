@@ -254,7 +254,7 @@ class PipelineGraphHandler:
             store = _get_store()
             owner_id = query_params.get("owner_id")
             workspace_id = query_params.get("workspace_id")
-            limit = int(query_params.get("limit", 50))
+            limit = max(1, min(int(query_params.get("limit", 50)), 500))
 
             graphs = store.list(
                 owner_id=owner_id,

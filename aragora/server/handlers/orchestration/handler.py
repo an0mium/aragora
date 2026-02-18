@@ -364,11 +364,11 @@ class OrchestrationHandler(SecureHandler):
         tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
 
         try:
-            limit = int(query_params.get("limit", 50))
+            limit = max(1, min(int(query_params.get("limit", 50)), 500))
         except (ValueError, TypeError):
             limit = 50
         try:
-            offset = int(query_params.get("offset", 0))
+            offset = max(0, int(query_params.get("offset", 0)))
         except (ValueError, TypeError):
             offset = 0
 

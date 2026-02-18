@@ -209,8 +209,8 @@ async def handle_list_invoices(
         if data.get("end_date"):
             end_date = datetime.fromisoformat(data["end_date"])
 
-        limit = int(data.get("limit", 100))
-        offset = int(data.get("offset", 0))
+        limit = max(1, min(int(data.get("limit", 100)), 1000))
+        offset = max(0, int(data.get("offset", 0)))
 
         async with _ar_circuit_breaker.protected_call():
             invoices = await ar.list_invoices(

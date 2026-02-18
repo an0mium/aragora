@@ -336,8 +336,8 @@ async def handle_get_review_history(
     }
     """
     try:
-        limit = int(data.get("limit", 50))
-        offset = int(data.get("offset", 0))
+        limit = max(1, min(int(data.get("limit", 50)), 500))
+        offset = max(0, int(data.get("offset", 0)))
 
         with _review_results_lock:
             # Sort by stored_at descending

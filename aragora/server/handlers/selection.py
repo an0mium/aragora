@@ -419,8 +419,8 @@ class SelectionHandler(BaseHandler):
     @handle_errors("get selection history")
     def _get_history(self, query_params: dict) -> HandlerResult:
         """Get agent selection history."""
-        limit = int(query_params.get("limit", 20))
-        offset = int(query_params.get("offset", 0))
+        limit = max(1, min(int(query_params.get("limit", 20)), 500))
+        offset = max(0, int(query_params.get("offset", 0)))
 
         team_builder = get_team_builder()
         # Get all history then apply offset/limit for pagination

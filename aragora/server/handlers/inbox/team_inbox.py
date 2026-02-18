@@ -766,8 +766,8 @@ async def handle_get_activity_feed(
         if not inbox_id:
             return error_response("inbox_id is required", status=400)
 
-        limit = min(int(data.get("limit", 50)), 200)
-        offset = int(data.get("offset", 0))
+        limit = max(1, min(int(data.get("limit", 50)), 200))
+        offset = max(0, int(data.get("offset", 0)))
 
         # In production, this would fetch from a persistent activity log
         # For now, return empty as activities are streamed via WebSocket

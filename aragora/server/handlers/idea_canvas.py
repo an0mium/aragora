@@ -233,8 +233,8 @@ class IdeaCanvasHandler(SecureHandler):
             canvases = store.list_canvases(
                 workspace_id=query_params.get("workspace_id") or workspace_id,
                 owner_id=query_params.get("owner_id") or user_id,
-                limit=int(query_params.get("limit", 100)),
-                offset=int(query_params.get("offset", 0)),
+                limit=max(1, min(int(query_params.get("limit", 100)), 1000)),
+                offset=max(0, int(query_params.get("offset", 0))),
             )
             return json_response({"canvases": canvases, "count": len(canvases)})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
