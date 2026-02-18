@@ -399,10 +399,8 @@ class WorkspaceHandler(
             logger.debug(f"Permission cache hit: {cache_key}")
             allowed, reason = cached_decision
             if not allowed:
-                return error_response(
-                    f"Permission denied: {reason}",
-                    403,
-                )
+                logger.warning("Permission denied: %s", reason)
+                return error_response("Permission denied", 403)
             return None
 
         decision = check_permission(rbac_ctx, permission_key)
@@ -462,6 +460,7 @@ class WorkspaceHandler(
 
         return None
 
+    @handle_errors("workspace creation")
     @require_permission("workspace:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
@@ -469,6 +468,7 @@ class WorkspaceHandler(
         """Route POST requests."""
         return self.handle(path, query_params, handler, method="POST")
 
+    @handle_errors("workspace deletion")
     @require_permission("workspace:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
@@ -476,6 +476,7 @@ class WorkspaceHandler(
         """Route DELETE requests."""
         return self.handle(path, query_params, handler, method="DELETE")
 
+    @handle_errors("workspace update")
     @require_permission("workspace:write")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler

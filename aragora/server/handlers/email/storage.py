@@ -52,7 +52,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
         if permission_key in {"email:write", "email:update", "email:oauth"}:
             return {
                 "success": False,
-                "error": "Permission denied: RBAC unavailable",
+                "error": "Permission denied",
             }
         return None  # Read-only paths degrade gracefully in dev/test
 
@@ -60,7 +60,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> di
         if permission_key in {"email:write", "email:update", "email:oauth"}:
             return {
                 "success": False,
-                "error": "Permission denied: RBAC unavailable",
+                "error": "Permission denied",
             }
         return None
 

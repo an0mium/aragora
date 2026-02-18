@@ -577,7 +577,7 @@ class OAuthPermissionHelper:
             from aragora.server.handlers.base import json_response
 
             return json_response(
-                {"error": "forbidden", "message": f"Permission denied: {permission}"},
+                {"error": "forbidden", "message": "Permission denied"},
                 status=403,
             )
         except ImportError:

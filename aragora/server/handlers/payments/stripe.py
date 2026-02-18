@@ -72,12 +72,8 @@ def _enforce_permission_if_context(
         checker = rbac_decorators.get_permission_checker()
         decision = checker.check_permission(context, permission_key, resource_id)
         if not decision.allowed:
-            reason = decision.reason or f"Permission denied: {permission_key}"
-            if permission_key not in reason:
-                dotted = permission_key.replace(":", ".")
-                if dotted in reason:
-                    reason = reason.replace(dotted, permission_key)
-            raise PermissionDeniedError(reason, decision)
+            logger.warning("Permission denied: %s", permission_key)
+            raise PermissionDeniedError("Permission denied", decision)
 
 
 # =============================================================================
