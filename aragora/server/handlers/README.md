@@ -227,7 +227,8 @@ def handle_request(self, handler, query_params) -> HandlerResult:
         result = some_operation()
         return self.json_response(result)
     except ValueError as e:
-        return self.error_response(str(e), status=400)
+        logger.warning("Validation error: %s", e)
+        return self.error_response("Invalid request parameters", status=400)
     except PermissionError:
         return self.error_response("Forbidden", status=403)
     except Exception:

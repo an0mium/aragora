@@ -34,6 +34,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.auth.sso import SSOAuthenticationError
 from aragora.server.handlers.sso import SSOHandler
 
 
@@ -938,7 +939,10 @@ class TestSSOHandleCallback:
         mock_http = MockHTTPHandler()
         mock_provider = MockSSOProvider()
         mock_provider.authenticate = AsyncMock(
-            side_effect=ValueError("DOMAIN_NOT_ALLOWED: test.com")
+            side_effect=SSOAuthenticationError(
+                "Email domain not allowed: test.com",
+                {"code": "DOMAIN_NOT_ALLOWED"},
+            )
         )
 
         with patch.object(handler, "_get_provider", return_value=mock_provider):
@@ -958,7 +962,12 @@ class TestSSOHandleCallback:
         handler = SSOHandler()
         mock_http = MockHTTPHandler()
         mock_provider = MockSSOProvider()
-        mock_provider.authenticate = AsyncMock(side_effect=ValueError("INVALID_STATE"))
+        mock_provider.authenticate = AsyncMock(
+            side_effect=SSOAuthenticationError(
+                "Invalid or expired state parameter",
+                {"code": "INVALID_STATE"},
+            )
+        )
 
         with patch.object(handler, "_get_provider", return_value=mock_provider):
             result = await handler.handle_callback(mock_http, {"code": "auth_code"})

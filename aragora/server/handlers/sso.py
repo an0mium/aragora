@@ -22,6 +22,7 @@ import os
 from typing import Any
 from urllib.parse import urlparse
 
+from aragora.auth.sso import SSOAuthenticationError
 from aragora.exceptions import ConfigurationError
 
 from .base import HandlerResult, error_response, json_response, safe_error_message
@@ -501,10 +502,10 @@ class SSOHandler(SecureHandler):
                 handler,
                 error_response(safe_error_message(e, "SSO callback"), 503, code="SSO_CONFIG_ERROR"),
             )
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Invalid SSO callback data: {e}")
-            error_detail = str(e)
-            if "DOMAIN_NOT_ALLOWED" in error_detail:
+        except SSOAuthenticationError as e:
+            error_code = (e.details or {}).get("code", "")
+            logger.warning("SSO authentication error (code=%s): %s", error_code, e)
+            if error_code == "DOMAIN_NOT_ALLOWED":
                 return self._format_response(
                     handler,
                     error_response(
@@ -514,7 +515,7 @@ class SSOHandler(SecureHandler):
                         suggestion="Contact your administrator to add your domain",
                     ),
                 )
-            if "INVALID_STATE" in error_detail:
+            if error_code == "INVALID_STATE":
                 return self._format_response(
                     handler,
                     error_response(
@@ -527,35 +528,19 @@ class SSOHandler(SecureHandler):
             return self._format_response(
                 handler,
                 error_response(
+                    "Authentication failed", 401, code="SSO_AUTH_FAILED"
+                ),
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning("Invalid SSO callback data: %s", e)
+            return self._format_response(
+                handler,
+                error_response(
                     safe_error_message(e, "authentication"), 400, code="SSO_INVALID_DATA"
                 ),
             )
-        except (ConnectionError, TimeoutError, OSError, RuntimeError, ImportError, AttributeError) as e:  # broad catch: last-resort handler
-            logger.exception(f"Unexpected SSO callback error: {e}")
-
-            # Handle specific errors
-            error_detail = str(e)
-            if "DOMAIN_NOT_ALLOWED" in error_detail:
-                return self._format_response(
-                    handler,
-                    error_response(
-                        "Domain not allowed for SSO login",
-                        403,
-                        code="SSO_DOMAIN_NOT_ALLOWED",
-                        suggestion="Contact your administrator to add your domain",
-                    ),
-                )
-            elif "INVALID_STATE" in error_detail:
-                return self._format_response(
-                    handler,
-                    error_response(
-                        "Session expired. Please try logging in again.",
-                        401,
-                        code="SSO_SESSION_EXPIRED",
-                        suggestion="Click the login button to start a new session",
-                    ),
-                )
-
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ImportError, AttributeError) as e:
+            logger.exception("Unexpected SSO callback error: %s", e)
             return self._format_response(
                 handler,
                 error_response(
