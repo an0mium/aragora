@@ -88,6 +88,7 @@ export { useWorkflowBuilder } from './useWorkflowBuilder';
 export { useWorkflowExecution } from './useWorkflowExecution';
 export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 export { usePipeline } from './usePipeline';
+export { usePipelineCanvas } from './usePipelineCanvas';
 export { usePipelineWebSocket } from './usePipelineWebSocket';
 
 // =============================================================================

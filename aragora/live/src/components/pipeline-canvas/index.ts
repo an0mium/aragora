@@ -1,5 +1,7 @@
 export { PipelineCanvas } from './PipelineCanvas';
 export { PipelineToolbar } from './PipelineToolbar';
+export { PipelinePalette } from './PipelinePalette';
+export { PipelinePropertyEditor } from './editors/PipelinePropertyEditor';
 export { StageNavigator } from './StageNavigator';
 export { IdeaNode, GoalNode, ActionNode, OrchestrationNode } from './nodes';
 export type {

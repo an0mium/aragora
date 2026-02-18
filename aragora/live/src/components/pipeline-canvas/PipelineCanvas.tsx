@@ -1,17 +1,16 @@
 'use client';
 
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
   Background,
   MiniMap,
-  useNodesState,
-  useEdgesState,
   useReactFlow,
   ReactFlowProvider,
   type NodeTypes,
   type Node,
+  type Edge,
   Panel,
   BackgroundVariant,
 } from '@xyflow/react';
@@ -19,12 +18,19 @@ import '@xyflow/react/dist/style.css';
 
 import { IdeaNode, GoalNode, ActionNode, OrchestrationNode } from './nodes';
 import { StageNavigator } from './StageNavigator';
+import { PipelinePalette } from './PipelinePalette';
+import { PipelineToolbar } from './PipelineToolbar';
+import { PipelinePropertyEditor } from './editors/PipelinePropertyEditor';
 import {
   PIPELINE_STAGE_CONFIG,
   type PipelineStageType,
   type PipelineResultResponse,
-  type ReactFlowData,
 } from './types';
+import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
+
+// =============================================================================
+// Constants
+// =============================================================================
 
 const nodeTypes: NodeTypes = {
   ideaNode: IdeaNode,
@@ -43,6 +49,19 @@ const STAGE_KEYS: Record<string, ViewMode> = {
   a: 'all',
 };
 
+const ALL_STAGES: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+
+const STAGE_OFFSET_X: Record<string, number> = {
+  ideas: 0,
+  goals: 600,
+  actions: 1200,
+  orchestration: 1800,
+};
+
+// =============================================================================
+// Props
+// =============================================================================
+
 interface PipelineCanvasProps {
   pipelineId?: string;
   initialData?: PipelineResultResponse;
@@ -52,91 +71,9 @@ interface PipelineCanvasProps {
   readOnly?: boolean;
 }
 
-/** Convert goals structured data into ReactFlow nodes/edges for stage 2 */
-function goalsToReactFlow(goalsData: Record<string, unknown> | null): ReactFlowData | null {
-  if (!goalsData) return null;
-  const goals = (goalsData.goals || []) as Array<Record<string, unknown>>;
-  if (goals.length === 0) return null;
-
-  const nodes = goals.map((goal, i) => ({
-    id: goal.id as string || `goal-${i}`,
-    type: 'goalNode',
-    position: { x: (i % 3) * 300, y: Math.floor(i / 3) * 180 },
-    data: {
-      label: goal.title as string || 'Untitled',
-      goalType: goal.type as string || 'goal',
-      goal_type: goal.type as string || 'goal',
-      description: goal.description as string || '',
-      priority: goal.priority as string || 'medium',
-      confidence: goal.confidence as number | undefined,
-      stage: 'goals',
-      rf_type: 'goalNode',
-    },
-  }));
-
-  const edges: ReactFlowData['edges'] = [];
-  goals.forEach((goal) => {
-    const deps = (goal.dependencies || []) as string[];
-    deps.forEach((depId) => {
-      edges.push({
-        id: `dep-${depId}-${goal.id}`,
-        source: depId,
-        target: goal.id as string,
-        type: 'smoothstep',
-        label: 'requires',
-        animated: true,
-      });
-    });
-  });
-
-  return { nodes, edges, metadata: { stage: 'goals', canvas_name: 'Goal Map' } };
-}
-
-/** Collect all nodes/edges across all stages for "All" view */
-function getAllStagesData(data: PipelineResultResponse): ReactFlowData {
-  const allNodes: ReactFlowData['nodes'] = [];
-  const allEdges: ReactFlowData['edges'] = [];
-
-  // Stage offsets for layout
-  const stageOffsetX: Record<string, number> = { ideas: 0, goals: 600, actions: 1200, orchestration: 1800 };
-
-  const addStage = (rfData: ReactFlowData | null, stage: string) => {
-    if (!rfData) return;
-    const offsetX = stageOffsetX[stage] || 0;
-    rfData.nodes.forEach((n) => {
-      allNodes.push({ ...n, position: { x: n.position.x + offsetX, y: n.position.y } });
-    });
-    allEdges.push(...rfData.edges);
-  };
-
-  addStage(data.ideas, 'ideas');
-  addStage(goalsToReactFlow(data.goals), 'goals');
-  addStage(data.actions, 'actions');
-  addStage(data.orchestration, 'orchestration');
-
-  return { nodes: allNodes, edges: allEdges, metadata: { stage: 'all' } };
-}
-
-function getStageData(
-  data: PipelineResultResponse | undefined,
-  view: ViewMode,
-): ReactFlowData | null {
-  if (!data) return null;
-  if (view === 'all') return getAllStagesData(data);
-
-  switch (view) {
-    case 'ideas':
-      return data.ideas;
-    case 'goals':
-      return goalsToReactFlow(data.goals);
-    case 'actions':
-      return data.actions;
-    case 'orchestration':
-      return data.orchestration;
-    default:
-      return null;
-  }
-}
+// =============================================================================
+// Inner component (inside ReactFlowProvider)
+// =============================================================================
 
 function PipelineCanvasInner({
   pipelineId,
@@ -146,32 +83,61 @@ function PipelineCanvasInner({
   onTransitionReject,
   readOnly = false,
 }: PipelineCanvasProps) {
-  const [activeView, setActiveView] = useState<ViewMode>('all');
-  const [data] = useState(initialData);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [showProvenance, setShowProvenance] = useState(false);
-  const { fitView } = useReactFlow();
+  // -- Hook: central state management -----------------------------------------
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    selectedNodeId,
+    setSelectedNodeId,
+    selectedNodeData,
+    updateSelectedNode,
+    deleteSelectedNode,
+    addNode,
+    activeStage,
+    setActiveStage,
+    stageStatus,
+    stageNodes,
+    stageEdges,
+    savePipeline,
+    aiGenerate,
+    clearStage,
+    loading,
+    error: _hookError,
+    onDragOver: _hookDragOver,
+  } = usePipelineCanvas(pipelineId ?? null, initialData);
 
-  const stageStatus = useMemo(
-    () =>
-      data?.stage_status ?? {
-        ideas: 'pending',
-        goals: 'pending',
-        actions: 'pending',
-        orchestration: 'pending',
-      },
-    [data],
+  const { fitView, screenToFlowPosition } = useReactFlow();
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+  // -- View mode: adds 'all' view on top of the hook's active stage -----------
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [showProvenance, setShowProvenance] = useState(false);
+
+  const isEditable = viewMode !== 'all' && !readOnly;
+
+  // -- Stage switching --------------------------------------------------------
+  const handleStageSelect = useCallback(
+    (stage: PipelineStageType) => {
+      setViewMode(stage);
+      setActiveStage(stage);
+      setSelectedNodeId(null);
+      setShowProvenance(false);
+    },
+    [setActiveStage, setSelectedNodeId],
   );
 
-  const stageData = useMemo(() => getStageData(data, activeView), [data, activeView]);
+  const handleViewAll = useCallback(() => {
+    setViewMode('all');
+    setSelectedNodeId(null);
+    setShowProvenance(false);
+  }, [setSelectedNodeId]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(stageData?.nodes ?? []);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(stageData?.edges ?? []);
-
-  // Keyboard shortcuts: 1-4 for stages, A for all
+  // -- Keyboard shortcuts: 1-4 for stages, A for all -------------------------
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
@@ -179,38 +145,87 @@ function PipelineCanvasInner({
       if (view) {
         e.preventDefault();
         if (view === 'all') {
-          setActiveView('all');
+          handleViewAll();
         } else {
-          setActiveView(view);
+          handleStageSelect(view);
         }
-        setSelectedNodeId(null);
-        setShowProvenance(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [handleStageSelect, handleViewAll]);
 
-  // Update nodes/edges when stage changes
+  // -- Combined "all stages" view from caches --------------------------------
+  const allStagesData = useMemo(() => {
+    if (viewMode !== 'all') return { nodes: [] as Node[], edges: [] as Edge[] };
+    const allNodes: Node[] = [];
+    const allEdges: Edge[] = [];
+    for (const stage of ALL_STAGES) {
+      const offsetX = STAGE_OFFSET_X[stage] || 0;
+      for (const n of stageNodes[stage]) {
+        allNodes.push({
+          ...n,
+          position: { x: n.position.x + offsetX, y: n.position.y },
+        });
+      }
+      allEdges.push(...stageEdges[stage]);
+    }
+    return { nodes: allNodes, edges: allEdges };
+  }, [viewMode, stageNodes, stageEdges]);
+
+  const displayNodes = viewMode === 'all' ? allStagesData.nodes : nodes;
+  const displayEdges = viewMode === 'all' ? allStagesData.edges : edges;
+
+  // -- Fit view on stage switch -----------------------------------------------
   useEffect(() => {
-    const sd = getStageData(data, activeView);
-    setNodes(sd?.nodes ?? []);
-    setEdges(sd?.edges ?? []);
-    // Fit view after stage switch
     setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [activeView, data, setNodes, setEdges, fitView]);
+  }, [viewMode, fitView]);
 
-  const handleStageSelect = useCallback((stage: PipelineStageType) => {
-    setActiveView(stage);
+  // -- Node click -------------------------------------------------------------
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+      if (readOnly || viewMode === 'all') {
+        setShowProvenance(true);
+      }
+    },
+    [setSelectedNodeId, readOnly, viewMode],
+  );
+
+  const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setShowProvenance(false);
+  }, [setSelectedNodeId]);
+
+  // -- DnD: zoom-aware drop coordinates ---------------------------------------
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const handleViewAll = useCallback(() => {
-    setActiveView('all');
-    setSelectedNodeId(null);
-  }, []);
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const raw = event.dataTransfer.getData('application/pipeline-node');
+      if (!raw) return;
 
+      let parsed: { stage: PipelineStageType; subtype: string };
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return;
+      }
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      addNode(parsed.stage, parsed.subtype, position);
+    },
+    [screenToFlowPosition, addNode],
+  );
+
+  // -- Toolbar handlers -------------------------------------------------------
   const handleAdvance = useCallback(
     (stage: PipelineStageType) => {
       if (pipelineId && onStageAdvance) {
@@ -220,16 +235,34 @@ function PipelineCanvasInner({
     [pipelineId, onStageAdvance],
   );
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
-    setShowProvenance(true);
-  }, []);
+  const handleToolbarAdvance = useCallback(() => {
+    const idx = ALL_STAGES.indexOf(activeStage);
+    if (idx >= 0 && idx < ALL_STAGES.length - 1) {
+      const next = ALL_STAGES[idx + 1];
+      handleAdvance(next);
+      handleStageSelect(next);
+    }
+  }, [activeStage, handleAdvance, handleStageSelect]);
 
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-    setShowProvenance(false);
-  }, []);
+  const handleAIGenerate = useCallback(() => {
+    aiGenerate(activeStage);
+  }, [aiGenerate, activeStage]);
 
+  const handleClear = useCallback(() => {
+    clearStage();
+  }, [clearStage]);
+
+  const handleSave = useCallback(() => {
+    savePipeline();
+  }, [savePipeline]);
+
+  // -- Can advance: current stage has nodes and next stage exists -------------
+  const canAdvance = useMemo(() => {
+    const idx = ALL_STAGES.indexOf(activeStage);
+    return idx >= 0 && idx < ALL_STAGES.length - 1 && nodes.length > 0;
+  }, [activeStage, nodes.length]);
+
+  // -- MiniMap color ----------------------------------------------------------
   const miniMapNodeColor = useCallback((node: { type?: string }) => {
     switch (node.type) {
       case 'ideaNode':
@@ -245,16 +278,15 @@ function PipelineCanvasInner({
     }
   }, []);
 
-  // Find pending transitions for gate UI
+  // -- Provenance data (from initialData) -------------------------------------
   const pendingTransitions = useMemo(
-    () => (data?.transitions || []).filter((t) => t.status === 'pending'),
-    [data],
+    () => (initialData?.transitions || []).filter((t) => t.status === 'pending'),
+    [initialData],
   );
 
-  // Provenance for selected node
   const selectedProvenance = useMemo(() => {
-    if (!selectedNodeId || !data?.goals?.provenance) return [];
-    const provLinks = (data.goals.provenance || []) as Array<{
+    if (!selectedNodeId || !initialData?.goals?.provenance) return [];
+    const provLinks = (initialData.goals.provenance || []) as Array<{
       source_node_id: string;
       target_node_id: string;
       source_stage: string;
@@ -265,26 +297,39 @@ function PipelineCanvasInner({
     return provLinks.filter(
       (p) => p.source_node_id === selectedNodeId || p.target_node_id === selectedNodeId,
     );
-  }, [selectedNodeId, data]);
+  }, [selectedNodeId, initialData]);
 
   const selectedNodeLabel = useMemo(() => {
     if (!selectedNodeId) return '';
-    const node = nodes.find((n) => n.id === selectedNodeId);
+    const node = displayNodes.find((n) => n.id === selectedNodeId);
     return (node?.data as Record<string, unknown>)?.label as string || selectedNodeId;
-  }, [selectedNodeId, nodes]);
+  }, [selectedNodeId, displayNodes]);
 
-  const stageConfig = activeView === 'all' ? null : PIPELINE_STAGE_CONFIG[activeView];
+  // -- Visual config ----------------------------------------------------------
+  const stageConfig = viewMode === 'all' ? null : PIPELINE_STAGE_CONFIG[viewMode];
   const edgeColor = stageConfig?.primary || '#6b7280';
+
+  // -- Right panel logic ------------------------------------------------------
+  const showPropertyEditor = !!selectedNodeId && !showProvenance && isEditable;
+  const showProvenanceSidebar = !!selectedNodeId && (showProvenance || readOnly || viewMode === 'all') && !showPropertyEditor;
 
   return (
     <div className="flex h-full bg-bg">
+      {/* Left: Node Palette */}
+      {isEditable && (
+        <div className="w-56 flex-shrink-0">
+          <PipelinePalette stage={activeStage} />
+        </div>
+      )}
+
+      {/* Center: Navigator + Canvas */}
       <div className="flex flex-col flex-1">
-        {/* Stage Navigator + All toggle */}
+        {/* Stage Navigator */}
         <div className="flex items-center justify-center gap-2 p-2">
           <button
             onClick={handleViewAll}
             className={`px-3 py-1.5 rounded font-mono text-xs font-bold uppercase tracking-wide transition-all duration-200 ${
-              activeView === 'all'
+              viewMode === 'all'
                 ? 'bg-surface ring-2 ring-acid-green ring-offset-1 ring-offset-bg text-text'
                 : 'bg-transparent text-text-muted hover:text-text hover:bg-surface/50'
             }`}
@@ -293,7 +338,7 @@ function PipelineCanvasInner({
           </button>
           <StageNavigator
             stageStatus={stageStatus}
-            activeStage={activeView === 'all' ? 'ideas' : activeView}
+            activeStage={viewMode === 'all' ? 'ideas' : viewMode}
             onStageSelect={handleStageSelect}
             onAdvance={readOnly ? undefined : handleAdvance}
             readOnly={readOnly}
@@ -301,14 +346,17 @@ function PipelineCanvasInner({
         </div>
 
         {/* Canvas */}
-        <div className="flex-1">
+        <div className="flex-1" ref={reactFlowWrapper}>
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={readOnly ? undefined : onNodesChange}
-            onEdgesChange={readOnly ? undefined : onEdgesChange}
+            nodes={displayNodes}
+            edges={displayEdges}
+            onNodesChange={isEditable ? onNodesChange : undefined}
+            onEdgesChange={isEditable ? onEdgesChange : undefined}
+            onConnect={isEditable ? onConnect : undefined}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
+            onDragOver={isEditable ? handleDragOver : undefined}
+            onDrop={isEditable ? handleDrop : undefined}
             nodeTypes={nodeTypes}
             fitView
             snapToGrid
@@ -320,14 +368,32 @@ function PipelineCanvasInner({
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#333" />
-            <Controls className="bg-surface border border-border rounded" showInteractive={!readOnly} />
+            <Controls className="bg-surface border border-border rounded" showInteractive={isEditable} />
             <MiniMap className="bg-surface border border-border rounded" nodeColor={miniMapNodeColor} />
+
+            {/* Toolbar */}
+            {isEditable && (
+              <Panel position="top-center">
+                <PipelineToolbar
+                  stage={activeStage}
+                  nodeCount={nodes.length}
+                  edgeCount={edges.length}
+                  readOnly={readOnly}
+                  loading={loading}
+                  onSave={handleSave}
+                  onClear={handleClear}
+                  onAIGenerate={handleAIGenerate}
+                  canAdvance={canAdvance}
+                  onAdvance={handleToolbarAdvance}
+                />
+              </Panel>
+            )}
 
             {/* Stats panel */}
             <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
               <div className="text-xs font-mono text-text-muted">
-                <span className="text-text">{nodes.length}</span> nodes |{' '}
-                <span className="text-text">{edges.length}</span> edges
+                <span className="text-text">{displayNodes.length}</span> nodes |{' '}
+                <span className="text-text">{displayEdges.length}</span> edges
                 {stageConfig && (
                   <>
                     {' | '}
@@ -336,7 +402,7 @@ function PipelineCanvasInner({
                     </span>
                   </>
                 )}
-                {activeView === 'all' && (
+                {viewMode === 'all' && (
                   <>
                     {' | '}
                     <span className="text-acid-green uppercase font-bold">ALL STAGES</span>
@@ -351,8 +417,8 @@ function PipelineCanvasInner({
               <Panel position="top-right" className="bg-surface/90 border border-border rounded p-2">
                 <div className="text-xs font-mono text-text-muted">
                   Pipeline: <span className="text-text">{pipelineId}</span>
-                  {data?.integrity_hash && (
-                    <span className="ml-2 text-emerald-400">#{data.integrity_hash.slice(0, 8)}</span>
+                  {initialData?.integrity_hash && (
+                    <span className="ml-2 text-emerald-400">#{initialData.integrity_hash.slice(0, 8)}</span>
                   )}
                 </div>
               </Panel>
@@ -413,13 +479,28 @@ function PipelineCanvasInner({
         </div>
       </div>
 
-      {/* Provenance sidebar */}
-      {showProvenance && selectedNodeId && (
+      {/* Right: Property Editor */}
+      {showPropertyEditor && (
+        <PipelinePropertyEditor
+          node={selectedNodeData}
+          stage={activeStage}
+          onUpdate={updateSelectedNode}
+          onDelete={deleteSelectedNode}
+          onShowProvenance={() => setShowProvenance(true)}
+          readOnly={readOnly}
+        />
+      )}
+
+      {/* Right: Provenance Sidebar */}
+      {showProvenanceSidebar && (
         <div className="w-72 flex-shrink-0 bg-surface border-l border-border h-full overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-mono font-bold text-text uppercase">Provenance</h3>
             <button
-              onClick={() => { setShowProvenance(false); setSelectedNodeId(null); }}
+              onClick={() => {
+                setShowProvenance(false);
+                setSelectedNodeId(null);
+              }}
               className="text-text-muted hover:text-text text-lg leading-none"
             >
               &times;
@@ -447,7 +528,9 @@ function PipelineCanvasInner({
                       <span className="text-xs text-text-muted font-mono">
                         {isSource ? 'Produces' : 'Derived from'}
                       </span>
-                      <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${stageColors[isSource ? link.target_stage : link.source_stage] || ''}`}>
+                      <span
+                        className={`px-1.5 py-0.5 text-xs rounded font-mono ${stageColors[isSource ? link.target_stage : link.source_stage] || ''}`}
+                      >
                         {isSource ? link.target_stage : link.source_stage}
                       </span>
                     </div>
@@ -458,9 +541,7 @@ function PipelineCanvasInner({
                       <span className="text-xs text-text-muted font-mono">
                         #{link.content_hash.slice(0, 8)}
                       </span>
-                      <span className="text-xs text-text-muted font-mono">
-                        {link.method}
-                      </span>
+                      <span className="text-xs text-text-muted font-mono">{link.method}</span>
                     </div>
                   </div>
                 );
@@ -470,18 +551,32 @@ function PipelineCanvasInner({
             <p className="text-sm text-text-muted">No provenance links for this node.</p>
           )}
 
-          {data?.provenance_count !== undefined && (
+          {initialData?.provenance_count !== undefined && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-text-muted font-mono">
-                Total provenance links: <span className="text-text">{data.provenance_count}</span>
+                Total provenance links: <span className="text-text">{initialData.provenance_count}</span>
               </p>
             </div>
+          )}
+
+          {/* Back to editor button (edit mode only) */}
+          {isEditable && (
+            <button
+              onClick={() => setShowProvenance(false)}
+              className="mt-4 w-full px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:bg-bg transition-colors rounded"
+            >
+              Back to Editor
+            </button>
           )}
         </div>
       )}
     </div>
   );
 }
+
+// =============================================================================
+// Exported wrapper with ReactFlowProvider
+// =============================================================================
 
 export function PipelineCanvas(props: PipelineCanvasProps) {
   return (
