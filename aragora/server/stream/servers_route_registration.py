@@ -106,6 +106,13 @@ try:
 except ImportError:
     AUTONOMOUS_HANDLERS_AVAILABLE = False
 
+try:
+    from aragora.server.stream.pipeline_stream import register_pipeline_stream_routes
+
+    PIPELINE_STREAM_AVAILABLE = True
+except ImportError:
+    PIPELINE_STREAM_AVAILABLE = False
+
 
 def _register_optional_routes(app: Any) -> None:
     """Register optional handler routes on the aiohttp application.
@@ -310,6 +317,9 @@ class RouteRegistrationMixin:
         app.router.add_get("/", self._websocket_handler)
         app.router.add_get("/ws", self._websocket_handler)
         app.router.add_get("/ws/voice/{debate_id}", self._handle_voice_websocket)
+        if PIPELINE_STREAM_AVAILABLE:
+            register_pipeline_stream_routes(app)
+            logger.info("Registered pipeline stream WebSocket route at /ws/pipeline")
 
         # Prometheus metrics endpoint (not under /api/)
         app.router.add_get("/metrics", self._handle_metrics)

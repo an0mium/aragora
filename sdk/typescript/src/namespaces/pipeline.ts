@@ -15,6 +15,7 @@ export interface PipelineRunRequest {
   workflow_mode?: 'quick' | 'debate';
   dry_run?: boolean;
   enable_receipts?: boolean;
+  use_ai?: boolean;
 }
 
 /** Pipeline run response with initial status */
@@ -111,7 +112,7 @@ export class PipelineNamespace {
    */
   async fromDebate(
     cartographerData: Record<string, unknown>,
-    autoAdvance: boolean = true,
+    options?: { autoAdvance?: boolean; useAi?: boolean },
   ): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>(
       'POST',
@@ -119,7 +120,8 @@ export class PipelineNamespace {
       {
         body: {
           cartographer_data: cartographerData,
-          auto_advance: autoAdvance,
+          auto_advance: options?.autoAdvance ?? true,
+          ...(options?.useAi ? { use_ai: true } : {}),
         },
       }
     );
@@ -130,7 +132,7 @@ export class PipelineNamespace {
    */
   async fromIdeas(
     ideas: string[],
-    autoAdvance: boolean = true,
+    options?: { autoAdvance?: boolean; useAi?: boolean },
   ): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>(
       'POST',
@@ -138,7 +140,8 @@ export class PipelineNamespace {
       {
         body: {
           ideas,
-          auto_advance: autoAdvance,
+          auto_advance: options?.autoAdvance ?? true,
+          ...(options?.useAi ? { use_ai: true } : {}),
         },
       }
     );

@@ -712,6 +712,129 @@ class TaskDecomposer:
         ]
 
     # =========================================================================
+    # KM-informed subtask enrichment (async overlay)
+    # =========================================================================
+
+    async def enrich_subtasks_from_km(
+        self,
+        task: str,
+        subtasks: list[SubTask],
+    ) -> list[SubTask]:
+        """Enrich subtasks with learnings from past Nomic cycles.
+
+        Queries NomicCycleAdapter for similar past decompositions and
+        recurring failures, then:
+        - Adds failure warnings to success_criteria
+        - Suggests additional subtasks learned from past cycles
+
+        This is an async overlay — analyze() stays sync.
+
+        Args:
+            task: The original task description
+            subtasks: Existing subtasks from analyze()
+
+        Returns:
+            Enriched list of subtasks (may include additions)
+        """
+        try:
+            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                get_nomic_cycle_adapter,
+            )
+
+            adapter = get_nomic_cycle_adapter()
+
+            # Query recurring failures relevant to this task
+            try:
+                failures = await adapter.find_recurring_failures(
+                    min_occurrences=2, limit=5
+                )
+                task_lower = task.lower()
+                for failure in failures:
+                    # Check if failure is relevant to this task's domain
+                    pattern = failure.get("pattern", "").lower()
+                    affected = failure.get("affected_tracks", [])
+
+                    # Match if failure pattern shares words with task
+                    pattern_words = set(pattern.split())
+                    task_words = set(task_lower.split())
+                    overlap = pattern_words & task_words
+                    relevant_domain = any(
+                        track in task_lower for track in affected
+                    )
+
+                    if overlap or relevant_domain:
+                        # Add warning to all subtasks' success_criteria
+                        warning = f"avoid: {failure['pattern'][:80]}"
+                        for subtask in subtasks:
+                            if "km_warnings" not in subtask.success_criteria:
+                                subtask.success_criteria["km_warnings"] = []
+                            if warning not in subtask.success_criteria["km_warnings"]:
+                                subtask.success_criteria["km_warnings"].append(warning)
+
+                if failures:
+                    logger.info(
+                        "km_enrichment_failures injected=%d warnings for task=%s",
+                        len(failures),
+                        task[:50],
+                    )
+            except (RuntimeError, ValueError, OSError) as e:
+                logger.debug("KM failure query failed: %s", e)
+
+            # Query high-ROI patterns to suggest focus areas
+            try:
+                high_roi = await adapter.find_high_roi_goal_types(limit=3)
+                existing_titles = {s.title.lower() for s in subtasks}
+
+                for roi in high_roi:
+                    if roi.get("avg_improvement_score", 0) < 0.5:
+                        continue
+
+                    pattern = roi.get("pattern", "")
+                    # Only add if not already covered by existing subtasks
+                    if not any(
+                        word in title
+                        for title in existing_titles
+                        for word in pattern.split()
+                        if len(word) > 3
+                    ):
+                        # Add as a suggested subtask (capped at max_subtasks)
+                        if len(subtasks) < self.config.max_subtasks:
+                            example = roi.get("example_objectives", [""])[0]
+                            subtasks.append(
+                                SubTask(
+                                    id=f"subtask_{len(subtasks) + 1}",
+                                    title=f"KM-suggested: {pattern[:40]}",
+                                    description=(
+                                        f"Based on past success pattern "
+                                        f"(avg improvement: {roi['avg_improvement_score']:.2f}). "
+                                        f"Example: {example[:100]}"
+                                    ),
+                                    dependencies=[],
+                                    estimated_complexity="medium",
+                                    success_criteria={
+                                        "km_source": "high_roi_pattern",
+                                        "historical_improvement": roi["avg_improvement_score"],
+                                    },
+                                )
+                            )
+
+                if high_roi:
+                    logger.info(
+                        "km_enrichment_roi suggestions=%d for task=%s",
+                        len(high_roi),
+                        task[:50],
+                    )
+            except (RuntimeError, ValueError, OSError) as e:
+                logger.debug("KM high-ROI query failed: %s", e)
+
+        except ImportError:
+            logger.debug("NomicCycleAdapter not available for KM enrichment")
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("KM enrichment failed: %s", e)
+
+        return subtasks
+
+    # =========================================================================
     # Codebase module mapping for relevance scoring
     # =========================================================================
 

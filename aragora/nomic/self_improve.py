@@ -31,6 +31,7 @@ class SelfImproveConfig:
     # Planning
     use_meta_planner: bool = True  # Debate-driven prioritization
     quick_mode: bool = False  # Skip debate, use heuristics
+    scan_mode: bool = False  # Use codebase signals, no LLM calls
     max_goals: int = 5
 
     # Execution
@@ -38,11 +39,24 @@ class SelfImproveConfig:
     max_parallel: int = 4  # Max parallel worktrees
     budget_limit_usd: float = 10.0  # Total budget cap
     require_approval: bool = True  # Human approval at checkpoints
+    autonomous: bool = False  # Skip approval gates for fully autonomous runs
 
     # Verification
     run_tests: bool = True
     run_review: bool = True  # PRReviewRunner on diffs
     capture_metrics: bool = True  # Before/after debate quality
+
+    # Codebase metrics (before/after measurement)
+    enable_codebase_metrics: bool = True
+    metrics_test_scope: list[str] = field(default_factory=list)
+    metrics_test_timeout: int = 120
+
+    # Codebase knowledge indexing (semantic module summaries + dependency graph)
+    enable_codebase_indexing: bool = True
+
+    # Debug loop: iterative test-failure-feedback-retry execution
+    enable_debug_loop: bool = True
+    debug_loop_max_retries: int = 3
 
     # Feedback
     persist_outcomes: bool = True  # Save to CycleLearningStore
@@ -66,6 +80,9 @@ class SelfImproveResult:
     regressions_detected: bool = False
     reverted: bool = False
     duration_seconds: float = 0.0
+    # Codebase metrics delta (from MetricsCollector)
+    metrics_delta: dict[str, Any] = field(default_factory=dict)
+    improvement_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize result to a plain dictionary."""
@@ -82,6 +99,8 @@ class SelfImproveResult:
             "regressions_detected": self.regressions_detected,
             "reverted": self.reverted,
             "duration_seconds": self.duration_seconds,
+            "metrics_delta": self.metrics_delta,
+            "improvement_score": self.improvement_score,
         }
 
 
@@ -118,6 +137,10 @@ class SelfImprovePipeline:
             "self_improve_started cycle=%s objective=%s", cycle_id, objective[:100]
         )
 
+        # Step 0: Index codebase for richer planning context
+        if self.config.enable_codebase_indexing:
+            await self._index_codebase()
+
         # Step 1: Plan
         goals = await self._plan(objective)
         result.goals_planned = len(goals)
@@ -149,25 +172,35 @@ class SelfImprovePipeline:
                 result.tests_failed += er.get("tests_failed", 0)
 
         # Step 5: Capture post-change metrics and compare
+        outcome_comparison = None  # OutcomeComparison for feedback loop
         if self.config.capture_metrics and baseline is not None:
             after = await self._capture_after()
             if after is not None:
                 comparison = self._compare_metrics(baseline, after)
 
-                if comparison and not comparison.get("improved", True):
-                    result.regressions_detected = True
-                    if self.config.auto_revert_on_regression:
-                        logger.warning(
-                            "self_improve_regression cycle=%s recommendation=%s",
-                            cycle_id,
-                            comparison.get("recommendation"),
-                        )
-                        # Don't auto-revert yet -- log and let human decide
-                        # result.reverted = True
+                if comparison:
+                    result.metrics_delta = comparison.get("deltas", {})
+                    result.improvement_score = comparison.get(
+                        "improvement_score", 0.0
+                    )
+                    outcome_comparison = comparison.get(
+                        "_outcome_comparison"
+                    )
 
-        # Step 6: Persist outcomes
+                    if not comparison.get("improved", True):
+                        result.regressions_detected = True
+                        if self.config.auto_revert_on_regression:
+                            logger.warning(
+                                "self_improve_regression cycle=%s recommendation=%s",
+                                cycle_id,
+                                comparison.get("recommendation"),
+                            )
+                            # Don't auto-revert yet -- log and let human decide
+                            # result.reverted = True
+
+        # Step 6: Persist outcomes (with OutcomeComparison for feedback loop)
         if self.config.persist_outcomes:
-            self._persist_outcome(cycle_id, result)
+            self._persist_outcome(cycle_id, result, outcome_comparison)
 
         result.duration_seconds = time.time() - start_time
         logger.info(
@@ -225,6 +258,35 @@ class SelfImprovePipeline:
 
     # --- Private pipeline steps ---
 
+    async def _index_codebase(self) -> None:
+        """Index codebase structure into MemoryFabric for planning context.
+
+        Runs CodebaseKnowledgeBuilder to ingest module summaries and
+        dependency graph. Non-fatal: failures are logged and swallowed.
+        """
+        try:
+            from pathlib import Path as P
+
+            from aragora.memory.codebase_builder import CodebaseKnowledgeBuilder
+            from aragora.memory.fabric import MemoryFabric
+
+            fabric = MemoryFabric()
+            builder = CodebaseKnowledgeBuilder(fabric, P.cwd())
+
+            summary_stats = await builder.ingest_module_summaries(max_modules=30)
+            dep_stats = await builder.ingest_dependency_graph(max_files=100)
+
+            logger.info(
+                "codebase_indexed summaries=%d deps=%d errors=%d",
+                summary_stats.items_ingested,
+                dep_stats.items_ingested,
+                summary_stats.errors + dep_stats.errors,
+            )
+        except ImportError as exc:
+            logger.debug("CodebaseKnowledgeBuilder unavailable: %s", exc)
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Codebase indexing failed: %s", exc)
+
     async def _plan(self, objective: str) -> list[Any]:
         """Step 1: Use MetaPlanner to prioritize goals."""
         if not self.config.use_meta_planner:
@@ -251,6 +313,7 @@ class SelfImprovePipeline:
 
             config = MetaPlannerConfig(
                 quick_mode=self.config.quick_mode,
+                scan_mode=self.config.scan_mode,
                 max_goals=self.config.max_goals,
             )
             planner = MetaPlanner(config)
@@ -289,7 +352,15 @@ class SelfImprovePipeline:
                 desc = getattr(goal, "description", str(goal))
                 decomposition = decomposer.analyze(desc)
                 if decomposition.should_decompose:
-                    all_subtasks.extend(decomposition.subtasks)
+                    subtasks = decomposition.subtasks
+                    # Enrich with KM learnings (async overlay)
+                    try:
+                        subtasks = await decomposer.enrich_subtasks_from_km(
+                            desc, subtasks
+                        )
+                    except (RuntimeError, ValueError, OSError) as km_exc:
+                        logger.debug("KM enrichment skipped: %s", km_exc)
+                    all_subtasks.extend(subtasks)
                 else:
                     # Simple enough to be its own subtask
                     all_subtasks.append(decomposition)
@@ -303,60 +374,197 @@ class SelfImprovePipeline:
             for goal in goals:
                 all_subtasks.append(goal)
 
+        # Enrich subtasks with file_scope from CodebaseIndexer
+        if all_subtasks and self.config.enable_codebase_indexing:
+            await self._enrich_file_scope(all_subtasks)
+
         return all_subtasks
 
+    async def _enrich_file_scope(self, subtasks: list[Any]) -> None:
+        """Populate empty file_scope on subtasks using CodebaseIndexer.
+
+        For each subtask with an empty ``file_scope``, queries the
+        CodebaseIndexer for modules matching the subtask's title and
+        description, then sets ``file_scope`` to the matching paths.
+        """
+        try:
+            from aragora.nomic.codebase_indexer import CodebaseIndexer
+
+            indexer = CodebaseIndexer(repo_path=".", max_modules=50)
+            await indexer.index()
+
+            for subtask in subtasks:
+                scope = getattr(subtask, "file_scope", None)
+                if scope is not None and len(scope) == 0:
+                    title = getattr(subtask, "title", "")
+                    desc = getattr(subtask, "description", str(subtask))
+                    query = f"{title} {desc}".strip()
+                    if query:
+                        matches = await indexer.query(query, limit=5)
+                        subtask.file_scope = [
+                            str(m.path) for m in matches
+                        ]
+
+            logger.info(
+                "file_scope_enrichment subtasks=%d",
+                sum(
+                    1
+                    for s in subtasks
+                    if getattr(s, "file_scope", None)
+                ),
+            )
+        except ImportError:
+            logger.debug("CodebaseIndexer unavailable, skipping file scope enrichment")
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("File scope enrichment failed: %s", exc)
+
     async def _capture_baseline(self) -> Any:
-        """Step 3: Capture pre-change debate quality metrics."""
+        """Step 3: Capture pre-change metrics (debate quality + codebase health)."""
+        combined: dict[str, Any] = {"debate": None, "codebase": None}
+
+        # Debate quality baseline
         try:
             from aragora.nomic.outcome_tracker import NomicOutcomeTracker
 
             tracker = NomicOutcomeTracker()
-            return await tracker.capture_baseline()
+            combined["debate"] = await tracker.capture_baseline()
         except ImportError as exc:
             logger.debug("Outcome tracker unavailable for baseline: %s", exc)
-            return None
         except (RuntimeError, ValueError, OSError) as exc:
-            logger.debug("Baseline capture failed: %s", exc)
+            logger.debug("Debate baseline capture failed: %s", exc)
+
+        # Codebase health baseline
+        if self.config.enable_codebase_metrics:
+            try:
+                from aragora.nomic.metrics_collector import (
+                    MetricsCollector,
+                    MetricsCollectorConfig,
+                )
+
+                mc_config = MetricsCollectorConfig(
+                    test_timeout=self.config.metrics_test_timeout,
+                    test_scope_dirs=list(self.config.metrics_test_scope),
+                )
+                collector = MetricsCollector(mc_config)
+                snapshot = await collector.collect_baseline("self-improve")
+                combined["codebase"] = snapshot.to_dict()
+                # Stash collector for reuse in _capture_after
+                self._metrics_collector = collector
+            except ImportError as exc:
+                logger.debug("MetricsCollector unavailable for baseline: %s", exc)
+            except (RuntimeError, ValueError, OSError) as exc:
+                logger.debug("Codebase baseline capture failed: %s", exc)
+
+        if combined["debate"] is None and combined["codebase"] is None:
             return None
+        return combined
 
     async def _capture_after(self) -> Any:
-        """Step 5a: Capture post-change debate quality metrics."""
+        """Step 5a: Capture post-change metrics (debate quality + codebase health)."""
+        combined: dict[str, Any] = {"debate": None, "codebase": None}
+
+        # Debate quality after
         try:
             from aragora.nomic.outcome_tracker import NomicOutcomeTracker
 
             tracker = NomicOutcomeTracker()
-            return await tracker.capture_after()
+            combined["debate"] = await tracker.capture_after()
         except ImportError as exc:
             logger.debug("Outcome tracker unavailable for after: %s", exc)
-            return None
         except (RuntimeError, ValueError, OSError) as exc:
-            logger.debug("After capture failed: %s", exc)
+            logger.debug("Debate after capture failed: %s", exc)
+
+        # Codebase health after (reuse collector from baseline for consistent config)
+        if self.config.enable_codebase_metrics:
+            try:
+                collector = getattr(self, "_metrics_collector", None)
+                if collector is None:
+                    from aragora.nomic.metrics_collector import (
+                        MetricsCollector,
+                        MetricsCollectorConfig,
+                    )
+
+                    mc_config = MetricsCollectorConfig(
+                        test_timeout=self.config.metrics_test_timeout,
+                        test_scope_dirs=list(self.config.metrics_test_scope),
+                    )
+                    collector = MetricsCollector(mc_config)
+
+                snapshot = await collector.collect_after("self-improve")
+                combined["codebase"] = snapshot.to_dict()
+            except ImportError as exc:
+                logger.debug("MetricsCollector unavailable for after: %s", exc)
+            except (RuntimeError, ValueError, OSError) as exc:
+                logger.debug("Codebase after capture failed: %s", exc)
+
+        if combined["debate"] is None and combined["codebase"] is None:
             return None
+        return combined
 
     def _compare_metrics(
         self, baseline: Any, after: Any
     ) -> dict[str, Any] | None:
-        """Step 5b: Compare baseline and after metrics."""
+        """Step 5b: Compare baseline and after metrics (debate + codebase)."""
         if baseline is None or after is None:
             return None
-        try:
-            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
 
-            tracker = NomicOutcomeTracker(
-                degradation_threshold=self.config.degradation_threshold,
-            )
-            comparison = tracker.compare(baseline, after)
-            return {
-                "improved": comparison.improved,
-                "recommendation": comparison.recommendation,
-                "deltas": comparison.metrics_delta,
-            }
-        except ImportError as exc:
-            logger.debug("Outcome comparison unavailable: %s", exc)
-            return None
-        except (RuntimeError, ValueError, TypeError) as exc:
-            logger.debug("Outcome comparison failed: %s", exc)
-            return None
+        result: dict[str, Any] = {"improved": True, "recommendation": None, "deltas": {}}
+
+        # Compare debate quality
+        debate_baseline = baseline.get("debate") if isinstance(baseline, dict) else baseline
+        debate_after = after.get("debate") if isinstance(after, dict) else after
+
+        if debate_baseline is not None and debate_after is not None:
+            try:
+                from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+                tracker = NomicOutcomeTracker(
+                    degradation_threshold=self.config.degradation_threshold,
+                )
+                comparison = tracker.compare(debate_baseline, debate_after)
+                result["improved"] = comparison.improved
+                result["recommendation"] = comparison.recommendation
+                result["deltas"]["debate"] = comparison.metrics_delta
+                # Stash the OutcomeComparison for the feedback loop
+                result["_outcome_comparison"] = comparison
+            except ImportError as exc:
+                logger.debug("Outcome comparison unavailable: %s", exc)
+            except (RuntimeError, ValueError, TypeError) as exc:
+                logger.debug("Outcome comparison failed: %s", exc)
+
+        # Compare codebase health
+        codebase_baseline = baseline.get("codebase") if isinstance(baseline, dict) else None
+        codebase_after = after.get("codebase") if isinstance(after, dict) else None
+
+        if codebase_baseline is not None and codebase_after is not None:
+            try:
+                from aragora.nomic.metrics_collector import MetricSnapshot
+
+                base_snap = MetricSnapshot.from_dict(codebase_baseline)
+                after_snap = MetricSnapshot.from_dict(codebase_after)
+
+                collector = getattr(self, "_metrics_collector", None)
+                if collector is None:
+                    from aragora.nomic.metrics_collector import MetricsCollector
+
+                    collector = MetricsCollector()
+
+                delta = collector.compare(base_snap, after_snap)
+                result["deltas"]["codebase"] = delta.to_dict()
+                result["codebase_improved"] = delta.improved
+                result["improvement_score"] = delta.improvement_score
+
+                # If codebase regressed, mark as not improved
+                if not delta.improved and delta.improvement_score < 0.3:
+                    result["improved"] = False
+                    if not result["recommendation"]:
+                        result["recommendation"] = delta.summary
+            except ImportError as exc:
+                logger.debug("MetricsCollector comparison unavailable: %s", exc)
+            except (RuntimeError, ValueError, TypeError) as exc:
+                logger.debug("Codebase comparison failed: %s", exc)
+
+        return result
 
     async def _execute(
         self,
@@ -505,9 +713,12 @@ class SelfImprovePipeline:
             # Write instruction to worktree for agent pickup
             dispatched = False
             executed = False
-            worktree_path = instruction.worktree_path or getattr(
-                subtask, "worktree_path", None
-            )
+            # Extract worktree_path: prefer instruction, then TrackAssignment
+            worktree_path = instruction.worktree_path
+            if not worktree_path:
+                wt_hint = getattr(subtask, "worktree_path", None)
+                if wt_hint is not None:
+                    worktree_path = str(wt_hint)
             files_changed: list[str] = []
             tests_passed = 0
             tests_failed = 0
@@ -517,15 +728,25 @@ class SelfImprovePipeline:
                     instruction, worktree_path
                 )
 
-                # Try to execute via Claude Code harness
-                exec_result = await self._dispatch_to_claude_code(
-                    instruction, worktree_path
+                # Try debug loop first (iterative test-feedback-retry)
+                debug_result = await self._execute_with_debug_loop(
+                    instruction, worktree_path, subtask
                 )
-                if exec_result is not None:
+                if debug_result is not None:
                     executed = True
-                    files_changed = exec_result.get("files_changed", [])
-                    tests_passed = exec_result.get("tests_passed", 0)
-                    tests_failed = exec_result.get("tests_failed", 0)
+                    files_changed = debug_result.get("files_changed", [])
+                    tests_passed = debug_result.get("tests_passed", 0)
+                    tests_failed = debug_result.get("tests_failed", 0)
+                else:
+                    # Fallback: single dispatch via Claude Code harness
+                    exec_result = await self._dispatch_to_claude_code(
+                        instruction, worktree_path
+                    )
+                    if exec_result is not None:
+                        executed = True
+                        files_changed = exec_result.get("files_changed", [])
+                        tests_passed = exec_result.get("tests_passed", 0)
+                        tests_failed = exec_result.get("tests_failed", 0)
 
             return {
                 "success": True,
@@ -553,6 +774,80 @@ class SelfImprovePipeline:
             "tests_failed": 0,
         }
 
+    async def _execute_with_debug_loop(
+        self,
+        instruction: Any,
+        worktree_path: str,
+        subtask: Any = None,
+    ) -> dict[str, Any] | None:
+        """Execute via iterative debug loop with test-failure-retry.
+
+        Returns None if the debug loop is disabled or unavailable,
+        falling back to the single-dispatch path.
+        """
+        if not self.config.enable_debug_loop:
+            return None
+
+        if self.config.require_approval and not self.config.autonomous:
+            return None
+
+        try:
+            from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
+
+            config = DebugLoopConfig(
+                max_retries=self.config.debug_loop_max_retries,
+                test_timeout=self.config.metrics_test_timeout,
+            )
+            debug = DebugLoop(config)
+
+            prompt = instruction.to_agent_prompt()
+            subtask_id = getattr(instruction, "subtask_id", "unknown")
+
+            # Infer test scope from file_hints
+            test_scope = self._infer_test_scope(subtask)
+
+            debug_result = await debug.execute_with_retry(
+                instruction=prompt,
+                worktree_path=worktree_path,
+                test_scope=test_scope or None,
+                subtask_id=subtask_id,
+            )
+
+            return {
+                "files_changed": debug_result.final_files_changed,
+                "tests_passed": debug_result.final_tests_passed,
+                "tests_failed": debug_result.final_tests_failed,
+                "debug_loop_attempts": debug_result.total_attempts,
+                "debug_loop_success": debug_result.success,
+            }
+
+        except ImportError:
+            logger.debug("DebugLoop not available, falling back to single dispatch")
+            return None
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Debug loop failed, falling back: %s", exc)
+            return None
+
+    def _infer_test_scope(self, subtask: Any) -> list[str]:
+        """Infer test directories from subtask file hints."""
+        test_dirs: list[str] = []
+        file_hints = getattr(subtask, "file_scope", [])
+        if not file_hints and hasattr(subtask, "goal"):
+            file_hints = getattr(subtask.goal, "file_hints", [])
+
+        for hint in file_hints:
+            if hint.startswith("aragora/"):
+                parts = hint.split("/")
+                if len(parts) >= 2:
+                    test_dir = f"tests/{parts[1]}"
+                    if test_dir not in test_dirs:
+                        test_dirs.append(test_dir)
+            elif hint.startswith("tests/"):
+                if hint not in test_dirs:
+                    test_dirs.append(hint)
+
+        return test_dirs
+
     async def _dispatch_to_claude_code(
         self,
         instruction: Any,
@@ -572,7 +867,7 @@ class SelfImprovePipeline:
         Returns:
             Dict with execution results, or None if dispatch was skipped.
         """
-        if self.config.require_approval:
+        if self.config.require_approval and not self.config.autonomous:
             logger.info(
                 "dispatch_skipped reason=require_approval subtask=%s",
                 instruction.subtask_id[:20],
@@ -729,8 +1024,21 @@ class SelfImprovePipeline:
         )
         return True
 
-    def _persist_outcome(self, cycle_id: str, result: SelfImproveResult) -> None:
-        """Step 6: Persist cycle outcome to CycleLearningStore."""
+    def _persist_outcome(
+        self,
+        cycle_id: str,
+        result: SelfImproveResult,
+        outcome_comparison: Any = None,
+    ) -> None:
+        """Step 6: Persist cycle outcome to CycleLearningStore.
+
+        Args:
+            cycle_id: The cycle identifier.
+            result: The pipeline result.
+            outcome_comparison: Optional OutcomeComparison from debate metrics
+                comparison. When provided, also records to OutcomeTracker for
+                the cross-cycle feedback loop.
+        """
         try:
             from aragora.nomic.cycle_record import NomicCycleRecord
             from aragora.nomic.cycle_store import get_cycle_store
@@ -751,10 +1059,30 @@ class SelfImprovePipeline:
                 "subtasks_failed": float(result.subtasks_failed),
                 "files_changed": float(len(result.files_changed)),
                 "regressions": 1.0 if result.regressions_detected else 0.0,
+                "improvement_score": result.improvement_score,
             }
+            if result.metrics_delta:
+                record.evidence_quality_scores["has_metrics"] = 1.0
 
             store.save_cycle(record)
             logger.info("cycle_outcome_persisted cycle=%s", cycle_id)
+
+            # Record OutcomeComparison to close the feedback loop
+            if outcome_comparison is not None:
+                try:
+                    from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+                    tracker = NomicOutcomeTracker()
+                    tracker.record_cycle_outcome(cycle_id, outcome_comparison)
+                    logger.info(
+                        "outcome_comparison_recorded cycle=%s improved=%s",
+                        cycle_id,
+                        outcome_comparison.improved,
+                    )
+                except (ImportError, RuntimeError, ValueError, OSError) as exc:
+                    logger.debug(
+                        "Failed to record outcome comparison: %s", exc
+                    )
 
         except ImportError as exc:
             logger.debug("Failed to persist cycle outcome (import): %s", exc)

@@ -23,6 +23,7 @@ class PipelineAPI:
         workflow_mode: str = "quick",
         dry_run: bool = False,
         enable_receipts: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Start an async pipeline execution.
 
@@ -33,6 +34,7 @@ class PipelineAPI:
             workflow_mode: "quick" or "debate"
             dry_run: If True, skip orchestration
             enable_receipts: Generate DecisionReceipt on completion
+            use_ai: If True, use AI-assisted goal extraction
 
         Returns:
             Pipeline ID and initial status
@@ -44,6 +46,8 @@ class PipelineAPI:
             "dry_run": dry_run,
             "enable_receipts": enable_receipts,
         }
+        if use_ai:
+            payload["use_ai"] = True
         if stages:
             payload["stages"] = stages
         return self._client.request("POST", "/api/v1/canvas/pipeline/run", json=payload)
@@ -52,24 +56,34 @@ class PipelineAPI:
         self,
         cartographer_data: dict[str, Any],
         auto_advance: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Run full pipeline from ArgumentCartographer debate export."""
+        payload: dict[str, Any] = {
+            "cartographer_data": cartographer_data,
+            "auto_advance": auto_advance,
+        }
+        if use_ai:
+            payload["use_ai"] = True
         return self._client.request(
-            "POST",
-            "/api/v1/canvas/pipeline/from-debate",
-            json={"cartographer_data": cartographer_data, "auto_advance": auto_advance},
+            "POST", "/api/v1/canvas/pipeline/from-debate", json=payload,
         )
 
     def from_ideas(
         self,
         ideas: list[str],
         auto_advance: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Run full pipeline from raw idea strings."""
+        payload: dict[str, Any] = {
+            "ideas": ideas,
+            "auto_advance": auto_advance,
+        }
+        if use_ai:
+            payload["use_ai"] = True
         return self._client.request(
-            "POST",
-            "/api/v1/canvas/pipeline/from-ideas",
-            json={"ideas": ideas, "auto_advance": auto_advance},
+            "POST", "/api/v1/canvas/pipeline/from-ideas", json=payload,
         )
 
     def status(self, pipeline_id: str) -> dict[str, Any]:
@@ -154,6 +168,7 @@ class AsyncPipelineAPI:
         workflow_mode: str = "quick",
         dry_run: bool = False,
         enable_receipts: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Start an async pipeline execution."""
         payload: dict[str, Any] = {
@@ -163,6 +178,8 @@ class AsyncPipelineAPI:
             "dry_run": dry_run,
             "enable_receipts": enable_receipts,
         }
+        if use_ai:
+            payload["use_ai"] = True
         if stages:
             payload["stages"] = stages
         return await self._client.request("POST", "/api/v1/canvas/pipeline/run", json=payload)
@@ -171,24 +188,34 @@ class AsyncPipelineAPI:
         self,
         cartographer_data: dict[str, Any],
         auto_advance: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Run full pipeline from ArgumentCartographer debate export."""
+        payload: dict[str, Any] = {
+            "cartographer_data": cartographer_data,
+            "auto_advance": auto_advance,
+        }
+        if use_ai:
+            payload["use_ai"] = True
         return await self._client.request(
-            "POST",
-            "/api/v1/canvas/pipeline/from-debate",
-            json={"cartographer_data": cartographer_data, "auto_advance": auto_advance},
+            "POST", "/api/v1/canvas/pipeline/from-debate", json=payload,
         )
 
     async def from_ideas(
         self,
         ideas: list[str],
         auto_advance: bool = True,
+        use_ai: bool = False,
     ) -> dict[str, Any]:
         """Run full pipeline from raw idea strings."""
+        payload: dict[str, Any] = {
+            "ideas": ideas,
+            "auto_advance": auto_advance,
+        }
+        if use_ai:
+            payload["use_ai"] = True
         return await self._client.request(
-            "POST",
-            "/api/v1/canvas/pipeline/from-ideas",
-            json={"ideas": ideas, "auto_advance": auto_advance},
+            "POST", "/api/v1/canvas/pipeline/from-ideas", json=payload,
         )
 
     async def status(self, pipeline_id: str) -> dict[str, Any]:

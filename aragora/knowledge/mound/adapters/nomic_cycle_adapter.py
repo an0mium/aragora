@@ -783,6 +783,189 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             logger.warning(f"Failed to find similar curricula: {e}")
             return []
 
+    async def find_high_roi_goal_types(
+        self,
+        limit: int = 5,
+        workspace_id: str = "nomic",
+    ) -> list[dict[str, Any]]:
+        """Find goal types that historically produce the best improvements.
+
+        Queries past cycle outcomes, groups by objective keywords, and ranks
+        by average improvement_score. This helps MetaPlanner focus on goal
+        types that have historically delivered measurable improvements.
+
+        Args:
+            limit: Maximum number of patterns to return
+            workspace_id: Workspace to search in
+
+        Returns:
+            List of dicts: [{pattern, avg_improvement_score, cycle_count, example_objectives}]
+        """
+        mound = self.mound
+        if mound is None:
+            return []
+
+        try:
+            results = await mound.search(
+                query="nomic cycle outcome improvement",
+                workspace_id=workspace_id,
+                limit=50,
+                filters={"type": "nomic_cycle"},
+            )
+
+            # Group by objective keywords to find patterns
+            pattern_data: dict[str, dict[str, Any]] = {}
+
+            for result in results:
+                metadata = getattr(result, "metadata", {})
+                if metadata.get("type") != "nomic_cycle":
+                    continue
+
+                objective = metadata.get("objective", "")
+                improvement = metadata.get("improvement_score", 0.0)
+                if not isinstance(improvement, (int, float)):
+                    improvement = 0.0
+
+                # Extract keywords from objective for pattern matching
+                words = set(objective.lower().split())
+                # Use the first 3 significant words as a pattern key
+                significant = [
+                    w for w in words
+                    if len(w) > 3 and w not in {"the", "and", "for", "with", "from", "that", "this"}
+                ]
+                if not significant:
+                    continue
+
+                pattern_key = " ".join(sorted(significant[:3]))
+
+                if pattern_key not in pattern_data:
+                    pattern_data[pattern_key] = {
+                        "pattern": pattern_key,
+                        "total_score": 0.0,
+                        "cycle_count": 0,
+                        "example_objectives": [],
+                    }
+
+                entry = pattern_data[pattern_key]
+                entry["total_score"] += improvement
+                entry["cycle_count"] += 1
+                if len(entry["example_objectives"]) < 3:
+                    entry["example_objectives"].append(objective[:100])
+
+            # Compute averages and rank
+            ranked: list[dict[str, Any]] = []
+            for entry in pattern_data.values():
+                if entry["cycle_count"] == 0:
+                    continue
+                avg = entry["total_score"] / entry["cycle_count"]
+                ranked.append({
+                    "pattern": entry["pattern"],
+                    "avg_improvement_score": round(avg, 3),
+                    "cycle_count": entry["cycle_count"],
+                    "example_objectives": entry["example_objectives"],
+                })
+
+            ranked.sort(key=lambda x: x["avg_improvement_score"], reverse=True)
+            return ranked[:limit]
+
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning("Failed to find high-ROI goal types: %s", e)
+            return []
+
+    async def find_recurring_failures(
+        self,
+        min_occurrences: int = 2,
+        limit: int = 10,
+        workspace_id: str = "nomic",
+    ) -> list[dict[str, Any]]:
+        """Detect failure patterns that recur across multiple cycles.
+
+        Queries past cycle failure learnings and groups by similarity to
+        identify recurring issues. This helps MetaPlanner avoid known
+        failure patterns.
+
+        Args:
+            min_occurrences: Minimum number of times a pattern must appear
+            limit: Maximum number of failure patterns to return
+            workspace_id: Workspace to search in
+
+        Returns:
+            List of dicts: [{pattern, occurrences, affected_tracks, example_errors, last_seen}]
+        """
+        mound = self.mound
+        if mound is None:
+            return []
+
+        try:
+            results = await mound.search(
+                query="nomic learning failure what failed",
+                workspace_id=workspace_id,
+                limit=100,
+                filters={"type": "nomic_learning", "learning_type": "failure"},
+            )
+
+            # Group by failure content similarity
+            failure_groups: dict[str, dict[str, Any]] = {}
+
+            for result in results:
+                metadata = getattr(result, "metadata", {})
+                if metadata.get("learning_type") != "failure":
+                    continue
+
+                content = getattr(result, "content", "")
+                if content.startswith("WHAT FAILED: "):
+                    content = content[13:]
+
+                # Normalize content for grouping
+                normalized = content.lower().strip()[:80]
+                if not normalized:
+                    continue
+
+                # Use first 50 chars as a grouping key
+                group_key = normalized[:50]
+
+                if group_key not in failure_groups:
+                    failure_groups[group_key] = {
+                        "pattern": content[:100],
+                        "occurrences": 0,
+                        "affected_tracks": set(),
+                        "example_errors": [],
+                        "last_seen": "",
+                    }
+
+                entry = failure_groups[group_key]
+                entry["occurrences"] += 1
+
+                # Extract track info from parent cycle
+                cycle_id = metadata.get("parent_cycle_id", "")
+                if cycle_id:
+                    # Track names are typically in the objective or metadata
+                    objective = metadata.get("objective", "")
+                    for track_name in ["sme", "developer", "qa", "core", "security", "self_hosted"]:
+                        if track_name in objective.lower():
+                            entry["affected_tracks"].add(track_name)
+
+                if len(entry["example_errors"]) < 3:
+                    entry["example_errors"].append(content[:150])
+
+            # Filter by min_occurrences and convert sets to lists
+            recurring: list[dict[str, Any]] = []
+            for entry in failure_groups.values():
+                if entry["occurrences"] >= min_occurrences:
+                    recurring.append({
+                        "pattern": entry["pattern"],
+                        "occurrences": entry["occurrences"],
+                        "affected_tracks": sorted(entry["affected_tracks"]),
+                        "example_errors": entry["example_errors"],
+                    })
+
+            recurring.sort(key=lambda x: x["occurrences"], reverse=True)
+            return recurring[:limit]
+
+        except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            logger.warning("Failed to find recurring failures: %s", e)
+            return []
+
     async def find_similar_cycles(
         self,
         objective: str,

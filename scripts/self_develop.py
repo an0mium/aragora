@@ -529,6 +529,17 @@ Examples:
         "with Claude Code dispatch and worktree isolation",
     )
     parser.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="Skip approval gates for fully autonomous execution (requires --self-improve)",
+    )
+    parser.add_argument(
+        "--scan",
+        action="store_true",
+        help="Use scan mode: prioritize from codebase signals (git log, untested modules, "
+        "past regressions) without LLM calls (requires --self-improve or --meta-plan)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -593,12 +604,14 @@ Examples:
             from aragora.nomic.self_improve import SelfImprovePipeline, SelfImproveConfig
 
             config = SelfImproveConfig(
-                use_meta_planner=args.meta_plan or args.debate,
-                quick_mode=not args.debate,
+                use_meta_planner=args.meta_plan or args.debate or args.scan,
+                quick_mode=not args.debate and not args.scan,
+                scan_mode=args.scan,
                 use_worktrees=args.worktree or args.parallel,
                 max_parallel=args.max_parallel,
                 budget_limit_usd=args.budget_limit or 10.0,
                 require_approval=args.require_approval,
+                autonomous=args.autonomous,
                 run_tests=True,
                 run_review=not args.no_gauntlet,
                 capture_metrics=args.metrics,

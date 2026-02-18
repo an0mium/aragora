@@ -34,14 +34,34 @@ _PIPELINE_STAGE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/stage/(
 _PIPELINE_GRAPH = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/graph$")
 _PIPELINE_RECEIPT = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/receipt$")
 
-# In-memory pipeline result store (production would use persistence)
-_pipeline_results: dict[str, Any] = {}
-# Live PipelineResult objects for advance_stage()
+# Live PipelineResult objects for advance_stage() (cannot be persisted)
 _pipeline_objects: dict[str, Any] = {}
-# Async pipeline tasks
+# Async pipeline tasks (cannot be persisted)
 _pipeline_tasks: dict[str, asyncio.Task[Any]] = {}
-# Pipeline receipts
-_pipeline_receipts: dict[str, dict[str, Any]] = {}
+
+
+def _get_store() -> Any:
+    """Lazy-load the persistent pipeline store."""
+    from aragora.storage.pipeline_store import get_pipeline_store
+    return get_pipeline_store()
+
+
+def _get_ai_agent() -> Any | None:
+    """Try to create an AI agent for goal synthesis.
+
+    Returns an agent with a generate() method, or None if unavailable.
+    """
+    try:
+        from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
+        return AnthropicAPIAgent(model="claude-sonnet-4-5-20250929")
+    except (ImportError, OSError, ValueError):
+        pass
+    try:
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        return OpenAIAPIAgent(model="gpt-4o-mini")
+    except (ImportError, OSError, ValueError):
+        pass
+    return None
 
 
 class CanvasPipelineHandler:
@@ -152,19 +172,21 @@ class CanvasPipelineHandler:
 
             cartographer_data = request_data.get("cartographer_data", {})
             auto_advance = request_data.get("auto_advance", True)
+            use_ai = request_data.get("use_ai", False)
 
             if not cartographer_data:
                 return {"error": "Missing required field: cartographer_data"}
 
-            pipeline = IdeaToExecutionPipeline()
+            agent = _get_ai_agent() if use_ai else None
+            pipeline = IdeaToExecutionPipeline(agent=agent)
             result = pipeline.from_debate(
                 cartographer_data,
                 auto_advance=auto_advance,
             )
 
-            # Store result for later retrieval
+            # Persist result and keep live object in memory
             result_dict = result.to_dict()
-            _pipeline_results[result.pipeline_id] = result_dict
+            _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
 
             return {
@@ -202,15 +224,17 @@ class CanvasPipelineHandler:
 
             ideas = request_data.get("ideas", [])
             auto_advance = request_data.get("auto_advance", True)
+            use_ai = request_data.get("use_ai", False)
 
             if not ideas:
                 return {"error": "Missing required field: ideas"}
 
-            pipeline = IdeaToExecutionPipeline()
+            agent = _get_ai_agent() if use_ai else None
+            pipeline = IdeaToExecutionPipeline(agent=agent)
             result = pipeline.from_ideas(ideas, auto_advance=auto_advance)
 
             result_dict = result.to_dict()
-            _pipeline_results[result.pipeline_id] = result_dict
+            _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
 
             return {
@@ -256,9 +280,9 @@ class CanvasPipelineHandler:
             pipeline = IdeaToExecutionPipeline()
             result_obj = pipeline.advance_stage(result_obj, stage)
 
-            # Update both stores
+            # Persist updated result and keep live object
             result_dict = result_obj.to_dict()
-            _pipeline_results[pipeline_id] = result_dict
+            _get_store().save(pipeline_id, result_dict)
             _pipeline_objects[pipeline_id] = result_obj
 
             return {
@@ -275,7 +299,7 @@ class CanvasPipelineHandler:
         self, pipeline_id: str
     ) -> dict[str, Any]:
         """GET /api/v1/canvas/pipeline/{id}"""
-        result = _pipeline_results.get(pipeline_id)
+        result = _get_store().get(pipeline_id)
         if not result:
             return {"error": f"Pipeline {pipeline_id} not found"}
         return result
@@ -284,7 +308,7 @@ class CanvasPipelineHandler:
         self, pipeline_id: str, stage: str
     ) -> dict[str, Any]:
         """GET /api/v1/canvas/pipeline/{id}/stage/{stage}"""
-        result = _pipeline_results.get(pipeline_id)
+        result = _get_store().get(pipeline_id)
         if not result:
             return {"error": f"Pipeline {pipeline_id} not found"}
 
@@ -367,6 +391,7 @@ class CanvasPipelineHandler:
             )
 
             input_text = request_data.get("input_text", "")
+            use_ai = request_data.get("use_ai", False)
             if not input_text:
                 return {"error": "Missing required field: input_text"}
 
@@ -387,27 +412,25 @@ class CanvasPipelineHandler:
             except ImportError:
                 emitter = None
 
-            pipeline = IdeaToExecutionPipeline()
+            agent = _get_ai_agent() if use_ai else None
+            pipeline = IdeaToExecutionPipeline(agent=agent)
 
             async def _run_pipeline() -> None:
                 if emitter:
                     config.event_callback = emitter.as_event_callback(pipeline_id)
                 result = await pipeline.run(input_text, config)
                 result_dict = result.to_dict()
-                _pipeline_results[result.pipeline_id] = result_dict
+                _get_store().save(result.pipeline_id, result_dict)
                 _pipeline_objects[result.pipeline_id] = result
-                if result.receipt:
-                    _pipeline_receipts[result.pipeline_id] = result.receipt
 
             # Generate pipeline_id before launching task
             import uuid
             pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
             # Store placeholder so status queries work immediately
-            _pipeline_results[pipeline_id] = {
-                "pipeline_id": pipeline_id,
+            store = _get_store()
+            store.save(pipeline_id, {
                 "stage_status": {"ideas": "pending", "goals": "pending", "actions": "pending", "orchestration": "pending"},
-                "status": "running",
-            }
+            })
 
             task = asyncio.create_task(_run_pipeline())
             _pipeline_tasks[pipeline_id] = task
@@ -426,7 +449,7 @@ class CanvasPipelineHandler:
 
         Get per-stage status for a pipeline.
         """
-        result = _pipeline_results.get(pipeline_id)
+        result = _get_store().get(pipeline_id)
         if not result:
             return {"error": f"Pipeline {pipeline_id} not found"}
 
@@ -457,7 +480,7 @@ class CanvasPipelineHandler:
         Query params (via request_data):
             stage: str (optional) — specific stage (ideas, goals, actions, orchestration)
         """
-        result = _pipeline_results.get(pipeline_id)
+        result = _get_store().get(pipeline_id)
         if not result:
             return {"error": f"Pipeline {pipeline_id} not found"}
 
@@ -522,12 +545,7 @@ class CanvasPipelineHandler:
 
         Get the DecisionReceipt for a completed pipeline.
         """
-        receipt = _pipeline_receipts.get(pipeline_id)
-        if receipt:
-            return {"pipeline_id": pipeline_id, "receipt": receipt}
-
-        # Check if pipeline result has a receipt
-        result = _pipeline_results.get(pipeline_id)
+        result = _get_store().get(pipeline_id)
         if not result:
             return {"error": f"Pipeline {pipeline_id} not found"}
 

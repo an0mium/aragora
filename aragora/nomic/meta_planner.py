@@ -86,6 +86,8 @@ class PlanningContext:
     ci_flaky_tests: list[str] = field(default_factory=list)
     # Debate-sourced improvement suggestions
     recent_improvements: list[dict[str, Any]] = field(default_factory=list)
+    # Codebase metrics snapshot (from MetricsCollector)
+    metric_snapshot: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -109,6 +111,10 @@ class MetaPlannerConfig:
     enable_convergence: bool = True
     # Generate DecisionReceipts for self-improvement decisions
     enable_receipts: bool = True
+    # Inject codebase metrics into planning context
+    enable_metrics_collection: bool = True
+    # Scan mode: prioritize from codebase signals without LLM calls
+    scan_mode: bool = False
 
 
 class MetaPlanner:
@@ -151,6 +157,15 @@ class MetaPlanner:
         if self.config.quick_mode:
             logger.info("meta_planner_quick_mode using heuristic prioritization")
             return self._heuristic_prioritize(objective, available_tracks)
+
+        # Scan mode: prioritize from codebase signals without LLM calls
+        if self.config.scan_mode:
+            logger.info("meta_planner_scan_mode using codebase signals")
+            return await self._scan_prioritize(objective, available_tracks)
+
+        # Inject codebase metrics for data-driven planning
+        if self.config.enable_metrics_collection:
+            context = self._enrich_context_with_metrics(context)
 
         # Cross-cycle learning: Query past similar cycles
         if self.config.enable_cross_cycle_learning:
@@ -257,6 +272,68 @@ class MetaPlanner:
             logger.exception(f"Meta-planning failed: {e}")
             return self._heuristic_prioritize(objective, available_tracks)
 
+    def _enrich_context_with_metrics(self, context: PlanningContext) -> PlanningContext:
+        """Enrich planning context with codebase metrics.
+
+        Instantiates MetricsCollector, runs a synchronous collection of test/lint/size
+        metrics, and injects the snapshot into PlanningContext.metric_snapshot so the
+        debate topic can include hard numbers.
+
+        Args:
+            context: Existing planning context
+
+        Returns:
+            Enriched PlanningContext with metric_snapshot populated
+        """
+        try:
+            from aragora.nomic.metrics_collector import MetricsCollector, MetricsCollectorConfig
+
+            config = MetricsCollectorConfig(
+                test_args=["-x", "-q", "--tb=no", "--timeout=60"],
+                test_timeout=120,
+            )
+            collector = MetricsCollector(config)
+
+            # Synchronous collection of size + lint (skip tests for speed in planning)
+            from aragora.nomic.metrics_collector import MetricSnapshot
+            import time
+
+            snapshot = MetricSnapshot(timestamp=time.time())
+            try:
+                collector._collect_size_metrics(snapshot, None)
+            except (OSError, ValueError) as e:
+                logger.debug("metrics_size_collection_failed: %s", e)
+            try:
+                collector._collect_lint_metrics(snapshot, None)
+            except (OSError, ValueError, Exception) as e:  # noqa: BLE001
+                logger.debug("metrics_lint_collection_failed: %s", e)
+
+            context.metric_snapshot = snapshot.to_dict()
+
+            # Inject notable issues into recent_issues for debate visibility
+            if snapshot.lint_errors > 0:
+                context.recent_issues.append(
+                    f"[metrics] {snapshot.lint_errors} lint errors detected"
+                )
+            if snapshot.tests_failed > 0:
+                context.recent_issues.append(
+                    f"[metrics] {snapshot.tests_failed} test failures detected"
+                )
+
+            logger.info(
+                "metrics_enrichment_complete files=%d lines=%d lint_errors=%d",
+                snapshot.files_count,
+                snapshot.total_lines,
+                snapshot.lint_errors,
+            )
+
+        except ImportError:
+            logger.debug("MetricsCollector not available, skipping metrics enrichment")
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("Failed to enrich context with metrics: %s", e)
+
+        return context
+
     async def _enrich_context_with_history(
         self,
         objective: str,
@@ -323,6 +400,40 @@ class MetaPlanner:
                             relevance=cycle.similarity,
                         )
                     )
+
+            # Query high-ROI goal types for smarter prioritization
+            try:
+                high_roi = await adapter.find_high_roi_goal_types(limit=5)
+                for roi_entry in high_roi:
+                    if roi_entry.get("avg_improvement_score", 0) > 0.3:
+                        context.past_successes_to_build_on.append(
+                            f"[high_roi] Pattern '{roi_entry['pattern']}' "
+                            f"avg_improvement={roi_entry['avg_improvement_score']:.2f} "
+                            f"({roi_entry['cycle_count']} cycles)"
+                        )
+                if high_roi:
+                    logger.info(
+                        "high_roi_patterns loaded=%d for planning", len(high_roi)
+                    )
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
+                logger.debug("High-ROI query failed: %s", e)
+
+            # Query recurring failures to avoid
+            try:
+                recurring = await adapter.find_recurring_failures(min_occurrences=2, limit=5)
+                for failure in recurring:
+                    tracks_str = ", ".join(failure.get("affected_tracks", [])[:3])
+                    context.past_failures_to_avoid.append(
+                        f"[recurring_failure] '{failure['pattern']}' "
+                        f"({failure['occurrences']}x"
+                        f"{', tracks: ' + tracks_str if tracks_str else ''})"
+                    )
+                if recurring:
+                    logger.info(
+                        "recurring_failures loaded=%d for planning", len(recurring)
+                    )
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:
+                logger.debug("Recurring failures query failed: %s", e)
 
         except ImportError:
             logger.debug("Nomic cycle adapter not available, skipping history enrichment")
@@ -600,6 +711,29 @@ PAST FAILURES TO AVOID (learn from these mistakes):
 {chr(10).join(f"- {f}" for f in context.past_failures_to_avoid[:5])}
 """
 
+        # Add codebase metrics for data-driven planning
+        if context.metric_snapshot:
+            snap = context.metric_snapshot
+            metric_lines = ["CODEBASE METRICS (current state):"]
+            if snap.get("files_count"):
+                metric_lines.append(f"- Python files: {snap['files_count']}")
+            if snap.get("total_lines"):
+                metric_lines.append(f"- Total lines: {snap['total_lines']:,}")
+            if snap.get("tests_passed") or snap.get("tests_failed"):
+                passed = snap.get("tests_passed", 0)
+                failed = snap.get("tests_failed", 0)
+                total = passed + failed + snap.get("tests_errors", 0)
+                rate = passed / total if total > 0 else 0
+                metric_lines.append(
+                    f"- Tests: {passed}/{total} passing ({rate:.0%} pass rate)"
+                )
+            if snap.get("lint_errors"):
+                metric_lines.append(f"- Lint errors: {snap['lint_errors']}")
+            if snap.get("test_coverage") is not None:
+                metric_lines.append(f"- Test coverage: {snap['test_coverage']:.0%}")
+            if len(metric_lines) > 1:
+                topic += "\n" + "\n".join(metric_lines) + "\n"
+
         # Inject relevant deliberation templates to ground abstract objectives
         try:
             from aragora.deliberation.templates.registry import match_templates
@@ -759,6 +893,155 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
 
         # Default to first available track
         return available_tracks[0] if available_tracks else Track.DEVELOPER
+
+    async def _scan_prioritize(
+        self,
+        objective: str,
+        available_tracks: list[Track],
+    ) -> list[PrioritizedGoal]:
+        """Prioritize from codebase signals without any LLM calls.
+
+        Gathers three signal sources:
+        1. ``git log`` — recently changed files mapped to tracks
+        2. ``CodebaseIndexer`` — untested modules
+        3. ``OutcomeTracker`` — past regression patterns
+
+        Each signal contributes a candidate goal. Goals are ranked by signal
+        count (more signals = higher priority).
+
+        Args:
+            objective: High-level objective (used to seed descriptions).
+            available_tracks: Tracks that can receive work.
+
+        Returns:
+            List of PrioritizedGoal sorted by priority.
+        """
+        import subprocess
+
+        track_signals: dict[str, list[str]] = {t.value: [] for t in available_tracks}
+
+        # Signal 1: Recent git changes → map files to tracks
+        try:
+            git_result = subprocess.run(
+                ["git", "log", "--oneline", "--name-only", "-20"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=".",
+            )
+            if git_result.returncode == 0:
+                for line in git_result.stdout.splitlines():
+                    line = line.strip()
+                    if not line or line[0].isalnum() and " " in line:
+                        continue  # Skip commit messages
+                    track = self._file_to_track(line, available_tracks)
+                    if track and track.value in track_signals:
+                        track_signals[track.value].append(f"recent_change: {line}")
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+        # Signal 2: Untested modules from CodebaseIndexer
+        try:
+            from aragora.nomic.codebase_indexer import CodebaseIndexer
+
+            indexer = CodebaseIndexer(repo_path=".")
+            stats = await indexer.index()
+            for module in indexer._modules:
+                test_paths = indexer._test_map.get(str(module.path), [])
+                if not test_paths:
+                    track = self._file_to_track(str(module.path), available_tracks)
+                    if track and track.value in track_signals:
+                        track_signals[track.value].append(
+                            f"untested: {module.path}"
+                        )
+        except (ImportError, RuntimeError, ValueError, OSError):
+            pass
+
+        # Signal 3: Past regression patterns
+        try:
+            from aragora.nomic.outcome_tracker import NomicOutcomeTracker
+
+            regressions = NomicOutcomeTracker.get_regression_history(limit=10)
+            for reg in regressions:
+                for metric in reg.get("regressed_metrics", []):
+                    # Map regression metrics to tracks
+                    if "test" in metric.lower() or "coverage" in metric.lower():
+                        if Track.QA.value in track_signals:
+                            track_signals[Track.QA.value].append(
+                                f"regression: {metric}"
+                            )
+                    elif "token" in metric.lower():
+                        if Track.CORE.value in track_signals:
+                            track_signals[Track.CORE.value].append(
+                                f"regression: {metric}"
+                            )
+        except (ImportError, RuntimeError, ValueError, OSError):
+            pass
+
+        # Build goals from signals, ranked by signal count
+        ranked = sorted(
+            track_signals.items(),
+            key=lambda kv: len(kv[1]),
+            reverse=True,
+        )
+
+        goals: list[PrioritizedGoal] = []
+        for priority, (track_name, signals) in enumerate(ranked, start=1):
+            if not signals:
+                continue
+
+            try:
+                track = Track(track_name)
+            except ValueError:
+                continue
+
+            # Build a description from the top signals
+            top_signals = signals[:3]
+            signal_summary = "; ".join(top_signals)
+            description = (
+                f"[{objective[:40]}] {track_name}: "
+                f"{len(signals)} signals ({signal_summary})"
+            )
+
+            goals.append(
+                PrioritizedGoal(
+                    id=f"scan_{priority - 1}",
+                    track=track,
+                    description=description[:200],
+                    rationale=f"Scan mode: {len(signals)} codebase signals detected",
+                    estimated_impact="high" if len(signals) >= 5 else "medium",
+                    priority=priority,
+                )
+            )
+
+        if not goals:
+            logger.info("scan_mode_no_signals falling back to heuristic")
+            return self._heuristic_prioritize(objective, available_tracks)
+
+        logger.info(
+            "scan_mode_complete goals=%d signals=%d",
+            len(goals),
+            sum(len(s) for s in track_signals.values()),
+        )
+        return goals[: self.config.max_goals]
+
+    def _file_to_track(
+        self, filepath: str, available_tracks: list[Track]
+    ) -> Track | None:
+        """Map a file path to a development track."""
+        fp = filepath.lower()
+        mapping = {
+            Track.QA: ["tests/", "test_", "conftest"],
+            Track.SME: ["dashboard", "frontend", "live/", "workspace"],
+            Track.DEVELOPER: ["sdk", "client", "aragora_sdk/"],
+            Track.SELF_HOSTED: ["deploy/", "docker", "k8s", "kubernetes"],
+            Track.SECURITY: ["security/", "auth/", "rbac/", "encryption"],
+            Track.CORE: ["debate/", "agents/", "memory/", "consensus"],
+        }
+        for track, patterns in mapping.items():
+            if track in available_tracks and any(p in fp for p in patterns):
+                return track
+        return available_tracks[0] if available_tracks else None
 
     def _heuristic_prioritize(
         self,

@@ -649,10 +649,17 @@ class BranchCoordinator:
         if self.config.auto_merge_safe:
             for assignment in assignments:
                 if assignment.status == "completed" and assignment.branch_name:
-                    merge_result = await self.safe_merge(
-                        assignment.branch_name,
-                        dry_run=False,
-                    )
+                    if self.config.require_tests_pass:
+                        # Test-gated merge: pre/post tests + auto-revert
+                        merge_result = await self.safe_merge_with_gate(
+                            assignment.branch_name,
+                            auto_revert=True,
+                        )
+                    else:
+                        merge_result = await self.safe_merge(
+                            assignment.branch_name,
+                            dry_run=False,
+                        )
                     if merge_result.success:
                         assignment.status = "merged"
                         merged_count += 1
