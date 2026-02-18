@@ -291,8 +291,18 @@ class TestHandleRouting:
                     assert result is not None
                     assert result.status_code == 200
 
-    def test_handle_auth_failure(self, handler):
+    def test_handle_get_skips_auth(self, handler):
+        """GET requests are publicly accessible (no auth required)."""
         mock_handler = _make_mock_handler()
+        from aragora.server.handlers.reviews import _reviews_limiter
+
+        with patch.object(_reviews_limiter, "is_allowed", return_value=True):
+            result = handler.handle("/api/reviews", {}, mock_handler)
+            assert result.status_code == 200
+
+    def test_handle_post_auth_failure(self, handler):
+        """Non-GET requests require authentication."""
+        mock_handler = _make_mock_handler(method="POST")
         err = HandlerResult(
             status_code=401, content_type="application/json", body=b'{"error":"Unauthorized"}'
         )
@@ -301,8 +311,9 @@ class TestHandleRouting:
             result = handler.handle("/api/reviews", {}, mock_handler)
             assert result.status_code == 401
 
-    def test_handle_permission_failure(self, handler):
-        mock_handler = _make_mock_handler()
+    def test_handle_post_permission_failure(self, handler):
+        """Non-GET requests require reviews:write permission."""
+        mock_handler = _make_mock_handler(method="POST")
         perm_err = HandlerResult(
             status_code=403, content_type="application/json", body=b'{"error":"Forbidden"}'
         )

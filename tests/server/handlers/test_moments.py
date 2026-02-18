@@ -402,19 +402,35 @@ class TestHandleRouting:
     """Tests for the top-level handle() method routing."""
 
     @pytest.mark.asyncio
-    async def test_handle_unauthorized(self, handler):
+    async def test_handle_get_skips_auth(self, handler):
+        """GET requests are publicly accessible (no auth required)."""
         from aragora.server.handlers.utils.auth import UnauthorizedError
 
         mock_handler = _make_mock_handler()
+        with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
+            with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
+                mock_limiter.is_allowed.return_value = True
+                result = await handler.handle("/api/moments/summary", {}, mock_handler)
+                assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_handle_post_unauthorized(self, handler):
+        """Non-GET requests require authentication."""
+        mock_handler = _make_mock_handler()
+        mock_handler.command = "POST"
+        from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle("/api/moments/summary", {}, mock_handler)
             assert result.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_handle_forbidden(self, handler):
+    async def test_handle_post_forbidden(self, handler):
+        """Non-GET requests require moments:write permission."""
         from aragora.server.handlers.utils.auth import ForbiddenError
 
         mock_handler = _make_mock_handler()
+        mock_handler.command = "POST"
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(

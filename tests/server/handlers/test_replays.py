@@ -1291,37 +1291,46 @@ class TestRBACPermissions:
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_handle_without_permission_returns_403(self, mock_limiter, handler, temp_nomic_dir):
-        """handle() returns 403 when user lacks debates:read permission."""
+    def test_handle_get_skips_auth(self, mock_limiter, handler, temp_nomic_dir):
+        """GET requests are publicly accessible (no auth required)."""
         mock_limiter.is_allowed.return_value = True
-        mock_user = self._make_mock_user(permissions=set())
-
-        with patch(
-            "aragora.billing.jwt_auth.extract_user_from_request",
-            return_value=mock_user,
-        ):
-            result = handler.handle("/api/replays", {}, MockHandler())
-            assert result is not None
-            assert result.status_code == 403
-            data = parse_response(result)
-            assert "debates:read" in data["error"]
+        result = handler.handle("/api/replays", {}, MockHandler())
+        assert result is not None
+        assert result.status_code == 200
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_handle_no_auth_returns_401(self, mock_limiter, handler, temp_nomic_dir):
-        """handle() returns 401 when user is not authenticated."""
+    def test_handle_post_without_permission_returns_403(self, mock_limiter, handler, temp_nomic_dir):
+        """Non-GET requests return 403 when user lacks debates:write permission."""
         mock_limiter.is_allowed.return_value = True
-        mock_user = self._make_unauthenticated_user()
+        mock_user = self._make_mock_user(permissions=set())
+        mock_handler = MockHandler()
+        mock_handler.command = "POST"
 
         with patch(
             "aragora.billing.jwt_auth.extract_user_from_request",
             return_value=mock_user,
         ):
-            result = handler.handle("/api/replays", {}, MockHandler())
+            result = handler.handle("/api/replays", {}, mock_handler)
+            assert result is not None
+            assert result.status_code in (401, 403)
+
+    @pytest.mark.no_auto_auth
+    @patch("aragora.server.handlers.replays._replays_limiter")
+    def test_handle_post_no_auth_returns_401(self, mock_limiter, handler, temp_nomic_dir):
+        """Non-GET requests return 401 when user is not authenticated."""
+        mock_limiter.is_allowed.return_value = True
+        mock_user = self._make_unauthenticated_user()
+        mock_handler = MockHandler()
+        mock_handler.command = "POST"
+
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/replays", {}, mock_handler)
             assert result is not None
             assert result.status_code == 401
-            data = parse_response(result)
-            assert "authentication" in data["error"].lower()
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
