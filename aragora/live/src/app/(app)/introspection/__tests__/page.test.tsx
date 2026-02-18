@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { renderWithProviders, screen, act, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import IntrospectionPage from '../page';
 
@@ -60,7 +60,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       expect(screen.getByTestId('scanlines')).toBeInTheDocument();
       expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
       expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
@@ -85,7 +85,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       expect(screen.getByText('Agent Introspection')).toBeInTheDocument();
     });
@@ -93,7 +93,7 @@ describe('IntrospectionPage', () => {
     it('shows loading state initially', () => {
       mockFetch.mockReturnValue(new Promise(() => {})); // Never resolves
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     });
@@ -104,7 +104,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -122,7 +122,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/introspection/agents');
@@ -149,7 +149,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('No agents found')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('IntrospectionPage', () => {
     it('displays error when fetch fails', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByTestId('error-display')).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('IntrospectionPage', () => {
         status: 500,
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByTestId('error-display')).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('85%')).toBeInTheDocument();
@@ -248,7 +248,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -300,7 +300,7 @@ describe('IntrospectionPage', () => {
         }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -322,7 +322,7 @@ describe('IntrospectionPage', () => {
         json: () => Promise.resolve({ agents: [], leaderboard: [] }),
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -420,7 +420,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -473,7 +473,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -528,7 +528,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -574,7 +574,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByText('claude')).toBeInTheDocument();
@@ -611,7 +611,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         expect(screen.getByTestId('error-display')).toBeInTheDocument();
@@ -644,7 +644,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         const scoreElement = screen.getByText('85%');
@@ -668,7 +668,7 @@ describe('IntrospectionPage', () => {
         });
       });
 
-      render(<IntrospectionPage />);
+      renderWithProviders(<IntrospectionPage />);
 
       await waitFor(() => {
         const scoreElement = screen.getByText('70%');
