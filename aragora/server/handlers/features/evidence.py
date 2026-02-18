@@ -221,7 +221,6 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 self.ctx["evidence_collector"] = self._evidence_collector
         return self._evidence_collector
 
-    @require_permission("evidence:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
         # Rate limit check for read operations

@@ -91,15 +91,17 @@ class MomentsHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route moments requests to appropriate methods."""
-        # RBAC check
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, "moments:read")
-        except UnauthorizedError:
-            return error_response("Authentication required", 401)
-        except ForbiddenError as e:
-            logger.warning("Handler error: %s", e)
-            return error_response("Permission denied", 403)
+        # Auth: skip for GET (public read-only dashboard data)
+        method = getattr(handler, "command", "GET") if handler else "GET"
+        if method != "GET":
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, "moments:write")
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
 
         # Normalize path to handle both /api/... and /api/v1/... paths
         normalized = strip_version_prefix(path)

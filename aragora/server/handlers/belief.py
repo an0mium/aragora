@@ -240,7 +240,6 @@ class BeliefHandler(BaseHandler):
 
         return None
 
-    @require_permission("belief:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)

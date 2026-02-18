@@ -165,23 +165,19 @@ class ConsensusHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Authentication and permission check for all consensus endpoints
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-
-        # Determine permission based on endpoint
-        if path == "/api/consensus/seed-demo":
-            _, perm_err = self.require_permission_or_error(handler, "consensus:write")
-            if perm_err:
-                return perm_err
-            rbac_err = self._check_memory_permission(handler, user, "update")
-            if rbac_err:
-                return rbac_err
-        else:
-            _, perm_err = self.require_permission_or_error(handler, "consensus:read")
-            if perm_err:
-                return perm_err
+        # Auth: skip for GET (public read-only dashboard data), require for mutations
+        method = getattr(handler, "command", "GET") if handler else "GET"
+        if method != "GET" or path == "/api/consensus/seed-demo":
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+            if path == "/api/consensus/seed-demo":
+                _, perm_err = self.require_permission_or_error(handler, "consensus:write")
+                if perm_err:
+                    return perm_err
+                rbac_err = self._check_memory_permission(handler, user, "update")
+                if rbac_err:
+                    return rbac_err
 
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation

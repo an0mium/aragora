@@ -59,13 +59,15 @@ class ReviewsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for reviews endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Auth and permission check
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-        _, perm_err = self.require_permission_or_error(handler, "reviews:read")
-        if perm_err:
-            return perm_err
+        # Auth: skip for GET (public read-only dashboard data)
+        method = getattr(handler, "command", "GET") if handler else "GET"
+        if method != "GET":
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+            _, perm_err = self.require_permission_or_error(handler, "reviews:write")
+            if perm_err:
+                return perm_err
 
         # Normalize and strip prefix
         normalized = strip_version_prefix(path)

@@ -103,7 +103,6 @@ class TournamentHandler(BaseHandler):
 
         return False
 
-    @require_permission("tournaments:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route tournament requests to appropriate handler methods."""
         path = strip_version_prefix(path)

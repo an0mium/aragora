@@ -90,13 +90,15 @@ class ReplaysHandler(BaseHandler):
         nomic_dir = self.ctx.get("nomic_dir")
         normalized = strip_version_prefix(path)
 
-        # Auth and permission checks
-        user, err = self.require_auth_or_error(handler)
-        if err:
-            return err
-        _, perm_err = self.require_permission_or_error(handler, "debates:read")
-        if perm_err:
-            return perm_err
+        # Auth: skip for GET (public read-only dashboard data)
+        method = getattr(handler, "command", "GET") if handler else "GET"
+        if method != "GET":
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+            _, perm_err = self.require_permission_or_error(handler, "debates:write")
+            if perm_err:
+                return perm_err
 
         if normalized == "/api/replays":
             if err := self._apply_rate_limit(handler):

@@ -120,7 +120,6 @@ class DebatesHandler(
     ARTIFACT_ENDPOINTS = ARTIFACT_ENDPOINTS
     SUFFIX_ROUTES = SUFFIX_ROUTES
 
-    @require_permission("debates:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route debate requests to appropriate handler methods.
 

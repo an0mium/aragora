@@ -200,6 +200,29 @@ class AgentsHandler(  # type: ignore[misc]
             return True
         return False
 
+    # Public read-only paths (no auth required for GET)
+    _PUBLIC_PATHS: frozenset[str] = frozenset({
+        "/api/agents",
+        "/api/agents/health",
+        "/api/agents/availability",
+        "/api/leaderboard",
+        "/api/rankings",
+        "/api/flips/recent",
+        "/api/flips/summary",
+        "/api/matches/recent",
+    })
+
+    # Public prefixes (no auth required for GET)
+    _PUBLIC_PREFIXES: tuple[str, ...] = (
+        "/api/agent/",
+    )
+
+    def _is_public_path(self, path: str) -> bool:
+        """Check if this is a public read-only path."""
+        if path in self._PUBLIC_PATHS:
+            return True
+        return any(path.startswith(p) for p in self._PUBLIC_PREFIXES)
+
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
@@ -210,15 +233,19 @@ class AgentsHandler(  # type: ignore[misc]
             logger.warning(f"Rate limit exceeded for agent endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # RBAC: Require authentication and agent:read permission
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-            self.check_permission(auth_context, AGENT_PERMISSION)
-        except UnauthorizedError:
-            return error_response("Authentication required to access agent data", 401)
-        except ForbiddenError as e:
-            logger.warning(f"Agent access denied: {e}")
-            return error_response("Permission denied", 403)
+        normalized_path = strip_version_prefix(path)
+        is_public = self._is_public_path(normalized_path)
+
+        # RBAC: Skip auth for public read-only endpoints, require for mutations
+        if not is_public:
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, AGENT_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required to access agent data", 401)
+            except ForbiddenError as e:
+                logger.warning(f"Agent access denied: {e}")
+                return error_response("Permission denied", 403)
 
         path = strip_version_prefix(path)
         if path.startswith("/api/agents/") and not path.startswith(

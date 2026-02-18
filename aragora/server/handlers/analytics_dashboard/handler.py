@@ -149,7 +149,6 @@ class AnalyticsDashboardHandler(
         normalized = strip_version_prefix(path)
         return normalized in self.ROUTES
 
-    @require_permission(PERM_ANALYTICS_READ)
     @rate_limit(requests_per_minute=60)
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to appropriate methods.

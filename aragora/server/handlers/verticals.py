@@ -262,19 +262,16 @@ class VerticalsHandler(SecureHandler):
         # Get HTTP method from handler
         method = getattr(handler, "command", "GET") if handler else "GET"
 
-        # RBAC check - require authentication and appropriate permission
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-            # Determine permission based on HTTP method
-            if method in ("POST", "PUT", "PATCH", "DELETE"):
+        # RBAC check - skip auth for GET (public read-only dashboard data)
+        if method in ("POST", "PUT", "PATCH", "DELETE"):
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, "verticals.update")
-            else:
-                self.check_permission(auth_context, "verticals.read")
-        except UnauthorizedError:
-            return error_response("Authentication required", 401)
-        except ForbiddenError as e:
-            logger.warning("Handler error: %s", e)
-            return error_response("Permission denied", 403)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
 
         # Check circuit breaker before proceeding
         if not self._circuit_breaker.can_proceed():
