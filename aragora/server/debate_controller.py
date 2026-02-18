@@ -725,6 +725,11 @@ Return JSON with these exact fields:
                 else:
                     explanation_text = str(explanation_obj)
 
+            # Collect calibration snapshots for participating agents
+            agent_calibration = self._collect_agent_calibration(
+                result.participants or []
+            )
+
             # Update status with result
             update_debate_status(
                 debate_id,
@@ -743,6 +748,7 @@ Return JSON with these exact fields:
                     "per_agent_cost": getattr(result, "per_agent_cost", None) or {},
                     "explanation_summary": explanation_text[:500] if explanation_text else "",
                     "has_plan": getattr(result, "plan", None) is not None,
+                    "agent_calibration": agent_calibration,
                 },
             )
 
@@ -1010,6 +1016,9 @@ Return JSON with these exact fields:
                     result.consensus_reached if hasattr(result, "consensus_reached") else False
                 ),
                 "is_onboarding": is_onboarding,
+                "agent_calibration": self._collect_agent_calibration(
+                    agents_list
+                ),
             }
 
             # Calculate checksum
