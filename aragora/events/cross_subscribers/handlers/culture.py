@@ -110,8 +110,14 @@ class CultureHandlersMixin:
             # Run async retrieval
             try:
                 asyncio.get_running_loop()
-                # Create a task for later execution
-                asyncio.create_task(retrieve_culture())
+                task = asyncio.create_task(retrieve_culture())
+                task.add_done_callback(
+                    lambda t: logger.warning(
+                        "Culture profile retrieval failed: %s", t.exception()
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
             except RuntimeError:
                 profile = asyncio.run(retrieve_culture())
                 if profile:

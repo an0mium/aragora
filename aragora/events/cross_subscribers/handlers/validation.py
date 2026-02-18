@@ -450,7 +450,14 @@ class ValidationHandlersMixin:
             # Run async ingestion
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(ingest_consensus_with_enhancements(mound))
+                task = asyncio.create_task(ingest_consensus_with_enhancements(mound))
+                task.add_done_callback(
+                    lambda t: logger.warning(
+                        "Consensus→KM async ingestion failed: %s", t.exception()
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(ingest_consensus_with_enhancements(mound))
@@ -636,7 +643,14 @@ class ValidationHandlersMixin:
             # Run async validation
             try:
                 asyncio.get_running_loop()
-                asyncio.create_task(process_validation_feedback())
+                task = asyncio.create_task(process_validation_feedback())
+                task.add_done_callback(
+                    lambda t: logger.warning(
+                        "KM validation feedback processing failed: %s", t.exception()
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
             except RuntimeError:
                 asyncio.run(process_validation_feedback())
 

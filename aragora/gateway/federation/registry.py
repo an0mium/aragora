@@ -433,6 +433,11 @@ class FederationRegistry:
                 except asyncio.CancelledError:
                     pass
 
+        # Close HTTP client session to prevent connection leaks
+        if self._http_client:
+            await self._http_client.close()
+            self._http_client = None
+
         # Run shutdown hooks for all active frameworks
         for framework in list(self._local_cache.values()):
             await self._run_shutdown_hooks(framework)

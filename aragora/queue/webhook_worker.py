@@ -169,7 +169,16 @@ class WebhookDeliveryWorker:
         self._shutdown_event.clear()
 
         # Start the main processing loop
-        asyncio.create_task(self._process_loop())
+        task = asyncio.create_task(self._process_loop())
+        task.add_done_callback(
+            lambda t: logger.error(
+                "Webhook worker %s processing loop crashed: %s",
+                self._worker_id,
+                t.exception(),
+            )
+            if not t.cancelled() and t.exception()
+            else None
+        )
 
     async def stop(self, timeout: float = 30.0) -> None:
         """Stop the worker gracefully."""

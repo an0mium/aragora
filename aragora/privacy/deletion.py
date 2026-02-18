@@ -928,6 +928,14 @@ class GDPRDeletionScheduler:
 
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
+        self._task.add_done_callback(
+            lambda t: logger.critical(
+                "GDPR deletion scheduler crashed: %s — compliance processing stopped",
+                t.exception(),
+            )
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("Started GDPR deletion scheduler (interval=%ds)", self._check_interval)
 
     async def stop(self) -> None:

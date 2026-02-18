@@ -517,7 +517,14 @@ def get_consensus_healing_worker() -> ConsensusHealingWorker:
 async def start_consensus_healing() -> ConsensusHealingWorker:
     """Start the global consensus healing worker."""
     worker = get_consensus_healing_worker()
-    asyncio.create_task(worker.start())
+    task = asyncio.create_task(worker.start())
+    task.add_done_callback(
+        lambda t: logger.error(
+            "Consensus healing worker crashed: %s", t.exception()
+        )
+        if not t.cancelled() and t.exception()
+        else None
+    )
     return worker
 
 
