@@ -59,6 +59,11 @@ class ClaudeCodeConfig(HarnessConfig):
     parse_structured_output: bool = True
     extract_code_blocks: bool = True
 
+    # System prompt injection for context-aware implementation
+    append_system_prompt: str | None = None  # Appended to Claude Code's system prompt
+    inject_claude_md: bool = True  # Auto-read CLAUDE.md from repo root
+    inject_memory_md: bool = True  # Auto-read MEMORY.md from project memory dir
+
     # Prompts for different analysis types
     analysis_prompts: dict[str, str] = field(
         default_factory=lambda: {
@@ -447,6 +452,59 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
             "mcp__aragora__*",
         ]
 
+    def _build_system_prompt_injection(self, repo_path: Path) -> str | None:
+        """Build system prompt injection from CLAUDE.md and MEMORY.md.
+
+        Reads project conventions and memory files, truncates to reasonable
+        lengths, and combines with any custom append_system_prompt config.
+
+        Args:
+            repo_path: Path to the repository root.
+
+        Returns:
+            Combined system prompt string, or None if nothing to inject.
+        """
+        parts: list[str] = []
+
+        # Read CLAUDE.md from repo root
+        if self.config.inject_claude_md:
+            claude_md_path = repo_path / "CLAUDE.md"
+            try:
+                content = claude_md_path.read_text(encoding="utf-8")
+                # Extract key sections, truncate to 2000 chars
+                truncated = content[:2000]
+                if len(content) > 2000:
+                    truncated += "\n... (truncated)"
+                parts.append(f"## Project Conventions (CLAUDE.md)\n{truncated}")
+            except (FileNotFoundError, OSError):
+                pass
+
+        # Read MEMORY.md from project memory dir
+        if self.config.inject_memory_md:
+            # Standard Claude Code memory dir pattern
+            memory_dir = Path.home() / ".claude" / "projects"
+            try:
+                if memory_dir.is_dir():
+                    for project_dir in memory_dir.iterdir():
+                        memory_file = project_dir / "memory" / "MEMORY.md"
+                        if memory_file.is_file():
+                            content = memory_file.read_text(encoding="utf-8")
+                            truncated = content[:1000]
+                            if len(content) > 1000:
+                                truncated += "\n... (truncated)"
+                            parts.append(f"## Project Memory (MEMORY.md)\n{truncated}")
+                            break  # Use first matching project
+            except (OSError, PermissionError):
+                pass
+
+        # Append custom system prompt if configured
+        if self.config.append_system_prompt:
+            parts.append(self.config.append_system_prompt)
+
+        if not parts:
+            return None
+        return "\n\n".join(parts)
+
     async def execute_implementation(
         self,
         repo_path: Path,
@@ -476,6 +534,11 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
 
         if self.config.model:
             cmd.extend(["--model", self.config.model])
+
+        # Inject system prompt with project context
+        system_prompt = self._build_system_prompt_injection(repo_path)
+        if system_prompt:
+            cmd.extend(["--append-system-prompt", system_prompt])
 
         # Wire MCP tools when enabled
         if self.config.use_mcp_tools:

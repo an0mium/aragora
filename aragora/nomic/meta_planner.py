@@ -1043,12 +1043,63 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                 return track
         return available_tracks[0] if available_tracks else None
 
+    def _gather_codebase_hints(
+        self,
+        objective: str,
+        available_tracks: list[Track],
+    ) -> dict[Track, list[str]]:
+        """Gather codebase file hints using CodebaseIndexer (synchronous).
+
+        Queries the codebase index for modules relevant to the objective
+        and maps results to tracks via _file_to_track().
+
+        Returns:
+            Mapping of Track → list of relevant file paths.
+        """
+        try:
+            from aragora.nomic.codebase_indexer import CodebaseIndexer
+
+            indexer = CodebaseIndexer(repo_path=".")
+            # Synchronous scan of already-indexed modules (lightweight)
+            for source_dir in indexer.source_dirs:
+                source_path = indexer.repo_path / source_dir
+                if not source_path.is_dir():
+                    continue
+                for py_file in sorted(source_path.rglob("*.py")):
+                    if len(indexer._modules) >= indexer.max_modules:
+                        break
+                    if py_file.name.startswith("_") and py_file.name != "__init__.py":
+                        continue
+                    try:
+                        info = indexer._analyze_module(py_file)
+                        if info:
+                            indexer._modules.append(info)
+                    except (SyntaxError, UnicodeDecodeError):
+                        continue
+
+            # Keyword-match modules against objective
+            obj_lower = objective.lower()
+            hints: dict[Track, list[str]] = {}
+            for module in indexer._modules:
+                searchable = module.to_km_entry()["searchable_text"].lower()
+                if any(word in searchable for word in obj_lower.split()):
+                    track = self._file_to_track(module.path, available_tracks)
+                    if track:
+                        hints.setdefault(track, []).append(module.path)
+
+            return hints
+        except (ImportError, RuntimeError, ValueError, OSError):
+            return {}
+
     def _heuristic_prioritize(
         self,
         objective: str,
         available_tracks: list[Track],
     ) -> list[PrioritizedGoal]:
         """Fallback heuristic prioritization when debate is unavailable."""
+        # Gather codebase hints before keyword matching
+        file_hints = self._gather_codebase_hints(objective, available_tracks)
+
         goals = []
         obj_lower = objective.lower()
 
@@ -1108,6 +1159,12 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     )
                 )
                 priority += 1
+
+        # Enrich goals with codebase file hints
+        for goal in goals:
+            track_hints = file_hints.get(goal.track, [])
+            if track_hints:
+                goal.file_hints = track_hints[:10]  # Cap at 10 files per goal
 
         # Apply self-correction priority adjustments if available
         goals = self._apply_self_correction_adjustments(goals)

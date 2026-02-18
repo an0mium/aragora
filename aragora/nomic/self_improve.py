@@ -173,6 +173,7 @@ class SelfImprovePipeline:
 
         # Step 5: Capture post-change metrics and compare
         outcome_comparison = None  # OutcomeComparison for feedback loop
+        after = None
         if self.config.capture_metrics and baseline is not None:
             after = await self._capture_after()
             if after is not None:
@@ -197,6 +198,21 @@ class SelfImprovePipeline:
                             )
                             # Don't auto-revert yet -- log and let human decide
                             # result.reverted = True
+
+        # Step 5b: Semantic goal evaluation
+        goal_eval = self._evaluate_goal(
+            objective, subtasks, result, baseline, after
+        )
+        if goal_eval is not None:
+            result.metrics_delta["goal_achievement"] = goal_eval.achievement_score
+            result.metrics_delta["goal_scope_coverage"] = goal_eval.scope_coverage
+            result.metrics_delta["goal_diff_relevance"] = goal_eval.diff_relevance
+            if not goal_eval.achieved:
+                logger.warning(
+                    "self_improve_goal_not_achieved cycle=%s score=%.2f",
+                    cycle_id,
+                    goal_eval.achievement_score,
+                )
 
         # Step 6: Persist outcomes (with OutcomeComparison for feedback loop)
         if self.config.persist_outcomes:
@@ -565,6 +581,66 @@ class SelfImprovePipeline:
                 logger.debug("Codebase comparison failed: %s", exc)
 
         return result
+
+    def _evaluate_goal(
+        self,
+        objective: str,
+        subtasks: list[Any],
+        result: SelfImproveResult,
+        baseline: Any,
+        after: Any,
+    ) -> Any:
+        """Step 5b: Semantic evaluation of whether the goal was achieved.
+
+        Uses GoalEvaluator to score scope coverage, test delta, and diff
+        relevance. Returns a GoalEvaluation or None if the evaluator is
+        unavailable.
+        """
+        try:
+            from aragora.nomic.goal_evaluator import GoalEvaluator
+
+            evaluator = GoalEvaluator()
+
+            # Collect intended file scope from all subtasks
+            file_scope: list[str] = []
+            for st in subtasks:
+                for f in getattr(st, "file_scope", []):
+                    if f not in file_scope:
+                        file_scope.append(f)
+
+            # Test counts (before/after from codebase metrics if available)
+            tests_before: dict[str, int] = {}
+            tests_after: dict[str, int] = {}
+            if isinstance(baseline, dict) and baseline.get("codebase"):
+                cb = baseline["codebase"]
+                tests_before = {
+                    "passed": cb.get("test_pass_count", 0),
+                    "failed": cb.get("test_fail_count", 0),
+                }
+            if isinstance(after, dict) and after.get("codebase"):
+                ca = after["codebase"]
+                tests_after = {
+                    "passed": ca.get("test_pass_count", 0),
+                    "failed": ca.get("test_fail_count", 0),
+                }
+
+            # Build diff summary from files changed (just the list for now)
+            diff_summary = " ".join(result.files_changed)
+
+            return evaluator.evaluate(
+                goal=objective,
+                file_scope=file_scope,
+                files_changed=result.files_changed,
+                diff_summary=diff_summary,
+                tests_before=tests_before,
+                tests_after=tests_after,
+            )
+        except ImportError:
+            logger.debug("GoalEvaluator not available")
+            return None
+        except (RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Goal evaluation failed: %s", exc)
+            return None
 
     async def _execute(
         self,
