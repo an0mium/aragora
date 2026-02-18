@@ -419,6 +419,11 @@ class UsageMeter:
         self._ensure_db()
         self._running = True
         self._flush_task = asyncio.create_task(self._flush_loop())
+        self._flush_task.add_done_callback(
+            lambda t: logger.error("Usage metering flush loop crashed: %s", t.exception())
+            if not t.cancelled() and t.exception()
+            else None
+        )
         logger.info("Usage metering started")
 
     async def stop(self) -> None:
