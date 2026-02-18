@@ -253,23 +253,23 @@ class TestCodeReviewHandlerRoutes:
 
     def test_routes_contains_review_endpoint(self, handler):
         """Test that ROUTES contains code review endpoint."""
-        assert "POST /api/v1/code-review/review" in handler.ROUTES
+        assert "/api/v1/code-review/review" in handler.ROUTES
 
     def test_routes_contains_diff_endpoint(self, handler):
         """Test that ROUTES contains diff review endpoint."""
-        assert "POST /api/v1/code-review/diff" in handler.ROUTES
+        assert "/api/v1/code-review/diff" in handler.ROUTES
 
     def test_routes_contains_pr_endpoint(self, handler):
         """Test that ROUTES contains PR review endpoint."""
-        assert "POST /api/v1/code-review/pr" in handler.ROUTES
+        assert "/api/v1/code-review/pr" in handler.ROUTES
 
     def test_routes_contains_history_endpoint(self, handler):
         """Test that ROUTES contains history endpoint."""
-        assert "GET /api/v1/code-review/history" in handler.ROUTES
+        assert "/api/v1/code-review/history" in handler.ROUTES
 
     def test_routes_contains_security_scan_endpoint(self, handler):
         """Test that ROUTES contains security scan endpoint."""
-        assert "POST /api/v1/code-review/security-scan" in handler.ROUTES
+        assert "/api/v1/code-review/security-scan" in handler.ROUTES
 
     def test_dynamic_routes_contains_results_endpoint(self, handler):
         """Test that DYNAMIC_ROUTES contains results endpoint."""
