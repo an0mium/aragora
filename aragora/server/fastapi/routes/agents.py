@@ -191,7 +191,7 @@ async def list_agents(
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error listing agents: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list agents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list agents")
 
 
 @router.get("/agents/leaderboard", response_model=LeaderboardResponse)
@@ -244,7 +244,7 @@ async def get_leaderboard(
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting leaderboard: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get leaderboard: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get leaderboard")
 
 
 @router.get("/agents/{agent_id}", response_model=AgentDetail)
@@ -318,4 +318,4 @@ async def get_agent(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting agent {agent_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get agent: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get agent")

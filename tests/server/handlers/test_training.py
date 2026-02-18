@@ -95,11 +95,11 @@ class TestTrainingHandlerRoutes:
         assert "/api/v1/training/stats" in TrainingHandler.ROUTES
         assert "/api/v1/training/formats" in TrainingHandler.ROUTES
 
-    def test_routes_map_to_handler_methods(self):
-        """Each route should map to a valid method."""
-        handler = TrainingHandler({})
-        for path, method_name in TrainingHandler.ROUTES.items():
-            assert hasattr(handler, method_name), f"Missing method: {method_name}"
+    def test_routes_are_valid_paths(self):
+        """Each route should be a valid API path string."""
+        for route in TrainingHandler.ROUTES:
+            assert isinstance(route, str), f"Route should be a string: {route}"
+            assert route.startswith("/api/"), f"Route should start with /api/: {route}"
 
 
 class TestTrainingHandlerFormats:

@@ -209,7 +209,7 @@ async def start_gauntlet(
 
     except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.exception(f"Failed to start gauntlet: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to start gauntlet: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start gauntlet")
 
 
 @router.get("/gauntlet/{run_id}/status", response_model=GauntletStatusResponse)
@@ -286,7 +286,7 @@ async def get_gauntlet_status(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting gauntlet status {run_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get gauntlet status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get gauntlet status")
 
 
 @router.get("/gauntlet/{run_id}/findings", response_model=FindingsResponse)
@@ -400,4 +400,4 @@ async def get_gauntlet_findings(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting gauntlet findings {run_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get gauntlet findings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get gauntlet findings")

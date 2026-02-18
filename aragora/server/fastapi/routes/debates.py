@@ -184,7 +184,7 @@ async def list_debates(
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error listing debates: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list debates: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list debates")
 
 
 @router.get("/debates/{debate_id}", response_model=DebateDetail)
@@ -254,7 +254,7 @@ async def get_debate(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting debate {debate_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get debate: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get debate")
 
 
 @router.get("/debates/{debate_id}/messages", response_model=MessageResponse)
@@ -317,7 +317,7 @@ async def get_debate_messages(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting messages for debate {debate_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get messages: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get messages")
 
 
 @router.get("/debates/{debate_id}/convergence", response_model=ConvergenceResponse)
@@ -376,4 +376,4 @@ async def get_debate_convergence(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting convergence for debate {debate_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get convergence: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get convergence")

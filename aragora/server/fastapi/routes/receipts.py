@@ -225,7 +225,7 @@ async def list_receipts(
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error listing receipts: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list receipts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list receipts")
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
@@ -329,7 +329,7 @@ async def get_receipt(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting receipt {receipt_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get receipt: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get receipt")
 
 
 @router.get("/receipts/{receipt_id}/verify", response_model=VerifyResponse)
@@ -470,4 +470,4 @@ async def export_receipt(
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error exporting receipt {receipt_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to export receipt: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export receipt")
