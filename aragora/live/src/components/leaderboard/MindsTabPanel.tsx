@@ -33,12 +33,15 @@ function MindsTabPanelComponent({ introspections, loading }: MindsTabPanelProps)
           className="p-3 bg-bg border border-border rounded-lg hover:border-purple-500/30 transition-colors"
         >
           <div className="flex items-center justify-between mb-2">
-            <Link
-              href={`/agent/${encodeURIComponent(intro.agent)}/`}
-              className="font-medium text-text hover:text-accent transition-colors"
-            >
-              {intro.agent}
-            </Link>
+            <span className="flex items-center gap-1.5">
+              <Link
+                href={`/agent/${encodeURIComponent(intro.agent)}/`}
+                className="font-medium text-text hover:text-accent transition-colors"
+              >
+                {intro.agent}
+              </Link>
+              {intro.calibration && <TrustBadge calibration={intro.calibration} size="sm" />}
+            </span>
             <span
               className={`text-xs px-2 py-0.5 rounded ${
                 intro.confidence_calibration >= 0.8

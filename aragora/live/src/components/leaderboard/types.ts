@@ -60,6 +60,12 @@ export interface AgentIntrospection {
   recent_performance_assessment: string;
   improvement_focus: string[];
   last_updated: string;
+  calibration?: {
+    brier_score: number;
+    ece: number;
+    trust_tier: 'excellent' | 'good' | 'moderate' | 'poor' | 'unrated';
+    prediction_count: number;
+  } | null;
 }
 
 // Helper functions
