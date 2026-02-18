@@ -41,7 +41,7 @@ class CanvasAPI:
         Returns:
             PipelineResult with canvases for each completed stage
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/from-debate",
             json={
@@ -66,7 +66,7 @@ class CanvasAPI:
         Returns:
             PipelineResult with canvases for each completed stage
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/from-ideas",
             json={
@@ -92,7 +92,7 @@ class CanvasAPI:
         Returns:
             Updated PipelineResult
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/advance",
             json={
@@ -110,7 +110,7 @@ class CanvasAPI:
         Returns:
             Full PipelineResult with all stage canvases
         """
-        return self._client._request(
+        return self._client.request(
             "GET",
             f"/api/v1/canvas/pipeline/{pipeline_id}",
         )
@@ -129,7 +129,7 @@ class CanvasAPI:
         Returns:
             Canvas data in React Flow format (nodes + edges)
         """
-        return self._client._request(
+        return self._client.request(
             "GET",
             f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
         )
@@ -148,7 +148,7 @@ class CanvasAPI:
         Returns:
             Ideas canvas in React Flow format
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/canvas/convert/debate",
             json={"cartographer_data": cartographer_data},
@@ -168,7 +168,7 @@ class CanvasAPI:
         Returns:
             Actions canvas in React Flow format
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/canvas/convert/workflow",
             json={"workflow_data": workflow_data},
@@ -187,7 +187,7 @@ class AsyncCanvasAPI:
         auto_advance: bool = True,
     ) -> dict[str, Any]:
         """Run full pipeline from an ArgumentCartographer debate export."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/from-debate",
             json={
@@ -202,7 +202,7 @@ class AsyncCanvasAPI:
         auto_advance: bool = True,
     ) -> dict[str, Any]:
         """Run full pipeline from raw idea strings."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/from-ideas",
             json={
@@ -217,7 +217,7 @@ class AsyncCanvasAPI:
         target_stage: PipelineStage,
     ) -> dict[str, Any]:
         """Advance pipeline to the next stage after human review."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/canvas/pipeline/advance",
             json={
@@ -228,7 +228,7 @@ class AsyncCanvasAPI:
 
     async def get_pipeline(self, pipeline_id: str) -> dict[str, Any]:
         """Get complete pipeline result by ID."""
-        return await self._client._request(
+        return await self._client.request(
             "GET",
             f"/api/v1/canvas/pipeline/{pipeline_id}",
         )
@@ -239,7 +239,7 @@ class AsyncCanvasAPI:
         stage: PipelineStage,
     ) -> dict[str, Any]:
         """Get a specific stage canvas from a pipeline."""
-        return await self._client._request(
+        return await self._client.request(
             "GET",
             f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
         )
@@ -249,7 +249,7 @@ class AsyncCanvasAPI:
         cartographer_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Convert debate argument graph to ideas canvas."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/canvas/convert/debate",
             json={"cartographer_data": cartographer_data},
@@ -260,7 +260,7 @@ class AsyncCanvasAPI:
         workflow_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Convert workflow definition to actions canvas."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/canvas/convert/workflow",
             json={"workflow_data": workflow_data},
