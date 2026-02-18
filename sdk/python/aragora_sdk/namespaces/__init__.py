@@ -36,6 +36,7 @@ from .compliance import AsyncComplianceAPI, ComplianceAPI
 from .connectors import AsyncConnectorsAPI, ConnectorsAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
+from .coordination import AsyncCoordinationAPI, CoordinationAPI
 from .cost_management import AsyncCostManagementAPI, CostManagementAPI
 from .critiques import AsyncCritiquesAPI, CritiquesAPI
 from .cross_pollination import AsyncCrossPollinationAPI, CrossPollinationAPI
@@ -204,6 +205,8 @@ __all__ = [
     "AsyncConsensusAPI",
     "ControlPlaneAPI",
     "AsyncControlPlaneAPI",
+    "CoordinationAPI",
+    "AsyncCoordinationAPI",
     "CostManagementAPI",
     "AsyncCostManagementAPI",
     "CrossPollinationAPI",

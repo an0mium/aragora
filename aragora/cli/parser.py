@@ -126,6 +126,7 @@ Examples:
     _add_self_improve_parser(subparsers)
     _add_worktree_parser(subparsers)
     _add_outcome_parser(subparsers)
+    _add_explain_parser(subparsers)
 
     return parser
 
