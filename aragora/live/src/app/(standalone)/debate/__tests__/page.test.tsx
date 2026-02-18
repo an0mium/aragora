@@ -148,7 +148,7 @@ describe('DebateViewerPage', () => {
 
   describe('initial render', () => {
     it('renders without crashing', async () => {
-      render(<DebateViewerPage />);
+      renderWithProviders(<DebateViewerPage />);
 
       // Should render successfully
       await waitFor(() => {
@@ -162,7 +162,7 @@ describe('DebateViewerPage', () => {
     });
 
     it('renders the DebateViewerWrapper component', () => {
-      render(<DebateViewerPage />);
+      renderWithProviders(<DebateViewerPage />);
 
       // Page renders the wrapper which handles the logic
       expect(document.body).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe('DebateViewerWrapper', () => {
       // In React Testing Library, useEffect runs synchronously during render
       // so loading state transitions immediately to the final state
       // We verify the component doesn't crash during this transition
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       // After render completes, should show final state (no debate ID message)
       expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
@@ -201,7 +201,7 @@ describe('DebateViewerWrapper', () => {
     it('shows "no debate ID" message when no ID in URL', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe('DebateViewerWrapper', () => {
     it('renders visual effects when no debate ID', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByTestId('scanlines')).toBeInTheDocument();
@@ -222,7 +222,7 @@ describe('DebateViewerWrapper', () => {
     it('renders header elements when no debate ID', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe('DebateViewerWrapper', () => {
     it('renders return to dashboard link when no debate ID', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('[RETURN TO DASHBOARD]')).toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('DebateViewerWrapper', () => {
     it('has correct link to dashboard', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         const link = screen.getByText('[RETURN TO DASHBOARD]').closest('a');
@@ -256,7 +256,7 @@ describe('DebateViewerWrapper', () => {
     it('renders debate viewer when debate ID is in URL', async () => {
       mockPathname('/debate/test-debate-123');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByTestId('debate-viewer')).toBeInTheDocument();
@@ -266,7 +266,7 @@ describe('DebateViewerWrapper', () => {
     it('passes debate ID to DebateViewer component', async () => {
       mockPathname('/debate/my-debate-456');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         const viewer = screen.getByTestId('debate-viewer');
@@ -277,7 +277,7 @@ describe('DebateViewerWrapper', () => {
     it('passes WebSocket URL to DebateViewer component', async () => {
       mockPathname('/debate/test-debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         const viewer = screen.getByTestId('debate-viewer');
@@ -288,7 +288,7 @@ describe('DebateViewerWrapper', () => {
     it('shows analysis toggle button for archived debates', async () => {
       mockPathname('/debate/archived-debate-789');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText('[+] SHOW ANALYSIS PANELS')).toBeInTheDocument();
@@ -300,7 +300,7 @@ describe('DebateViewerWrapper', () => {
     it('detects live debate from adhoc_ prefix', async () => {
       mockPathname('/debate/adhoc_live-debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         // Live debates show voice input, not analysis toggle
@@ -312,7 +312,7 @@ describe('DebateViewerWrapper', () => {
     it('shows voice input panel for live debates', async () => {
       mockPathname('/debate/adhoc_streaming-debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByTestId('voice-input')).toBeInTheDocument();
@@ -322,7 +322,7 @@ describe('DebateViewerWrapper', () => {
     it('hides voice input panel for archived debates', async () => {
       mockPathname('/debate/archived-debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.queryByTestId('voice-input')).not.toBeInTheDocument();
@@ -341,7 +341,7 @@ describe('DebateViewerWrapper', () => {
         }),
       });
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       // The handleStartDebateFromTrend function is passed to TrendingTopicsPanel
       // Testing the integration would require simulating the panel callback
@@ -357,7 +357,7 @@ describe('DebateViewerWrapper', () => {
         }),
       });
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       // The navigation happens via router.push in handleStartDebateFromTrend
     });
@@ -369,7 +369,7 @@ describe('DebateViewerWrapper', () => {
       // In test environment this is mocked
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         // Should show no debate ID message rather than crash
@@ -382,7 +382,7 @@ describe('DebateViewerWrapper', () => {
     it('extracts debate ID from URL path segments', async () => {
       mockPathname('/debate/segment-debate-id');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         const viewer = screen.getByTestId('debate-viewer');
@@ -393,7 +393,7 @@ describe('DebateViewerWrapper', () => {
     it('handles URLs with trailing slashes', async () => {
       mockPathname('/debate/trailing-slash/');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         const viewer = screen.getByTestId('debate-viewer');
@@ -404,7 +404,7 @@ describe('DebateViewerWrapper', () => {
     it('handles root debate path', async () => {
       mockPathname('/debate');
 
-      render(<DebateViewerWrapper />);
+      renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
         expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
