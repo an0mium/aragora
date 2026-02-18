@@ -543,7 +543,9 @@ class TestInternalMethods:
     @pytest.mark.asyncio
     async def test_execute_single_extracts_description_from_various_types(self):
         """_execute_single handles SubTask, TaskDecomposition, TrackAssignment, and str."""
-        pipeline = SelfImprovePipeline()
+        pipeline = SelfImprovePipeline(
+            config=SelfImproveConfig(enable_debug_loop=False)
+        )
 
         # Raw string
         r1 = await pipeline._execute_single("raw string task", "c1")

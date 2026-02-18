@@ -69,6 +69,7 @@ from aragora.server.openapi.endpoints.gateway import GATEWAY_ENDPOINTS
 from aragora.server.openapi.endpoints.openclaw import OPENCLAW_ENDPOINTS
 from aragora.server.openapi.endpoints.sdk_missing import SDK_MISSING_ENDPOINTS
 from aragora.server.openapi.endpoints.debate_hardening import DEBATE_HARDENING_ENDPOINTS
+from aragora.server.openapi.endpoints.reconciliation import RECONCILIATION_ENDPOINTS
 from aragora.server.openapi.endpoints.response_schemas import RESPONSE_SCHEMA_ENDPOINTS
 
 
@@ -157,6 +158,7 @@ ALL_ENDPOINTS = {
     **OPENCLAW_ENDPOINTS,
     **SDK_MISSING_ENDPOINTS,
     **DEBATE_HARDENING_ENDPOINTS,
+    **RECONCILIATION_ENDPOINTS,
     **RESPONSE_SCHEMA_ENDPOINTS,
 }
 
@@ -231,6 +233,7 @@ __all__ = [
     "OPENCLAW_ENDPOINTS",
     "SDK_MISSING_ENDPOINTS",
     "DEBATE_HARDENING_ENDPOINTS",
+    "RECONCILIATION_ENDPOINTS",
     "RESPONSE_SCHEMA_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]
