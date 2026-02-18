@@ -371,9 +371,13 @@ class TestOperationalMetrics:
         assert "timestamp" in body
 
     def test_error_rate_zero_when_no_requests(self, handler, mock_http_handler):
-        result = handler.handle("/api/metrics", {}, mock_http_handler)
-        body = result[0]
-        assert body["requests"]["error_rate"] == 0.0
+        with patch(
+            "aragora.server.handlers.metrics.handler.get_request_stats",
+            return_value={"total_requests": 0, "total_errors": 0, "counts_snapshot": []},
+        ):
+            result = handler.handle("/api/metrics", {}, mock_http_handler)
+            body = result[0]
+            assert body["requests"]["error_rate"] == 0.0
 
     def test_database_sizes_with_nomic_dir(self, handler_with_full_ctx, mock_http_handler):
         """When nomic_dir exists, database sizes section is populated (possibly empty)."""
