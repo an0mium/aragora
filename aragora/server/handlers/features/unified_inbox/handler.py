@@ -315,8 +315,14 @@ class UnifiedInboxHandler(BaseHandler):
         """Get prioritized messages across all accounts."""
         try:
             params = self._get_query_params(request)
-            limit = int(params.get("limit", 50))
-            offset = int(params.get("offset", 0))
+            try:
+                limit = int(params.get("limit", 50))
+            except (ValueError, TypeError):
+                limit = 50
+            try:
+                offset = int(params.get("offset", 0))
+            except (ValueError, TypeError):
+                offset = 0
             priority_filter = params.get("priority")
             account_filter = params.get("account_id")
             unread_only = params.get("unread_only", "false").lower() == "true"
@@ -449,7 +455,10 @@ class UnifiedInboxHandler(BaseHandler):
     async def _handle_trends(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get priority trends over time."""
         params = self._get_query_params(request)
-        days = int(params.get("days", 7))
+        try:
+            days = int(params.get("days", 7))
+        except (ValueError, TypeError):
+            days = 7
         trends = compute_trends(days)
         return success_response({"trends": trends})
 

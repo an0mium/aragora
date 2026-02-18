@@ -935,7 +935,10 @@ class EmailWebhooksHandler(BaseHandler):
     async def _handle_history(self, request: Any, tenant_id: str) -> HandlerResult:
         """Get notification history."""
         params = self._get_query_params(request)
-        limit = int(params.get("limit", 50))
+        try:
+            limit = int(params.get("limit", 50))
+        except (ValueError, TypeError):
+            limit = 50
 
         history = _notification_history.get(tenant_id, [])
         history = history[-limit:]  # Get last N

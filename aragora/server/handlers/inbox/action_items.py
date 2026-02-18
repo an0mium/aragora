@@ -420,7 +420,7 @@ async def handle_get_due_soon(
         return rbac_err
 
     try:
-        hours = int(data.get("hours", 24))
+        hours = max(1, min(int(data.get("hours", 24) or 24), 8760))
         include_overdue = data.get("include_overdue", True)
         if isinstance(include_overdue, str):
             include_overdue = include_overdue.lower() == "true"
@@ -665,7 +665,10 @@ async def handle_auto_snooze_meeting(
         subject = data.get("subject", "")
         body = data.get("body", "")
         sender = data.get("sender", "")
-        minutes_before = int(data.get("minutes_before", 30))
+        try:
+            minutes_before = int(data.get("minutes_before", 30))
+        except (ValueError, TypeError):
+            minutes_before = 30
 
         if not body and not subject:
             return error_response("Either subject or body is required", status=400)

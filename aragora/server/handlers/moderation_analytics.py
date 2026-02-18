@@ -118,8 +118,14 @@ class ModerationAnalyticsHandler(BaseHandler):
 
     def _handle_queue(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return pending review items."""
-        limit = min(int(query_params.get("limit", 50)), 200)
-        offset = max(int(query_params.get("offset", 0)), 0)
+        try:
+            limit = min(int(query_params.get("limit", 50)), 200)
+        except (ValueError, TypeError):
+            limit = 50
+        try:
+            offset = max(int(query_params.get("offset", 0)), 0)
+        except (ValueError, TypeError):
+            offset = 0
 
         items = _list_queue(limit=limit, offset=offset)
 

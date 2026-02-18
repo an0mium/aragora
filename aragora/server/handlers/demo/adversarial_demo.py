@@ -254,7 +254,7 @@ def _select_agents(count: int, topic: str) -> list[dict[str, Any]]:
     """Pick *count* agent archetypes, ensuring at least one pro and one con."""
     # Deterministic seed from topic so the same topic always gets the same
     # agents (nice for demos).
-    seed = int(hashlib.md5(topic.encode()).hexdigest()[:8], 16)
+    seed = int(hashlib.md5(topic.encode(), usedforsecurity=False).hexdigest()[:8], 16)
 
     # Always include one pro and one con, then fill remaining slots.
     ordered = list(_AGENT_ARCHETYPES)

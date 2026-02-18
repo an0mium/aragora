@@ -45,7 +45,10 @@ class AudienceSuggestionsHandler(BaseHandler):
         max_clusters = safe_query_int(
             query_params, "max_clusters", default=5, min_val=1, max_val=20
         )
-        threshold = float(query_params.get("threshold", "0.6"))
+        try:
+            threshold = float(query_params.get("threshold", "0.6"))
+        except (ValueError, TypeError):
+            return error_response("Invalid threshold value", 400)
         if not (0.0 <= threshold <= 1.0):
             return error_response("threshold must be between 0.0 and 1.0", 400)
 

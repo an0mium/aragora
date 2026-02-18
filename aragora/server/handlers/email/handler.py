@@ -350,7 +350,10 @@ class EmailHandler(BaseHandler):
         """GET /api/email/inbox"""
         user_id = self._get_user_id()
         labels = params.get("labels", "").split(",") if params.get("labels") else None
-        limit = int(params.get("limit", 50))
+        try:
+            limit = int(params.get("limit", 50))
+        except (ValueError, TypeError):
+            limit = 50
         include_read = params.get("include_read", "").lower() == "true"
 
         result = await handle_fetch_and_rank_inbox(

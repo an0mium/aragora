@@ -800,7 +800,10 @@ if HANDLER_BASE_AVAILABLE:
             headers = {k: v for k, v in handler.headers.items()}
 
             # Get raw body
-            content_length = int(headers.get("Content-Length", 0))
+            try:
+                content_length = int(headers.get("Content-Length", 0))
+            except (ValueError, TypeError):
+                content_length = 0
             if hasattr(handler, "rfile"):
                 raw_body = handler.rfile.read(content_length)
             else:

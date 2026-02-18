@@ -846,7 +846,7 @@ class OutlookHandler(BaseHandler):
             workspace_id=params.get("workspace_id", "default"),
             user_id=self._get_user_id(),
             folder_id=params.get("folder_id"),
-            max_results=int(params.get("max_results", 50)),
+            max_results=min(int(params.get("max_results", 50) or 50), 500),
             page_token=params.get("page_token"),
             filter_query=params.get("filter"),
         )
@@ -880,7 +880,7 @@ class OutlookHandler(BaseHandler):
             workspace_id=params.get("workspace_id", "default"),
             user_id=self._get_user_id(),
             conversation_id=conversation_id,
-            max_messages=int(params.get("max_messages", 50)),
+            max_messages=min(int(params.get("max_messages", 50) or 50), 500),
         )
 
         if result.get("success"):
@@ -949,7 +949,7 @@ class OutlookHandler(BaseHandler):
             workspace_id=params.get("workspace_id", "default"),
             user_id=self._get_user_id(),
             query=query,
-            max_results=int(params.get("max_results", 25)),
+            max_results=min(int(params.get("max_results", 25) or 25), 500),
             folder_id=params.get("folder_id"),
         )
 

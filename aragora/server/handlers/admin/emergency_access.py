@@ -90,7 +90,10 @@ class EmergencyAccessHandler(SecureHandler):
         if not reason or len(reason) < 10:
             return error_response("Reason must be at least 10 characters", 400)
 
-        duration_minutes = int(data.get("duration_minutes", 60))
+        try:
+            duration_minutes = int(data.get("duration_minutes", 60))
+        except (ValueError, TypeError):
+            duration_minutes = 60
 
         ip_address = None
         if hasattr(handler, "client_address"):

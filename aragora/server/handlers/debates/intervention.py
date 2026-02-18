@@ -422,11 +422,15 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        try:
+            weight = float(data.get("weight", 1.0))
+        except (ValueError, TypeError):
+            return error_response("Invalid weight value", 400)
         return await handle_update_weights(
             debate_id,
             context,
             agent=data.get("agent", ""),
-            weight=float(data.get("weight", 1.0)),
+            weight=weight,
             user_id=data.get("user_id"),
         )
 
@@ -437,10 +441,14 @@ def register_intervention_routes(router: Any) -> None:
         context, err = await _require_context(request)
         if err:
             return err
+        try:
+            threshold = float(data.get("threshold", 0.75))
+        except (ValueError, TypeError):
+            return error_response("Invalid threshold value", 400)
         return await handle_update_threshold(
             debate_id,
             context,
-            threshold=float(data.get("threshold", 0.75)),
+            threshold=threshold,
             user_id=data.get("user_id"),
         )
 

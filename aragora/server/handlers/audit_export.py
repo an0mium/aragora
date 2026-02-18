@@ -92,8 +92,8 @@ async def handle_audit_events(request: web.Request) -> web.Response:
     query = AuditQuery(
         start_date=start_date,
         end_date=end_date,
-        limit=min(int(params.get("limit", 100)), 1000),
-        offset=int(params.get("offset", 0)),
+        limit=min(int(params.get("limit", 100) or 100), 1000),
+        offset=max(0, int(params.get("offset", 0) or 0)),
     )
 
     if params.get("category"):

@@ -382,7 +382,10 @@ class FormalVerificationHandler(BaseHandler):
 
         claim_type = data.get("claim_type")
         context = data.get("context", "")
-        timeout = min(float(data.get("timeout", 60.0)), 300.0)  # Max 5 min
+        try:
+            timeout = min(float(data.get("timeout", 60.0)), 300.0)  # Max 5 min
+        except (ValueError, TypeError):
+            timeout = 60.0
 
         manager = self._get_manager()
         result = await manager.attempt_formal_verification(
@@ -453,8 +456,14 @@ class FormalVerificationHandler(BaseHandler):
         if len(claims_data) > 20:
             return error_response("Maximum 20 claims per batch", 400)
 
-        timeout_per = min(float(data.get("timeout_per_claim", 30.0)), 120.0)
-        max_concurrent = min(int(data.get("max_concurrent", 3)), 5)
+        try:
+            timeout_per = min(float(data.get("timeout_per_claim", 30.0)), 120.0)
+        except (ValueError, TypeError):
+            timeout_per = 30.0
+        try:
+            max_concurrent = min(int(data.get("max_concurrent", 3)), 5)
+        except (ValueError, TypeError):
+            max_concurrent = 3
 
         manager = self._get_manager()
         mods = _init_verification()

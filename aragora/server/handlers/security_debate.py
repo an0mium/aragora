@@ -116,8 +116,14 @@ class SecurityDebateHandler(SecureHandler):
             return error_response("findings must be an array", 400)
 
         repository = data.get("repository", "unknown")
-        confidence_threshold = min(max(float(data.get("confidence_threshold", 0.7)), 0.1), 1.0)
-        timeout_seconds = min(max(int(data.get("timeout_seconds", 300)), 30), 600)
+        try:
+            confidence_threshold = min(max(float(data.get("confidence_threshold", 0.7)), 0.1), 1.0)
+        except (ValueError, TypeError):
+            confidence_threshold = 0.7
+        try:
+            timeout_seconds = min(max(int(data.get("timeout_seconds", 300)), 30), 600)
+        except (ValueError, TypeError):
+            timeout_seconds = 300
 
         # Import security event types
         try:

@@ -214,7 +214,10 @@ class LegalHandler:
         status = params.get("status")
         from_date = params.get("from_date")
         to_date = params.get("to_date")
-        limit = int(params.get("limit", 25))
+        try:
+            limit = int(params.get("limit", 25))
+        except (ValueError, TypeError):
+            limit = 25
 
         try:
             envelopes = await connector.list_envelopes(

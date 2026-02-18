@@ -866,7 +866,10 @@ class AutonomousLearningHandler(BaseHandler):
         """List detected patterns with filtering."""
         pattern_type_filter = query_params.get("pattern_type")
         validated_only = query_params.get("validated", "").lower() == "true"
-        min_confidence = float(query_params.get("min_confidence", MIN_PATTERN_CONFIDENCE))
+        try:
+            min_confidence = float(query_params.get("min_confidence", MIN_PATTERN_CONFIDENCE))
+        except (ValueError, TypeError):
+            min_confidence = MIN_PATTERN_CONFIDENCE
         limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=200)
 
         patterns = list(self._patterns.values())

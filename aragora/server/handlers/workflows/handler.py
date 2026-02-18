@@ -138,8 +138,8 @@ class WorkflowHandlers:
             category=params.get("category"),
             tags=params.get("tags"),
             search=params.get("search"),
-            limit=int(params.get("limit", 50)),
-            offset=int(params.get("offset", 0)),
+            limit=max(1, min(int(params.get("limit", 50) or 50), 500)),
+            offset=max(0, int(params.get("offset", 0) or 0)),
         )
 
     @staticmethod
