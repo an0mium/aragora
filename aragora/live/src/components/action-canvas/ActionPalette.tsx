@@ -9,9 +9,6 @@ const groups: { label: string; key: ActionTypeConfig['group']; types: ActionNode
   { label: 'Management', key: 'Management', types: ['deliverable', 'dependency'] },
 ];
 
-/**
- * Drag-and-drop palette for adding action nodes to the canvas.
- */
 export function ActionPalette() {
   const onDragStart = useCallback(
     (e: React.DragEvent, actionType: ActionNodeType) => {
@@ -23,14 +20,10 @@ export function ActionPalette() {
 
   return (
     <div className="w-48 border-r border-[var(--border)] bg-[var(--surface)] p-3 overflow-y-auto">
-      <h3 className="text-xs font-mono uppercase text-text-muted mb-3 tracking-wider">
-        Action Types
-      </h3>
+      <h3 className="text-xs font-mono uppercase text-text-muted mb-3 tracking-wider">Action Types</h3>
       {groups.map((group) => (
         <div key={group.key} className="mb-4">
-          <div className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wide">
-            {group.label}
-          </div>
+          <div className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wide">{group.label}</div>
           <div className="space-y-1.5">
             {group.types.map((actionType) => {
               const config = ACTION_NODE_CONFIGS[actionType];
@@ -39,11 +32,7 @@ export function ActionPalette() {
                   key={actionType}
                   draggable
                   onDragStart={(e) => onDragStart(e, actionType)}
-                  className={`
-                    flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab
-                    border border-transparent hover:border-[var(--border)]
-                    ${config.color} transition-colors
-                  `}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab border border-transparent hover:border-[var(--border)] ${config.color} transition-colors`}
                   title={config.description}
                 >
                   <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-amber-500/30 text-amber-200">

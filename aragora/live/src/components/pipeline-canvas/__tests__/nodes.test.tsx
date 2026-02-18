@@ -89,7 +89,7 @@ describe('GoalNode', () => {
 describe('ActionNode', () => {
   const data = {
     label: 'Deploy monitoring',
-    step_type: 'verification',
+    step_type: 'checkpoint',
     description: 'Set up Prometheus dashboards',
     optional: true,
     timeout: 3600,
@@ -102,7 +102,7 @@ describe('ActionNode', () => {
 
   it('renders step type badge', () => {
     render(<ActionNode data={data} />, { wrapper: Wrapper });
-    expect(screen.getByText('Verification')).toBeInTheDocument();
+    expect(screen.getByText('Checkpoint')).toBeInTheDocument();
   });
 
   it('renders optional badge', () => {
@@ -119,7 +119,7 @@ describe('ActionNode', () => {
 describe('OrchestrationNode', () => {
   const data = {
     label: 'Analyst Agent',
-    orch_type: 'agent',
+    orch_type: 'agent_task',
     agent_type: 'claude',
     capabilities: ['research', 'analysis', 'synthesis'],
   };
@@ -131,7 +131,7 @@ describe('OrchestrationNode', () => {
 
   it('renders orch type badge', () => {
     render(<OrchestrationNode data={data} />, { wrapper: Wrapper });
-    expect(screen.getByText('Agent')).toBeInTheDocument();
+    expect(screen.getByText('Agent Task')).toBeInTheDocument();
   });
 
   it('renders agent type', () => {

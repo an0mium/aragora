@@ -2,20 +2,32 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { OrchCanvasMeta } from '@/components/orchestration-canvas/types';
 
-const OrchestrationCanvas = dynamic(
-  () => import('@/components/orchestration-canvas/OrchestrationCanvas'),
+const PipelineCanvas = dynamic(
+  () => import('@/components/pipeline-canvas/PipelineCanvas'),
   { ssr: false }
 );
+
+interface CanvasMeta {
+  id: string;
+  name: string;
+  owner_id: string | null;
+  workspace_id: string | null;
+  source_canvas_id: string | null;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
 
 const API_BASE = '/api/v1/orchestration';
 
 /**
- * /orchestration page -- lists orchestration canvases or opens a canvas editor.
+ * /orchestration page -- lists orchestration canvases or opens the unified
+ * pipeline canvas scoped to the orchestration stage.
  */
 export default function OrchestrationPage() {
-  const [canvases, setCanvases] = useState<OrchCanvasMeta[]>([]);
+  const [canvases, setCanvases] = useState<CanvasMeta[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +68,7 @@ export default function OrchestrationPage() {
     if (selectedId === id) setSelectedId(null);
   };
 
-  // ── Canvas editor view ───────────────────────────────────────
+  // -- Canvas editor view (unified pipeline canvas, orchestration stage) --
   if (selectedId) {
     return (
       <div className="h-full flex flex-col">
@@ -72,13 +84,13 @@ export default function OrchestrationPage() {
           </span>
         </div>
         <div className="flex-1">
-          <OrchestrationCanvas canvasId={selectedId} />
+          <PipelineCanvas pipelineId={selectedId} initialStage="orchestration" />
         </div>
       </div>
     );
   }
 
-  // ── Canvas list view ─────────────────────────────────────────
+  // -- Canvas list view --
   return (
     <div className="p-6 max-w-4xl mx-auto font-mono">
       <div className="flex items-center justify-between mb-6">

@@ -88,17 +88,37 @@ export function PipelinePalette({ stage, onDragStart }: PipelinePaletteProps) {
         </p>
       </div>
 
-      {/* Palette items */}
+      {/* Palette items — grouped when entries have group values */}
       <div className="flex flex-col gap-2">
-        {Object.entries(nodeTypes).map(([subtype, config]) => (
-          <PaletteItem
-            key={subtype}
-            stage={stage}
-            subtype={subtype}
-            config={config}
-            onDragStart={onDragStart}
-          />
-        ))}
+        {(() => {
+          const entries = Object.entries(nodeTypes);
+          const grouped = new Map<string, typeof entries>();
+          for (const entry of entries) {
+            const g = entry[1].group || '';
+            if (!grouped.has(g)) grouped.set(g, []);
+            grouped.get(g)!.push(entry);
+          }
+          const hasGroups = grouped.size > 1 || (grouped.size === 1 && !grouped.has(''));
+
+          if (!hasGroups) {
+            return entries.map(([subtype, config]) => (
+              <PaletteItem key={subtype} stage={stage} subtype={subtype} config={config} onDragStart={onDragStart} />
+            ));
+          }
+
+          return Array.from(grouped.entries()).map(([group, items]) => (
+            <div key={group || '_ungrouped'}>
+              {group && (
+                <h4 className="text-[10px] font-mono font-bold text-text-muted uppercase tracking-wider mt-2 mb-1">
+                  {group}
+                </h4>
+              )}
+              {items.map(([subtype, config]) => (
+                <PaletteItem key={subtype} stage={stage} subtype={subtype} config={config} onDragStart={onDragStart} />
+              ))}
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Help tip */}

@@ -8,6 +8,8 @@ import {
   type GoalType,
   type ActionType,
   type OrchType,
+  type ActionStatus,
+  type OrchStatus,
 } from '../types';
 import {
   InputField,
@@ -67,6 +69,21 @@ const ORCH_TYPE_OPTIONS: Array<{ value: OrchType; label: string }> = [
   { value: 'parallel_fan', label: 'Parallel Fan' },
   { value: 'merge', label: 'Merge' },
   { value: 'verification', label: 'Verification' },
+];
+
+const ACTION_STATUS_OPTIONS: Array<{ value: ActionStatus; label: string }> = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'blocked', label: 'Blocked' },
+];
+
+const ORCH_STATUS_OPTIONS: Array<{ value: OrchStatus; label: string }> = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'running', label: 'Running' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'awaiting_human', label: 'Awaiting Human' },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -207,12 +224,22 @@ function ActionsEditor({
   onUpdate: (updates: Record<string, unknown>) => void;
   readOnly?: boolean;
 }) {
+  const tagsRaw = node.tags;
+  const tagsStr = Array.isArray(tagsRaw)
+    ? tagsRaw.join(', ')
+    : typeof tagsRaw === 'string'
+      ? tagsRaw
+      : '';
+
   if (readOnly) {
     return (
       <>
         <ReadOnlyField label="Step Type" value={String(node.stepType ?? '')} />
+        <ReadOnlyField label="Status" value={String(node.status ?? 'pending').replace('_', ' ')} />
         <ReadOnlyField label="Description" value={String(node.description ?? '')} />
+        <ReadOnlyField label="Assignee" value={String(node.assignee ?? '')} />
         <ReadOnlyField label="Optional" value={node.optional ? 'Yes' : 'No'} />
+        <ReadOnlyField label="Tags" value={tagsStr} />
         <ReadOnlyField
           label="Timeout (seconds)"
           value={node.timeoutSeconds != null ? String(node.timeoutSeconds) : ''}
@@ -229,6 +256,12 @@ function ActionsEditor({
         options={ACTION_TYPE_OPTIONS}
         onChange={(v) => onUpdate({ stepType: v })}
       />
+      <SelectField
+        label="Status"
+        value={String(node.status ?? 'pending')}
+        options={ACTION_STATUS_OPTIONS}
+        onChange={(v) => onUpdate({ status: v })}
+      />
       <InputField
         label="Description"
         value={String(node.description ?? '')}
@@ -236,11 +269,30 @@ function ActionsEditor({
         placeholder="What does this step do?"
         type="textarea"
       />
+      <InputField
+        label="Assignee"
+        value={String(node.assignee ?? '')}
+        onChange={(v) => onUpdate({ assignee: v })}
+        placeholder="e.g., john, team-alpha"
+      />
       <CheckboxField
         label="Optional"
         checked={!!node.optional}
         onChange={(v) => onUpdate({ optional: v })}
         description="Can be skipped without blocking the pipeline"
+      />
+      <InputField
+        label="Tags (comma-separated)"
+        value={tagsStr}
+        onChange={(v) =>
+          onUpdate({
+            tags: v
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean),
+          })
+        }
+        placeholder="e.g., backend, critical, sprint-3"
       />
       <InputField
         label="Timeout (seconds)"
@@ -273,6 +325,8 @@ function OrchestrationEditor({
     return (
       <>
         <ReadOnlyField label="Orchestration Type" value={String(node.orchType ?? '')} />
+        <ReadOnlyField label="Status" value={String(node.status ?? 'pending').replace('_', ' ')} />
+        <ReadOnlyField label="Description" value={String(node.description ?? '')} />
         <ReadOnlyField label="Assigned Agent" value={String(node.assignedAgent ?? '')} />
         <ReadOnlyField label="Agent Type" value={String(node.agentType ?? '')} />
         <ReadOnlyField label="Capabilities" value={capsStr} />
@@ -287,6 +341,19 @@ function OrchestrationEditor({
         value={String(node.orchType ?? 'agent_task')}
         options={ORCH_TYPE_OPTIONS}
         onChange={(v) => onUpdate({ orchType: v })}
+      />
+      <SelectField
+        label="Status"
+        value={String(node.status ?? 'pending')}
+        options={ORCH_STATUS_OPTIONS}
+        onChange={(v) => onUpdate({ status: v })}
+      />
+      <InputField
+        label="Description"
+        value={String(node.description ?? '')}
+        onChange={(v) => onUpdate({ description: v })}
+        placeholder="Describe this orchestration step..."
+        type="textarea"
       />
       <InputField
         label="Assigned Agent"

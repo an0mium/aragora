@@ -17,6 +17,28 @@ export type ActionType = 'task' | 'epic' | 'checkpoint' | 'deliverable' | 'depen
 export type OrchType = 'agent_task' | 'debate' | 'human_gate' | 'parallel_fan' | 'merge' | 'verification';
 
 // =============================================================================
+// Status Types & Colors
+// =============================================================================
+
+export type ActionStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
+export type OrchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'awaiting_human';
+
+export const ACTION_STATUS_COLORS: Record<ActionStatus, string> = {
+  pending: 'bg-gray-500/30 text-gray-200',
+  in_progress: 'bg-blue-500/30 text-blue-200',
+  completed: 'bg-green-500/30 text-green-200',
+  blocked: 'bg-red-500/30 text-red-200',
+};
+
+export const ORCH_STATUS_COLORS: Record<OrchStatus, string> = {
+  pending: 'bg-gray-500/30 text-gray-200',
+  running: 'bg-blue-500/30 text-blue-200',
+  completed: 'bg-green-500/30 text-green-200',
+  failed: 'bg-red-500/30 text-red-200',
+  awaiting_human: 'bg-amber-500/30 text-amber-200',
+};
+
+// =============================================================================
 // Node Data Interfaces
 // =============================================================================
 
@@ -42,6 +64,10 @@ export interface ActionNodeData {
   description?: string;
   optional?: boolean;
   timeoutSeconds?: number;
+  status?: ActionStatus;
+  assignee?: string;
+  tags?: string[];
+  lockedBy?: string;
 }
 
 export interface OrchestrationNodeData {
@@ -50,6 +76,9 @@ export interface OrchestrationNodeData {
   assignedAgent?: string;
   capabilities?: string[];
   agentType?: string;
+  status?: OrchStatus;
+  description?: string;
+  lockedBy?: string;
 }
 
 export type PipelineNodeData =
@@ -68,6 +97,7 @@ export interface NodeTypeConfig {
   description: string;
   color: string;
   borderColor: string;
+  group?: string;
 }
 
 export const PIPELINE_NODE_TYPE_CONFIGS: Record<PipelineStageType, Record<string, NodeTypeConfig>> = {
@@ -89,19 +119,19 @@ export const PIPELINE_NODE_TYPE_CONFIGS: Record<PipelineStageType, Record<string
     risk: { label: 'Risk', icon: '⚡', description: 'Identified risk', color: 'bg-emerald-500/20', borderColor: 'border-emerald-500' },
   },
   actions: {
-    task: { label: 'Task', icon: '✅', description: 'Actionable task', color: 'bg-amber-500/20', borderColor: 'border-amber-500' },
-    epic: { label: 'Epic', icon: '📋', description: 'Large body of work', color: 'bg-amber-500/20', borderColor: 'border-amber-400' },
-    checkpoint: { label: 'Checkpoint', icon: '🔖', description: 'Verification checkpoint', color: 'bg-amber-500/20', borderColor: 'border-amber-500' },
-    deliverable: { label: 'Deliverable', icon: '📦', description: 'Tangible deliverable', color: 'bg-amber-500/20', borderColor: 'border-amber-400' },
-    dependency: { label: 'Dependency', icon: '🔄', description: 'External dependency', color: 'bg-amber-500/20', borderColor: 'border-amber-300' },
+    task: { label: 'Task', icon: '✅', description: 'Actionable task', color: 'bg-amber-500/20', borderColor: 'border-amber-500', group: 'Execution' },
+    epic: { label: 'Epic', icon: '📋', description: 'Large body of work', color: 'bg-amber-500/20', borderColor: 'border-amber-400', group: 'Execution' },
+    checkpoint: { label: 'Checkpoint', icon: '🔖', description: 'Verification checkpoint', color: 'bg-amber-500/20', borderColor: 'border-amber-500', group: 'Verification' },
+    deliverable: { label: 'Deliverable', icon: '📦', description: 'Tangible deliverable', color: 'bg-amber-500/20', borderColor: 'border-amber-400', group: 'Management' },
+    dependency: { label: 'Dependency', icon: '🔄', description: 'External dependency', color: 'bg-amber-500/20', borderColor: 'border-amber-300', group: 'Management' },
   },
   orchestration: {
-    agent_task: { label: 'Agent Task', icon: '🤖', description: 'Task assigned to an agent', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
-    debate: { label: 'Debate', icon: '💬', description: 'Multi-agent debate', color: 'bg-pink-500/20', borderColor: 'border-pink-400' },
-    human_gate: { label: 'Human Gate', icon: '👤', description: 'Human approval required', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
-    parallel_fan: { label: 'Parallel Fan', icon: '🔀', description: 'Parallel execution', color: 'bg-pink-500/20', borderColor: 'border-pink-400' },
-    merge: { label: 'Merge', icon: '🔁', description: 'Merge parallel results', color: 'bg-pink-500/20', borderColor: 'border-pink-300' },
-    verification: { label: 'Verification', icon: '🔬', description: 'Verify results', color: 'bg-pink-500/20', borderColor: 'border-pink-500' },
+    agent_task: { label: 'Agent Task', icon: '🤖', description: 'Task assigned to an agent', color: 'bg-pink-500/20', borderColor: 'border-pink-500', group: 'Agents' },
+    debate: { label: 'Debate', icon: '💬', description: 'Multi-agent debate', color: 'bg-pink-500/20', borderColor: 'border-pink-400', group: 'Agents' },
+    human_gate: { label: 'Human Gate', icon: '👤', description: 'Human approval required', color: 'bg-pink-500/20', borderColor: 'border-pink-500', group: 'Gates' },
+    parallel_fan: { label: 'Parallel Fan', icon: '🔀', description: 'Parallel execution', color: 'bg-pink-500/20', borderColor: 'border-pink-400', group: 'Control Flow' },
+    merge: { label: 'Merge', icon: '🔁', description: 'Merge parallel results', color: 'bg-pink-500/20', borderColor: 'border-pink-300', group: 'Control Flow' },
+    verification: { label: 'Verification', icon: '🔬', description: 'Verify results', color: 'bg-pink-500/20', borderColor: 'border-pink-500', group: 'Gates' },
   },
 };
 

@@ -9,10 +9,6 @@ interface ActionNodeProps {
   selected?: boolean;
 }
 
-/**
- * Polymorphic React Flow node for all 5 action types.
- * Color, icon, and layout determined by data.actionType.
- */
 export const ActionNode = memo(function ActionNode({ data, selected }: ActionNodeProps) {
   const actionType = (data.actionType || data.action_type || data.stepType || data.step_type || 'task') as ActionNodeType;
   const label = data.label as string;
@@ -36,13 +32,8 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
         transition-all duration-200
       `}
     >
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="w-3 h-3 bg-amber-500 border-2 border-bg"
-      />
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-amber-500 border-2 border-bg" />
 
-      {/* Header: type badge + status badge */}
       <div className="flex items-center gap-2 mb-2">
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-amber-500/30 text-amber-200">
           {config.icon}
@@ -55,51 +46,21 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
         </span>
       </div>
 
-      {/* Label */}
-      <div className="text-sm font-medium text-text mb-1 line-clamp-2">
-        {label}
-      </div>
+      <div className="text-sm font-medium text-text mb-1 line-clamp-2">{label}</div>
 
-      {/* Description */}
-      {description && (
-        <div className="text-xs text-text-muted mb-1 line-clamp-2">
-          {description}
-        </div>
-      )}
+      {description && <div className="text-xs text-text-muted mb-1 line-clamp-2">{description}</div>}
 
-      {/* Optional indicator */}
       {optional && (
-        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-mono mb-1">
-          optional
-        </span>
+        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-mono mb-1">optional</span>
       )}
 
-      {/* Assignee */}
-      {assignee && (
-        <div className="text-xs text-amber-300/80 mb-1">
-          assigned: {assignee}
-        </div>
-      )}
+      {assignee && <div className="text-xs text-amber-300/80 mb-1">assigned: {assignee}</div>}
 
-      {/* Timeout */}
-      {timeout && timeout > 0 && (
-        <div className="text-xs font-mono text-amber-300">
-          timeout: {timeout}s
-        </div>
-      )}
+      {timeout && timeout > 0 && <div className="text-xs font-mono text-amber-300">timeout: {timeout}s</div>}
 
-      {/* Lock indicator */}
-      {lockedBy && (
-        <div className="mt-1 text-xs text-amber-400">
-          Locked by {lockedBy}
-        </div>
-      )}
+      {lockedBy && <div className="mt-1 text-xs text-amber-400">Locked by {lockedBy}</div>}
 
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="w-3 h-3 bg-amber-500 border-2 border-bg"
-      />
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-amber-500 border-2 border-bg" />
     </div>
   );
 });

@@ -1,22 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  useNodesState,
-  useEdgesState,
-  type Node,
-  type Edge,
-  type Connection,
-  addEdge,
-} from '@xyflow/react';
+import { useNodesState, useEdgesState, type Node, type Edge, type Connection, addEdge } from '@xyflow/react';
 import type { OrchCanvasMeta, OrchNodeData, OrchNodeType, RemoteCursor } from './types';
 import { ORCH_NODE_CONFIGS } from './types';
 
 const API_BASE = '/api/v1/orchestration';
 
-/**
- * Core state management hook for the Orchestration Canvas.
- */
 export function useOrchCanvas(canvasId: string | null) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -28,7 +18,6 @@ export function useOrchCanvas(canvasId: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const cursorThrottleRef = useRef<number>(0);
 
-  // ── Load canvas ──────────────────────────────────────────────
   const loadCanvas = useCallback(async () => {
     if (!canvasId) return;
     setLoading(true);
@@ -37,14 +26,10 @@ export function useOrchCanvas(canvasId: string | null) {
       if (!res.ok) return;
       const data = await res.json();
       setCanvasMeta(data);
-
       const rfNodes: Node[] = (data.nodes || []).map((n: Record<string, unknown>) => ({
-        id: n.id as string,
-        type: 'orchestrationNode',
+        id: n.id as string, type: 'orchestrationNode',
         position: n.position as { x: number; y: number },
-        data: {
-          ...(n.data as Record<string, unknown>),
-          label: n.label as string,
+        data: { ...(n.data as Record<string, unknown>), label: n.label as string,
           orchType: ((n.data as Record<string, unknown>)?.orch_type || 'agent_task') as OrchNodeType,
           description: (n.data as Record<string, unknown>)?.description || '',
           assignedAgent: (n.data as Record<string, unknown>)?.assigned_agent || '',
@@ -52,188 +37,101 @@ export function useOrchCanvas(canvasId: string | null) {
           capabilities: (n.data as Record<string, unknown>)?.capabilities || [],
           status: (n.data as Record<string, unknown>)?.status || 'pending',
           sourceActionIds: (n.data as Record<string, unknown>)?.source_action_ids || [],
-          stage: 'orchestration' as const,
-          rfType: 'orchestrationNode' as const,
+          stage: 'orchestration' as const, rfType: 'orchestrationNode' as const,
         },
       }));
-
       const rfEdges: Edge[] = (data.edges || []).map((e: Record<string, unknown>) => ({
-        id: e.id as string,
-        source: (e.source || e.source_id) as string,
-        target: (e.target || e.target_id) as string,
-        type: 'default',
-        label: e.label as string,
-        animated: !!e.animated,
+        id: e.id as string, source: (e.source || e.source_id) as string, target: (e.target || e.target_id) as string,
+        type: 'default', label: e.label as string, animated: !!e.animated,
       }));
-
       setNodes(rfNodes);
       setEdges(rfEdges);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [canvasId, setNodes, setEdges]);
 
-  useEffect(() => {
-    loadCanvas();
-  }, [loadCanvas]);
+  useEffect(() => { loadCanvas(); }, [loadCanvas]);
 
-  // ── WebSocket ────────────────────────────────────────────────
   useEffect(() => {
     if (!canvasId) return;
-
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/canvas/${canvasId}`;
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/canvas/${canvasId}`);
     wsRef.current = ws;
-
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         switch (msg.type) {
           case 'orchestration:cursor:move':
-            setCursors((prev) => {
-              const filtered = prev.filter((c) => c.userId !== msg.user_id);
-              return [...filtered, { userId: msg.user_id, position: msg.position, color: '' }];
-            });
+            setCursors((prev) => [...prev.filter((c) => c.userId !== msg.user_id), { userId: msg.user_id, position: msg.position, color: '' }]);
             break;
-          case 'orchestration:presence:join':
-          case 'orchestration:presence:leave':
-            setOnlineUsers(msg.users || []);
-            break;
-          case 'canvas:node:create':
-          case 'canvas:node:update':
-          case 'canvas:node:delete':
-          case 'canvas:edge:create':
-          case 'canvas:edge:delete':
-            loadCanvas();
-            break;
+          case 'orchestration:presence:join': case 'orchestration:presence:leave': setOnlineUsers(msg.users || []); break;
+          case 'canvas:node:create': case 'canvas:node:update': case 'canvas:node:delete':
+          case 'canvas:edge:create': case 'canvas:edge:delete': loadCanvas(); break;
         }
-      } catch {
-        // ignore parse errors
-      }
+      } catch { /* ignore */ }
     };
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'orchestration:presence:join' }));
-    };
-
-    return () => {
-      ws.send(JSON.stringify({ type: 'orchestration:presence:leave' }));
-      ws.close();
-      wsRef.current = null;
-    };
+    ws.onopen = () => { ws.send(JSON.stringify({ type: 'orchestration:presence:join' })); };
+    return () => { ws.send(JSON.stringify({ type: 'orchestration:presence:leave' })); ws.close(); wsRef.current = null; };
   }, [canvasId, loadCanvas]);
 
-  // ── Cursor broadcasting ──────────────────────────────────────
-  const sendCursorMove = useCallback(
-    (position: { x: number; y: number }) => {
-      const now = Date.now();
-      if (now - cursorThrottleRef.current < 50) return;
-      cursorThrottleRef.current = now;
+  const sendCursorMove = useCallback((position: { x: number; y: number }) => {
+    const now = Date.now();
+    if (now - cursorThrottleRef.current < 50) return;
+    cursorThrottleRef.current = now;
+    wsRef.current?.send(JSON.stringify({ type: 'orchestration:cursor:move', position }));
+  }, []);
 
-      wsRef.current?.send(
-        JSON.stringify({ type: 'orchestration:cursor:move', position })
-      );
-    },
-    []
-  );
+  const onConnect = useCallback((connection: Connection) => {
+    setEdges((eds) => addEdge({ ...connection, type: 'default' }, eds));
+  }, [setEdges]);
 
-  // ── Connection handler ───────────────────────────────────────
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      setEdges((eds) => addEdge({ ...connection, type: 'default' }, eds));
-    },
-    [setEdges]
-  );
-
-  // ── Drop handler ─────────────────────────────────────────────
   const onDrop = useCallback(
     (event: React.DragEvent, reactFlowBounds: DOMRect, screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number }) => {
       const orchType = event.dataTransfer.getData('application/orch-node-type') as OrchNodeType;
       if (!orchType) return;
-
-      const position = screenToFlowPosition({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
-      });
-
+      const position = screenToFlowPosition({ x: event.clientX - reactFlowBounds.left, y: event.clientY - reactFlowBounds.top });
       const config = ORCH_NODE_CONFIGS[orchType];
-      const newNode: Node = {
-        id: `orch-${Date.now()}`,
-        type: 'orchestrationNode',
-        position,
-        data: {
-          orchType,
-          label: config.label,
-          description: '',
-          assignedAgent: '',
-          agentType: '',
-          capabilities: [],
-          status: 'pending',
-          stage: 'orchestration' as const,
-          rfType: 'orchestrationNode' as const,
-        } satisfies OrchNodeData,
-      };
+      setNodes((nds) => [...nds, {
+        id: `orch-${Date.now()}`, type: 'orchestrationNode', position,
+        data: { orchType, label: config.label, description: '', assignedAgent: '', agentType: '', capabilities: [], status: 'pending', stage: 'orchestration' as const, rfType: 'orchestrationNode' as const } satisfies OrchNodeData,
+      }]);
+    }, [setNodes]);
 
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [setNodes]
-  );
-
-  // ── Node property updates ────────────────────────────────────
-  const updateSelectedNode = useCallback(
-    (updates: Partial<OrchNodeData>) => {
-      if (!selectedNodeId) return;
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === selectedNodeId ? { ...n, data: { ...n.data, ...updates } } : n
-        )
-      );
-    },
-    [selectedNodeId, setNodes]
-  );
+  const updateSelectedNode = useCallback((updates: Partial<OrchNodeData>) => {
+    if (!selectedNodeId) return;
+    setNodes((nds) => nds.map((n) => n.id === selectedNodeId ? { ...n, data: { ...n.data, ...updates } } : n));
+  }, [selectedNodeId, setNodes]);
 
   const deleteSelectedNode = useCallback(() => {
     if (!selectedNodeId) return;
     setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
-    setEdges((eds) =>
-      eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId)
-    );
+    setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
     setSelectedNodeId(null);
   }, [selectedNodeId, setNodes, setEdges]);
 
-  // ── Save ─────────────────────────────────────────────────────
   const saveCanvas = useCallback(async () => {
     if (!canvasId) return;
-    await fetch(`${API_BASE}/${canvasId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: canvasMeta?.name }),
-    });
+    await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
   }, [canvasId, canvasMeta]);
 
-  // ── Selected node data ───────────────────────────────────────
+  const executePipeline = useCallback(async () => {
+    if (!canvasId) return;
+    const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
+    if (pipelineId) {
+      await fetch('/api/v1/canvas/pipeline/run', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pipeline_id: pipelineId }),
+      });
+    }
+  }, [canvasId, canvasMeta]);
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeData = selectedNode?.data as OrchNodeData | undefined;
 
   return {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    onDrop,
-    selectedNodeId,
-    setSelectedNodeId,
-    selectedNodeData: selectedNodeData || null,
-    updateSelectedNode,
-    deleteSelectedNode,
-    canvasMeta,
-    loading,
-    saveCanvas,
-    cursors,
-    onlineUsers,
-    sendCursorMove,
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, onDrop,
+    selectedNodeId, setSelectedNodeId, selectedNodeData: selectedNodeData || null,
+    updateSelectedNode, deleteSelectedNode, canvasMeta, loading, saveCanvas,
+    executePipeline, cursors, onlineUsers, sendCursorMove,
   };
 }
 

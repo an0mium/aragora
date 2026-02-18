@@ -2,20 +2,32 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { ActionCanvasMeta } from '@/components/action-canvas/types';
 
-const ActionCanvas = dynamic(
-  () => import('@/components/action-canvas/ActionCanvas'),
+const PipelineCanvas = dynamic(
+  () => import('@/components/pipeline-canvas/PipelineCanvas'),
   { ssr: false }
 );
+
+interface CanvasMeta {
+  id: string;
+  name: string;
+  owner_id: string | null;
+  workspace_id: string | null;
+  source_canvas_id: string | null;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
 
 const API_BASE = '/api/v1/actions';
 
 /**
- * /actions page -- lists action canvases or opens a canvas editor.
+ * /actions page -- lists action canvases or opens the unified pipeline canvas
+ * scoped to the actions stage.
  */
 export default function ActionsPage() {
-  const [canvases, setCanvases] = useState<ActionCanvasMeta[]>([]);
+  const [canvases, setCanvases] = useState<CanvasMeta[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +68,7 @@ export default function ActionsPage() {
     if (selectedId === id) setSelectedId(null);
   };
 
-  // ── Canvas editor view ───────────────────────────────────────
+  // -- Canvas editor view (unified pipeline canvas, actions stage) --
   if (selectedId) {
     return (
       <div className="h-full flex flex-col">
@@ -72,13 +84,13 @@ export default function ActionsPage() {
           </span>
         </div>
         <div className="flex-1">
-          <ActionCanvas canvasId={selectedId} />
+          <PipelineCanvas pipelineId={selectedId} initialStage="actions" />
         </div>
       </div>
     );
   }
 
-  // ── Canvas list view ─────────────────────────────────────────
+  // -- Canvas list view --
   return (
     <div className="p-6 max-w-4xl mx-auto font-mono">
       <div className="flex items-center justify-between mb-6">

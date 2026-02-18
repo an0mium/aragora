@@ -65,6 +65,7 @@ const STAGE_OFFSET_X: Record<string, number> = {
 interface PipelineCanvasProps {
   pipelineId?: string;
   initialData?: PipelineResultResponse;
+  initialStage?: PipelineStageType;
   onStageAdvance?: (pipelineId: string, stage: PipelineStageType) => void;
   onTransitionApprove?: (pipelineId: string, transitionId: string) => void;
   onTransitionReject?: (pipelineId: string, transitionId: string) => void;
@@ -78,6 +79,7 @@ interface PipelineCanvasProps {
 function PipelineCanvasInner({
   pipelineId,
   initialData,
+  initialStage,
   onStageAdvance,
   onTransitionApprove,
   onTransitionReject,
@@ -113,8 +115,16 @@ function PipelineCanvasInner({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   // -- View mode: adds 'all' view on top of the hook's active stage -----------
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialStage || 'all');
   const [showProvenance, setShowProvenance] = useState(false);
+
+  // Sync initialStage into the hook's activeStage on mount
+  useEffect(() => {
+    if (initialStage) {
+      setActiveStage(initialStage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isEditable = viewMode !== 'all' && !readOnly;
 
