@@ -26,6 +26,7 @@ from ...base import (
     json_response,
 )
 from ...utils.rate_limit import rate_limit
+from ...utils.url_security import validate_webhook_url
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
@@ -74,6 +75,12 @@ class FederationOperationsMixin:
             return error_response("region_id is required", 400)
         if not endpoint_url:
             return error_response("endpoint_url is required", 400)
+
+        # SSRF protection: validate endpoint URL before registering
+        url_valid, url_error = validate_webhook_url(endpoint_url, allow_localhost=False)
+        if not url_valid:
+            return error_response(f"Invalid endpoint URL: {url_error}", 400)
+
         if not api_key:
             return error_response("api_key is required", 400)
 
