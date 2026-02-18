@@ -99,6 +99,45 @@ class PipelineAPI:
             json={"pipeline_id": pipeline_id, "target_stage": target_stage},
         )
 
+    def stage(self, pipeline_id: str, stage: str) -> dict[str, Any]:
+        """Get a specific stage canvas from a pipeline."""
+        return self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
+        )
+
+    def extract_goals(
+        self,
+        ideas_canvas_id: str,
+        *,
+        ideas_canvas_data: dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Extract goals from an ideas canvas."""
+        payload: dict[str, Any] = {"ideas_canvas_id": ideas_canvas_id}
+        if ideas_canvas_data:
+            payload["ideas_canvas_data"] = ideas_canvas_data
+        if config:
+            payload["config"] = config
+        return self._client.request(
+            "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
+        )
+
+    def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:
+        """Convert ArgumentCartographer debate to React Flow ideas canvas."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/convert/debate",
+            json={"cartographer_data": cartographer_data},
+        )
+
+    def convert_workflow(self, workflow_data: dict[str, Any]) -> dict[str, Any]:
+        """Convert WorkflowDefinition to React Flow actions canvas."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/convert/workflow",
+            json={"workflow_data": workflow_data},
+        )
+
 
 class AsyncPipelineAPI:
     """Asynchronous Pipeline API."""
@@ -177,4 +216,43 @@ class AsyncPipelineAPI:
             "POST",
             "/api/v1/canvas/pipeline/advance",
             json={"pipeline_id": pipeline_id, "target_stage": target_stage},
+        )
+
+    async def stage(self, pipeline_id: str, stage: str) -> dict[str, Any]:
+        """Get a specific stage canvas from a pipeline."""
+        return await self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
+        )
+
+    async def extract_goals(
+        self,
+        ideas_canvas_id: str,
+        *,
+        ideas_canvas_data: dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Extract goals from an ideas canvas."""
+        payload: dict[str, Any] = {"ideas_canvas_id": ideas_canvas_id}
+        if ideas_canvas_data:
+            payload["ideas_canvas_data"] = ideas_canvas_data
+        if config:
+            payload["config"] = config
+        return await self._client.request(
+            "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
+        )
+
+    async def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:
+        """Convert ArgumentCartographer debate to React Flow ideas canvas."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/convert/debate",
+            json={"cartographer_data": cartographer_data},
+        )
+
+    async def convert_workflow(self, workflow_data: dict[str, Any]) -> dict[str, Any]:
+        """Convert WorkflowDefinition to React Flow actions canvas."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/convert/workflow",
+            json={"workflow_data": workflow_data},
         )

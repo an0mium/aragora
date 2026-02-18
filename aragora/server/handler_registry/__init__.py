@@ -511,34 +511,32 @@ class HandlerRegistryMixin:
             error_msg = str(e)
             if "AuthorizationContext" in error_msg or "Permission" in error_msg:
                 logger.warning(f"[handlers] Permission denied in {handler.__class__.__name__}: {e}")
-                # Return 403 Forbidden for permission errors
+                body_403 = json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
                 self.send_response(403)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body_403)))
                 self._add_cors_headers()
                 self._add_security_headers()
                 self._add_trace_headers()
                 self.end_headers()
-                self.wfile.write(
-                    json.dumps({"error": "Permission denied", "code": "forbidden"}).encode()
-                )
+                self.wfile.write(body_403)
                 return True
             logger.error(f"[handlers] Error in {handler.__class__.__name__}: {e}", exc_info=True)
-            # Return 500 error instead of falling through to static file serving
+            body_500 = json.dumps(
+                {
+                    "error": "Internal server error",
+                    "code": "handler_error",
+                    "handler": handler.__class__.__name__,
+                }
+            ).encode()
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body_500)))
             self._add_cors_headers()
             self._add_security_headers()
             self._add_trace_headers()
             self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {
-                        "error": "Internal server error",
-                        "code": "handler_error",
-                        "handler": handler.__class__.__name__,
-                    }
-                ).encode()
-            )
+            self.wfile.write(body_500)
             return True
         except Exception as e:  # noqa: BLE001 - catch-all for diagnostic: catches exception types not in the specific list above
             logger.error(
@@ -546,22 +544,22 @@ class HandlerRegistryMixin:
                 type(e).__name__, handler.__class__.__name__, method, path, e,
                 exc_info=True,
             )
+            body_exc = json.dumps(
+                {
+                    "error": "Internal server error",
+                    "code": "unexpected_exception",
+                    "exception_type": type(e).__name__,
+                    "handler": handler.__class__.__name__,
+                }
+            ).encode()
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body_exc)))
             self._add_cors_headers()
             self._add_security_headers()
             self._add_trace_headers()
             self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {
-                        "error": "Internal server error",
-                        "code": "unexpected_exception",
-                        "exception_type": type(e).__name__,
-                        "handler": handler.__class__.__name__,
-                    }
-                ).encode()
-            )
+            self.wfile.write(body_exc)
             return True
 
         # Handler was found but returned a falsy result — log this for debugging.
@@ -571,26 +569,24 @@ class HandlerRegistryMixin:
                 "[handlers] Handler %s matched %s %s but returned falsy result: %r",
                 handler.__class__.__name__, method, path, result,
             )
-            # Return a diagnostic 500 so we can see the issue from the client
-            # instead of falling through to a misleading 404.
+            body_no_result = json.dumps(
+                {
+                    "error": "Handler matched but returned no result",
+                    "code": "handler_no_result",
+                    "handler": handler.__class__.__name__,
+                    "result_type": type(result).__name__,
+                    "method": method,
+                    "path": path,
+                }
+            ).encode()
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body_no_result)))
             self._add_cors_headers()
             self._add_security_headers()
             self._add_trace_headers()
             self.end_headers()
-            self.wfile.write(
-                json.dumps(
-                    {
-                        "error": "Handler matched but returned no result",
-                        "code": "handler_no_result",
-                        "handler": handler.__class__.__name__,
-                        "result_type": type(result).__name__,
-                        "method": method,
-                        "path": path,
-                    }
-                ).encode()
-            )
+            self.wfile.write(body_no_result)
             return True
         return False
 

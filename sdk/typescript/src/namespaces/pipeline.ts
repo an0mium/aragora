@@ -53,6 +53,25 @@ export interface PipelineReceiptResponse {
   receipt: Record<string, unknown>;
 }
 
+/** Stage canvas response */
+export interface PipelineStageResponse {
+  stage: string;
+  data: Record<string, unknown>;
+}
+
+/** Goal extraction request */
+export interface ExtractGoalsRequest {
+  ideas_canvas_id: string;
+  ideas_canvas_data?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+}
+
+/** Canvas conversion response (React Flow format) */
+export interface CanvasConversionResponse {
+  nodes: Record<string, unknown>[];
+  edges: Record<string, unknown>[];
+}
+
 /**
  * Pipeline namespace for idea-to-execution orchestration.
  *
@@ -185,6 +204,58 @@ export class PipelineNamespace {
           target_stage: targetStage,
         },
       }
+    );
+  }
+
+  /**
+   * Get a specific stage canvas from a pipeline.
+   */
+  async stage(
+    pipelineId: string,
+    stage: string,
+  ): Promise<PipelineStageResponse> {
+    return this.client.request<PipelineStageResponse>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/stage/${encodeURIComponent(stage)}`
+    );
+  }
+
+  /**
+   * Extract goals from an ideas canvas.
+   */
+  async extractGoals(
+    request: ExtractGoalsRequest,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/extract-goals',
+      { body: request }
+    );
+  }
+
+  /**
+   * Convert ArgumentCartographer debate to React Flow ideas canvas.
+   */
+  async convertDebate(
+    cartographerData: Record<string, unknown>,
+  ): Promise<CanvasConversionResponse> {
+    return this.client.request<CanvasConversionResponse>(
+      'POST',
+      '/api/v1/canvas/convert/debate',
+      { body: { cartographer_data: cartographerData } }
+    );
+  }
+
+  /**
+   * Convert WorkflowDefinition to React Flow actions canvas.
+   */
+  async convertWorkflow(
+    workflowData: Record<string, unknown>,
+  ): Promise<CanvasConversionResponse> {
+    return this.client.request<CanvasConversionResponse>(
+      'POST',
+      '/api/v1/canvas/convert/workflow',
+      { body: { workflow_data: workflowData } }
     );
   }
 }
