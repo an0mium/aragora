@@ -496,4 +496,4 @@ async def debate_stream(websocket: WebSocket, debate_id: str):
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture overview
 - [CUSTOM_AGENTS.md](../guides/CUSTOM_AGENTS.md) - Detailed agent customization
 - [API_REFERENCE.md](../api/API_REFERENCE.md) - Full API documentation
-- [GETTING_STARTED.md](../GETTING_STARTED.md) - CLI and server usage
+- [GETTING_STARTED.md](../guides/GETTING_STARTED.md) - CLI and server usage

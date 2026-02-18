@@ -242,12 +242,12 @@ aragora gauntlet spec.md --output receipt.html
 1. **Explore profiles/personas** - See options with `aragora gauntlet --help`
 2. **Create custom personas** - Define your own compliance frameworks
 3. **Set up CI/CD integration** - Run Gauntlet on every PR
-4. **Full documentation** - See [Getting Started Guide](../GETTING_STARTED.md)
+4. **Full documentation** - See [Getting Started Guide](../guides/GETTING_STARTED.md)
 
 ---
 
 ## Getting Help
 
-- **Full Documentation:** [GETTING_STARTED.md](../GETTING_STARTED.md)
+- **Full Documentation:** [GETTING_STARTED.md](../guides/GETTING_STARTED.md)
 - **GitHub Issues:** https://github.com/an0mium/aragora/issues
 - **GitHub Discussions:** https://github.com/an0mium/aragora/discussions

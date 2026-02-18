@@ -31,7 +31,7 @@ Use this template when documenting breaking changes in Aragora. Copy the relevan
 [new code example]
 \`\`\`
 
-See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for complete migration guide.
+See [MIGRATION_GUIDE.md](../guides/MIGRATION_GUIDE.md) for complete migration guide.
 ```
 
 ---

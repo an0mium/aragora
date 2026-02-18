@@ -7,7 +7,7 @@ This index is scoped to high-signal, actively maintained docs with validated pat
 ## Start Here
 
 - Project overview: [../README.md](../README.md)
-- First-time setup: [../GETTING_STARTED.md](../GETTING_STARTED.md)
+- First-time setup: [../guides/GETTING_STARTED.md](../guides/GETTING_STARTED.md)
 - Developer quickstart: [../QUICKSTART_DEVELOPER.md](../QUICKSTART_DEVELOPER.md)
 - SDK guide: [../SDK_GUIDE.md](../SDK_GUIDE.md)
 - Capability matrix: [../CAPABILITY_MATRIX.md](../CAPABILITY_MATRIX.md)

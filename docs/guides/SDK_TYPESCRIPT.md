@@ -595,4 +595,4 @@ If upgrading from an earlier version:
 
 - [GitHub Issues](https://github.com/an0mium/aragora/issues)
 - [API Reference](../api/API_REFERENCE.md)
-- [Python SDK Guide](SDK_GUIDE.md)
+- [Python SDK Guide](../SDK_GUIDE.md)

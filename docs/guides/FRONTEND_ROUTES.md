@@ -90,7 +90,7 @@ Local development uses `http://localhost:3000` with `NEXT_PUBLIC_API_URL` and `N
 - `/auth/register` - Registration UI.
   - Related docs: [SECURITY](../enterprise/SECURITY.md)
 - `/developer` - Developer portal for API key management and usage stats.
-  - Related docs: [SDK_GUIDE](./SDK_GUIDE.md), [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md)
+  - Related docs: [SDK_GUIDE](../SDK_GUIDE.md), [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md)
 - `/settings` - User preferences, integrations, and API configuration.
   - Related docs: [ENVIRONMENT](../reference/ENVIRONMENT.md), [INTEGRATIONS](../integrations/INTEGRATIONS.md)
 - `/inbox` - AI smart inbox with prioritization and Gmail/Outlook sync.

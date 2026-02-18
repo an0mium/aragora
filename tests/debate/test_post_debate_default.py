@@ -80,13 +80,19 @@ class TestCoordinatorWithDefaultConfig:
              patch.object(coordinator, "_step_persist_receipt", return_value=True) as mock_receipt, \
              patch.object(coordinator, "_step_create_plan") as mock_plan, \
              patch.object(coordinator, "_step_notify") as mock_notify, \
-             patch.object(coordinator, "_step_execution_bridge", return_value=[]):
+             patch.object(coordinator, "_step_execution_bridge", return_value=[]), \
+             patch.object(coordinator, "_step_gauntlet_validate", return_value=None), \
+             patch.object(coordinator, "_step_push_calibration", return_value=False), \
+             patch.object(coordinator, "_step_queue_improvement", return_value=True) as mock_improve, \
+             patch.object(coordinator, "_step_outcome_feedback", return_value=None) as mock_feedback:
             result = coordinator.run("d1", mock_result, confidence=0.9, task="test")
 
         mock_explain.assert_called_once()
         mock_receipt.assert_called_once()
         mock_plan.assert_not_called()
         mock_notify.assert_not_called()
+        mock_improve.assert_called_once()
+        mock_feedback.assert_called_once()
 
 
 class TestDisablePostDebatePipeline:

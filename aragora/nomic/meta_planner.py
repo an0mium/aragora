@@ -117,6 +117,8 @@ class MetaPlannerConfig:
     enable_metrics_collection: bool = True
     # Scan mode: prioritize from codebase signals without LLM calls
     scan_mode: bool = False
+    # Generate self-explanations for planning decisions
+    explain_decisions: bool = True
 
 
 class MetaPlanner:
