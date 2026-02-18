@@ -1278,6 +1278,6 @@ Be constructive but thorough."""
             logger.error(f"    Review failed after {duration:.1f}s: {e}")
             return {
                 "approved": None,
-                "error": str(e),
+                "error": "Review execution failed",
                 "duration_seconds": duration,
             }

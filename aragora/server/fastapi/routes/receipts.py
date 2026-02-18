@@ -401,14 +401,14 @@ async def verify_receipt(
                 verified=False,
                 integrity_valid=False,
                 checksum_match=False,
-                details={"error": f"Verification failed: {e}"},
+                details={"error": "Verification failed"},
             )
 
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception(f"Error verifying receipt {receipt_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to verify receipt: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify receipt")
 
 
 @router.get("/receipts/{receipt_id}/export", response_model=ExportResponse)

@@ -588,13 +588,13 @@ class RoutingRulesHandler(SecureHandler):
             try:
                 conditions = [Condition.from_dict(c) for c in data.get("conditions", [])]
             except (KeyError, ValueError, TypeError) as e:
-                return {"status": "error", "error": f"Invalid condition: {e}", "code": 400}
+                return {"status": "error", "error": "Invalid condition format", "code": 400}
 
             # Parse actions with validation
             try:
                 actions = [Action.from_dict(a) for a in data.get("actions", [])]
             except (KeyError, ValueError, TypeError) as e:
-                return {"status": "error", "error": f"Invalid action: {e}", "code": 400}
+                return {"status": "error", "error": "Invalid action format", "code": 400}
 
             # Create rule
             rule = RoutingRule.create(
@@ -678,12 +678,12 @@ class RoutingRulesHandler(SecureHandler):
                         Condition.from_dict(c).to_dict() for c in data["conditions"]
                     ]
                 except (KeyError, ValueError, TypeError) as e:
-                    return {"status": "error", "error": f"Invalid condition: {e}", "code": 400}
+                    return {"status": "error", "error": "Invalid condition format", "code": 400}
             if "actions" in data:
                 try:
                     existing["actions"] = [Action.from_dict(a).to_dict() for a in data["actions"]]
                 except (KeyError, ValueError, TypeError) as e:
-                    return {"status": "error", "error": f"Invalid action: {e}", "code": 400}
+                    return {"status": "error", "error": "Invalid action format", "code": 400}
             if "priority" in data:
                 existing["priority"] = data["priority"]
             if "enabled" in data:

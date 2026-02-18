@@ -842,7 +842,7 @@ class EcommerceHandler(SecureHandler):
                     f"Connection error syncing inventory to {platform} "
                     f"(SKU: {sku}, quantity: {quantity}): {e}"
                 )
-                results[platform] = {"error": f"Platform temporarily unavailable: {e}"}
+                results[platform] = {"error": "Platform temporarily unavailable"}
             except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
                 logger.error(
                     f"Error syncing inventory to {platform} "

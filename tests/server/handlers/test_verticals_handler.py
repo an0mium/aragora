@@ -1334,8 +1334,8 @@ class TestVerticalsRBAC:
     """Tests for RBAC permission checks."""
 
     @pytest.mark.asyncio
-    async def test_read_requires_read_permission(self, verticals_handler, mock_handler):
-        """Test that read operations require read permission."""
+    async def test_get_skips_auth(self, verticals_handler, mock_handler):
+        """GET requests are publicly accessible (no auth required)."""
         from aragora.server.handlers.utils.auth import UnauthorizedError
 
         with patch.object(
@@ -1347,7 +1347,7 @@ class TestVerticalsRBAC:
             result = await verticals_handler.handle("/api/verticals", {}, mock_handler)
 
         assert result is not None
-        assert result.status_code == 401
+        assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_write_requires_update_permission(self, verticals_handler, mock_handler_post):

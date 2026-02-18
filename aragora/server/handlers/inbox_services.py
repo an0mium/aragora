@@ -463,7 +463,7 @@ class InboxServicesMixin:
             return {
                 "count": 0,
                 "changes": [],
-                "error": f"Batch scoring failed: {e}",
+                "error": "Batch scoring failed",
             }
 
         # Process results and update cache

@@ -172,7 +172,7 @@ def deployment_diagnostics(handler: Any) -> HandlerResult:
         return json_response(
             {
                 "status": "error",
-                "error": f"Deployment validator not available: {e}",
+                "error": "Deployment validator not available",
                 "response_time_ms": round((time.time() - start_time) * 1000, 2),
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             },
