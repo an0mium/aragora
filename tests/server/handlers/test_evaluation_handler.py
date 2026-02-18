@@ -386,7 +386,6 @@ class TestEvaluationHandlerRBAC:
     @pytest.mark.asyncio
     async def test_evaluate_requires_evaluation_create(self, mock_server_context):
         """Test that evaluation requires evaluation:create permission."""
-        from aragora.rbac.decorators import PermissionDeniedError
         from aragora.server.auth import auth_config
 
         orig_enabled = auth_config.enabled
@@ -399,9 +398,10 @@ class TestEvaluationHandlerRBAC:
                 body={"query": "Test query", "response": "Test response"},
             )
 
-            # Without proper auth context, should raise PermissionDeniedError
-            with pytest.raises(PermissionDeniedError):
-                await h.handle_post("/api/v1/evaluate", {}, mock_handler)
+            # Without proper auth context, the error handler decorator catches
+            # PermissionDeniedError and returns a 403 response
+            result = await h.handle_post("/api/v1/evaluate", {}, mock_handler)
+            assert result.status_code == 403
         finally:
             auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
@@ -410,7 +410,6 @@ class TestEvaluationHandlerRBAC:
     @pytest.mark.asyncio
     async def test_compare_requires_evaluation_create(self, mock_server_context):
         """Test that comparison requires evaluation:create permission."""
-        from aragora.rbac.decorators import PermissionDeniedError
         from aragora.server.auth import auth_config
 
         orig_enabled = auth_config.enabled
@@ -427,9 +426,10 @@ class TestEvaluationHandlerRBAC:
                 },
             )
 
-            # Without proper auth context, should raise PermissionDeniedError
-            with pytest.raises(PermissionDeniedError):
-                await h.handle_post("/api/v1/evaluate/compare", {}, mock_handler)
+            # Without proper auth context, the error handler decorator catches
+            # PermissionDeniedError and returns a 403 response
+            result = await h.handle_post("/api/v1/evaluate/compare", {}, mock_handler)
+            assert result.status_code == 403
         finally:
             auth_config.enabled = orig_enabled
             del os.environ["ARAGORA_TEST_REAL_AUTH"]

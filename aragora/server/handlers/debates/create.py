@@ -453,7 +453,7 @@ class CreateOperationsMixin:
             try:
                 import json as _json
 
-                data = _json.loads(result.body) if isinstance(result.body, str) else result.body
+                data = _json.loads(result.body)
                 debate_id = data.get("debate_id")
                 if debate_id:
                     data["spectate_url"] = f"/spectate/{debate_id}"
