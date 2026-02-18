@@ -183,10 +183,6 @@ class CommitPhase:
 
             if committed:
                 self._log(f"  Committed: {summary}")
-
-                # Persist cycle outcome to Knowledge Mound
-                if self._cycle_outcome:
-                    await self._persist_to_km(commit_hash)
                 # Get commit hash
                 hash_result = subprocess.run(
                     ["git", "rev-parse", "--short", "HEAD"],
@@ -227,6 +223,10 @@ class CommitPhase:
                     [line for line in stat_result.stdout.split("\n") if "|" in line]
                 )
                 self._stream_emit("on_commit", commit_hash, summary, files_changed)
+
+                # Persist cycle outcome to Knowledge Mound for cross-cycle learning
+                if self._cycle_outcome:
+                    await self._persist_to_km(commit_hash)
             else:
                 self._log(f"  Commit failed: {result.stderr}")
 
@@ -286,6 +286,29 @@ class CommitPhase:
         # Accept alphanumeric short IDs to stay compatible with mocked git outputs
         # used in tests and lightweight local wrappers.
         return bool(re.fullmatch(r"[0-9A-Za-z]{3,40}", value))
+
+    async def _persist_to_km(self, commit_hash: str | None) -> None:
+        """Persist cycle outcome to Knowledge Mound for cross-cycle learning."""
+        try:
+            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                get_nomic_cycle_adapter,
+            )
+            from datetime import timezone
+
+            # Enrich outcome with commit hash
+            self._cycle_outcome.metadata["commit_hash"] = commit_hash
+            if not getattr(self._cycle_outcome, "completed_at", None):
+                self._cycle_outcome.completed_at = datetime.now(timezone.utc)
+
+            adapter = get_nomic_cycle_adapter()
+            result = await adapter.ingest_cycle_outcome(self._cycle_outcome)
+            self._log(f"  [km] Persisted cycle outcome: {result.items_ingested} items")
+            self._stream_emit("on_km_persist", result.items_ingested, result.cycle_id)
+        except ImportError:
+            self._log("  [km] KM adapter not available, skipping persistence")
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.warning("KM persistence failed: %s", e)
+            self._log(f"  [km] Persistence failed (non-fatal): {type(e).__name__}")
 
     def _get_changed_files(self) -> list[str]:
         """Get list of changed files."""

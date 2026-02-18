@@ -1357,3 +1357,608 @@ class TestGatedMerge:
         mock_plain.assert_called_once()
         mock_gated.assert_not_called()
         assert result.merged_branches == 1
+
+
+# ---------------------------------------------------------------------------
+# Gap D: DAG-aware subtask execution (_group_dependency_waves)
+# ---------------------------------------------------------------------------
+
+
+class TestDAGExecution:
+    """Tests for _group_dependency_waves topological ordering."""
+
+    def test_no_dependencies_single_wave(self):
+        """All subtasks with no dependencies → single wave."""
+        subtasks = [
+            MagicMock(id="s1", dependencies=[]),
+            MagicMock(id="s2", dependencies=[]),
+            MagicMock(id="s3", dependencies=[]),
+        ]
+        waves = SelfImprovePipeline._group_dependency_waves(subtasks)
+        assert len(waves) == 1
+        assert len(waves[0]) == 3
+
+    def test_no_dependency_attr_single_wave(self):
+        """Subtasks without a dependencies attribute → single wave."""
+        s1 = MagicMock(id="s1")
+        del s1.dependencies
+        s2 = MagicMock(id="s2")
+        del s2.dependencies
+        waves = SelfImprovePipeline._group_dependency_waves([s1, s2])
+        assert len(waves) == 1
+
+    def test_linear_chain_three_waves(self):
+        """s1 → s2 → s3 produces 3 sequential waves."""
+        subtasks = [
+            MagicMock(id="s1", dependencies=[]),
+            MagicMock(id="s2", dependencies=["s1"]),
+            MagicMock(id="s3", dependencies=["s2"]),
+        ]
+        waves = SelfImprovePipeline._group_dependency_waves(subtasks)
+        assert len(waves) == 3
+        assert waves[0][0].id == "s1"
+        assert waves[1][0].id == "s2"
+        assert waves[2][0].id == "s3"
+
+    def test_diamond_dependency(self):
+        """Diamond: s1 → s2,s3 → s4 produces 3 waves."""
+        subtasks = [
+            MagicMock(id="s1", dependencies=[]),
+            MagicMock(id="s2", dependencies=["s1"]),
+            MagicMock(id="s3", dependencies=["s1"]),
+            MagicMock(id="s4", dependencies=["s2", "s3"]),
+        ]
+        waves = SelfImprovePipeline._group_dependency_waves(subtasks)
+        assert len(waves) == 3
+        # s1 first
+        assert [st.id for st in waves[0]] == ["s1"]
+        # s2 and s3 in parallel
+        ids_wave1 = {st.id for st in waves[1]}
+        assert ids_wave1 == {"s2", "s3"}
+        # s4 last
+        assert [st.id for st in waves[2]] == ["s4"]
+
+    def test_cycle_detected_flush(self):
+        """Circular dependency gets flushed as a single wave."""
+        subtasks = [
+            MagicMock(id="s1", dependencies=["s2"]),
+            MagicMock(id="s2", dependencies=["s1"]),
+        ]
+        waves = SelfImprovePipeline._group_dependency_waves(subtasks)
+        # Should produce at least 1 wave (flush)
+        assert len(waves) >= 1
+        total = sum(len(w) for w in waves)
+        assert total == 2
+
+    def test_external_dep_ignored(self):
+        """Dependencies referencing unknown IDs are ignored."""
+        subtasks = [
+            MagicMock(id="s1", dependencies=["external_999"]),
+            MagicMock(id="s2", dependencies=[]),
+        ]
+        waves = SelfImprovePipeline._group_dependency_waves(subtasks)
+        # s1's dep on "external_999" is not in by_id, so it's ready
+        assert len(waves) == 1
+        assert len(waves[0]) == 2
+
+    def test_empty_subtasks(self):
+        """Empty list returns single empty wave."""
+        waves = SelfImprovePipeline._group_dependency_waves([])
+        assert waves == [[]]
+
+    @pytest.mark.asyncio
+    async def test_execute_respects_wave_order(self):
+        """_execute calls subtasks in dependency-wave order."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_worktrees=False,
+                enable_codebase_indexing=False,
+            )
+        )
+        execution_order: list[str] = []
+
+        async def mock_execute_single(subtask, cycle_id):
+            st_id = getattr(subtask, "id", "?")
+            execution_order.append(st_id)
+            return {"success": True, "files_changed": [], "tests_passed": 1, "tests_failed": 0}
+
+        subtasks = [
+            MagicMock(id="s1", dependencies=[]),
+            MagicMock(id="s2", dependencies=["s1"]),
+        ]
+
+        with patch.object(pipeline, "_execute_single", side_effect=mock_execute_single):
+            await pipeline._execute(subtasks, "cycle_dag")
+
+        assert execution_order == ["s1", "s2"]
+
+
+# ---------------------------------------------------------------------------
+# Gap B: File content injection (_read_file_contents)
+# ---------------------------------------------------------------------------
+
+
+class TestFileContentInjection:
+    """Tests for _read_file_contents and file_contents in prompts."""
+
+    def test_reads_existing_files(self, tmp_path):
+        """_read_file_contents reads real files from file_scope."""
+        test_file = tmp_path / "module.py"
+        test_file.write_text("def hello():\n    return 'world'\n")
+
+        subtask = MagicMock()
+        subtask.file_scope = [str(test_file)]
+
+        contents = SelfImprovePipeline._read_file_contents(subtask)
+        assert str(test_file) in contents
+        assert "def hello" in contents[str(test_file)]
+
+    def test_skips_nonexistent_files(self):
+        """_read_file_contents skips files that don't exist."""
+        subtask = MagicMock()
+        subtask.file_scope = ["/nonexistent/file_12345.py"]
+
+        contents = SelfImprovePipeline._read_file_contents(subtask)
+        assert contents == {}
+
+    def test_truncates_large_files(self, tmp_path):
+        """_read_file_contents truncates files exceeding max_chars_per_file."""
+        big_file = tmp_path / "big.py"
+        big_file.write_text("x" * 5000)
+
+        subtask = MagicMock()
+        subtask.file_scope = [str(big_file)]
+
+        contents = SelfImprovePipeline._read_file_contents(subtask, max_chars_per_file=100)
+        content = contents[str(big_file)]
+        assert len(content) < 200  # 100 chars + truncation message
+        assert "truncated" in content
+
+    def test_respects_total_budget(self, tmp_path):
+        """_read_file_contents stops reading when total budget is exhausted."""
+        for i in range(5):
+            f = tmp_path / f"file_{i}.py"
+            f.write_text("y" * 500)
+
+        subtask = MagicMock()
+        subtask.file_scope = [str(tmp_path / f"file_{i}.py") for i in range(5)]
+
+        contents = SelfImprovePipeline._read_file_contents(
+            subtask, max_chars_per_file=500, max_total_chars=1000,
+        )
+        # Should have read at most 2 full files (2 * 500 = 1000)
+        assert len(contents) <= 2
+
+    def test_falls_back_to_goal_file_hints(self, tmp_path):
+        """When file_scope is empty, reads from subtask.goal.file_hints."""
+        test_file = tmp_path / "fallback.py"
+        test_file.write_text("# fallback content\n")
+
+        subtask = MagicMock()
+        subtask.file_scope = []
+        subtask.goal.file_hints = [str(test_file)]
+
+        contents = SelfImprovePipeline._read_file_contents(subtask)
+        assert str(test_file) in contents
+
+    def test_empty_file_scope_no_goal(self):
+        """Returns empty dict when no file_scope and no goal."""
+        subtask = MagicMock()
+        subtask.file_scope = []
+        del subtask.goal  # No goal attribute
+
+        contents = SelfImprovePipeline._read_file_contents(subtask)
+        assert contents == {}
+
+    def test_file_contents_in_agent_prompt(self):
+        """ExecutionInstruction includes file contents in the agent prompt."""
+        from aragora.nomic.execution_bridge import ExecutionInstruction
+
+        instr = ExecutionInstruction(
+            subtask_id="t1",
+            track="core",
+            objective="Fix bug",
+            context="Test context",
+            file_hints=["module.py"],
+            success_criteria=["Tests pass"],
+            constraints=[],
+            file_contents={"module.py": "def broken():\n    pass\n"},
+        )
+        prompt = instr.to_agent_prompt()
+        assert "## File Contents" in prompt
+        assert "module.py" in prompt
+        assert "def broken" in prompt
+        assert "```python" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Gap A: DebugLoop diff context
+# ---------------------------------------------------------------------------
+
+
+class TestDebugLoopDiffContext:
+    """Tests for git diff context in DebugLoop retry prompts."""
+
+    def test_debug_attempt_has_diff_context(self):
+        """DebugAttempt dataclass has diff_context field."""
+        from aragora.nomic.debug_loop import DebugAttempt
+
+        attempt = DebugAttempt(attempt_number=1, prompt="test")
+        assert attempt.diff_context == ""
+
+    def test_get_diff_returns_diff(self, tmp_path):
+        """_get_diff captures git diff output."""
+        from aragora.nomic.debug_loop import DebugLoop
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="diff --git a/file.py b/file.py\n+new line\n",
+            )
+            diff = DebugLoop._get_diff(str(tmp_path))
+
+        assert "diff --git" in diff
+        assert "+new line" in diff
+
+    def test_get_diff_truncates(self):
+        """_get_diff truncates output beyond max_chars."""
+        from aragora.nomic.debug_loop import DebugLoop
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="x" * 10000,
+            )
+            diff = DebugLoop._get_diff("/tmp", max_chars=100)
+
+        assert len(diff) < 200
+        assert "truncated" in diff
+
+    def test_get_diff_returns_empty_on_error(self):
+        """_get_diff returns empty string on subprocess error."""
+        from aragora.nomic.debug_loop import DebugLoop
+
+        with patch("subprocess.run", side_effect=OSError("fail")):
+            diff = DebugLoop._get_diff("/tmp")
+
+        assert diff == ""
+
+    def test_get_diff_returns_empty_on_clean_worktree(self):
+        """_get_diff returns empty string when no changes."""
+        from aragora.nomic.debug_loop import DebugLoop
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="")
+            diff = DebugLoop._get_diff("/tmp")
+
+        assert diff == ""
+
+    def test_retry_prompt_includes_diff(self):
+        """_build_retry_prompt includes diff context when available."""
+        from aragora.nomic.debug_loop import DebugAttempt, DebugLoop
+
+        loop = DebugLoop()
+        attempt = DebugAttempt(
+            attempt_number=1,
+            prompt="Fix auth",
+            tests_passed=3,
+            tests_failed=2,
+            test_output="FAILED test_login",
+            diff_context="diff --git a/auth.py\n+fixed_login()\n",
+        )
+
+        retry = loop._build_retry_prompt("Fix the auth bug", attempt)
+        assert "CHANGES MADE SO FAR" in retry
+        assert "diff --git" in retry
+        assert "+fixed_login()" in retry
+        assert "RETRY ATTEMPT 2" in retry
+
+    def test_retry_prompt_no_diff_section_when_empty(self):
+        """_build_retry_prompt omits diff section when diff_context is empty."""
+        from aragora.nomic.debug_loop import DebugAttempt, DebugLoop
+
+        loop = DebugLoop()
+        attempt = DebugAttempt(
+            attempt_number=1,
+            prompt="Fix",
+            tests_passed=0,
+            tests_failed=1,
+            test_output="FAILED",
+            diff_context="",
+        )
+
+        retry = loop._build_retry_prompt("Fix bug", attempt)
+        assert "CHANGES MADE SO FAR" not in retry
+
+    @pytest.mark.asyncio
+    async def test_run_attempt_captures_diff(self):
+        """_run_attempt populates attempt.diff_context."""
+        from aragora.nomic.debug_loop import DebugLoop
+
+        loop = DebugLoop()
+
+        with (
+            patch.object(loop, "_run_agent", new_callable=AsyncMock, return_value=("out", "")),
+            patch.object(loop, "_run_tests", new_callable=AsyncMock, return_value={"passed": 1, "failed": 0, "output": "1 passed"}),
+            patch.object(DebugLoop, "_get_diff", return_value="diff --git a/test.py"),
+        ):
+            attempt = await loop._run_attempt("test", "/tmp", None, 1)
+
+        assert attempt.diff_context == "diff --git a/test.py"
+
+
+# ---------------------------------------------------------------------------
+# Gap C: Semantic goal evaluation (GoalEvaluator)
+# ---------------------------------------------------------------------------
+
+
+class TestGoalEvaluation:
+    """Tests for GoalEvaluator scoring dimensions."""
+
+    def test_perfect_score(self):
+        """All files hit, tests improved, diff relevant → high score."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        ev = GoalEvaluator()
+        result = ev.evaluate(
+            goal="Improve authentication error handling",
+            file_scope=["aragora/auth/oidc.py"],
+            files_changed=["aragora/auth/oidc.py"],
+            diff_summary="authentication error handling oidc improve",
+            tests_before={"passed": 10, "failed": 2},
+            tests_after={"passed": 12, "failed": 0},
+        )
+        assert result.achievement_score >= 0.6
+        assert result.achieved is True
+        assert result.scope_coverage == 1.0
+        assert result.test_delta > 0
+        assert result.diff_relevance > 0.5
+
+    def test_zero_score_nothing_done(self):
+        """No files changed, no tests, no diff → zero score."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        ev = GoalEvaluator()
+        result = ev.evaluate(
+            goal="Improve authentication",
+            file_scope=["aragora/auth/oidc.py"],
+            files_changed=[],
+            diff_summary="",
+        )
+        assert result.achievement_score == 0.0
+        assert result.achieved is False
+
+    def test_scope_partial_credit_test_file(self):
+        """Test file for a scope file gives 0.5 partial credit."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_scope_coverage(
+            file_scope=["aragora/auth/oidc.py"],
+            files_changed=["tests/auth/test_oidc.py"],
+        )
+        assert score == 0.5
+
+    def test_scope_empty_scope_with_changes(self):
+        """Empty file_scope with changes → 1.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_scope_coverage(
+            file_scope=[],
+            files_changed=["something.py"],
+        )
+        assert score == 1.0
+
+    def test_scope_empty_scope_no_changes(self):
+        """Empty file_scope with no changes → 0.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_scope_coverage(
+            file_scope=[],
+            files_changed=[],
+        )
+        assert score == 0.0
+
+    def test_test_delta_improvement(self):
+        """Test pass rate improvement gives positive delta."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        delta = GoalEvaluator._score_test_delta(
+            before={"passed": 8, "failed": 2},
+            after={"passed": 10, "failed": 0},
+        )
+        assert delta == pytest.approx(0.2)  # 0.8 → 1.0
+
+    def test_test_delta_regression(self):
+        """Test pass rate regression gives negative delta."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        delta = GoalEvaluator._score_test_delta(
+            before={"passed": 10, "failed": 0},
+            after={"passed": 5, "failed": 5},
+        )
+        assert delta < 0
+
+    def test_test_delta_no_data(self):
+        """No test data → 0.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        delta = GoalEvaluator._score_test_delta(before={}, after={})
+        assert delta == 0.0
+
+    def test_test_delta_new_tests(self):
+        """Adding passing tests from zero → 1.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        delta = GoalEvaluator._score_test_delta(
+            before={},
+            after={"passed": 5, "failed": 0},
+        )
+        assert delta == 1.0
+
+    def test_diff_relevance_full_match(self):
+        """All goal keywords in diff → 1.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_diff_relevance(
+            goal="Improve authentication error handling",
+            diff_summary="improve authentication error handling code",
+        )
+        assert score == 1.0
+
+    def test_diff_relevance_no_match(self):
+        """No goal keywords in diff → 0.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_diff_relevance(
+            goal="Improve authentication",
+            diff_summary="fixed database migration schema",
+        )
+        assert score == 0.0
+
+    def test_diff_relevance_empty_diff(self):
+        """Empty diff → 0.0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        score = GoalEvaluator._score_diff_relevance(
+            goal="Improve authentication",
+            diff_summary="",
+        )
+        assert score == 0.0
+
+    def test_diff_relevance_stop_words_filtered(self):
+        """Stop words in goal are filtered out."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        # "the" and "for" are stop words, shouldn't count
+        score = GoalEvaluator._score_diff_relevance(
+            goal="the for",
+            diff_summary="the for something",
+        )
+        # All goal words are stop words → returns 0.5 (neutral)
+        assert score == 0.5
+
+    def test_negative_test_delta_clamped_in_composite(self):
+        """Negative test delta doesn't reduce composite below 0."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        ev = GoalEvaluator()
+        result = ev.evaluate(
+            goal="Improve tests",
+            file_scope=[],
+            files_changed=[],
+            diff_summary="",
+            tests_before={"passed": 10, "failed": 0},
+            tests_after={"passed": 0, "failed": 10},
+        )
+        assert result.achievement_score >= 0.0
+
+    def test_goal_evaluation_achieved_property(self):
+        """GoalEvaluation.achieved is True when score >= 0.5."""
+        from aragora.nomic.goal_evaluator import GoalEvaluation
+
+        assert GoalEvaluation(goal="x", achievement_score=0.5, scope_coverage=0, test_delta=0, diff_relevance=0).achieved is True
+        assert GoalEvaluation(goal="x", achievement_score=0.49, scope_coverage=0, test_delta=0, diff_relevance=0).achieved is False
+
+    def test_details_populated(self):
+        """GoalEvaluation.details includes counts."""
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        ev = GoalEvaluator()
+        result = ev.evaluate(
+            goal="Test",
+            file_scope=["a.py", "b.py"],
+            files_changed=["a.py"],
+            tests_before={"passed": 5, "failed": 1},
+            tests_after={"passed": 6, "failed": 0},
+        )
+        assert result.details["file_scope_count"] == 2
+        assert result.details["files_changed_count"] == 1
+
+    def test_evaluate_goal_method_on_pipeline(self):
+        """SelfImprovePipeline._evaluate_goal returns GoalEvaluation."""
+        pipeline = SelfImprovePipeline(SelfImproveConfig(enable_codebase_indexing=False))
+        subtask = MagicMock()
+        subtask.file_scope = ["auth.py"]
+
+        result = SelfImproveResult(
+            cycle_id="c1", objective="Test",
+            files_changed=["auth.py"],
+        )
+
+        evaluation = pipeline._evaluate_goal(
+            objective="Fix authentication bug",
+            subtasks=[subtask],
+            result=result,
+            baseline=None,
+            after=None,
+        )
+        assert evaluation is not None
+        assert evaluation.goal == "Fix authentication bug"
+        assert evaluation.scope_coverage == 1.0
+
+    def test_evaluate_goal_handles_import_error(self):
+        """_evaluate_goal returns None when GoalEvaluator is unavailable."""
+        pipeline = SelfImprovePipeline()
+        result = SelfImproveResult(cycle_id="c1", objective="Test")
+
+        with patch.dict("sys.modules", {"aragora.nomic.goal_evaluator": None}):
+            evaluation = pipeline._evaluate_goal("Test", [], result, None, None)
+        assert evaluation is None
+
+
+# ---------------------------------------------------------------------------
+# Gap E: Pipeline validation CLI
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePipeline:
+    """Tests for the --validate-pipeline CLI flag."""
+
+    def test_validate_pipeline_returns_zero_on_success(self):
+        """_validate_pipeline returns 0 when all components pass."""
+        import sys
+        sys.path.insert(0, "scripts")
+        try:
+            from self_develop import _validate_pipeline
+        finally:
+            sys.path.pop(0)
+
+        # Claude CLI may not be available, so we mock shutil.which
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            exit_code = _validate_pipeline("Test goal for validation")
+
+        assert exit_code == 0
+
+    def test_validate_pipeline_reports_failures(self, capsys):
+        """_validate_pipeline prints pass/fail report."""
+        import sys
+        sys.path.insert(0, "scripts")
+        try:
+            from self_develop import _validate_pipeline
+        finally:
+            sys.path.pop(0)
+
+        with patch("shutil.which", return_value=None):
+            exit_code = _validate_pipeline("Test goal")
+
+        captured = capsys.readouterr()
+        assert "[PASS]" in captured.out
+        assert "Claude CLI" in captured.out
+        # Claude CLI not found → FAIL
+        assert "[FAIL]" in captured.out
+
+    def test_validate_pipeline_probes_goal_evaluator(self, capsys):
+        """_validate_pipeline probes GoalEvaluator."""
+        import sys
+        sys.path.insert(0, "scripts")
+        try:
+            from self_develop import _validate_pipeline
+        finally:
+            sys.path.pop(0)
+
+        with patch("shutil.which", return_value="/usr/bin/claude"):
+            _validate_pipeline("Improve test coverage")
+
+        captured = capsys.readouterr()
+        assert "GoalEvaluator" in captured.out
+        assert "score=" in captured.out

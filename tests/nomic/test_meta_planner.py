@@ -1114,3 +1114,171 @@ class TestOutcomeFeedbackIntegration:
         assert "outcome_regression" in topic
         assert "consensus_rate" in topic
         assert "PAST FAILURES TO AVOID" in topic
+
+
+class TestHeuristicCodebaseHints:
+    """Tests for CodebaseIndexer integration in the heuristic prioritization path."""
+
+    def _make_mock_indexer(self, modules=None):
+        """Helper to build a mock CodebaseIndexer with pre-populated modules."""
+        mock_indexer = MagicMock()
+        mock_indexer.source_dirs = ["aragora"]
+        mock_indexer.repo_path = MagicMock()
+        source_dir = MagicMock()
+        source_dir.is_dir.return_value = True
+        source_dir.rglob.return_value = []
+        mock_indexer.repo_path.__truediv__ = MagicMock(return_value=source_dir)
+        mock_indexer._modules = modules if modules is not None else []
+        mock_indexer.max_modules = 500
+        return mock_indexer
+
+    def test_heuristic_uses_codebase_indexer(self):
+        """Patched CodebaseIndexer should populate file_hints on goals."""
+        mock_module = MagicMock()
+        mock_module.path = "aragora/security/encryption.py"
+        mock_module.to_km_entry.return_value = {
+            "searchable_text": "encryption security hardening secrets",
+        }
+
+        mock_indexer = self._make_mock_indexer(modules=[mock_module])
+
+        with patch(
+            "aragora.nomic.codebase_indexer.CodebaseIndexer",
+            return_value=mock_indexer,
+        ):
+            planner = MetaPlanner(config=MetaPlannerConfig())
+            goals = planner._heuristic_prioritize(
+                "security hardening", [Track.SECURITY, Track.CORE]
+            )
+
+        security_goals = [g for g in goals if g.track == Track.SECURITY]
+        assert len(security_goals) >= 1
+        assert any(
+            "aragora/security/encryption.py" in g.file_hints
+            for g in security_goals
+        ), f"Expected file_hints to contain encryption.py, got {[g.file_hints for g in security_goals]}"
+
+    def test_heuristic_graceful_without_indexer(self):
+        """When CodebaseIndexer import fails, goals should still be generated with empty file_hints."""
+        import sys
+
+        # Remove module from sys.modules so the local import inside
+        # _gather_codebase_hints triggers an ImportError.
+        saved = sys.modules.pop("aragora.nomic.codebase_indexer", None)
+        try:
+            with patch.dict(
+                sys.modules,
+                {"aragora.nomic.codebase_indexer": None},
+            ):
+                planner = MetaPlanner(config=MetaPlannerConfig())
+                goals = planner._heuristic_prioritize(
+                    "improve test coverage", [Track.QA, Track.CORE]
+                )
+        finally:
+            if saved is not None:
+                sys.modules["aragora.nomic.codebase_indexer"] = saved
+
+        assert len(goals) >= 1
+        # All goals should have empty file_hints since indexer was unavailable
+        for goal in goals:
+            assert goal.file_hints == [], (
+                f"Expected empty file_hints when indexer unavailable, "
+                f"got {goal.file_hints} for {goal.track}"
+            )
+
+    def test_heuristic_maps_files_to_tracks(self):
+        """Files matching track patterns should appear in the correct track's file_hints."""
+        security_module = MagicMock()
+        security_module.path = "aragora/auth/oidc.py"
+        security_module.to_km_entry.return_value = {
+            "searchable_text": "authentication oidc hardening",
+        }
+
+        qa_module = MagicMock()
+        qa_module.path = "tests/test_auth.py"
+        qa_module.to_km_entry.return_value = {
+            "searchable_text": "test authentication hardening",
+        }
+
+        core_module = MagicMock()
+        core_module.path = "aragora/debate/orchestrator.py"
+        core_module.to_km_entry.return_value = {
+            "searchable_text": "debate orchestrator hardening",
+        }
+
+        mock_indexer = self._make_mock_indexer(
+            modules=[security_module, qa_module, core_module],
+        )
+
+        with patch(
+            "aragora.nomic.codebase_indexer.CodebaseIndexer",
+            return_value=mock_indexer,
+        ):
+            planner = MetaPlanner(config=MetaPlannerConfig())
+            tracks = [Track.SECURITY, Track.QA, Track.CORE]
+            goals = planner._heuristic_prioritize("hardening", tracks)
+
+        # Verify each file ended up in the correct track's hints
+        hints_by_track = {g.track: g.file_hints for g in goals}
+        assert "aragora/auth/oidc.py" in hints_by_track.get(Track.SECURITY, []), (
+            f"Expected auth file in SECURITY hints, got {hints_by_track}"
+        )
+        assert "tests/test_auth.py" in hints_by_track.get(Track.QA, []), (
+            f"Expected test file in QA hints, got {hints_by_track}"
+        )
+        assert "aragora/debate/orchestrator.py" in hints_by_track.get(Track.CORE, []), (
+            f"Expected debate file in CORE hints, got {hints_by_track}"
+        )
+
+    def test_heuristic_with_empty_codebase(self):
+        """An empty _modules list should produce goals with empty file_hints."""
+        mock_indexer = self._make_mock_indexer(modules=[])
+
+        with patch(
+            "aragora.nomic.codebase_indexer.CodebaseIndexer",
+            return_value=mock_indexer,
+        ):
+            planner = MetaPlanner(config=MetaPlannerConfig())
+            goals = planner._heuristic_prioritize(
+                "improve sme dashboard", [Track.SME, Track.QA]
+            )
+
+        assert len(goals) >= 1
+        for goal in goals:
+            assert goal.file_hints == [], (
+                f"Expected empty file_hints with empty codebase, "
+                f"got {goal.file_hints} for {goal.track}"
+            )
+
+    def test_gather_codebase_hints_returns_dict(self):
+        """_gather_codebase_hints should return a dict mapping Track to file lists."""
+        mock_module = MagicMock()
+        mock_module.path = "aragora/debate/consensus.py"
+        mock_module.to_km_entry.return_value = {
+            "searchable_text": "consensus detection voting",
+        }
+
+        mock_indexer = self._make_mock_indexer(modules=[mock_module])
+
+        with patch(
+            "aragora.nomic.codebase_indexer.CodebaseIndexer",
+            return_value=mock_indexer,
+        ):
+            planner = MetaPlanner(config=MetaPlannerConfig())
+            result = planner._gather_codebase_hints(
+                "consensus detection", [Track.CORE, Track.QA]
+            )
+
+        assert isinstance(result, dict)
+        # All keys should be Track enum values
+        for key in result:
+            assert isinstance(key, Track), f"Expected Track key, got {type(key)}"
+        # All values should be lists of strings
+        for file_list in result.values():
+            assert isinstance(file_list, list)
+            for item in file_list:
+                assert isinstance(item, str)
+        # consensus.py should map to CORE track
+        assert "aragora/debate/consensus.py" in result.get(Track.CORE, []), (
+            f"Expected consensus.py in CORE track, got {result}"
+        )

@@ -702,3 +702,217 @@ class TestCommitPhaseGateError:
 
                         # Should still succeed via legacy path
                         assert result["success"] is True
+
+
+class TestCommitKMPersistence:
+    """Tests for Knowledge Mound persistence from CommitPhase (Gap 5)."""
+
+    def _make_subprocess_mocks(self, commit_hash: str = "abc1234"):
+        """Create standard subprocess mock side effects for a successful commit."""
+        mock_add = MagicMock()
+        mock_add.returncode = 0
+        mock_commit = MagicMock()
+        mock_commit.returncode = 0
+        mock_commit.stdout = ""
+        mock_commit.stderr = ""
+        mock_rev_parse = MagicMock()
+        mock_rev_parse.returncode = 0
+        mock_rev_parse.stdout = commit_hash
+        mock_stat = MagicMock()
+        mock_stat.returncode = 0
+        mock_stat.stdout = "file.py | 5 +++--"
+        return [mock_add, mock_commit, mock_rev_parse, mock_stat]
+
+    def _make_cycle_outcome(self):
+        """Create a mock cycle outcome with required attributes."""
+        outcome = MagicMock()
+        outcome.metadata = {}
+        outcome.completed_at = None
+        return outcome
+
+    @pytest.mark.asyncio
+    async def test_commit_persists_to_km(self, mock_aragora_path, mock_log_fn):
+        """Should call ingest_cycle_outcome on the KM adapter after commit."""
+        outcome = self._make_cycle_outcome()
+        mock_adapter = MagicMock()
+        mock_ingest_result = MagicMock()
+        mock_ingest_result.items_ingested = 3
+        mock_ingest_result.cycle_id = "cycle-001"
+        mock_adapter.ingest_cycle_outcome = AsyncMock(return_value=mock_ingest_result)
+
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=outcome,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks()
+
+            with patch(
+                "aragora.nomic.phases.commit.CommitPhase._persist_to_km",
+                wraps=phase._persist_to_km,
+            ):
+                with patch(
+                    "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                    return_value=mock_adapter,
+                ):
+                    result = await phase.execute("Test improvement")
+
+        assert result["success"] is True
+        assert result["committed"] is True
+        mock_adapter.ingest_cycle_outcome.assert_called_once_with(outcome)
+
+    @pytest.mark.asyncio
+    async def test_commit_sets_commit_hash_in_metadata(self, mock_aragora_path, mock_log_fn):
+        """Should set commit_hash in cycle_outcome.metadata before persisting."""
+        outcome = self._make_cycle_outcome()
+        mock_adapter = MagicMock()
+        mock_ingest_result = MagicMock()
+        mock_ingest_result.items_ingested = 1
+        mock_ingest_result.cycle_id = "cycle-002"
+        mock_adapter.ingest_cycle_outcome = AsyncMock(return_value=mock_ingest_result)
+
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=outcome,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks("def5678")
+
+            with patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                return_value=mock_adapter,
+            ):
+                result = await phase.execute("Set hash test")
+
+        assert result["success"] is True
+        assert outcome.metadata["commit_hash"] == "def5678"
+
+    @pytest.mark.asyncio
+    async def test_commit_km_failure_non_fatal(self, mock_aragora_path, mock_log_fn):
+        """KM persistence failure should not prevent commit from succeeding."""
+        outcome = self._make_cycle_outcome()
+        mock_adapter = MagicMock()
+        mock_adapter.ingest_cycle_outcome = AsyncMock(
+            side_effect=RuntimeError("KM store unavailable")
+        )
+
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=outcome,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks()
+
+            with patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                return_value=mock_adapter,
+            ):
+                result = await phase.execute("KM failure test")
+
+        assert result["success"] is True
+        assert result["committed"] is True
+        assert result["commit_hash"] == "abc1234"
+
+    @pytest.mark.asyncio
+    async def test_commit_km_import_error_graceful(self, mock_aragora_path, mock_log_fn):
+        """ImportError from KM adapter should be logged, not raised."""
+        outcome = self._make_cycle_outcome()
+
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=outcome,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks()
+
+            with patch(
+                "builtins.__import__",
+                side_effect=lambda name, *args, **kwargs: (
+                    (_ for _ in ()).throw(ImportError("no nomic_cycle_adapter"))
+                    if "nomic_cycle_adapter" in name
+                    else __builtins__.__import__(name, *args, **kwargs)
+                    if hasattr(__builtins__, "__import__")
+                    else __import__(name, *args, **kwargs)
+                ),
+            ):
+                result = await phase.execute("Import error test")
+
+        assert result["success"] is True
+        assert result["committed"] is True
+        # Verify the log captured the import error message
+        log_messages = " ".join(str(c) for c in mock_log_fn.call_args_list)
+        assert "KM adapter not available" in log_messages
+
+    @pytest.mark.asyncio
+    async def test_commit_without_outcome_skips_km(self, mock_aragora_path, mock_log_fn):
+        """When cycle_outcome is None, KM persistence should be skipped entirely."""
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=None,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks()
+
+            with patch(
+                "aragora.nomic.phases.commit.CommitPhase._persist_to_km"
+            ) as mock_persist:
+                result = await phase.execute("No outcome test")
+
+        assert result["success"] is True
+        assert result["committed"] is True
+        mock_persist.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_commit_sets_completed_at(self, mock_aragora_path, mock_log_fn):
+        """Should set completed_at on cycle_outcome before persisting if not already set."""
+        outcome = self._make_cycle_outcome()
+        assert outcome.completed_at is None
+
+        mock_adapter = MagicMock()
+        mock_ingest_result = MagicMock()
+        mock_ingest_result.items_ingested = 1
+        mock_ingest_result.cycle_id = "cycle-003"
+        mock_adapter.ingest_cycle_outcome = AsyncMock(return_value=mock_ingest_result)
+
+        phase = CommitPhase(
+            aragora_path=mock_aragora_path,
+            require_human_approval=False,
+            auto_commit=True,
+            log_fn=mock_log_fn,
+            cycle_outcome=outcome,
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = self._make_subprocess_mocks()
+
+            with patch(
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+                return_value=mock_adapter,
+            ):
+                result = await phase.execute("Completed at test")
+
+        assert result["success"] is True
+        assert outcome.completed_at is not None
+        # Verify it was set to a UTC datetime
+        from datetime import timezone
+        assert outcome.completed_at.tzinfo == timezone.utc
