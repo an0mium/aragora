@@ -31,12 +31,19 @@ const mockLogout = jest.fn();
 const mockAuthContext = {
   user: null as { email: string; name?: string } | null,
   organization: null as { name: string; tier: string } | null,
+  organizations: [] as Array<{ id: string; name: string }>,
+  tokens: null,
   isAuthenticated: false,
   isLoading: false,
+  isLoadingOrganizations: false,
   logout: mockLogout,
   login: jest.fn(),
   register: jest.fn(),
   refreshToken: jest.fn(),
+  setTokens: jest.fn(),
+  switchOrganization: jest.fn(),
+  refreshOrganizations: jest.fn(),
+  getCurrentOrgRole: jest.fn().mockReturnValue(null),
 };
 
 jest.mock('@/context/AuthContext', () => ({
@@ -49,6 +56,7 @@ describe('UserMenu', () => {
     // Reset auth context
     mockAuthContext.user = null;
     mockAuthContext.organization = null;
+    mockAuthContext.organizations = [];
     mockAuthContext.isAuthenticated = false;
     mockAuthContext.isLoading = false;
   });

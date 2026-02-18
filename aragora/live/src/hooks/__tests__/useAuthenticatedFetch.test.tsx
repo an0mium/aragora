@@ -63,6 +63,7 @@ describe('useAuthenticatedFetch', () => {
         isAuthenticated: true,
         isLoading: false,
         tokens: mockTokens,
+        refreshToken: jest.fn().mockResolvedValue(false),
       });
     });
 
@@ -334,6 +335,7 @@ describe('useAuthenticatedFetch', () => {
         isAuthenticated: true,
         isLoading: false,
         tokens: mockTokens,
+        refreshToken: jest.fn().mockResolvedValue(false),
       });
 
       mockFetch.mockResolvedValueOnce({
@@ -370,6 +372,7 @@ describe('useAuthFetch', () => {
         isAuthenticated: true,
         isLoading: false,
         tokens: mockTokens,
+        refreshToken: jest.fn().mockResolvedValue(false),
       });
     });
 
@@ -408,6 +411,7 @@ describe('useAuthFetch', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
+        headers: new Headers({ 'content-type': 'application/json' }),
         json: async () => ({ error: 'Bad request' }),
       });
 

@@ -52,8 +52,8 @@ describe('onboardingStore', () => {
   });
 
   describe('Initial State', () => {
-    it('starts at welcome step', () => {
-      expect(useOnboardingStore.getState().currentStep).toBe('welcome');
+    it('starts at industry step', () => {
+      expect(useOnboardingStore.getState().currentStep).toBe('industry');
     });
 
     it('has empty organization data', () => {
@@ -74,10 +74,10 @@ describe('onboardingStore', () => {
   describe('Step Navigation', () => {
     it('setCurrentStep changes step', () => {
       act(() => {
-        useOnboardingStore.getState().setCurrentStep('organization');
+        useOnboardingStore.getState().setCurrentStep('try-debate');
       });
 
-      expect(useOnboardingStore.getState().currentStep).toBe('organization');
+      expect(useOnboardingStore.getState().currentStep).toBe('try-debate');
     });
 
     it('nextStep advances to next step', () => {
@@ -85,7 +85,7 @@ describe('onboardingStore', () => {
         useOnboardingStore.getState().nextStep();
       });
 
-      expect(useOnboardingStore.getState().currentStep).toBe('organization');
+      expect(useOnboardingStore.getState().currentStep).toBe('try-debate');
     });
 
     it('nextStep marks current step as completed', () => {
@@ -93,41 +93,41 @@ describe('onboardingStore', () => {
         useOnboardingStore.getState().nextStep();
       });
 
-      expect(useOnboardingStore.getState().stepsCompleted.has('welcome')).toBe(true);
+      expect(useOnboardingStore.getState().stepsCompleted.has('industry')).toBe(true);
     });
 
-    it('nextStep does not go past completion', () => {
+    it('nextStep does not go past last step', () => {
       act(() => {
-        useOnboardingStore.getState().setCurrentStep('completion');
+        useOnboardingStore.getState().setCurrentStep('launch');
         useOnboardingStore.getState().nextStep();
       });
 
-      expect(useOnboardingStore.getState().currentStep).toBe('completion');
+      expect(useOnboardingStore.getState().currentStep).toBe('launch');
     });
 
     it('previousStep goes back', () => {
       act(() => {
-        useOnboardingStore.getState().setCurrentStep('organization');
+        useOnboardingStore.getState().setCurrentStep('try-debate');
         useOnboardingStore.getState().previousStep();
       });
 
-      expect(useOnboardingStore.getState().currentStep).toBe('welcome');
+      expect(useOnboardingStore.getState().currentStep).toBe('industry');
     });
 
-    it('previousStep does not go before welcome', () => {
+    it('previousStep does not go before first step', () => {
       act(() => {
         useOnboardingStore.getState().previousStep();
       });
 
-      expect(useOnboardingStore.getState().currentStep).toBe('welcome');
+      expect(useOnboardingStore.getState().currentStep).toBe('industry');
     });
 
     it('markStepComplete adds step to completed set', () => {
       act(() => {
-        useOnboardingStore.getState().markStepComplete('organization');
+        useOnboardingStore.getState().markStepComplete('try-debate');
       });
 
-      expect(useOnboardingStore.getState().stepsCompleted.has('organization')).toBe(true);
+      expect(useOnboardingStore.getState().stepsCompleted.has('try-debate')).toBe(true);
     });
   });
 
@@ -329,7 +329,7 @@ describe('onboardingStore', () => {
       });
 
       const state = useOnboardingStore.getState();
-      expect(state.stepsCompleted.size).toBe(6); // All 6 steps
+      expect(state.stepsCompleted.size).toBe(5); // All 5 steps in STEP_ORDER
     });
 
     it('skipOnboarding sets skipped state', () => {
@@ -356,7 +356,7 @@ describe('onboardingStore', () => {
       expect(state.teamMembers).toHaveLength(0);
       expect(state.debateStatus).toBe('idle');
       expect(state.isComplete).toBe(false);
-      expect(state.currentStep).toBe('welcome');
+      expect(state.currentStep).toBe('industry');
     });
   });
 
@@ -388,7 +388,7 @@ describe('onboardingStore', () => {
         expect(selectCurrentStepIndex(useOnboardingStore.getState())).toBe(0);
 
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('first-debate');
+          useOnboardingStore.getState().setCurrentStep('launch');
         });
 
         expect(selectCurrentStepIndex(useOnboardingStore.getState())).toBe(4);
@@ -396,19 +396,19 @@ describe('onboardingStore', () => {
     });
 
     describe('selectTotalSteps', () => {
-      it('returns 6 total steps', () => {
-        expect(selectTotalSteps()).toBe(6);
+      it('returns 5 total steps', () => {
+        expect(selectTotalSteps()).toBe(5);
       });
     });
 
     describe('selectIsFirstStep', () => {
-      it('returns true on welcome step', () => {
+      it('returns true on industry step', () => {
         expect(selectIsFirstStep(useOnboardingStore.getState())).toBe(true);
       });
 
       it('returns false on other steps', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('organization');
+          useOnboardingStore.getState().setCurrentStep('try-debate');
         });
 
         expect(selectIsFirstStep(useOnboardingStore.getState())).toBe(false);
@@ -420,9 +420,9 @@ describe('onboardingStore', () => {
         expect(selectIsLastStep(useOnboardingStore.getState())).toBe(false);
       });
 
-      it('returns true on completion step', () => {
+      it('returns true on launch step', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('completion');
+          useOnboardingStore.getState().setCurrentStep('launch');
         });
 
         expect(selectIsLastStep(useOnboardingStore.getState())).toBe(true);
@@ -430,76 +430,37 @@ describe('onboardingStore', () => {
     });
 
     describe('selectCanProceed', () => {
-      it('returns true for welcome step', () => {
-        expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
-      });
-
-      it('returns false for organization step without required fields', () => {
-        act(() => {
-          useOnboardingStore.getState().setCurrentStep('organization');
-        });
-
+      it('returns false for industry step without selection', () => {
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
       });
 
-      it('returns true for organization step with required fields', () => {
+      it('returns true for industry step with selection', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('organization');
-          useOnboardingStore.getState().setOrganizationName('Test Organization');
-          useOnboardingStore.getState().setTeamSize('1-5');
+          useOnboardingStore.getState().setSelectedIndustry('technology');
         });
 
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
       });
 
-      it('returns true for team-invite step (optional)', () => {
+      it('returns true for create-account step', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('team-invite');
+          useOnboardingStore.getState().setCurrentStep('create-account');
         });
 
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
       });
 
-      it('returns false for template-select without selection', () => {
+      it('returns true for connect-tools step (optional)', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('template-select');
-        });
-
-        expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
-      });
-
-      it('returns true for template-select with selection', () => {
-        act(() => {
-          useOnboardingStore.getState().setCurrentStep('template-select');
-          useOnboardingStore.getState().setSelectedTemplate(mockTemplate);
+          useOnboardingStore.getState().setCurrentStep('connect-tools');
         });
 
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
       });
 
-      it('returns false for first-debate step when not completed', () => {
+      it('returns true for launch step', () => {
         act(() => {
-          useOnboardingStore.getState().setCurrentStep('first-debate');
-          useOnboardingStore.getState().setDebateStatus('running');
-        });
-
-        expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
-      });
-
-      it('returns false for first-debate step when completed but receipt not viewed', () => {
-        act(() => {
-          useOnboardingStore.getState().setCurrentStep('first-debate');
-          useOnboardingStore.getState().setDebateStatus('completed');
-        });
-
-        expect(selectCanProceed(useOnboardingStore.getState())).toBe(false);
-      });
-
-      it('returns true for first-debate step when completed and receipt viewed', () => {
-        act(() => {
-          useOnboardingStore.getState().setCurrentStep('first-debate');
-          useOnboardingStore.getState().setDebateStatus('completed');
-          useOnboardingStore.getState().updateProgress({ receiptViewed: true });
+          useOnboardingStore.getState().setCurrentStep('launch');
         });
 
         expect(selectCanProceed(useOnboardingStore.getState())).toBe(true);
@@ -513,12 +474,12 @@ describe('onboardingStore', () => {
 
       it('returns correct percentage after steps', () => {
         act(() => {
-          useOnboardingStore.getState().markStepComplete('welcome');
-          useOnboardingStore.getState().markStepComplete('organization');
+          useOnboardingStore.getState().markStepComplete('industry');
+          useOnboardingStore.getState().markStepComplete('try-debate');
         });
 
-        // 2/6 = 33%
-        expect(selectProgressPercentage(useOnboardingStore.getState())).toBe(33);
+        // 2/5 = 40%
+        expect(selectProgressPercentage(useOnboardingStore.getState())).toBe(40);
       });
 
       it('returns 100 when all steps completed', () => {

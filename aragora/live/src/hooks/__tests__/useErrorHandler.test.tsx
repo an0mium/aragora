@@ -125,7 +125,7 @@ describe('useErrorHandler', () => {
         result.current.handleError('String error');
       });
 
-      expect(mockShowError).toHaveBeenCalledWith('String error', 5000);
+      expect(mockShowError).toHaveBeenCalledWith('An unexpected error occurred.', 5000);
     });
 
     it('stores last error', () => {

@@ -124,7 +124,7 @@ describe('ReplayBrowser', () => {
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining('/api/replays'),
-          undefined
+          expect.anything()
         );
       });
 

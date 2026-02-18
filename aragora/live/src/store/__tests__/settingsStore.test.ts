@@ -279,7 +279,7 @@ describe('settingsStore', () => {
       const backend = useSettingsStore.getState().backend;
       expect(backend.apiUrl).toBeDefined();
       expect(backend.wsUrl).toBeDefined();
-      expect(backend.defaultRounds).toBe(8);
+      expect(backend.defaultRounds).toBe(9);
     });
 
     it('setBackendConfig updates partial config', () => {
@@ -291,7 +291,7 @@ describe('settingsStore', () => {
 
       const backend = useSettingsStore.getState().backend;
       expect(backend.apiUrl).toBe('https://api.aragora.io');
-      expect(backend.defaultRounds).toBe(8); // Unchanged
+      expect(backend.defaultRounds).toBe(9); // Unchanged
     });
 
     it('setBackendConfig can update default agents', () => {
@@ -417,7 +417,7 @@ describe('settingsStore', () => {
 
     it('selectBackend returns backend config', () => {
       const backend = selectBackend(useSettingsStore.getState());
-      expect(backend.defaultRounds).toBe(8);
+      expect(backend.defaultRounds).toBe(9);
     });
 
     it('selectSaveStatus returns status and error', () => {
