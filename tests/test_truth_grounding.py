@@ -20,11 +20,20 @@ from aragora.agents.truth_grounding import (
     TruthGroundedLaboratory,
     TruthGroundedPersona,
 )
+from aragora.storage.schema import DatabaseManager
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _clear_db_singletons():
+    """Clear DatabaseManager singleton instances to avoid state pollution."""
+    DatabaseManager.clear_instances()
+    yield
+    DatabaseManager.clear_instances()
 
 
 @pytest.fixture
@@ -222,7 +231,10 @@ class TestPositionTrackerInit:
     def test_initialization_with_default_path(self):
         """Test PositionTracker creates with default path."""
         tracker = PositionTracker()
-        assert tracker.db_path == Path("aragora_positions.db")
+        # resolve_db_path resolves bare filenames under DATA_DIR,
+        # and may consolidate to a different filename (e.g., agents.db)
+        assert tracker.db_path.is_absolute()
+        assert tracker.db_path.suffix == ".db"
         # Clean up
         if tracker.db_path.exists():
             os.unlink(tracker.db_path)
@@ -288,21 +300,21 @@ class TestPositionTrackerInit:
 
 
 class TestGetConnection:
-    """Tests for _get_connection context manager."""
+    """Tests for database connection context manager."""
 
     def test_yields_connection(self, tracker):
-        """Test that _get_connection yields a connection."""
-        with tracker._get_connection() as conn:
+        """Test that db.connection() yields a connection."""
+        with tracker.db.connection() as conn:
             assert isinstance(conn, sqlite3.Connection)
 
     def test_commits_on_exit(self, tracker, temp_db):
         """Test that changes are committed after context exit."""
-        with tracker._get_connection() as conn:
+        with tracker.db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("CREATE TABLE IF NOT EXISTS test_commit (id INTEGER)")
             cursor.execute("INSERT INTO test_commit VALUES (1)")
         # After exit, changes should be committed - verify with new connection
-        with tracker._get_connection() as conn2:
+        with tracker.db.connection() as conn2:
             cursor = conn2.cursor()
             cursor.execute("SELECT COUNT(*) FROM test_commit")
             assert cursor.fetchone()[0] == 1
@@ -310,21 +322,21 @@ class TestGetConnection:
     def test_rolls_back_on_exception(self, tracker):
         """Test that changes are rolled back on exception."""
         # First create the table
-        with tracker._get_connection() as conn:
+        with tracker.db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("CREATE TABLE IF NOT EXISTS test_rollback (id INTEGER)")
             cursor.execute("INSERT INTO test_rollback VALUES (1)")
 
         # Now try to insert with exception - should rollback
         try:
-            with tracker._get_connection() as conn:
+            with tracker.db.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO test_rollback VALUES (2)")
                 raise ValueError("Test exception")
         except ValueError:
             pass
         # The second insert should be rolled back
-        with tracker._get_connection() as conn:
+        with tracker.db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM test_rollback")
             assert cursor.fetchone()[0] == 1  # Only first insert

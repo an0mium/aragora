@@ -287,6 +287,19 @@ class TestTargetedFixGuards:
 class TestTestPathsScoping:
     """Test that test_paths parameter limits pytest scope."""
 
+    @pytest.fixture(autouse=True)
+    def _fresh_event_loop(self):
+        """Provide a fresh event loop to avoid pollution from prior async tests.
+
+        Prior async tests may close the default event loop, causing
+        asyncio.get_event_loop() to return a closed loop. Creating a
+        dedicated loop per test avoids that problem.
+        """
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        yield loop
+        loop.close()
+
     def test_verify_phase_passes_test_paths(self):
         """VerifyPhase._run_tests() should build command from test_paths."""
         from aragora.nomic.phases.verify import VerifyPhase
@@ -296,7 +309,6 @@ class TestTestPathsScoping:
         # We can't easily test the full async run, but we can verify the
         # fallback path constructs the right command by checking _run_tests_raw
         # builds a proper cmd list with specific test paths
-        import asyncio
 
         async def check_raw():
             # _run_tests_raw will fail (no repo), but we verify it handles

@@ -526,6 +526,29 @@ class TestSlackRateLimiting:
 class TestSlackFullDebateFlow:
     """Integration tests for complete Slack debate flow."""
 
+    @pytest.fixture(autouse=True)
+    def _fresh_event_loop(self):
+        """Provide a fresh event loop to avoid pollution from prior async tests."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        yield loop
+        loop.close()
+
+    @pytest.fixture(autouse=True)
+    def _reset_slack_module_state(self):
+        """Reset module-level Slack config to avoid state pollution.
+
+        SLACK_BOT_TOKEN is read from env at import time and cached as a module
+        variable. Prior tests may have set it, which changes the code path
+        taken by _create_debate_async (Web API vs response_url). Patching it
+        to None forces the response_url path that these tests rely on.
+        """
+        with patch(
+            "aragora.server.handlers.social._slack_impl.commands.SLACK_BOT_TOKEN",
+            None,
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_debate_posts_to_response_url(self):
         """Test debate posts updates to Slack response_url."""
@@ -604,7 +627,7 @@ class TestSlackFullDebateFlow:
         ):
             mock_agents.return_value = [MagicMock()]
             mock_arena = MagicMock()
-            mock_arena.run = AsyncMock(side_effect=Exception("Arena error"))
+            mock_arena.run = AsyncMock(side_effect=RuntimeError("Arena error"))
             mock_arena_cls.from_env.return_value = mock_arena
 
             await handler._create_debate_async(

@@ -410,7 +410,7 @@ class TestInvoicePayment:
         payload = b'{"type": "invoice.payment_failed"}'
         http_handler = create_mock_http_handler(payload)
 
-        with patch("aragora.server.handlers.admin.billing.logger") as mock_logger:
+        with patch("aragora.server.handlers.billing.core.logger") as mock_logger:
             result = billing_handler._handle_stripe_webhook(http_handler)
 
         assert result.status_code == 200
@@ -438,7 +438,7 @@ class TestInvoicePayment:
         payload = b'{"type": "invoice.payment_failed"}'
         http_handler = create_mock_http_handler(payload)
 
-        with patch("aragora.server.handlers.admin.billing.logger") as mock_logger:
+        with patch("aragora.server.handlers.billing.core.logger") as mock_logger:
             result = billing_handler._handle_stripe_webhook(http_handler)
 
         assert result.status_code == 200

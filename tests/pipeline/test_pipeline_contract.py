@@ -23,16 +23,13 @@ import pytest
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
     _pipeline_objects,
-    _pipeline_results,
 )
 
 
 @pytest.fixture(autouse=True)
 def _clear_stores():
-    _pipeline_results.clear()
     _pipeline_objects.clear()
     yield
-    _pipeline_results.clear()
     _pipeline_objects.clear()
 
 

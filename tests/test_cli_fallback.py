@@ -126,6 +126,7 @@ class TestGetFallbackAgent:
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"})
     def test_creates_fallback_with_api_key(self) -> None:
         """Creates fallback agent when API key is available."""
+        self.agent.enable_fallback = True
         fallback = self.agent._get_fallback_agent()
         assert fallback is not None
         assert "fallback" in fallback.name
@@ -133,6 +134,7 @@ class TestGetFallbackAgent:
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"})
     def test_caches_fallback_agent(self) -> None:
         """Fallback agent is cached on first creation."""
+        self.agent.enable_fallback = True
         fallback1 = self.agent._get_fallback_agent()
         fallback2 = self.agent._get_fallback_agent()
         assert fallback1 is fallback2
@@ -140,6 +142,7 @@ class TestGetFallbackAgent:
     @patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"})
     def test_fallback_copies_system_prompt(self) -> None:
         """Fallback agent inherits system prompt."""
+        self.agent.enable_fallback = True
         self.agent.system_prompt = "Be helpful."
         fallback = self.agent._get_fallback_agent()
         assert fallback.system_prompt == "Be helpful."
@@ -153,10 +156,11 @@ class TestFallbackActivation:
     async def test_fallback_used_on_rate_limit(self) -> None:
         """Fallback is used when CLI returns rate limit error."""
         agent = ClaudeAgent(name="test-claude", model="claude-3", role="test")
+        agent.enable_fallback = True
 
-        # Mock _run_cli to raise rate limit error
+        # Mock _run_cli to raise rate limit error (must be a caught exception type)
         async def mock_run_cli(*args, **kwargs):
-            raise Exception("Error: rate limit exceeded")
+            raise RuntimeError("Error: rate limit exceeded")
 
         agent._run_cli = mock_run_cli
 
@@ -200,9 +204,10 @@ class TestFallbackUsedTracking:
     async def test_fallback_used_set_on_fallback(self) -> None:
         """_fallback_used is set to True when fallback is used."""
         agent = ClaudeAgent(name="test", model="claude-3", role="test")
+        agent.enable_fallback = True
 
         async def mock_run_cli(*args, **kwargs):
-            raise Exception("429 rate limit")
+            raise RuntimeError("429 rate limit")
 
         agent._run_cli = mock_run_cli
 

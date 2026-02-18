@@ -26,6 +26,21 @@ from aragora.server.postgres_storage import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure a fresh event loop for each test.
+
+    Sync wrapper methods (get_debate, list_debates, etc.) delegate to
+    ``run_async()`` which calls ``asyncio.run()``. A stale event loop
+    left by prior async tests causes RuntimeError.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    loop.close()
+    asyncio.set_event_loop(None)
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================

@@ -654,7 +654,7 @@ class TestDatabaseManagerConnectionPool:
         assert stats["misses"] == 0
         assert stats["returns"] == 0
         assert stats["pool_size"] == 0
-        assert stats["max_pool_size"] == 5  # Default
+        assert stats["max_pool_size"] == DatabaseManager.DEFAULT_POOL_SIZE
 
     def test_pool_reuses_connections(self, tmp_path):
         """Pool reuses connections instead of creating new ones."""

@@ -21,6 +21,20 @@ from aragora.autonomous.loop_enhancement import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure each test gets a fresh event loop.
+
+    Prior async tests in a larger suite may leave a stale or closed event loop,
+    causing ``asyncio.run()`` calls in sync test methods to fail.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    loop.close()
+    asyncio.set_event_loop(None)
+
+
 class TestApprovalStatus:
     """Tests for ApprovalStatus enum."""
 

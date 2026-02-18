@@ -11,6 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from unittest.mock import AsyncMock, patch
 
@@ -29,6 +30,20 @@ from aragora.server.startup.validation_runner import (
     run_startup_validation,
     run_startup_validation_sync,
 )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure a fresh event loop for each test.
+
+    ``run_startup_validation_sync()`` uses ``asyncio.run()`` internally.
+    A stale or closed event loop from prior async tests causes RuntimeError.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    loop.close()
+    asyncio.set_event_loop(None)
 
 
 class TestShouldSkipValidation:

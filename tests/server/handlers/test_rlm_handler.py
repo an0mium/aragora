@@ -11,6 +11,7 @@ Comprehensive tests covering:
 - Rate limiting
 """
 
+import asyncio
 import json
 from datetime import datetime
 from io import BytesIO
@@ -19,6 +20,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.server.handlers.rlm import RLMContextHandler
+
+
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure a fresh event loop for each test.
+
+    Handler methods use ``run_async()`` which calls ``asyncio.run()`` under the
+    hood. A stale or closed loop left by prior async tests in a larger suite
+    causes RuntimeError.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    loop.close()
+    asyncio.set_event_loop(None)
 
 
 @pytest.fixture(autouse=True)

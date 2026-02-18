@@ -17,6 +17,22 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def _reset_factory_singleton():
+    """Reset the module-level _factory singleton between tests.
+
+    Prior tests in a larger suite may leave a stale singleton that
+    causes ``get_arena_factory()`` and ``create_arena()`` to return
+    unexpected instances.  Also guard against ``importlib.reload()``
+    side-effects in ``TestCreateMethod`` corrupting the shared module.
+    """
+    import aragora.debate.factory as mod
+    saved = mod._factory
+    mod._factory = None
+    yield
+    mod._factory = saved
+
+
 def _fresh_factory():
     """Import ArenaFactory without triggering heavy transitive imports."""
     from aragora.debate.factory import ArenaFactory
@@ -276,7 +292,12 @@ class TestCreateMethod:
 
     @pytest.fixture(autouse=True)
     def _patch_arena_imports(self):
-        """Patch the heavy imports inside create() so we never load the real Arena."""
+        """Patch the heavy imports inside create() so we never load the real Arena.
+
+        Uses sys.modules patching without ``importlib.reload()`` to avoid
+        re-executing module-level imports that can fail when prior tests
+        in a larger suite have modified transitive dependencies.
+        """
         self.mock_arena_cls = MagicMock()
         self.mock_arena_cls.create.return_value = MagicMock(name="arena_instance")
 
@@ -293,22 +314,36 @@ class TestCreateMethod:
             ObservabilityConfig=self.mock_obs_cfg,
         )
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.debate.orchestrator": mock_orchestrator,
-                "aragora.debate.arena_config": mock_arena_config,
-            },
-        ):
-            # Reload the factory module so its local import sees our mocks
-            import aragora.debate.factory as factory_mod
+        import aragora.debate.factory as factory_mod
 
-            importlib.reload(factory_mod)
-            self.factory_mod = factory_mod
-            yield
+        # Save originals from sys.modules so we can restore them
+        saved_orchestrator = sys.modules.get("aragora.debate.orchestrator")
+        saved_arena_config = sys.modules.get("aragora.debate.arena_config")
 
-        # Reload again to restore normal state
-        importlib.reload(factory_mod)
+        # Inject mocks into sys.modules so the local imports inside
+        # create() pick them up without needing a full module reload.
+        sys.modules["aragora.debate.orchestrator"] = mock_orchestrator
+        sys.modules["aragora.debate.arena_config"] = mock_arena_config
+
+        # Invalidate any cached references in the factory module's import
+        # cache so the next ``from aragora.debate.orchestrator import Arena``
+        # inside create() re-resolves from sys.modules.
+        if hasattr(importlib, "invalidate_caches"):
+            importlib.invalidate_caches()
+
+        self.factory_mod = factory_mod
+        yield
+
+        # Restore original modules
+        if saved_orchestrator is not None:
+            sys.modules["aragora.debate.orchestrator"] = saved_orchestrator
+        else:
+            sys.modules.pop("aragora.debate.orchestrator", None)
+
+        if saved_arena_config is not None:
+            sys.modules["aragora.debate.arena_config"] = saved_arena_config
+        else:
+            sys.modules.pop("aragora.debate.arena_config", None)
 
     def _make_env_agents(self):
         env = MagicMock(name="environment")

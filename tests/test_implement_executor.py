@@ -39,7 +39,7 @@ def repo_path(tmp_path):
 @pytest.fixture
 def executor(repo_path):
     """Create a HybridExecutor with mocked agents."""
-    exec = HybridExecutor(repo_path, sandbox_mode=False)
+    exec = HybridExecutor(repo_path, sandbox_mode=False, use_harness=False)
     return exec
 
 

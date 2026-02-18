@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import aragora.server.handlers.email.storage as storage_mod
+import aragora.server.handlers.utils.rbac_guard as rbac_guard_mod
 
 
 @dataclass
@@ -46,13 +47,26 @@ def _reset_singletons():
     storage_mod._context_service = None
     with storage_mod._user_configs_lock:
         storage_mod._user_configs.clear()
+
+    # Reset rbac_guard cached import state so that patching RBAC_AVAILABLE
+    # on the storage module is not undermined by the guard's own cache.
+    saved_attempted = rbac_guard_mod._rbac_import_attempted
+    saved_success = rbac_guard_mod._rbac_import_success
+    rbac_guard_mod._rbac_import_attempted = False
+    rbac_guard_mod._rbac_import_success = False
+
     yield
+
     storage_mod._email_store = saved_store
     storage_mod._gmail_connector = None
     storage_mod._prioritizer = None
     storage_mod._context_service = None
     with storage_mod._user_configs_lock:
         storage_mod._user_configs.clear()
+
+    # Restore rbac_guard cached state
+    rbac_guard_mod._rbac_import_attempted = saved_attempted
+    rbac_guard_mod._rbac_import_success = saved_success
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +89,8 @@ class TestCheckEmailPermission:
             result = storage_mod._check_email_permission(None, "email:write")
         assert result is not None
         assert result["success"] is False
-        assert "RBAC unavailable" in result["error"]
+        # Error message is deliberately generic (security: no RBAC reason leakage)
+        assert "denied" in result["error"].lower() or "unavailable" in result["error"].lower()
 
     def test_oauth_denied_when_rbac_unavailable(self):
         """OAuth ops fail closed when RBAC is unavailable."""
@@ -113,7 +128,8 @@ class TestCheckEmailPermission:
             result = storage_mod._check_email_permission(ctx, "email:write")
         assert result is not None
         assert result["success"] is False
-        assert "Insufficient role" in result["error"]
+        # Error message is deliberately generic (security: no RBAC reason leakage)
+        assert "denied" in result["error"].lower()
 
     def test_fails_open_on_check_exception(self):
         """Fails open (allows) when check_permission raises."""

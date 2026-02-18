@@ -9,26 +9,73 @@ from unittest.mock import Mock, patch, MagicMock
 import time
 
 
+@pytest.fixture(autouse=True)
+def _reset_metrics_state():
+    """Reset all metrics module state before each test.
+
+    When tests run as part of a larger suite, module-level _initialized flags
+    and metric objects can be polluted by prior tests. This fixture resets the
+    initialization state in every submodule, installs NoOp metrics, and then
+    marks them as initialized so that _ensure_init() calls within recording
+    functions do NOT attempt to re-register real Prometheus collectors (which
+    would fail with "Duplicated timeseries" errors).
+    """
+    import aragora.observability.metrics as metrics_pkg
+    from aragora.observability.metrics import agent as agent_mod
+    from aragora.observability.metrics import debate as debate_mod
+    from aragora.observability.metrics import system as system_mod
+    from aragora.observability.metrics import request as request_mod
+    from aragora.observability.metrics import memory as memory_mod
+    from aragora.observability.metrics import base as base_mod
+    from aragora.observability.metrics import core as core_mod
+
+    submodules = [agent_mod, debate_mod, system_mod, request_mod, memory_mod, base_mod, core_mod]
+
+    # Reset _initialized flags so we can re-run noop init
+    for mod in submodules:
+        if hasattr(mod, "_initialized"):
+            mod._initialized = False
+
+    # Initialize NoOp metrics in each submodule so metric objects are not None
+    for mod in submodules:
+        noop_init = getattr(mod, "_init_noop_metrics", None)
+        if callable(noop_init):
+            noop_init()
+
+    # Mark all submodules as initialized so _ensure_init() does NOT try to
+    # re-register real Prometheus collectors (avoiding Duplicated timeseries).
+    for mod in submodules:
+        if hasattr(mod, "_initialized"):
+            mod._initialized = True
+
+    # Reset and mark the package itself
+    metrics_pkg._initialized = True
+    metrics_pkg._metrics_server = None
+
+    # Refresh package-level exports to point at the freshly created NoOp metrics
+    metrics_pkg._refresh_exports()
+
+    yield
+
+    # Teardown: clean up server state to avoid leaking to other test files
+    metrics_pkg._metrics_server = None
+
+
 class TestMetricsInitialization:
     """Test metrics module initialization."""
 
     def test_init_metrics_disabled(self):
-        """Test metrics initialization when disabled."""
-        from aragora.observability.metrics import _init_metrics, _init_noop_metrics
+        """Test metrics initialization when disabled.
 
-        with patch("aragora.observability.metrics.get_metrics_config") as mock_config:
-            mock_config.return_value = Mock(enabled=False)
+        When metrics are disabled, NoOp metrics should be in place
+        (the autouse fixture already initialises them).
+        """
+        import aragora.observability.metrics as metrics_module
+        from aragora.observability.metrics.base import NoOpMetric
 
-            with patch("aragora.observability.metrics._initialized", False):
-                # Reset for test
-                import aragora.observability.metrics as metrics_module
-
-                metrics_module._initialized = False
-
-                _init_noop_metrics()
-
-                # NoOp metrics should be set
-                assert metrics_module.REQUEST_COUNT is not None
+        # NoOp metrics should be set by the autouse fixture
+        assert metrics_module.REQUEST_COUNT is not None
+        assert isinstance(metrics_module.REQUEST_COUNT, NoOpMetric)
 
     def test_init_metrics_prometheus_not_installed(self):
         """Test graceful handling when prometheus not installed."""
@@ -136,8 +183,8 @@ class TestMetricsRecording:
         metrics_module._initialized = True
 
         # Should not raise
-        record_agent_call("claude", success=True, latency=1.2)
-        record_agent_call("gpt4", success=False, latency=5.0)
+        record_agent_call("claude", success=True, latency_seconds=1.2)
+        record_agent_call("gpt4", success=False, latency_seconds=5.0)
 
     def test_set_consensus_rate(self):
         """Test setting consensus rate metric."""
@@ -177,8 +224,8 @@ class TestMetricsRecording:
         metrics_module._initialized = True
 
         # Should not raise
-        track_websocket_connection(connected=True)
-        track_websocket_connection(connected=False)
+        track_websocket_connection(increment=True)
+        track_websocket_connection(increment=False)
 
 
 class TestTrackDebate:
@@ -539,27 +586,26 @@ class TestMetricsServer:
         """Test starting server when metrics disabled."""
         from aragora.observability.metrics import start_metrics_server
 
-        with patch("aragora.observability.metrics._init_metrics") as mock_init:
-            mock_init.return_value = False
+        with patch("aragora.observability.metrics.get_metrics_enabled") as mock_enabled:
+            mock_enabled.return_value = False
 
             result = start_metrics_server()
 
-            assert result is None
+            assert result is False
 
     def test_start_metrics_server_already_running(self):
         """Test starting server when already running."""
         from aragora.observability.metrics import start_metrics_server
         import aragora.observability.metrics as metrics_module
 
-        mock_server = Mock()
-        metrics_module._metrics_server = mock_server
+        metrics_module._metrics_server = 9090
 
-        with patch("aragora.observability.metrics._init_metrics") as mock_init:
-            mock_init.return_value = True
+        with patch("aragora.observability.metrics.get_metrics_enabled") as mock_enabled:
+            mock_enabled.return_value = True
 
             result = start_metrics_server()
 
-            assert result is mock_server
+            assert result is True
 
         # Reset
         metrics_module._metrics_server = None
@@ -645,9 +691,9 @@ class TestMetricsIntegration:
 
         with track_debate():
             # Simulate agent calls during debate
-            record_agent_call("claude", success=True, latency=1.5)
-            record_agent_call("gpt4", success=True, latency=2.0)
-            record_agent_call("gemini", success=False, latency=5.0)
+            record_agent_call("claude", success=True, latency_seconds=1.5)
+            record_agent_call("gpt4", success=True, latency_seconds=2.0)
+            record_agent_call("gemini", success=False, latency_seconds=5.0)
 
         # Record consensus rate after debate
         set_consensus_rate(0.67)
