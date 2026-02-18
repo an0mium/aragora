@@ -851,16 +851,12 @@ class TeamSelector:
                 if loop is not None and loop.is_running():
                     # Already in async context — schedule cache warm-up
                     # and return 0.0 this time. Next call will use cache.
-                    future = asyncio.ensure_future(
-                        self._warm_culture_cache(cache_key, task_type)
-                    )
+                    future = asyncio.ensure_future(self._warm_culture_cache(cache_key, task_type))
                     # Suppress unhandled exception warnings
                     future.add_done_callback(lambda f: f.exception() if not f.cancelled() else None)
                     return 0.0
                 else:
-                    recommendations = asyncio.run(
-                        self.knowledge_mound.recommend_agents(task_type)
-                    )
+                    recommendations = asyncio.run(self.knowledge_mound.recommend_agents(task_type))
                     self._culture_recommendations_cache[cache_key] = recommendations or []
             except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.debug(f"Culture recommendation failed for {task_type}: {e}")
@@ -897,7 +893,15 @@ class TeamSelector:
             try:
                 recommendations = await self.knowledge_mound.recommend_agents(task_type)
                 self._culture_recommendations_cache[cache_key] = recommendations or []
-            except (AttributeError, TypeError, ValueError, RuntimeError, OSError, KeyError, Exception) as e:
+            except (
+                AttributeError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+                OSError,
+                KeyError,
+                Exception,
+            ) as e:
                 logger.debug(f"Culture recommendation failed for {task_type}: {e}")
                 self._culture_recommendations_cache[cache_key] = []
 
@@ -988,10 +992,7 @@ class TeamSelector:
                 return 0.0
 
             # Filter to memories about this specific agent
-            agent_memories = [
-                m for m in memories
-                if m.metadata.get("agent_name") == agent_name
-            ]
+            agent_memories = [m for m in memories if m.metadata.get("agent_name") == agent_name]
 
             if not agent_memories:
                 return 0.0
@@ -1624,7 +1625,9 @@ class TeamSelector:
         if self.specialist_registry and self.config.enable_specialist_bonus and domain:
             try:
                 specialist_bonus = self.specialist_registry.score_bonus(
-                    agent.name, domain, weight=self.config.specialist_weight,
+                    agent.name,
+                    domain,
+                    weight=self.config.specialist_weight,
                 )
                 score += specialist_bonus
             except (AttributeError, TypeError) as e:
