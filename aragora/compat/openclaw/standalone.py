@@ -257,9 +257,11 @@ class StandaloneGatewayServer:
                 else:
                     await self._send_response(writer, 200, {"data": str(result)})
             except PermissionError as e:
-                await self._send_response(writer, 403, {"error": str(e)})
+                logger.warning("Permission denied for request: %s", e)
+                await self._send_response(writer, 403, {"error": "Access denied"})
             except ValueError as e:
-                await self._send_response(writer, 400, {"error": str(e)})
+                logger.warning("Invalid request: %s", e)
+                await self._send_response(writer, 400, {"error": "Invalid request"})
             except (RuntimeError, KeyError, TypeError, AttributeError) as e:
                 logger.error("Request handler error: %s", e, exc_info=True)
                 await self._send_response(writer, 500, {"error": "Internal server error"})

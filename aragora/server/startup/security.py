@@ -146,10 +146,10 @@ async def init_deployment_validation() -> dict:
 
     except ImportError as e:
         logger.debug(f"Deployment validator not available: {e}")
-        return {"available": False, "error": str(e)}
+        return {"available": False, "error": "Deployment validator not available"}
     except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Deployment validation failed: {e}")
-        return {"available": True, "error": str(e)}
+        return {"available": True, "error": "Deployment validation failed"}
 
 
 def init_graphql_routes(app: Any) -> bool:

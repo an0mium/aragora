@@ -98,7 +98,7 @@ async def init_postgres_pool() -> dict[str, Any]:
         return {
             "enabled": False,
             "backend": "sqlite",
-            "error": str(e),
+            "error": "PostgreSQL pool initialization failed",
             "reason": "initialization_failed",
         }
 

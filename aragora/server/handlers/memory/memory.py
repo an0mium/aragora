@@ -448,7 +448,7 @@ class MemoryHandler(
             return HandlerResult(data=result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Unified search failed: %s", e)
-            return error_response(str(e), 500)
+            return error_response("Unified memory search failed", 500)
 
     def _get_unified_stats(self) -> HandlerResult:
         """Handle GET /api/v1/memory/unified/stats."""
@@ -463,4 +463,4 @@ class MemoryHandler(
             return HandlerResult(data=result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Unified stats failed: %s", e)
-            return error_response(str(e), 500)
+            return error_response("Unified memory stats retrieval failed", 500)

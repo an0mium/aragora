@@ -261,8 +261,8 @@ class BodySizeLimitMiddleware:
         limited_body = middleware.wrap_body_reader(body_stream, path="/api/upload")
         try:
             data = limited_body.read()
-        except BodySizeLimitExceeded as e:
-            return error_response(413, str(e))
+        except BodySizeLimitExceeded:
+            return error_response(413, "Request body too large")
     """
 
     def __init__(self, config: BodySizeLimitConfig | None = None):

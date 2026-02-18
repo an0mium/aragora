@@ -83,7 +83,7 @@ async def _run_postgresql_migrations() -> dict[str, Any]:
         return {"skipped": True, "reason": "PostgreSQL not configured"}
     except (RuntimeError, OSError) as e:
         logger.error(f"PostgreSQL migration failed: {e}")
-        return {"error": str(e)}
+        return {"error": "PostgreSQL migration failed"}
 
 
 async def _run_sqlite_migrations() -> dict[str, Any]:
@@ -123,7 +123,7 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
         return {"skipped": True, "reason": "SQLite migrations not configured"}
     except (RuntimeError, OSError) as e:
         logger.error(f"SQLite migration failed: {e}")
-        return {"error": str(e)}
+        return {"error": "SQLite migration failed"}
 
 
 def check_migrations_pending() -> dict[str, Any]:

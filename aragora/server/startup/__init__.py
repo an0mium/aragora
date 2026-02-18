@@ -297,7 +297,7 @@ async def _run_migrations(os: Any) -> dict[str, Any]:
                 logger.warning(f"Auto-migrations had issues: {migration_results}")
         except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.error(f"Auto-migration failed: {e}")
-            migration_results = {"error": str(e), "skipped": False}
+            migration_results = {"error": "Auto-migration failed", "skipped": False}
     return migration_results
 
 

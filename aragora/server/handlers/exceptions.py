@@ -17,10 +17,9 @@ Usage:
 
     try:
         # handler code
-    except HandlerValidationError as e:
-        return error_response(str(e), e.status_code)
     except Exception as e:
-        return handle_handler_error(e, "operation_name", logger)
+        status, message = handle_handler_error(e, "operation_name", logger)
+        return error_response(message, status)
 """
 
 from __future__ import annotations
@@ -315,11 +314,11 @@ def classify_exception(exc: Exception) -> tuple[int, str, str]:
 
     # Check for HandlerError subclass (has status_code attribute)
     if isinstance(exc, HandlerError):
-        return exc.status_code, "error", str(exc)
+        return exc.status_code, "error", GENERIC_ERROR_MESSAGES.get(exc.status_code, "Error")
 
-    # Check for AragoraError (our base exception)
+    # Check for AragoraError (our base exception) - don't expose internal details
     if isinstance(exc, AragoraError):
-        return 500, "error", str(exc)
+        return 500, "error", "Internal server error"
 
     # Unknown exception - log as error, return generic message
     return 500, "error", "Internal server error"
