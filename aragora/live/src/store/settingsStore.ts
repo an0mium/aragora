@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
+import { API_BASE_URL, WS_URL } from '@/config';
 
 // ============================================================================
 // Types
@@ -167,8 +168,8 @@ const defaultFeatureConfig: FeatureConfig = {
 };
 
 const defaultBackend: BackendConfig = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-  wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765/ws',
+  apiUrl: API_BASE_URL,
+  wsUrl: WS_URL,
   defaultAgents: (
     process.env.NEXT_PUBLIC_DEFAULT_AGENTS ||
     'grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi'

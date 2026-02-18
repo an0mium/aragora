@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { TEMPLATES, type TemplateCategory } from '@/components/templates/templateData';
 
@@ -24,10 +25,7 @@ export function TryDebateStep() {
   const fallbackTemplates = TEMPLATES.filter((t) => t.category === 'general');
   const templates = industryTemplates.length > 0 ? industryTemplates : fallbackTemplates;
 
-  const apiBase =
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-      ? process.env.NEXT_PUBLIC_API_URL
-      : 'http://localhost:8080';
+  const apiBase = API_BASE_URL;
 
   const runTrial = useCallback(async () => {
     setLoading(true);

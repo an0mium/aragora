@@ -7,7 +7,9 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TrendingTopicsGrid, TopicDetailDrawer } from '@/components/pulse';
 import type { TrendingTopic, DebateConfig } from '@/components/pulse';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE_URL } from '@/config';
+
+const API_BASE = API_BASE_URL;
 
 type ViewTab = 'trending' | 'scheduler';
 

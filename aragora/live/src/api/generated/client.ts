@@ -4,6 +4,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { API_BASE_URL } from '@/config';
 import type * as Types from './types';
 import type {
   // Debate types
@@ -983,7 +984,7 @@ Probes test for contradiction handling, hallucination, sycophancy, and more.
 // Default instance factory
 export function createApiClient(config: Partial<ApiClientConfig> = {}): AragoraApiClient {
   return new AragoraApiClient({
-    baseUrl: config.baseUrl || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+    baseUrl: config.baseUrl || API_BASE_URL,
     ...config,
   });
 }

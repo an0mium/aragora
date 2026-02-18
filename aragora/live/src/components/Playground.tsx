@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { API_BASE_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,10 +88,7 @@ export default function Playground() {
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const apiBase =
-    typeof window !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-      ? process.env.NEXT_PUBLIC_API_URL
-      : 'http://localhost:8080';
+  const apiBase = API_BASE_URL;
 
   async function runDebate() {
     setLoading(true);

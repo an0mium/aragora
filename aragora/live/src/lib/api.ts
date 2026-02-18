@@ -2,8 +2,11 @@
  * API utility functions for making requests to the Aragora backend.
  */
 
-// Default API base URL - can be overridden by environment variable or component props
-const DEFAULT_API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080';
+// Use centralized config for correct production URL resolution
+import { API_BASE_URL } from '@/config';
+
+// Default API base URL - resolved from config (handles production vs development)
+const DEFAULT_API_BASE = API_BASE_URL;
 
 interface ApiFetchOptions extends RequestInit {
   baseUrl?: string;

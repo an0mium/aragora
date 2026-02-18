@@ -10,10 +10,11 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 import type { QueueStats, QueueJob, QueueWorker } from '../components/queue';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE = API_BASE_URL;
 
 interface UseQueueMonitoringOptions {
   autoRefresh?: boolean;

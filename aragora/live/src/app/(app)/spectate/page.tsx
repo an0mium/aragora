@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/config';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { fetchWithRetry } from '@/utils/retry';
@@ -30,7 +31,7 @@ export default function SpectatePage() {
         setError(null);
 
         // Try to fetch from API
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const apiUrl = API_BASE_URL;
         const response = await fetchWithRetry(`${apiUrl}/api/debates/live`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },

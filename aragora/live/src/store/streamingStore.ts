@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { API_BASE_URL } from '@/config';
 
 // ============================================================================
 // Types - Maps to aragora/connectors/enterprise/streaming/*.py
@@ -251,9 +252,7 @@ const initialState: StreamingState = {
 // API Helpers
 // ============================================================================
 
-const API_URL = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
-  : 'http://localhost:8080';
+const API_URL = API_BASE_URL;
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
