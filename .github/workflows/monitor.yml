@@ -70,6 +70,8 @@ jobs:
     if: failure()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      issues: write
 
     steps:
       - name: Create Issue on Failure
