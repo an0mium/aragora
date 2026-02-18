@@ -18,7 +18,7 @@ export function ActionCanvas({ canvasId }: ActionCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, onDrop,
-    selectedNodeId, setSelectedNodeId, selectedNodeData,
+    selectedNodeId: _selectedNodeId, setSelectedNodeId, selectedNodeData,
     updateSelectedNode, deleteSelectedNode, saveCanvas, advanceToOrchestration,
   } = useActionCanvas(canvasId);
 

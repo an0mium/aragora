@@ -45,7 +45,7 @@ export function IdeaCanvas({ canvasId }: IdeaCanvasProps) {
     saveCanvas,
     cursors,
     onlineUsers,
-    sendCursorMove,
+    sendCursorMove: _sendCursorMove,
   } = useIdeaCanvas(canvasId);
 
   const onNodeClick = useCallback(

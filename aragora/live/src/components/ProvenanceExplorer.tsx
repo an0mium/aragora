@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -25,6 +25,7 @@ interface ProvenanceNode {
   label: string;
   hash: string;
   metadata?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface ProvenanceEdge {

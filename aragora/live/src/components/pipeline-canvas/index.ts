@@ -1,4 +1,5 @@
 export { PipelineCanvas } from './PipelineCanvas';
+export { UnifiedPipelineCanvas } from './UnifiedPipelineCanvas';
 export { PipelineToolbar } from './PipelineToolbar';
 export { PipelinePalette } from './PipelinePalette';
 export { PipelinePropertyEditor } from './editors/PipelinePropertyEditor';

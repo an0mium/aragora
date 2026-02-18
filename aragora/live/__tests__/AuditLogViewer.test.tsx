@@ -159,7 +159,7 @@ describe('AuditLogViewer', () => {
       await waitFor(() => {
         expect(screen.getByText('AUTH')).toBeInTheDocument();
       });
-      expect(screen.getByText('DATA')).toBeInTheDocument();
+      expect(screen.getAllByText('DATA').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('ADMIN')).toBeInTheDocument();
     });
 

@@ -14,7 +14,7 @@ import { GoalNode } from './GoalNode';
 import { GoalPalette } from './GoalPalette';
 import { GoalPropertyEditor } from './GoalPropertyEditor';
 import { useGoalCanvas } from './useGoalCanvas';
-import { GOAL_NODE_CONFIGS, type GoalNodeType } from './types';
+import { type GoalNodeType } from './types';
 
 const nodeTypes: NodeTypes = {
   goalNode: GoalNode as unknown as NodeTypes[string],
@@ -36,14 +36,14 @@ export function GoalCanvas({ canvasId }: GoalCanvasProps) {
     onEdgesChange,
     onConnect,
     onDrop,
-    selectedNodeId,
+    selectedNodeId: _selectedNodeId,
     setSelectedNodeId,
     selectedNodeData,
     updateSelectedNode,
     deleteSelectedNode,
     saveCanvas,
-    cursors,
-    onlineUsers,
+    cursors: _cursors,
+    onlineUsers: _onlineUsers,
   } = useGoalCanvas(canvasId);
 
   const onNodeClick = useCallback(
