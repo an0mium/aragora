@@ -100,6 +100,45 @@ jest.mock('../../../hooks/usePipelineCanvas', () => ({
 const mockedUsePipelineCanvas = usePipelineCanvas as jest.MockedFunction<typeof usePipelineCanvas>;
 
 // ---------------------------------------------------------------------------
+// Mock the usePipelineWebSocket hook
+// ---------------------------------------------------------------------------
+
+jest.mock('../../../hooks/usePipelineWebSocket', () => ({
+  usePipelineWebSocket: () => ({
+    status: 'disconnected',
+    isConnected: false,
+    error: null,
+    completedStages: [],
+    streamedNodes: [],
+    pendingTransitions: [],
+    isComplete: false,
+    reconnect: jest.fn(),
+    disconnect: jest.fn(),
+    requestHistory: jest.fn(),
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ProvenanceTrail, TemplateSelector, ProgressIndicator components
+// ---------------------------------------------------------------------------
+
+jest.mock('../ProvenanceTrail', () => ({
+  ProvenanceTrail: () => <div data-testid="provenance-trail" />,
+}));
+
+jest.mock('../TemplateSelector', () => ({
+  TemplateSelector: () => <div data-testid="template-selector" />,
+}));
+
+jest.mock('../ProgressIndicator', () => ({
+  ProgressIndicator: () => <div data-testid="progress-indicator" />,
+}));
+
+jest.mock('../../pipeline/StageTransitionGate', () => ({
+  StageTransitionGate: () => <div data-testid="stage-transition-gate" />,
+}));
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -138,6 +177,10 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     },
     savePipeline: jest.fn(),
     aiGenerate: jest.fn(),
+    createFromIdeas: jest.fn(),
+    runPipeline: jest.fn(),
+    approveTransition: jest.fn(),
+    rejectTransition: jest.fn(),
     clearStage: jest.fn(),
     populateFromResult: jest.fn(),
     loading: false,
@@ -166,7 +209,7 @@ describe('PipelineCanvas Interactive', () => {
   });
 
   it('renders "All Stages" button and StageNavigator in default view', () => {
-    render(<PipelineCanvas />);
+    render(<PipelineCanvas pipelineId="test-pipe" />);
 
     // The "All Stages" button should be present and visible
     const allStagesButton = screen.getByRole('button', { name: /all stages/i });
@@ -177,7 +220,7 @@ describe('PipelineCanvas Interactive', () => {
   });
 
   it('shows palette when switching to a specific stage (not "all" and not readOnly)', () => {
-    render(<PipelineCanvas />);
+    render(<PipelineCanvas pipelineId="test-pipe" />);
 
     // In the default 'all' view the palette should NOT be visible
     expect(screen.queryByTestId('pipeline-palette')).not.toBeInTheDocument();
@@ -194,7 +237,7 @@ describe('PipelineCanvas Interactive', () => {
   });
 
   it('hides palette in readOnly mode', () => {
-    render(<PipelineCanvas readOnly />);
+    render(<PipelineCanvas pipelineId="test-pipe" readOnly />);
 
     // Switch to a specific stage -- even after switching, palette stays hidden in readOnly
     act(() => {
@@ -206,7 +249,7 @@ describe('PipelineCanvas Interactive', () => {
   });
 
   it('shows toolbar in edit mode (non-"all", non-readOnly stage)', () => {
-    render(<PipelineCanvas />);
+    render(<PipelineCanvas pipelineId="test-pipe" />);
 
     // In 'all' view the toolbar should not be present (isEditable is false)
     expect(screen.queryByTestId('pipeline-toolbar')).not.toBeInTheDocument();
@@ -232,13 +275,6 @@ describe('PipelineCanvas Interactive', () => {
       data: nodeData,
     };
 
-    // Render with selectedNodeId already set and a specific stage active.
-    // The component derives showPropertyEditor from:
-    //   !!selectedNodeId && !showProvenance && isEditable
-    // where isEditable = viewMode !== 'all' && !readOnly
-    // Since viewMode starts as 'all', we need to switch stage first.
-    // To avoid complexity with internal state, we render directly with
-    // the hook returning the selected state, then switch out of 'all' view.
     const mockCanvas = makeMockCanvas({
       nodes: [testNode],
       selectedNodeId: 'node-1',
@@ -246,7 +282,7 @@ describe('PipelineCanvas Interactive', () => {
     });
     mockedUsePipelineCanvas.mockReturnValue(mockCanvas);
 
-    render(<PipelineCanvas />);
+    render(<PipelineCanvas pipelineId="test-pipe" />);
 
     // In 'all' view, property editor should NOT show (isEditable is false)
     expect(screen.queryByTestId('pipeline-property-editor')).not.toBeInTheDocument();
@@ -283,7 +319,7 @@ describe('PipelineCanvas Interactive', () => {
     });
     mockedUsePipelineCanvas.mockReturnValue(mockCanvas);
 
-    render(<PipelineCanvas readOnly />);
+    render(<PipelineCanvas pipelineId="test-pipe" readOnly />);
 
     // In readOnly with a selectedNodeId, the provenance sidebar should show.
     // The provenance sidebar contains the heading "Provenance".
@@ -296,5 +332,35 @@ describe('PipelineCanvas Interactive', () => {
 
     // The property editor should NOT be shown (readOnly mode shows provenance instead)
     expect(screen.queryByTestId('pipeline-property-editor')).not.toBeInTheDocument();
+  });
+
+  // -- Run Pipeline bar --
+
+  it('renders the Run Pipeline input and button when not readOnly', () => {
+    render(<PipelineCanvas pipelineId="test-pipe" />);
+
+    expect(screen.getByPlaceholderText(/describe your idea or problem/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run pipeline/i })).toBeInTheDocument();
+  });
+
+  it('disables Run Pipeline button when input is empty', () => {
+    render(<PipelineCanvas pipelineId="test-pipe" />);
+
+    const button = screen.getByRole('button', { name: /run pipeline/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('does not render Run Pipeline bar in readOnly mode', () => {
+    render(<PipelineCanvas pipelineId="test-pipe" readOnly />);
+
+    expect(screen.queryByPlaceholderText(/describe your idea or problem/i)).not.toBeInTheDocument();
+  });
+
+  it('shows template selector when no pipelineId is provided', () => {
+    render(<PipelineCanvas />);
+
+    expect(screen.getByTestId('template-selector')).toBeInTheDocument();
+    // Should NOT render the main canvas
+    expect(screen.queryByTestId('stage-navigator')).not.toBeInTheDocument();
   });
 });

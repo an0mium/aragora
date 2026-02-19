@@ -539,6 +539,136 @@ export function usePipelineCanvas(
     [pipelineId, activeStage, populateFromResult, loadStageIntoFlow, syncCacheToState],
   );
 
+  // ---- API: create pipeline from natural-language ideas ----------------
+  const createFromIdeas = useCallback(
+    async (ideasText: string): Promise<string | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Split text into individual idea strings (one per line, filter blanks)
+        const ideas = ideasText
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        if (ideas.length === 0) {
+          setError('No ideas provided');
+          setLoading(false);
+          return null;
+        }
+
+        const res = await fetch(`${API_PREFIX}/from-ideas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ideas,
+            auto_advance: false,
+          }),
+        });
+
+        if (!res.ok) {
+          setError(`Failed to create pipeline: ${res.status}`);
+          return null;
+        }
+
+        const data = await res.json();
+        const newPipelineId = data.pipeline_id as string;
+
+        if (data.result) {
+          populateFromResult(data.result as PipelineResultResponse);
+          loadStageIntoFlow(activeStage);
+        }
+
+        return newPipelineId;
+      } catch {
+        setError('Failed to create pipeline from ideas');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeStage, populateFromResult, loadStageIntoFlow],
+  );
+
+  // ---- API: run full pipeline ------------------------------------------
+  const runPipeline = useCallback(
+    async (inputText: string): Promise<string | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_PREFIX}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input_text: inputText,
+          }),
+        });
+
+        if (!res.ok) {
+          setError(`Failed to run pipeline: ${res.status}`);
+          return null;
+        }
+
+        const data = await res.json();
+        return data.pipeline_id as string;
+      } catch {
+        setError('Failed to run pipeline');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // ---- API: approve transition ------------------------------------------
+  const approveTransition = useCallback(
+    async (transitionId: string) => {
+      if (!pipelineId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transition_id: transitionId, approved: true }),
+        });
+        if (!res.ok) {
+          setError(`Transition approval failed: ${res.status}`);
+        }
+      } catch {
+        setError('Failed to approve transition');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pipelineId],
+  );
+
+  // ---- API: reject transition -------------------------------------------
+  const rejectTransition = useCallback(
+    async (transitionId: string, reason?: string) => {
+      if (!pipelineId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transition_id: transitionId, approved: false, reason }),
+        });
+        if (!res.ok) {
+          setError(`Transition rejection failed: ${res.status}`);
+        }
+      } catch {
+        setError('Failed to reject transition');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pipelineId],
+  );
+
   // ---- Return -----------------------------------------------------------
   return {
     // React Flow state
@@ -570,6 +700,10 @@ export function usePipelineCanvas(
     // API operations
     savePipeline,
     aiGenerate,
+    createFromIdeas,
+    runPipeline,
+    approveTransition,
+    rejectTransition,
 
     // Stage mutations
     clearStage,

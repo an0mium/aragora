@@ -59,6 +59,15 @@ jest.mock('../useGoalCanvas', () => ({
   useGoalCanvas: jest.fn(),
 }));
 
+// ---------------------------------------------------------------------------
+// Mock API module
+// ---------------------------------------------------------------------------
+
+const mockApiPost = jest.fn();
+jest.mock('../../../lib/api', () => ({
+  apiPost: (...args: unknown[]) => mockApiPost(...args),
+}));
+
 const mockedUseGoalCanvas = useGoalCanvas as jest.MockedFunction<typeof useGoalCanvas>;
 
 // ---------------------------------------------------------------------------
@@ -934,5 +943,94 @@ describe('GoalCanvas', () => {
     expect(screen.getByText('Milestone')).toBeInTheDocument();
     expect(screen.getByText('Metric')).toBeInTheDocument();
     expect(screen.getByText('Risk')).toBeInTheDocument();
+  });
+
+  // -- Generate Actions button --
+
+  it('renders the Generate Actions button when pipelineId is provided', () => {
+    render(<GoalCanvas canvasId="canvas-1" pipelineId="pipe-1" />);
+    expect(
+      screen.getByRole('button', { name: /generate actions/i })
+    ).toBeInTheDocument();
+  });
+
+  it('disables Generate Actions button when there are no nodes', () => {
+    mockedUseGoalCanvas.mockReturnValue(makeMockCanvas({ nodes: [] }));
+    render(<GoalCanvas canvasId="canvas-1" pipelineId="pipe-1" />);
+    const button = screen.getByRole('button', { name: /generate actions/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('disables Generate Actions button when no pipelineId', () => {
+    const testNodes = [
+      { id: 'g1', type: 'goalNode', position: { x: 0, y: 0 }, data: { goalType: 'goal', label: 'A Goal' } },
+    ];
+    mockedUseGoalCanvas.mockReturnValue(makeMockCanvas({ nodes: testNodes }));
+    render(<GoalCanvas canvasId="canvas-1" />);
+    const button = screen.getByRole('button', { name: /generate actions/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('enables Generate Actions button when nodes exist and pipelineId is provided', () => {
+    const testNodes = [
+      { id: 'g1', type: 'goalNode', position: { x: 0, y: 0 }, data: { goalType: 'goal', label: 'A Goal' } },
+    ];
+    mockedUseGoalCanvas.mockReturnValue(makeMockCanvas({ nodes: testNodes }));
+    render(<GoalCanvas canvasId="canvas-1" pipelineId="pipe-1" />);
+    const button = screen.getByRole('button', { name: /generate actions/i });
+    expect(button).not.toBeDisabled();
+  });
+
+  it('calls apiPost to advance pipeline when Generate Actions is clicked', async () => {
+    const testNodes = [
+      { id: 'g1', type: 'goalNode', position: { x: 0, y: 0 }, data: { goalType: 'goal', label: 'A Goal' } },
+    ];
+    mockedUseGoalCanvas.mockReturnValue(makeMockCanvas({ nodes: testNodes }));
+    mockApiPost.mockResolvedValueOnce({
+      pipeline_id: 'pipe-1',
+      advanced_to: 'actions',
+      stage_status: { goals: 'complete', actions: 'active' },
+    });
+
+    const onActionsGenerated = jest.fn();
+
+    render(
+      <GoalCanvas
+        canvasId="canvas-1"
+        pipelineId="pipe-1"
+        onActionsGenerated={onActionsGenerated}
+      />
+    );
+
+    const { act: rtlAct } = require('@testing-library/react');
+    await rtlAct(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /generate actions/i }));
+    });
+
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/v1/canvas/pipeline/advance',
+      expect.objectContaining({
+        pipeline_id: 'pipe-1',
+        target_stage: 'actions',
+      }),
+    );
+    expect(onActionsGenerated).toHaveBeenCalledWith('pipe-1');
+  });
+
+  it('shows error when Generate Actions API call fails', async () => {
+    const testNodes = [
+      { id: 'g1', type: 'goalNode', position: { x: 0, y: 0 }, data: { goalType: 'goal', label: 'A Goal' } },
+    ];
+    mockedUseGoalCanvas.mockReturnValue(makeMockCanvas({ nodes: testNodes }));
+    mockApiPost.mockRejectedValueOnce(new Error('Pipeline advance failed'));
+
+    render(<GoalCanvas canvasId="canvas-1" pipelineId="pipe-1" />);
+
+    const { act: rtlAct } = require('@testing-library/react');
+    await rtlAct(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /generate actions/i }));
+    });
+
+    expect(screen.getByText('Pipeline advance failed')).toBeInTheDocument();
   });
 });

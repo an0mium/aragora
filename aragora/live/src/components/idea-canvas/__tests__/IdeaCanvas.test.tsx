@@ -63,6 +63,15 @@ jest.mock('../CollaborationOverlay', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock API module
+// ---------------------------------------------------------------------------
+
+const mockApiPost = jest.fn();
+jest.mock('../../../lib/api', () => ({
+  apiPost: (...args: unknown[]) => mockApiPost(...args),
+}));
+
+// ---------------------------------------------------------------------------
 // Imports after mocks
 // ---------------------------------------------------------------------------
 
@@ -852,5 +861,117 @@ describe('IdeaCanvas', () => {
       screen.queryByRole('button', { name: /promote to goal/i })
     ).not.toBeInTheDocument();
     expect(screen.getByText('Promoted to goal')).toBeInTheDocument();
+  });
+
+  // -- Natural-language idea input --
+
+  it('renders the idea textarea with placeholder', () => {
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    expect(
+      screen.getByPlaceholderText(/paste your ideas here/i)
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Add Ideas button', () => {
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    expect(
+      screen.getByRole('button', { name: /add ideas/i })
+    ).toBeInTheDocument();
+  });
+
+  it('disables Add Ideas button when textarea is empty', () => {
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    const button = screen.getByRole('button', { name: /add ideas/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('enables Add Ideas button when textarea has content', () => {
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    const textarea = screen.getByPlaceholderText(/paste your ideas here/i);
+    fireEvent.change(textarea, { target: { value: 'My idea' } });
+    const button = screen.getByRole('button', { name: /add ideas/i });
+    expect(button).not.toBeDisabled();
+  });
+
+  it('calls apiPost with ideas when Add Ideas is clicked', async () => {
+    mockApiPost.mockResolvedValueOnce({ pipeline_id: 'pipe-1' });
+
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    const textarea = screen.getByPlaceholderText(/paste your ideas here/i);
+    fireEvent.change(textarea, { target: { value: 'Idea A\nIdea B' } });
+
+    const { act: rtlAct } = require('@testing-library/react');
+    await rtlAct(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /add ideas/i }));
+    });
+
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/v1/canvas/pipeline/from-ideas',
+      expect.objectContaining({
+        ideas: ['Idea A', 'Idea B'],
+        auto_advance: false,
+      }),
+    );
+  });
+
+  // -- Generate Goals button --
+
+  it('renders the Generate Goals button', () => {
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    expect(
+      screen.getByRole('button', { name: /generate goals/i })
+    ).toBeInTheDocument();
+  });
+
+  it('disables Generate Goals button when there are no nodes', () => {
+    mockedUseIdeaCanvas.mockReturnValue(makeMockCanvasHook({ nodes: [] }));
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    const button = screen.getByRole('button', { name: /generate goals/i });
+    expect(button).toBeDisabled();
+  });
+
+  it('enables Generate Goals button when nodes exist', () => {
+    const testNodes = [
+      { id: 'n1', type: 'ideaNode', position: { x: 0, y: 0 }, data: { label: 'Idea' } },
+    ];
+    mockedUseIdeaCanvas.mockReturnValue(makeMockCanvasHook({ nodes: testNodes }));
+    render(<IdeaCanvas canvasId="test-canvas" />);
+    const button = screen.getByRole('button', { name: /generate goals/i });
+    expect(button).not.toBeDisabled();
+  });
+
+  it('calls apiPost to extract goals when Generate Goals is clicked', async () => {
+    const testNodes = [
+      { id: 'n1', type: 'ideaNode', position: { x: 0, y: 0 }, data: { label: 'Idea' } },
+    ];
+    const testEdges = [
+      { id: 'e1', source: 'n1', target: 'n2' },
+    ];
+    mockedUseIdeaCanvas.mockReturnValue(
+      makeMockCanvasHook({ nodes: testNodes, edges: testEdges })
+    );
+    mockApiPost.mockResolvedValueOnce({ goals_count: 2, goals: [{}, {}] });
+
+    const onGoalsGenerated = jest.fn();
+
+    render(<IdeaCanvas canvasId="test-canvas" onGoalsGenerated={onGoalsGenerated} />);
+
+    const { act: rtlAct } = require('@testing-library/react');
+    await rtlAct(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /generate goals/i }));
+    });
+
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/v1/canvas/pipeline/extract-goals',
+      expect.objectContaining({
+        ideas_canvas_id: 'test-canvas',
+        ideas_canvas_data: expect.objectContaining({
+          nodes: expect.arrayContaining([
+            expect.objectContaining({ id: 'n1' }),
+          ]),
+        }),
+      }),
+    );
+    expect(onGoalsGenerated).toHaveBeenCalledWith('test-canvas');
   });
 });

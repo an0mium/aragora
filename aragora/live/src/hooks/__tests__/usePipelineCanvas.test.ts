@@ -287,4 +287,149 @@ describe('usePipelineCanvas', () => {
     expect(mockSetNodes).toHaveBeenCalledWith([]);
     expect(mockSetEdges).toHaveBeenCalledWith([]);
   });
+
+  // ---- createFromIdeas ------------------------------------------------
+
+  describe('createFromIdeas', () => {
+    it('sends ideas text as POST to /from-ideas endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          pipeline_id: 'pipe-new',
+          result: MOCK_API_RESPONSE,
+        }),
+      });
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.createFromIdeas('Idea one\nIdea two\nIdea three');
+      });
+
+      expect(pipelineId).toBe('pipe-new');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/canvas/pipeline/from-ideas',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      // Verify the body includes split ideas
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.ideas).toEqual(['Idea one', 'Idea two', 'Idea three']);
+      expect(callBody.auto_advance).toBe(false);
+    });
+
+    it('returns null and sets error when API returns non-ok', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.createFromIdeas('Some idea');
+      });
+
+      expect(pipelineId).toBeNull();
+      expect(result.current.error).toBe('Failed to create pipeline: 500');
+    });
+
+    it('returns null and sets error when text is empty', async () => {
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.createFromIdeas('   \n  \n  ');
+      });
+
+      expect(pipelineId).toBeNull();
+      expect(result.current.error).toBe('No ideas provided');
+    });
+
+    it('filters out blank lines from ideas text', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ pipeline_id: 'pipe-filter', result: null }),
+      });
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      await act(async () => {
+        await result.current.createFromIdeas('Idea A\n\n  \nIdea B\n');
+      });
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.ideas).toEqual(['Idea A', 'Idea B']);
+    });
+  });
+
+  // ---- runPipeline ----------------------------------------------------
+
+  describe('runPipeline', () => {
+    it('sends input_text as POST to /run endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          pipeline_id: 'pipe-run-1',
+          status: 'running',
+          stages: ['ideation', 'goals', 'workflow', 'orchestration'],
+        }),
+      });
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.runPipeline('Build a rate limiter');
+      });
+
+      expect(pipelineId).toBe('pipe-run-1');
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/v1/canvas/pipeline/run',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.input_text).toBe('Build a rate limiter');
+    });
+
+    it('returns null and sets error when API returns non-ok', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      });
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.runPipeline('Some input');
+      });
+
+      expect(pipelineId).toBeNull();
+      expect(result.current.error).toBe('Failed to run pipeline: 503');
+    });
+
+    it('returns null and sets error on fetch exception', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => usePipelineCanvas(null));
+
+      let pipelineId: string | null = null;
+      await act(async () => {
+        pipelineId = await result.current.runPipeline('Some input');
+      });
+
+      expect(pipelineId).toBeNull();
+      expect(result.current.error).toBe('Failed to run pipeline');
+    });
+  });
 });
