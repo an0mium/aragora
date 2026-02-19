@@ -75,6 +75,11 @@ class SLOThresholds:
     auth_p95_ms: int = 500
     auth_p99_ms: int = 1000
 
+    # Pipeline thresholds (Idea-to-Execution)
+    pipeline_create_p95_ms: int = 3000
+    pipeline_status_p95_ms: int = 500
+    pipeline_graph_p95_ms: int = 1000
+
     # Error rate thresholds (as decimals, e.g., 0.01 = 1%)
     max_error_rate: float = 0.01
     max_timeout_rate: float = 0.005
@@ -96,6 +101,9 @@ class SLOThresholds:
             "max_error_rate": self.max_error_rate,
             "max_timeout_rate": self.max_timeout_rate,
             "min_throughput_rps": self.min_throughput_rps,
+            "pipeline_create_p95_ms": self.pipeline_create_p95_ms,
+            "pipeline_status_p95_ms": self.pipeline_status_p95_ms,
+            "pipeline_graph_p95_ms": self.pipeline_graph_p95_ms,
         }
 
 

@@ -18,6 +18,7 @@ Scenarios:
     - HeavyLoadUser: Stress testing with concurrent debates
     - AuthenticationUser: Login/logout and token refresh
     - KnowledgeUser: Knowledge management operations
+    - PipelineUser: Idea-to-execution pipeline operations
 
 Environment Variables:
     ARAGORA_API_TOKEN: Authentication token (optional)
@@ -751,3 +752,158 @@ class KnowledgeUser(HttpUser):
     tasks = [KnowledgeTasks]
     wait_time = between(1, 5)
     weight = 3
+
+
+# ---------------------------------------------------------------------------
+# Pipeline User (Idea-to-Execution)
+# ---------------------------------------------------------------------------
+
+
+class PipelineTasks(TaskSet):
+    """Tasks for testing canvas pipeline endpoints."""
+
+    def on_start(self) -> None:
+        self.pipeline_ids: list[str] = []
+
+    @task(3)
+    def create_pipeline_from_ideas(self) -> None:
+        """POST /api/v1/canvas/pipeline/from-ideas."""
+        ideas = random.sample(
+            [
+                "Improve API rate limiting",
+                "Add automated monitoring",
+                "Refactor authentication flow",
+                "Build admin dashboard",
+                "Implement caching layer",
+                "Add WebSocket notifications",
+            ],
+            k=3,
+        )
+        payload = {"ideas": ideas, "auto_advance": False}
+
+        with self.client.post(
+            "/api/v1/canvas/pipeline/from-ideas",
+            json=payload,
+            name="POST /api/v1/canvas/pipeline/from-ideas",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 201):
+                try:
+                    data = response.json()
+                    pid = data.get("pipeline_id") or data.get("id")
+                    if pid:
+                        self.pipeline_ids.append(pid)
+                    response.success()
+                except json.JSONDecodeError:
+                    response.failure("Invalid JSON")
+            elif response.status_code in (401, 429, 503):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(2)
+    def run_pipeline(self) -> None:
+        """POST /api/v1/canvas/pipeline/run."""
+        payload = {
+            "input_text": "Design a " + random.choice(["rate limiter", "cache system", "auth service"]),
+            "dry_run": True,
+            "stages": ["ideation", "goals"],
+            "enable_receipts": False,
+        }
+
+        with self.client.post(
+            "/api/v1/canvas/pipeline/run",
+            json=payload,
+            name="POST /api/v1/canvas/pipeline/run",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 201, 202):
+                try:
+                    data = response.json()
+                    pid = data.get("pipeline_id") or data.get("id")
+                    if pid:
+                        self.pipeline_ids.append(pid)
+                    response.success()
+                except json.JSONDecodeError:
+                    response.failure("Invalid JSON")
+            elif response.status_code in (401, 429, 501, 503):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(5)
+    def get_pipeline_status(self) -> None:
+        """GET /api/v1/canvas/pipeline/{id}/status."""
+        if not self.pipeline_ids:
+            return
+        pid = random.choice(self.pipeline_ids)
+        with self.client.get(
+            f"/api/v1/canvas/pipeline/{pid}/status",
+            name="GET /api/v1/canvas/pipeline/:id/status",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 400, 404, 401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(3)
+    def get_pipeline_graph(self) -> None:
+        """GET /api/v1/canvas/pipeline/{id}/graph."""
+        if not self.pipeline_ids:
+            return
+        pid = random.choice(self.pipeline_ids)
+        with self.client.get(
+            f"/api/v1/canvas/pipeline/{pid}/graph",
+            name="GET /api/v1/canvas/pipeline/:id/graph",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 400, 404, 401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(1)
+    def get_pipeline_receipt(self) -> None:
+        """GET /api/v1/canvas/pipeline/{id}/receipt."""
+        if not self.pipeline_ids:
+            return
+        pid = random.choice(self.pipeline_ids)
+        with self.client.get(
+            f"/api/v1/canvas/pipeline/{pid}/receipt",
+            name="GET /api/v1/canvas/pipeline/:id/receipt",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 400, 404, 401, 429):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+    @task(1)
+    def extract_goals(self) -> None:
+        """POST /api/v1/canvas/pipeline/extract-goals."""
+        payload = {"ideas_canvas_id": f"loadtest-{random.randint(1, 10000)}"}
+        with self.client.post(
+            "/api/v1/canvas/pipeline/extract-goals",
+            json=payload,
+            name="POST /api/v1/canvas/pipeline/extract-goals",
+            headers=get_auth_headers(),
+            catch_response=True,
+        ) as response:
+            if response.status_code in (200, 400, 401, 429, 501, 503):
+                response.success()
+            else:
+                response.failure(f"Status {response.status_code}")
+
+
+class PipelineUser(HttpUser):
+    """User simulating idea-to-execution pipeline operations."""
+
+    tasks = [PipelineTasks]
+    wait_time = between(2, 8)
+    weight = 2
