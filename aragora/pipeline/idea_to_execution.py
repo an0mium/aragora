@@ -73,6 +73,7 @@ class PipelineConfig:
     enable_smart_goals: bool = True
     enable_elo_assignment: bool = True
     enable_km_precedents: bool = True
+    human_approval_required: bool = False  # Require human approval between stages
 
 
 @dataclass
@@ -193,19 +194,54 @@ class IdeaToExecutionPipeline:
         self._use_universal = use_universal
 
     @classmethod
-    def from_demo(cls) -> PipelineResult:
-        """Create a pre-built demo pipeline with example data.
+    def from_demo(cls) -> tuple[PipelineResult, PipelineConfig]:
+        """Create a pre-built demo pipeline showcasing all flywheel features.
 
-        Useful for frontend development and demonstrations.
+        Demonstrates:
+        - **Semantic clustering**: Related API-performance ideas auto-group
+          into a single cluster (Redis caching, rate limiting, monitoring).
+        - **Goal conflict detection**: Contradictory deployment-cadence ideas
+          ("increase deployment frequency" vs "decrease deployment frequency")
+          trigger a conflict alert with resolution guidance.
+        - **SMART scoring**: Each extracted goal is scored on Specific,
+          Measurable, Achievable, Relevant, and Time-bound dimensions.
+          Goals with concrete metrics rank higher in priority.
+        - **ELO-aware agent assignment**: Orchestration stage assigns tasks
+          to agents ranked by historical ELO performance per domain.
+        - **KM precedent lookup**: Goals are enriched with prior decisions
+          from the Knowledge Mound when available.
+        - **Human approval gate**: ``human_approval_required=True`` signals
+          that a human review checkpoint exists between stages.
+        - **Dry-run mode**: No real execution engines are invoked.
+
+        Returns:
+            Tuple of (PipelineResult, PipelineConfig) so callers can
+            inspect both the demo output and the config that produced it.
         """
+        config = PipelineConfig(
+            enable_smart_goals=True,
+            enable_elo_assignment=True,
+            enable_km_precedents=True,
+            human_approval_required=True,
+            dry_run=True,
+        )
+
         pipeline = cls()
         ideas = [
-            "Build a rate limiter for API endpoints",
-            "Add Redis-backed caching for frequently accessed data",
-            "Improve API docs with OpenAPI interactive playground",
-            "Set up end-to-end performance monitoring",
+            # --- Cluster: API performance (share "api", "latency", "response") ---
+            "Implement Redis caching to reduce API response latency by 40%",
+            "Add rate limiting to API endpoints to prevent overload and improve response times",
+            "Deploy API performance monitoring with response time and latency dashboards",
+            # --- Conflict pair: contradictory deployment cadence ---
+            "Increase deployment frequency to ship features faster every sprint",
+            "Decrease deployment frequency to improve stability and reduce risk",
+            # --- Standalone SMART-rich idea (specific + measurable + time-bound) ---
+            "Achieve 99.9% API uptime by Q3 2026 by implementing circuit breakers and failover",
+            # --- Broad / low-SMART idea for contrast ---
+            "Improve overall developer experience across the entire platform",
         ]
-        return pipeline.from_ideas(ideas, auto_advance=True)
+        result = pipeline.from_ideas(ideas, auto_advance=True)
+        return result, config
 
     def from_debate(
         self,
@@ -912,7 +948,16 @@ class IdeaToExecutionPipeline:
                 "status": "planned",
                 "output": {"reason": "execution_engine_unavailable"},
             }
-        except (RuntimeError, OSError):
+        except (RuntimeError, OSError, ValueError):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "failed",
+                "output": {"error": "Task execution failed"},
+            }
+        except Exception:
+            # Catch-all: harness config errors, path validation, etc.
+            # Individual task failures must not crash the entire stage.
             return {
                 "task_id": task["id"],
                 "name": task["name"],

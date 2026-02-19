@@ -964,7 +964,10 @@ class TestGracefulDegradation:
             result = await pipeline.run("Survive metrics failure")
 
         assert isinstance(result, SelfImproveResult)
-        assert result.metrics_delta == {}
+        # Codebase metrics should be empty (baseline was None), but
+        # _evaluate_goal may inject goal_achievement / goal_scope_coverage /
+        # goal_diff_relevance keys even when capture_metrics fails.
+        assert "codebase" not in result.metrics_delta
         assert result.improvement_score == 0.0
 
 

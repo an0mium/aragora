@@ -68,6 +68,7 @@ from aragora.pipeline.templates import (
     PipelineTemplate,
     TEMPLATE_REGISTRY,
     get_template,
+    get_template_config,
     list_templates,
 )
 from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
@@ -148,6 +149,7 @@ __all__ = [
     "PipelineTemplate",
     "TEMPLATE_REGISTRY",
     "get_template",
+    "get_template_config",
     "list_templates",
     # Backward compatibility
     "TestPlan",

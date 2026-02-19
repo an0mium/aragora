@@ -375,15 +375,20 @@ class TestRunOrchestration:
     async def test_fallback_when_orchestrator_unavailable(
         self, pipeline, config, sample_goal_graph
     ):
-        """Falls back gracefully when AutonomousOrchestrator not available."""
+        """Falls back gracefully when execution engine unavailable.
+
+        With empty steps but a goal graph, the pipeline builds tasks from
+        goals and attempts execution. Tasks complete with planned/failed
+        status when DebugLoop is unavailable or path validation fails.
+        """
         sr = await pipeline._run_orchestration(
             "pipe-1", {"steps": []}, sample_goal_graph, config
         )
 
         assert sr.status == "completed"
         orch = sr.output["orchestration"]
-        assert orch["status"] == "fallback"
-        assert orch["reason"] == "orchestrator unavailable"
+        assert orch["status"] == "executed"
+        assert orch["tasks_total"] > 0
 
     @pytest.mark.asyncio
     async def test_no_goals_skips_orchestration(self, pipeline, config):
@@ -407,12 +412,14 @@ class TestRunOrchestration:
         captured, callback = events
         cfg = PipelineConfig(event_callback=callback)
 
-        await pipeline._run_orchestration(
+        sr = await pipeline._run_orchestration(
             "pipe-1", {"steps": []}, sample_goal_graph, cfg
         )
 
         event_types = [e[0] for e in captured]
         assert "stage_started" in event_types
+        # Orchestration completes (tasks built from goals, executed or planned)
+        assert sr.status == "completed"
         assert "stage_completed" in event_types
 
 

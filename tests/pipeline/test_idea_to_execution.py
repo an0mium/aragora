@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 from aragora.pipeline.idea_to_execution import (
     IdeaToExecutionPipeline,
+    PipelineConfig,
     PipelineResult,
 )
 from aragora.canvas.stages import PipelineStage, content_hash
@@ -306,17 +307,22 @@ class TestSerialization:
 class TestDemoMode:
     """Test demo pipeline creation."""
 
-    def test_from_demo_creates_complete_pipeline(self):
-        result = IdeaToExecutionPipeline.from_demo()
+    def test_from_demo_returns_result_and_config(self):
+        result, config = IdeaToExecutionPipeline.from_demo()
 
         assert isinstance(result, PipelineResult)
+        assert isinstance(config, PipelineConfig)
+
+    def test_from_demo_creates_complete_pipeline(self):
+        result, _config = IdeaToExecutionPipeline.from_demo()
+
         assert result.ideas_canvas is not None
         assert result.goal_graph is not None
         assert result.actions_canvas is not None
         assert result.orchestration_canvas is not None
 
     def test_from_demo_all_stages_complete(self):
-        result = IdeaToExecutionPipeline.from_demo()
+        result, _config = IdeaToExecutionPipeline.from_demo()
 
         assert result.stage_status[PipelineStage.IDEAS.value] == "complete"
         assert result.stage_status[PipelineStage.GOALS.value] == "complete"
@@ -324,14 +330,65 @@ class TestDemoMode:
         assert result.stage_status[PipelineStage.ORCHESTRATION.value] == "complete"
 
     def test_from_demo_has_provenance(self):
-        result = IdeaToExecutionPipeline.from_demo()
+        result, _config = IdeaToExecutionPipeline.from_demo()
         assert len(result.provenance) > 0
 
     def test_from_demo_serializable(self):
-        result = IdeaToExecutionPipeline.from_demo()
+        result, _config = IdeaToExecutionPipeline.from_demo()
         d = result.to_dict()
         assert d["pipeline_id"].startswith("pipe-")
         assert d["ideas"] is not None
+
+    def test_from_demo_config_enables_all_flywheel_features(self):
+        _result, config = IdeaToExecutionPipeline.from_demo()
+
+        assert config.enable_smart_goals is True
+        assert config.enable_elo_assignment is True
+        assert config.enable_km_precedents is True
+        assert config.human_approval_required is True
+        assert config.dry_run is True
+
+    def test_from_demo_goals_have_smart_scores(self):
+        result, _config = IdeaToExecutionPipeline.from_demo()
+
+        assert result.goal_graph is not None
+        assert len(result.goal_graph.goals) > 0
+        for goal in result.goal_graph.goals:
+            assert "smart_scores" in goal.metadata, (
+                f"Goal '{goal.title}' missing SMART scores"
+            )
+            scores = goal.metadata["smart_scores"]
+            for dim in ("specific", "measurable", "achievable", "relevant", "time_bound", "overall"):
+                assert dim in scores, f"Missing SMART dimension: {dim}"
+                assert 0.0 <= scores[dim] <= 1.0
+
+    def test_from_demo_detects_goal_conflict(self):
+        """The demo ideas include contradictory deployment-cadence goals.
+
+        'Increase deployment frequency ...' vs 'Decrease deployment frequency ...'
+        should trigger at least one contradiction conflict.
+        """
+        result, _config = IdeaToExecutionPipeline.from_demo()
+
+        assert result.goal_graph is not None
+        conflicts = result.goal_graph.metadata.get("conflicts", [])
+        assert len(conflicts) >= 1, (
+            "Expected at least one conflict from contradictory demo ideas"
+        )
+        contradiction_found = any(
+            c["type"] == "contradiction" for c in conflicts
+        )
+        assert contradiction_found, (
+            f"Expected a 'contradiction' conflict, got types: "
+            f"{[c['type'] for c in conflicts]}"
+        )
+
+    def test_from_demo_has_multiple_idea_nodes(self):
+        """Demo should have 7 seed ideas represented as nodes."""
+        result, _config = IdeaToExecutionPipeline.from_demo()
+
+        assert result.ideas_canvas is not None
+        assert len(result.ideas_canvas.nodes) == 7
 
 
 # =============================================================================
