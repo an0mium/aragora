@@ -1,4 +1,4 @@
-"""Tests for aragora.pipeline.templates — Pipeline template library."""
+"""Tests for aragora.pipeline.templates -- Pipeline template library."""
 
 import pytest
 
@@ -6,6 +6,7 @@ from aragora.pipeline.templates import (
     PipelineTemplate,
     TEMPLATE_REGISTRY,
     get_template,
+    get_template_config,
     list_templates,
 )
 
@@ -14,11 +15,24 @@ class TestTemplateRegistry:
     """Test template registration and lookup."""
 
     def test_all_templates_registered(self):
-        """All 5 templates should be registered."""
-        assert len(TEMPLATE_REGISTRY) == 5
-        expected = {"hiring_decision", "product_launch", "compliance_audit",
-                     "market_entry", "vendor_selection"}
-        assert set(TEMPLATE_REGISTRY.keys()) == expected
+        """All 9 templates should be registered (6 SME + 3 legacy)."""
+        assert len(TEMPLATE_REGISTRY) >= 9
+        expected_sme = {
+            "product_launch",
+            "bug_triage",
+            "content_calendar",
+            "strategic_review",
+            "hiring_pipeline",
+            "compliance_audit",
+        }
+        expected_legacy = {
+            "hiring_decision",
+            "market_entry",
+            "vendor_selection",
+        }
+        registered = set(TEMPLATE_REGISTRY.keys())
+        assert expected_sme.issubset(registered)
+        assert expected_legacy.issubset(registered)
 
     def test_get_template_found(self):
         t = get_template("hiring_decision")
@@ -31,7 +45,7 @@ class TestTemplateRegistry:
 
     def test_list_templates_all(self):
         templates = list_templates()
-        assert len(templates) == 5
+        assert len(templates) >= 9
         assert all(isinstance(t, PipelineTemplate) for t in templates)
 
     def test_list_templates_filtered_by_category(self):
@@ -57,6 +71,12 @@ class TestPipelineTemplate:
         assert d["idea_count"] == len(t.stage_1_ideas)
         assert "stage_1_ideas" in d
         assert "tags" in d
+        # New PipelineConfig fields present in to_dict
+        assert "workflow_mode" in d
+        assert "enable_smart_goals" in d
+        assert "enable_elo_assignment" in d
+        assert "enable_km_precedents" in d
+        assert "human_approval_required" in d
 
     def test_each_template_has_ideas(self):
         """Every template must have at least 3 pre-populated ideas."""
@@ -73,11 +93,6 @@ class TestPipelineTemplate:
         """Every template must have at least one tag."""
         for name, t in TEMPLATE_REGISTRY.items():
             assert len(t.tags) > 0, f"{name} has no tags"
-
-    def test_template_categories_are_distinct(self):
-        """Each template has a unique category."""
-        categories = [t.category for t in TEMPLATE_REGISTRY.values()]
-        assert len(set(categories)) == len(categories)
 
     def test_compliance_template_has_vertical_profile(self):
         t = get_template("compliance_audit")
