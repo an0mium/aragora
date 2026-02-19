@@ -63,7 +63,7 @@ class OutcomesAPI:
         if tags:
             data["tags"] = tags
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/decisions/{decision_id}/outcome", json=data
         )
 
@@ -77,7 +77,7 @@ class OutcomesAPI:
         Returns:
             List of outcomes with count
         """
-        return self._client._request("GET", f"/api/v1/decisions/{decision_id}/outcomes")
+        return self._client.request("GET", f"/api/v1/decisions/{decision_id}/outcomes")
 
     def search(
         self,
@@ -106,7 +106,7 @@ class OutcomesAPI:
         if outcome_type:
             params["type"] = outcome_type
 
-        return self._client._request("GET", "/api/v1/outcomes/search", params=params)
+        return self._client.request("GET", "/api/v1/outcomes/search", params=params)
 
     def impact(self) -> dict[str, Any]:
         """
@@ -115,7 +115,7 @@ class OutcomesAPI:
         Returns:
             Aggregate statistics grouped by outcome type
         """
-        return self._client._request("GET", "/api/v1/outcomes/impact")
+        return self._client.request("GET", "/api/v1/outcomes/impact")
 
 
 class AsyncOutcomesAPI:
@@ -152,13 +152,13 @@ class AsyncOutcomesAPI:
         if tags:
             data["tags"] = tags
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/decisions/{decision_id}/outcome", json=data
         )
 
     async def list(self, decision_id: str) -> dict[str, Any]:
         """List outcomes for a decision."""
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/decisions/{decision_id}/outcomes"
         )
 
@@ -178,10 +178,10 @@ class AsyncOutcomesAPI:
         if outcome_type:
             params["type"] = outcome_type
 
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/v1/outcomes/search", params=params
         )
 
     async def impact(self) -> dict[str, Any]:
         """Get impact analytics across all outcomes."""
-        return await self._client._request("GET", "/api/v1/outcomes/impact")
+        return await self._client.request("GET", "/api/v1/outcomes/impact")

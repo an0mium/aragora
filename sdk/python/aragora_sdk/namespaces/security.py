@@ -56,7 +56,7 @@ class SecurityAPI:
             encryption_enabled, audit_logging_enabled, mfa_enabled,
             last_security_scan, active_threats, and metadata.
         """
-        return self._client._request("GET", "/api/v1/admin/security/status")
+        return self._client.request("GET", "/api/v1/admin/security/status")
 
     # =========================================================================
     # Health Checks
@@ -72,7 +72,7 @@ class SecurityAPI:
             Dict with list of health checks, each containing component,
             status (ok/warning/error), message, and last_checked timestamp.
         """
-        return self._client._request("GET", "/api/v1/admin/security/health")
+        return self._client.request("GET", "/api/v1/admin/security/health")
 
     def run_security_scan(self) -> dict[str, Any]:
         """
@@ -83,7 +83,7 @@ class SecurityAPI:
         Returns:
             Dict with scan ID and status.
         """
-        return self._client._request("POST", "/api/v1/admin/security/scan")
+        return self._client.request("POST", "/api/v1/admin/security/scan")
 
     def get_scan_status(self, scan_id: str) -> dict[str, Any]:
         """
@@ -95,7 +95,7 @@ class SecurityAPI:
         Returns:
             Dict with scan status, progress, and findings.
         """
-        return self._client._request("GET", f"/api/v1/admin/security/scan/{scan_id}")
+        return self._client.request("GET", f"/api/v1/admin/security/scan/{scan_id}")
 
     # =========================================================================
     # Key Management
@@ -109,7 +109,7 @@ class SecurityAPI:
             Dict with list of keys, each containing id, name, algorithm,
             created_at, expires_at, and status (active/expired/revoked).
         """
-        return self._client._request("GET", "/api/v1/admin/security/keys")
+        return self._client.request("GET", "/api/v1/admin/security/keys")
 
     def get_key(self, key_id: str) -> dict[str, Any]:
         """
@@ -121,7 +121,7 @@ class SecurityAPI:
         Returns:
             Dict with key details.
         """
-        return self._client._request("GET", f"/api/v1/admin/security/keys/{key_id}")
+        return self._client.request("GET", f"/api/v1/admin/security/keys/{key_id}")
 
     def create_key(
         self,
@@ -151,7 +151,7 @@ class SecurityAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return self._client._request("POST", "/api/v1/admin/security/keys", json=data)
+        return self._client.request("POST", "/api/v1/admin/security/keys", json=data)
 
     def revoke_key(self, key_id: str, reason: str | None = None) -> dict[str, Any]:
         """
@@ -168,7 +168,7 @@ class SecurityAPI:
         if reason is not None:
             data["reason"] = reason
 
-        return self._client._request(
+        return self._client.request(
             "POST",
             f"/api/v1/admin/security/keys/{key_id}/revoke",
             json=data if data else None,
@@ -201,7 +201,7 @@ class SecurityAPI:
         if reason is not None:
             data["reason"] = reason
 
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/admin/security/rotate-key",
             json=data if data else None,
@@ -243,7 +243,7 @@ class SecurityAPI:
         if until is not None:
             params["until"] = until
 
-        return self._client._request("GET", "/api/v1/admin/security/audit", params=params)
+        return self._client.request("GET", "/api/v1/admin/security/audit", params=params)
 
     def get_compliance_status(self) -> dict[str, Any]:
         """
@@ -252,7 +252,7 @@ class SecurityAPI:
         Returns:
             Dict with compliance status for various standards (SOC2, GDPR, etc.)
         """
-        return self._client._request("GET", "/api/v1/admin/security/compliance")
+        return self._client.request("GET", "/api/v1/admin/security/compliance")
 
     # =========================================================================
     # Threat Detection
@@ -277,7 +277,7 @@ class SecurityAPI:
         if status is not None:
             params["status"] = status
 
-        return self._client._request("GET", "/api/v1/admin/security/threats", params=params)
+        return self._client.request("GET", "/api/v1/admin/security/threats", params=params)
 
     def resolve_threat(self, threat_id: str, resolution: str) -> dict[str, Any]:
         """
@@ -290,7 +290,7 @@ class SecurityAPI:
         Returns:
             Dict confirming resolution.
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             f"/api/v1/admin/security/threats/{threat_id}/resolve",
             json={"resolution": resolution},
@@ -316,7 +316,7 @@ class AsyncSecurityAPI:
 
     async def get_status(self) -> dict[str, Any]:
         """Get overall security status."""
-        return await self._client._request("GET", "/api/v1/admin/security/status")
+        return await self._client.request("GET", "/api/v1/admin/security/status")
 
     # =========================================================================
     # Health Checks
@@ -324,15 +324,15 @@ class AsyncSecurityAPI:
 
     async def get_health_checks(self) -> dict[str, Any]:
         """Get security health checks."""
-        return await self._client._request("GET", "/api/v1/admin/security/health")
+        return await self._client.request("GET", "/api/v1/admin/security/health")
 
     async def run_security_scan(self) -> dict[str, Any]:
         """Trigger a security scan."""
-        return await self._client._request("POST", "/api/v1/admin/security/scan")
+        return await self._client.request("POST", "/api/v1/admin/security/scan")
 
     async def get_scan_status(self, scan_id: str) -> dict[str, Any]:
         """Get the status of a security scan."""
-        return await self._client._request("GET", f"/api/v1/admin/security/scan/{scan_id}")
+        return await self._client.request("GET", f"/api/v1/admin/security/scan/{scan_id}")
 
     # =========================================================================
     # Key Management
@@ -340,11 +340,11 @@ class AsyncSecurityAPI:
 
     async def list_keys(self) -> dict[str, Any]:
         """List all security keys."""
-        return await self._client._request("GET", "/api/v1/admin/security/keys")
+        return await self._client.request("GET", "/api/v1/admin/security/keys")
 
     async def get_key(self, key_id: str) -> dict[str, Any]:
         """Get details of a specific key."""
-        return await self._client._request("GET", f"/api/v1/admin/security/keys/{key_id}")
+        return await self._client.request("GET", f"/api/v1/admin/security/keys/{key_id}")
 
     async def create_key(
         self,
@@ -363,7 +363,7 @@ class AsyncSecurityAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return await self._client._request("POST", "/api/v1/admin/security/keys", json=data)
+        return await self._client.request("POST", "/api/v1/admin/security/keys", json=data)
 
     async def revoke_key(self, key_id: str, reason: str | None = None) -> dict[str, Any]:
         """Revoke an encryption key."""
@@ -371,7 +371,7 @@ class AsyncSecurityAPI:
         if reason is not None:
             data["reason"] = reason
 
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             f"/api/v1/admin/security/keys/{key_id}/revoke",
             json=data if data else None,
@@ -392,7 +392,7 @@ class AsyncSecurityAPI:
         if reason is not None:
             data["reason"] = reason
 
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/admin/security/rotate-key",
             json=data if data else None,
@@ -422,11 +422,11 @@ class AsyncSecurityAPI:
         if until is not None:
             params["until"] = until
 
-        return await self._client._request("GET", "/api/v1/admin/security/audit", params=params)
+        return await self._client.request("GET", "/api/v1/admin/security/audit", params=params)
 
     async def get_compliance_status(self) -> dict[str, Any]:
         """Get compliance status for security standards."""
-        return await self._client._request("GET", "/api/v1/admin/security/compliance")
+        return await self._client.request("GET", "/api/v1/admin/security/compliance")
 
     # =========================================================================
     # Threat Detection
@@ -442,11 +442,11 @@ class AsyncSecurityAPI:
         if status is not None:
             params["status"] = status
 
-        return await self._client._request("GET", "/api/v1/admin/security/threats", params=params)
+        return await self._client.request("GET", "/api/v1/admin/security/threats", params=params)
 
     async def resolve_threat(self, threat_id: str, resolution: str) -> dict[str, Any]:
         """Mark a threat as resolved."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             f"/api/v1/admin/security/threats/{threat_id}/resolve",
             json={"resolution": resolution},

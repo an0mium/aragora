@@ -43,7 +43,7 @@ class OrchestrationCanvasAPI:
             params["owner_id"] = owner_id
         if source_canvas_id is not None:
             params["source_canvas_id"] = source_canvas_id
-        return self._client._request("GET", "/api/v1/orchestration/canvas", params=params)
+        return self._client.request("GET", "/api/v1/orchestration/canvas", params=params)
 
     def create_canvas(
         self,
@@ -58,11 +58,11 @@ class OrchestrationCanvasAPI:
             body["source_canvas_id"] = source_canvas_id
         if metadata is not None:
             body["metadata"] = metadata
-        return self._client._request("POST", "/api/v1/orchestration/canvas", json=body)
+        return self._client.request("POST", "/api/v1/orchestration/canvas", json=body)
 
     def get_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Get a canvas by ID, including its nodes and edges."""
-        return self._client._request("GET", f"/api/v1/orchestration/canvas/{canvas_id}")
+        return self._client.request("GET", f"/api/v1/orchestration/canvas/{canvas_id}")
 
     def update_canvas(
         self,
@@ -79,11 +79,11 @@ class OrchestrationCanvasAPI:
             body["description"] = description
         if metadata is not None:
             body["metadata"] = metadata
-        return self._client._request("PUT", f"/api/v1/orchestration/canvas/{canvas_id}", json=body)
+        return self._client.request("PUT", f"/api/v1/orchestration/canvas/{canvas_id}", json=body)
 
     def delete_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Delete a canvas and all its nodes and edges."""
-        return self._client._request("DELETE", f"/api/v1/orchestration/canvas/{canvas_id}")
+        return self._client.request("DELETE", f"/api/v1/orchestration/canvas/{canvas_id}")
 
     # -------------------------------------------------------------------
     # Node CRUD
@@ -103,7 +103,7 @@ class OrchestrationCanvasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/orchestration/canvas/{canvas_id}/nodes", json=body
         )
 
@@ -123,13 +123,13 @@ class OrchestrationCanvasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return self._client._request(
+        return self._client.request(
             "PUT", f"/api/v1/orchestration/canvas/{canvas_id}/nodes/{node_id}", json=body
         )
 
     def delete_node(self, canvas_id: str, node_id: str) -> dict[str, Any]:
         """Delete a node from a canvas."""
-        return self._client._request(
+        return self._client.request(
             "DELETE", f"/api/v1/orchestration/canvas/{canvas_id}/nodes/{node_id}"
         )
 
@@ -155,13 +155,13 @@ class OrchestrationCanvasAPI:
         }
         if data is not None:
             body["data"] = data
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/orchestration/canvas/{canvas_id}/edges", json=body
         )
 
     def delete_edge(self, canvas_id: str, edge_id: str) -> dict[str, Any]:
         """Delete an edge from a canvas."""
-        return self._client._request(
+        return self._client.request(
             "DELETE", f"/api/v1/orchestration/canvas/{canvas_id}/edges/{edge_id}"
         )
 
@@ -171,11 +171,11 @@ class OrchestrationCanvasAPI:
 
     def export_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Export a canvas as React Flow JSON."""
-        return self._client._request("GET", f"/api/v1/orchestration/canvas/{canvas_id}/export")
+        return self._client.request("GET", f"/api/v1/orchestration/canvas/{canvas_id}/export")
 
     def execute_pipeline(self, canvas_id: str) -> dict[str, Any]:
         """Execute the orchestration pipeline defined by this canvas."""
-        return self._client._request(
+        return self._client.request(
             "POST",
             f"/api/v1/orchestration/canvas/{canvas_id}/execute",
             json={},
@@ -208,7 +208,7 @@ class AsyncOrchestrationCanvasAPI:
             params["owner_id"] = owner_id
         if source_canvas_id is not None:
             params["source_canvas_id"] = source_canvas_id
-        return await self._client._request("GET", "/api/v1/orchestration/canvas", params=params)
+        return await self._client.request("GET", "/api/v1/orchestration/canvas", params=params)
 
     async def create_canvas(
         self,
@@ -223,11 +223,11 @@ class AsyncOrchestrationCanvasAPI:
             body["source_canvas_id"] = source_canvas_id
         if metadata is not None:
             body["metadata"] = metadata
-        return await self._client._request("POST", "/api/v1/orchestration/canvas", json=body)
+        return await self._client.request("POST", "/api/v1/orchestration/canvas", json=body)
 
     async def get_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Get a canvas by ID, including its nodes and edges."""
-        return await self._client._request("GET", f"/api/v1/orchestration/canvas/{canvas_id}")
+        return await self._client.request("GET", f"/api/v1/orchestration/canvas/{canvas_id}")
 
     async def update_canvas(
         self,
@@ -244,13 +244,13 @@ class AsyncOrchestrationCanvasAPI:
             body["description"] = description
         if metadata is not None:
             body["metadata"] = metadata
-        return await self._client._request(
+        return await self._client.request(
             "PUT", f"/api/v1/orchestration/canvas/{canvas_id}", json=body
         )
 
     async def delete_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Delete a canvas and all its nodes and edges."""
-        return await self._client._request("DELETE", f"/api/v1/orchestration/canvas/{canvas_id}")
+        return await self._client.request("DELETE", f"/api/v1/orchestration/canvas/{canvas_id}")
 
     # -------------------------------------------------------------------
     # Node CRUD
@@ -270,7 +270,7 @@ class AsyncOrchestrationCanvasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/orchestration/canvas/{canvas_id}/nodes", json=body
         )
 
@@ -290,13 +290,13 @@ class AsyncOrchestrationCanvasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return await self._client._request(
+        return await self._client.request(
             "PUT", f"/api/v1/orchestration/canvas/{canvas_id}/nodes/{node_id}", json=body
         )
 
     async def delete_node(self, canvas_id: str, node_id: str) -> dict[str, Any]:
         """Delete a node from a canvas."""
-        return await self._client._request(
+        return await self._client.request(
             "DELETE", f"/api/v1/orchestration/canvas/{canvas_id}/nodes/{node_id}"
         )
 
@@ -322,13 +322,13 @@ class AsyncOrchestrationCanvasAPI:
         }
         if data is not None:
             body["data"] = data
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/orchestration/canvas/{canvas_id}/edges", json=body
         )
 
     async def delete_edge(self, canvas_id: str, edge_id: str) -> dict[str, Any]:
         """Delete an edge from a canvas."""
-        return await self._client._request(
+        return await self._client.request(
             "DELETE", f"/api/v1/orchestration/canvas/{canvas_id}/edges/{edge_id}"
         )
 
@@ -338,13 +338,13 @@ class AsyncOrchestrationCanvasAPI:
 
     async def export_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Export a canvas as React Flow JSON."""
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/orchestration/canvas/{canvas_id}/export"
         )
 
     async def execute_pipeline(self, canvas_id: str) -> dict[str, Any]:
         """Execute the orchestration pipeline defined by this canvas."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             f"/api/v1/orchestration/canvas/{canvas_id}/execute",
             json={},

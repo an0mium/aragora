@@ -58,7 +58,7 @@ class PodcastAPI:
         if since is not None:
             params["since"] = since
 
-        return self._client._request("GET", "/api/v1/podcast/episodes", params=params)
+        return self._client.request("GET", "/api/v1/podcast/episodes", params=params)
 
     def get_episode(self, episode_id: str) -> dict[str, Any]:
         """
@@ -70,7 +70,7 @@ class PodcastAPI:
         Returns:
             Episode details with audio URL and metadata.
         """
-        return self._client._request("GET", f"/api/v1/podcast/episodes/{episode_id}")
+        return self._client.request("GET", f"/api/v1/podcast/episodes/{episode_id}")
 
     def get_feed(self) -> dict[str, Any]:
         """
@@ -79,7 +79,7 @@ class PodcastAPI:
         Returns:
             Feed with title, description, and episodes.
         """
-        return self._client._request("GET", "/api/v1/podcast/feed")
+        return self._client.request("GET", "/api/v1/podcast/feed")
 
     def get_feed_url(self) -> str:
         """
@@ -136,7 +136,7 @@ class PodcastAPI:
         if background_music is not None:
             data["background_music"] = background_music
 
-        return self._client._request("POST", f"/api/v1/debates/{debate_id}/podcast", json=data)
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/podcast", json=data)
 
     def delete_episode(self, episode_id: str) -> dict[str, Any]:
         """
@@ -148,7 +148,7 @@ class PodcastAPI:
         Returns:
             Deletion confirmation.
         """
-        return self._client._request("DELETE", f"/api/v1/podcast/episodes/{episode_id}")
+        return self._client.request("DELETE", f"/api/v1/podcast/episodes/{episode_id}")
 
     def update_episode(
         self,
@@ -173,7 +173,7 @@ class PodcastAPI:
         if description is not None:
             data["description"] = description
 
-        return self._client._request("PATCH", f"/api/v1/podcast/episodes/{episode_id}", json=data)
+        return self._client.request("PATCH", f"/api/v1/podcast/episodes/{episode_id}", json=data)
 
 
 class AsyncPodcastAPI:
@@ -197,15 +197,15 @@ class AsyncPodcastAPI:
         if since is not None:
             params["since"] = since
 
-        return await self._client._request("GET", "/api/v1/podcast/episodes", params=params)
+        return await self._client.request("GET", "/api/v1/podcast/episodes", params=params)
 
     async def get_episode(self, episode_id: str) -> dict[str, Any]:
         """Get a specific episode by ID."""
-        return await self._client._request("GET", f"/api/v1/podcast/episodes/{episode_id}")
+        return await self._client.request("GET", f"/api/v1/podcast/episodes/{episode_id}")
 
     async def get_feed(self) -> dict[str, Any]:
         """Get the full podcast feed metadata."""
-        return await self._client._request("GET", "/api/v1/podcast/feed")
+        return await self._client.request("GET", "/api/v1/podcast/feed")
 
     def get_feed_url(self) -> str:
         """Get the RSS feed URL for podcast subscription."""
@@ -240,13 +240,13 @@ class AsyncPodcastAPI:
         if background_music is not None:
             data["background_music"] = background_music
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/debates/{debate_id}/podcast", json=data
         )
 
     async def delete_episode(self, episode_id: str) -> dict[str, Any]:
         """Delete a podcast episode."""
-        return await self._client._request("DELETE", f"/api/v1/podcast/episodes/{episode_id}")
+        return await self._client.request("DELETE", f"/api/v1/podcast/episodes/{episode_id}")
 
     async def update_episode(
         self,
@@ -261,6 +261,6 @@ class AsyncPodcastAPI:
         if description is not None:
             data["description"] = description
 
-        return await self._client._request(
+        return await self._client.request(
             "PATCH", f"/api/v1/podcast/episodes/{episode_id}", json=data
         )
