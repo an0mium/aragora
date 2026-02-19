@@ -465,7 +465,7 @@ class Environment:
 
     Attributes:
         task: The problem, question, or goal to debate. Required, non-empty,
-            max 10,000 characters. Cannot contain null bytes.
+            max 100,000 characters (~15k words). Cannot contain null bytes.
         context: Additional background information to provide to all agents.
             Use for domain knowledge, constraints, or prior decisions.
         roles: List of cognitive roles to assign. Defaults to
@@ -491,7 +491,7 @@ class Environment:
 
     Validation:
         - task must be non-empty
-        - task cannot exceed MAX_TASK_LENGTH (10,000 chars)
+        - task cannot exceed MAX_TASK_LENGTH (100,000 chars)
         - task cannot contain null bytes (security measure)
 
     Example:
@@ -515,7 +515,7 @@ class Environment:
     """
 
     # Maximum task length (prevents DoS via very long strings)
-    MAX_TASK_LENGTH: ClassVar[int] = 10000
+    MAX_TASK_LENGTH: ClassVar[int] = 100_000  # ~15k words
 
     task: str
     context: str = ""  # additional context

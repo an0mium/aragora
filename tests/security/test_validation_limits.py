@@ -367,7 +367,7 @@ class TestSecurityIntegration:
         """Test that malicious inputs are properly rejected."""
         # Very long inputs
         assert not validate_debate_title("x" * 10000).is_valid
-        assert not validate_task_content("y" * 100000).is_valid
+        assert not validate_task_content("y" * 100_001).is_valid
 
         # Zero/negative agents
         assert not validate_agent_count(0).is_valid

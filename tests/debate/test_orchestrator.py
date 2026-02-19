@@ -1163,7 +1163,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_task_too_long_raises_error(self):
         """Task exceeding max length raises ValueError."""
-        long_task = "x" * 15000  # Exceeds MAX_TASK_LENGTH
+        long_task = "x" * 150_000  # Exceeds MAX_TASK_LENGTH (100,000)
         with pytest.raises(ValueError, match="exceeds maximum length"):
             Environment(task=long_task)
 

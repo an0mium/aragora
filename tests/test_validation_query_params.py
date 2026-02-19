@@ -431,7 +431,7 @@ class TestValidatePostBodyDecorator:
                 return {"success": True}
 
         h = Handler()
-        result = h.handle({"task": "x" * 3000}, None)  # Exceeds 2000 char limit
+        result = h.handle({"task": "x" * 100_001}, None)  # Exceeds 100k char limit
         assert result["status"] == 400
 
 
