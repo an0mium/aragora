@@ -1073,6 +1073,7 @@ def mock_external_apis(request, monkeypatch):
             self._text = text or json.dumps(self._json_data)
             self.headers = {"content-type": "application/json"}
             self.is_success = 200 <= status_code < 300
+            self.request = type("Request", (), {"method": "GET", "url": ""})()
 
         def json(self):
             return self._json_data
