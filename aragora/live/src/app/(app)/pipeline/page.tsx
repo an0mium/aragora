@@ -11,6 +11,11 @@ const PipelineCanvas = dynamic(
   { ssr: false, loading: () => <CanvasLoadingState /> },
 );
 
+const UnifiedPipelineCanvas = dynamic(
+  () => import('@/components/pipeline-canvas/UnifiedPipelineCanvas').then((m) => m.UnifiedPipelineCanvas),
+  { ssr: false, loading: () => <CanvasLoadingState /> },
+);
+
 function CanvasLoadingState() {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg">
@@ -62,6 +67,7 @@ function PipelinePageContent() {
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
   const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'stages' | 'unified'>('stages');
 
   // Auto-import from debate when ?from=debate&id=xxx is present
   useEffect(() => {
@@ -205,6 +211,29 @@ function PipelinePageContent() {
             New Pipeline
           </button>
 
+          <div className="flex items-center bg-surface border border-border rounded overflow-hidden">
+            <button
+              onClick={() => setViewMode('stages')}
+              className={`px-3 py-2 text-sm font-mono transition-colors ${
+                viewMode === 'stages'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              Stages
+            </button>
+            <button
+              onClick={() => setViewMode('unified')}
+              className={`px-3 py-2 text-sm font-mono transition-colors ${
+                viewMode === 'unified'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              Unified
+            </button>
+          </div>
+
           <button
             onClick={() => { setShowIdeaInput(!showIdeaInput); setShowDebateInput(false); }}
             disabled={loading}
@@ -323,14 +352,22 @@ function PipelinePageContent() {
       {/* Canvas or empty state */}
       <div className="flex-1 overflow-hidden">
         {pipelineData ? (
-          <PipelineCanvas
-            key={key}
-            pipelineId={pipelineData.pipeline_id}
-            initialData={pipelineData}
-            onStageAdvance={handleStageAdvance}
-            onTransitionApprove={handleTransitionApprove}
-            onTransitionReject={handleTransitionReject}
-          />
+          viewMode === 'unified' ? (
+            <UnifiedPipelineCanvas
+              key={`unified-${key}`}
+              pipelineId={pipelineData.pipeline_id}
+              initialData={pipelineData}
+            />
+          ) : (
+            <PipelineCanvas
+              key={key}
+              pipelineId={pipelineData.pipeline_id}
+              initialData={pipelineData}
+              onStageAdvance={handleStageAdvance}
+              onTransitionApprove={handleTransitionApprove}
+              onTransitionReject={handleTransitionReject}
+            />
+          )
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
@@ -341,7 +378,7 @@ function PipelinePageContent() {
                 Start by entering ideas, importing a debate, or trying the demo to see the
                 four-stage pipeline in action.
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex flex-wrap gap-3 justify-center">
                 <button
                   onClick={() => setShowIdeaInput(true)}
                   className="px-6 py-3 bg-indigo-600 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors"
@@ -353,6 +390,12 @@ function PipelinePageContent() {
                   className="px-6 py-3 bg-violet-600 text-white font-mono text-sm rounded hover:bg-violet-500 transition-colors"
                 >
                   From Debate
+                </button>
+                <button
+                  onClick={() => { setViewMode('unified'); setShowIdeaInput(true); }}
+                  className="px-6 py-3 bg-indigo-600/70 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors border border-indigo-400/30"
+                >
+                  Unified Canvas
                 </button>
                 <button
                   onClick={handleDemo}

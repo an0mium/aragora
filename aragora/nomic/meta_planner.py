@@ -119,6 +119,8 @@ class MetaPlannerConfig:
     scan_mode: bool = False
     # Generate self-explanations for planning decisions
     explain_decisions: bool = True
+    # Use business context to re-rank goals by impact
+    use_business_context: bool = True
 
 
 class MetaPlanner:
@@ -174,6 +176,10 @@ class MetaPlanner:
         # Cross-cycle learning: Query past similar cycles
         if self.config.enable_cross_cycle_learning:
             context = await self._enrich_context_with_history(objective, available_tracks, context)
+
+        # Inject findings from cross-agent learning bus
+        if self.config.enable_cross_cycle_learning:
+            self._inject_learning_bus_findings(context)
 
         # Inject debate-sourced improvement suggestions
         try:
@@ -269,6 +275,10 @@ class MetaPlanner:
 
             # Parse goals from debate result
             goals = self._parse_goals_from_debate(result, available_tracks, objective)
+
+            # Re-rank goals using business context
+            if self.config.use_business_context:
+                goals = self._rerank_with_business_context(goals)
 
             # Self-explanation: annotate goals with rationale from debate
             self._explain_planning_decision(result, goals)
@@ -793,6 +803,67 @@ class MetaPlanner:
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("Explanation KM persistence failed: %s", e)
 
+    def _rerank_with_business_context(self, goals: list[PrioritizedGoal]) -> list[PrioritizedGoal]:
+        """Re-rank goals using business impact scoring."""
+        try:
+            from aragora.nomic.business_context import BusinessContext
+
+            ctx = BusinessContext()
+            scored_goals = []
+            for goal in goals:
+                score = ctx.score_goal(
+                    goal=goal.description,
+                    file_paths=goal.file_hints,
+                    metadata={"focus_areas": goal.focus_areas},
+                )
+                scored_goals.append((goal, score.total))
+
+            # Sort by business score (descending), re-assign priorities
+            scored_goals.sort(key=lambda x: x[1], reverse=True)
+            for i, (goal, _score) in enumerate(scored_goals):
+                goal.priority = i + 1
+
+            reranked = [g for g, _ in scored_goals]
+            logger.info(
+                "meta_planner_business_rerank reranked=%s",
+                [(g.description[:40], g.priority) for g in reranked],
+            )
+            return reranked
+        except ImportError:
+            logger.debug("BusinessContext not available, skipping re-ranking")
+            return goals
+        except (RuntimeError, ValueError) as e:
+            logger.warning("Business context re-ranking failed: %s", e)
+            return goals
+
+    def _inject_learning_bus_findings(self, context: PlanningContext) -> None:
+        """Inject recent findings from the cross-agent learning bus."""
+        try:
+            from aragora.nomic.learning_bus import LearningBus
+
+            bus = LearningBus.get_instance()
+            findings = bus.get_findings()
+            if not findings:
+                return
+
+            for finding in findings:
+                if finding.severity == "critical":
+                    if finding.description not in context.recent_issues:
+                        context.recent_issues.append(
+                            f"[learning_bus:{finding.topic}] {finding.description}"
+                        )
+                elif finding.topic == "test_failure":
+                    if finding.description not in context.test_failures:
+                        context.test_failures.append(finding.description)
+
+            logger.info(
+                "meta_planner_injected_learning_bus findings=%d critical=%d",
+                len(findings),
+                sum(1 for f in findings if f.severity == "critical"),
+            )
+        except ImportError:
+            pass
+
     def _build_debate_topic(
         self,
         objective: str,
@@ -1245,6 +1316,10 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             logger.info("scan_mode_no_signals falling back to heuristic")
             return self._heuristic_prioritize(objective, available_tracks)
 
+        # Re-rank goals using business context
+        if self.config.use_business_context:
+            goals = self._rerank_with_business_context(goals)
+
         logger.info(
             "scan_mode_complete goals=%d signals=%d",
             len(goals),
@@ -1443,6 +1518,10 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             track_hints = file_hints.get(goal.track, [])
             if track_hints:
                 goal.file_hints = track_hints[:10]  # Cap at 10 files per goal
+
+        # Re-rank goals using business context
+        if self.config.use_business_context:
+            goals = self._rerank_with_business_context(goals)
 
         # Apply self-correction priority adjustments if available
         goals = self._apply_self_correction_adjustments(goals)

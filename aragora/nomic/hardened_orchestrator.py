@@ -1142,6 +1142,23 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             issues or "none",
         )
 
+        # Publish findings to learning bus for cross-agent awareness
+        if issues:
+            try:
+                from aragora.nomic.learning_bus import LearningBus, Finding
+
+                bus = LearningBus.get_instance()
+                for issue in issues:
+                    bus.publish(Finding(
+                        agent_id="hardened_orchestrator",
+                        topic="code_review",
+                        description=issue,
+                        affected_files=[],
+                        severity="warning",
+                    ))
+            except ImportError:
+                pass
+
         if score < self.hardened_config.review_gate_min_score:
             logger.warning(
                 "review_gate_failed subtask=%s score=%d min=%d issues=%s",

@@ -133,14 +133,14 @@ def _cluster_ideas(ideas: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
 def _ideas_to_goals_logic(
     ideas: list[dict[str, Any]], context: str | None = None,
 ) -> TransitionResult:
-    """Cluster ideas by topic similarity and extract goals."""
-    clusters = _cluster_ideas(ideas)
+    """Cluster ideas by topic similarity and extract goals.
 
-    nodes: list[PipelineNode] = []
-    edges: list[PipelineEdge] = []
+    Tries LLM-powered goal derivation via MetaPlanner first, falling back
+    to keyword-overlap clustering when MetaPlanner is unavailable.
+    """
+    # ── Build idea nodes (shared by both LLM and heuristic paths) ──────
+    idea_nodes: list[PipelineNode] = []
     idea_node_ids: list[str] = []
-
-    # Create idea nodes for tracking
     for idea in ideas:
         idea_id = idea.get("id") or f"idea-{uuid.uuid4().hex[:8]}"
         idea_node = PipelineNode(
@@ -149,11 +149,83 @@ def _ideas_to_goals_logic(
             label=idea.get("label") or idea.get("text", "Untitled idea"),
             metadata=idea.get("metadata", {}),
         )
-        nodes.append(idea_node)
+        idea_nodes.append(idea_node)
         idea_node_ids.append(idea_id)
         _node_store[idea_id] = asdict(idea_node)
 
-    # Derive goal from each cluster
+    # ── Try LLM-powered goal derivation via MetaPlanner ────────────────
+    try:
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+        import asyncio
+
+        planner = MetaPlanner(MetaPlannerConfig(
+            quick_mode=True,
+            use_business_context=True,
+            max_goals=max(3, len(ideas) // 2),
+        ))
+
+        idea_summaries = [
+            idea.get("label", idea.get("content", idea.get("text", "")))
+            for idea in ideas
+        ]
+        objective = (
+            f"Derive actionable goals from these ideas: "
+            f"{'; '.join(idea_summaries[:10])}"
+        )
+
+        loop = asyncio.new_event_loop()
+        try:
+            prioritized_goals = loop.run_until_complete(
+                planner.prioritize_work(objective=objective)
+            )
+        finally:
+            loop.close()
+
+        if prioritized_goals:
+            result_nodes: list[PipelineNode] = list(idea_nodes)
+            result_edges: list[PipelineEdge] = []
+            for pg in prioritized_goals:
+                goal_node = PipelineNode(
+                    id=f"goal-{pg.id}" if not pg.id.startswith("goal-") else pg.id,
+                    stage="goal",
+                    label=pg.description,
+                    metadata={
+                        "objective": pg.description,
+                        "key_results": pg.focus_areas,
+                        "priority": pg.priority,
+                        "rationale": pg.rationale,
+                        "estimated_impact": pg.estimated_impact,
+                        "context": context or "",
+                    },
+                    derived_from=idea_node_ids,
+                )
+                result_nodes.append(goal_node)
+                _node_store[goal_node.id] = asdict(goal_node)
+                for idea_n in idea_nodes:
+                    result_edges.append(PipelineEdge(
+                        source=idea_n.id, target=goal_node.id, edge_type="derives",
+                    ))
+
+            goal_nodes = [n for n in result_nodes if n.stage == "goal"]
+            return TransitionResult(
+                nodes=result_nodes,
+                edges=result_edges,
+                provenance={
+                    "method": "meta_planner",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source_count": len(ideas),
+                    "output_count": len(goal_nodes),
+                },
+            )
+    except (ImportError, RuntimeError, Exception) as e:
+        logger.debug("MetaPlanner unavailable, using heuristic: %s", e)
+
+    # ── Heuristic fallback: keyword-overlap clustering ─────────────────
+    clusters = _cluster_ideas(ideas)
+
+    nodes: list[PipelineNode] = list(idea_nodes)
+    edges: list[PipelineEdge] = []
+
     for cluster in clusters:
         cluster_labels = [
             i.get("label") or i.get("text", "") for i in cluster
@@ -185,10 +257,10 @@ def _ideas_to_goals_logic(
         nodes=nodes,
         edges=edges,
         provenance={
-            "timestamp": datetime.now(timezone.utc).isoformat(),
             "method": "keyword_clustering",
-            "idea_count": len(ideas),
-            "goal_count": len(clusters),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_count": len(ideas),
+            "output_count": len(clusters),
         },
     )
 
@@ -197,15 +269,14 @@ def _goals_to_tasks_logic(
     goals: list[dict[str, Any]],
     max_tasks: int | None = None,
 ) -> TransitionResult:
-    """Decompose goals into actionable tasks."""
-    nodes: list[PipelineNode] = []
-    edges: list[PipelineEdge] = []
-    task_count = 0
+    """Decompose goals into actionable tasks.
 
+    Tries LLM-powered decomposition via TaskDecomposer first, falling back
+    to heuristic key-result splitting when TaskDecomposer is unavailable.
+    """
+    # Ensure all goals are stored
     for goal in goals:
         goal_id = goal.get("id") or f"goal-{uuid.uuid4().hex[:8]}"
-
-        # Ensure goal is stored
         if goal_id not in _node_store:
             goal_node = PipelineNode(
                 id=goal_id,
@@ -214,6 +285,88 @@ def _goals_to_tasks_logic(
                 metadata=goal.get("metadata", {}),
             )
             _node_store[goal_id] = asdict(goal_node)
+
+    # ── Try LLM-powered decomposition via TaskDecomposer ───────────────
+    try:
+        from aragora.nomic.task_decomposer import TaskDecomposer, DecomposerConfig
+
+        decomposer = TaskDecomposer(DecomposerConfig(max_depth=1))
+
+        all_nodes: list[PipelineNode] = []
+        all_edges: list[PipelineEdge] = []
+        task_count = 0
+
+        for goal in goals:
+            goal_id = goal.get("id") or f"goal-{uuid.uuid4().hex[:8]}"
+            goal_text = goal.get("label", goal.get("content", ""))
+            decomposition = decomposer.analyze(goal_text)
+
+            for idx, subtask in enumerate(decomposition.subtasks):
+                if max_tasks and task_count >= max_tasks:
+                    break
+                task_id = f"task-{subtask.id}" if not subtask.id.startswith("task-") else subtask.id
+                assignee_type = _ASSIGNEE_TYPES[idx % len(_ASSIGNEE_TYPES)]
+
+                task_node = PipelineNode(
+                    id=task_id,
+                    stage="action",
+                    label=subtask.title,
+                    metadata={
+                        "assignee_type": assignee_type,
+                        "priority": "high" if idx == 0 else "medium",
+                        "estimated_effort": subtask.estimated_complexity,
+                        "source_goal_id": goal_id,
+                        "description": subtask.description,
+                        "file_scope": subtask.file_scope,
+                    },
+                    derived_from=[goal_id],
+                )
+                all_nodes.append(task_node)
+                _node_store[task_id] = asdict(task_node)
+                all_edges.append(PipelineEdge(
+                    source=goal_id, target=task_id, edge_type="decomposes",
+                ))
+                task_count += 1
+
+            if max_tasks and task_count >= max_tasks:
+                break
+
+        if all_nodes:
+            # Add dependency edges between sequential tasks of the same goal
+            goal_tasks: dict[str, list[str]] = {}
+            for node in all_nodes:
+                gid = node.metadata.get("source_goal_id", "")
+                if gid:
+                    goal_tasks.setdefault(gid, []).append(node.id)
+            for task_ids in goal_tasks.values():
+                for i in range(len(task_ids) - 1):
+                    all_edges.append(
+                        PipelineEdge(
+                            source=task_ids[i], target=task_ids[i + 1],
+                            edge_type="depends_on",
+                        )
+                    )
+
+            return TransitionResult(
+                nodes=all_nodes,
+                edges=all_edges,
+                provenance={
+                    "method": "task_decomposer",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source_count": len(goals),
+                    "output_count": len(all_nodes),
+                },
+            )
+    except (ImportError, RuntimeError, Exception) as e:
+        logger.debug("TaskDecomposer unavailable, using heuristic: %s", e)
+
+    # ── Heuristic fallback: key-result splitting ───────────────────────
+    nodes: list[PipelineNode] = []
+    edges: list[PipelineEdge] = []
+    task_count = 0
+
+    for goal in goals:
+        goal_id = goal.get("id") or f"goal-{uuid.uuid4().hex[:8]}"
 
         key_results = goal.get("metadata", {}).get("key_results", [])
         if not key_results:
@@ -247,12 +400,12 @@ def _goals_to_tasks_logic(
             break
 
     # Add dependency edges between sequential tasks of the same goal
-    goal_tasks: dict[str, list[str]] = {}
+    goal_tasks_heuristic: dict[str, list[str]] = {}
     for node in nodes:
         gid = node.metadata.get("source_goal_id", "")
         if gid:
-            goal_tasks.setdefault(gid, []).append(node.id)
-    for task_ids in goal_tasks.values():
+            goal_tasks_heuristic.setdefault(gid, []).append(node.id)
+    for task_ids in goal_tasks_heuristic.values():
         for i in range(len(task_ids) - 1):
             edges.append(
                 PipelineEdge(source=task_ids[i], target=task_ids[i + 1], edge_type="depends_on")
@@ -262,10 +415,10 @@ def _goals_to_tasks_logic(
         nodes=nodes,
         edges=edges,
         provenance={
-            "timestamp": datetime.now(timezone.utc).isoformat(),
             "method": "heuristic_decomposition",
-            "goal_count": len(goals),
-            "task_count": len(nodes),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_count": len(goals),
+            "output_count": len(nodes),
         },
     )
 
@@ -274,9 +427,107 @@ def _tasks_to_workflow_logic(
     tasks: list[dict[str, Any]],
     execution_mode: str | None = None,
 ) -> TransitionResult:
-    """Generate a workflow DAG from tasks."""
-    nodes: list[PipelineNode] = []
-    edges: list[PipelineEdge] = []
+    """Generate a workflow DAG from tasks.
+
+    Tries creating a real WorkflowDefinition via the WorkflowEngine first,
+    falling back to manual DAG generation when the engine is unavailable.
+    """
+    agent_map = {
+        "researcher": "research_agent",
+        "implementer": "code_agent",
+        "reviewer": "review_agent",
+    }
+
+    # ── Try real WorkflowDefinition via WorkflowEngine ─────────────────
+    try:
+        from aragora.workflow.types import StepDefinition, WorkflowDefinition
+
+        steps: list[StepDefinition] = []
+        for idx, task in enumerate(tasks):
+            task_id = task.get("id") or f"task-{uuid.uuid4().hex[:8]}"
+            assignee = task.get("metadata", {}).get("assignee_type", "implementer")
+            step = StepDefinition(
+                id=f"step-{task_id}",
+                name=task.get("label", f"Step {idx + 1}"),
+                step_type=agent_map.get(assignee, "agent"),
+                config={
+                    "description": task.get("label", ""),
+                    "source_task_id": task_id,
+                },
+            )
+            steps.append(step)
+
+        workflow = WorkflowDefinition(
+            id=f"wf-{uuid.uuid4().hex[:8]}",
+            name="pipeline-generated",
+            description="Auto-generated from pipeline tasks",
+            steps=steps,
+        )
+
+        # Convert WorkflowDefinition steps back to PipelineNodes so the
+        # response format stays consistent with the heuristic path.
+        nodes: list[PipelineNode] = []
+        edges: list[PipelineEdge] = []
+
+        for step in workflow.steps:
+            source_task_id = step.config.get("source_task_id", "")
+            orch_id = f"orch-{uuid.uuid4().hex[:8]}"
+            orch_node = PipelineNode(
+                id=orch_id,
+                stage="orchestration",
+                label=step.name,
+                metadata={
+                    "agent_type": step.step_type,
+                    "execution_mode": execution_mode or "parallel",
+                    "source_task_id": source_task_id,
+                    "workflow_id": workflow.id,
+                    "step_id": step.id,
+                },
+                derived_from=[source_task_id] if source_task_id else [],
+            )
+            nodes.append(orch_node)
+            _node_store[orch_id] = asdict(orch_node)
+            if source_task_id:
+                edges.append(PipelineEdge(
+                    source=source_task_id, target=orch_id, edge_type="triggers",
+                ))
+
+        # Carry over sequential dependency edges
+        orch_by_task: dict[str, str] = {}
+        for node in nodes:
+            src = node.metadata.get("source_task_id", "")
+            if src:
+                orch_by_task[src] = node.id
+
+        for task in tasks:
+            tid = task.get("id", "")
+            deps = task.get("derived_from") or task.get("depends_on") or []
+            for dep_id in deps:
+                if dep_id in orch_by_task and tid in orch_by_task:
+                    edges.append(PipelineEdge(
+                        source=orch_by_task[dep_id],
+                        target=orch_by_task[tid],
+                        edge_type="depends_on",
+                    ))
+
+        return TransitionResult(
+            nodes=nodes,
+            edges=edges,
+            provenance={
+                "method": "workflow_engine",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source_count": len(tasks),
+                "output_count": len(nodes),
+                "workflow_id": workflow.id,
+                "execution_mode": execution_mode or "parallel",
+            },
+        )
+    except (ImportError, RuntimeError, Exception) as e:
+        logger.debug("WorkflowEngine unavailable, using heuristic: %s", e)
+
+    # ── Heuristic fallback: manual DAG generation ──────────────────────
+    nodes = []
+    edges = []
 
     # Map task IDs to their dependency info
     task_deps: dict[str, list[str]] = {}
@@ -288,12 +539,6 @@ def _tasks_to_workflow_logic(
     for task in tasks:
         task_id = task.get("id") or f"task-{uuid.uuid4().hex[:8]}"
         assignee = task.get("metadata", {}).get("assignee_type", "implementer")
-
-        agent_map = {
-            "researcher": "research_agent",
-            "implementer": "code_agent",
-            "reviewer": "review_agent",
-        }
 
         orch_id = f"orch-{uuid.uuid4().hex[:8]}"
         orch_node = PipelineNode(
@@ -312,7 +557,7 @@ def _tasks_to_workflow_logic(
         edges.append(PipelineEdge(source=task_id, target=orch_id, edge_type="triggers"))
 
     # Carry over depends_on as sequential ordering
-    orch_by_task: dict[str, str] = {}
+    orch_by_task = {}
     for node in nodes:
         src = node.metadata.get("source_task_id", "")
         if src:
@@ -335,10 +580,10 @@ def _tasks_to_workflow_logic(
         nodes=nodes,
         edges=edges,
         provenance={
-            "timestamp": datetime.now(timezone.utc).isoformat(),
             "method": "dag_generation",
-            "task_count": len(tasks),
-            "orchestration_count": len(nodes),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_count": len(tasks),
+            "output_count": len(nodes),
             "execution_mode": execution_mode or "parallel",
         },
     )
