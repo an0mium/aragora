@@ -1,3 +1,9 @@
 {
-  "missing_from_both_sdks": []
+  "missing_from_both_sdks": [
+    "/api/analytics",
+    "/api/breakpoints",
+    "/api/consensus",
+    "/api/evolution",
+    "/api/moments"
+  ]
 }

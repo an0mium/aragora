@@ -222,8 +222,11 @@ def _ok_response(
             resp["content"] = {
                 "application/json": {"schema": {"$ref": f"#/components/schemas/{schema}"}}
             }
+        elif "type" in schema:
+            # Complete schema dict (has "type" key, e.g. {"type": "object"})
+            resp["content"] = {"application/json": {"schema": schema}}
         else:
-            # Inline schema dict
+            # Properties map (e.g. {"success": {"type": "boolean"}})
             resp["content"] = {
                 "application/json": {"schema": {"type": "object", "properties": schema}}
             }
