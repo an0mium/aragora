@@ -285,9 +285,11 @@ class TestFullPipelineFlow:
             "config": {"confidence_threshold": 0, "max_goals": 10},
         })
 
-        assert "error" not in result
-        assert "goals" in result
-        assert result["source_canvas_id"] == "ideas-canvas-001"
+        import json as _json
+        body = _json.loads(result.body) if hasattr(result, 'body') else result
+        assert "error" not in body
+        assert "goals" in body
+        assert body["source_canvas_id"] == "ideas-canvas-001"
 
         # Step 2: Create a goal canvas to hold extracted goals
         store = GoalCanvasStore(":memory:")
@@ -302,11 +304,11 @@ class TestFullPipelineFlow:
         assert canvas_meta["id"] == canvas_id
 
         # Step 3: Verify provenance links from extraction
-        provenance = result.get("provenance", [])
+        provenance = body.get("provenance", [])
         assert isinstance(provenance, list)
 
         # Step 4: Verify all goals are serializable
-        goals = result["goals"]
+        goals = body["goals"]
         for goal in goals:
             assert "id" in goal
             assert "title" in goal
