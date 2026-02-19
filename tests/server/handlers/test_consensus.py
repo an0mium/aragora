@@ -436,9 +436,9 @@ class TestSimilarDebatesEndpoint:
         assert result.status_code == 400
 
     def test_topic_too_long_returns_400(self, consensus_handler, mock_http_handler):
-        """Topic exceeding 500 characters returns 400."""
+        """Topic exceeding 100k characters returns 400."""
         result = consensus_handler.handle(
-            "/api/v1/consensus/similar", {"topic": "x" * 501}, mock_http_handler
+            "/api/v1/consensus/similar", {"topic": "x" * 100_001}, mock_http_handler
         )
         assert result.status_code == 400
         body = parse_response(result)

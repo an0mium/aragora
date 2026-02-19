@@ -110,7 +110,7 @@ def _reset_rate_limits() -> None:
 # Constraints
 # ---------------------------------------------------------------------------
 
-_MAX_TOPIC_LENGTH = 500
+_MAX_TOPIC_LENGTH = 100_000  # ~15k words — supports long-form debate prompts
 _MAX_ROUNDS = 2
 _MAX_AGENTS = 5
 _MIN_AGENTS = 2

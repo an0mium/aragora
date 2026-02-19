@@ -188,11 +188,11 @@ class ConsensusHandler(BaseHandler):
             raw_topic = query_params.get("topic", "")
             if isinstance(raw_topic, list):
                 raw_topic = raw_topic[0] if raw_topic else ""
-            if len(raw_topic) > 500:
-                return error_response("Topic too long (max 500 chars)", 400)
-            topic = get_bounded_string_param(query_params, "topic", "", max_length=500)
+            if len(raw_topic) > 100_000:
+                return error_response("Topic too long (max 100000 chars)", 400)
+            topic = get_bounded_string_param(query_params, "topic", "", max_length=100_000)
             if not topic:
-                return error_response("Topic required (max 500 chars)", 400)
+                return error_response("Topic required", 400)
             limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
             return self._get_similar_debates(topic.strip(), limit)
 

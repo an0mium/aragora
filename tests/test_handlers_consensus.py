@@ -223,8 +223,8 @@ class TestSimilarDebatesEndpoint:
         assert result.status_code == 400
 
     def test_similar_topic_too_long_returns_400(self, consensus_handler):
-        """Should reject topic over 500 chars."""
-        long_topic = "x" * 501
+        """Should reject topic over 100k chars."""
+        long_topic = "x" * 100_001
         result = consensus_handler.handle("/api/consensus/similar", {"topic": long_topic}, None)
         assert result.status_code == 400
 

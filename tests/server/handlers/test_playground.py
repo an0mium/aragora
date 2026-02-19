@@ -256,13 +256,13 @@ class TestDebateEndpoint:
 
 class TestInputValidation:
     def test_topic_too_long(self, handler, mock_http_handler):
-        """Topics over 500 characters are rejected."""
-        h = mock_http_handler({"topic": "x" * 501})
+        """Topics over 100,000 characters are rejected."""
+        h = mock_http_handler({"topic": "x" * 100_001})
         result = handler.handle_post("/api/v1/playground/debate", {}, h)
         data, status = _parse_result(result)
 
         assert status == 400
-        assert "500 characters" in data.get("error", "")
+        assert "100000 characters" in data.get("error", "")
 
     def test_rounds_clamped_to_max(self, handler, mock_http_handler):
         """Rounds above 2 are clamped to 2."""

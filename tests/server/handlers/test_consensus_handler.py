@@ -101,8 +101,8 @@ class TestConsensusHandlerSimilar:
         assert "error" in body
 
     def test_similar_topic_too_long(self, consensus_handler, mock_http_handler):
-        """Test similar endpoint rejects topics over 500 chars."""
-        long_topic = "a" * 501
+        """Test similar endpoint rejects topics over 100k chars."""
+        long_topic = "a" * 100_001
         result = consensus_handler.handle(
             "/api/v1/consensus/similar", {"topic": long_topic}, mock_http_handler
         )
