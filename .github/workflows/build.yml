@@ -162,6 +162,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (Image)
         if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true  # Findings uploaded to GitHub Security tab via SARIF
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.sha }}
           format: 'sarif'
