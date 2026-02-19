@@ -39,7 +39,7 @@ class SpectateStreamHandler(BaseHandler):
         "/api/v1/spectate/stream",
     ]
 
-    @handle_errors
+    @handle_errors("spectate")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
