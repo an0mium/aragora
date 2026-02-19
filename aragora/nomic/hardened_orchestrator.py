@@ -1104,6 +1104,22 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         score = max(0, score)
 
+        # Batch antipattern detection on added lines
+        if added_lines:
+            try:
+                from aragora.nomic.pattern_fixer import ANTIPATTERNS
+                import re
+
+                for name, info in ANTIPATTERNS.items():
+                    compiled = re.compile(info["pattern"])
+                    for line in added_lines:
+                        if compiled.search(line):
+                            score -= 1
+                            issues.append(f"antipattern:{name}:{info['description']}")
+                            break  # one deduction per pattern type
+            except ImportError:
+                pass
+
         # AST-based code review via CodeReviewerAgent
         code_review_result = None
         if diff_text:
@@ -1160,6 +1176,33 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 pass
 
         if score < self.hardened_config.review_gate_min_score:
+            # Attempt forward-fix diagnosis instead of just blocking
+            forward_diagnosis = None
+            try:
+                from aragora.nomic.forward_fixer import ForwardFixer
+
+                fixer = ForwardFixer()
+                diagnosis = fixer.diagnose_failure(
+                    "\n".join(issues),
+                    context=diff_text[:2000] if diff_text else "",
+                )
+                forward_diagnosis = {
+                    "failure_type": diagnosis.failure_type.value,
+                    "confidence": diagnosis.confidence,
+                    "suggested_fixes": [
+                        {"description": f.description, "file": f.file_path, "fix": f.fix_code}
+                        for f in diagnosis.fixes
+                    ],
+                }
+                logger.info(
+                    "review_gate_forward_fix subtask=%s type=%s fixes=%d",
+                    assignment.subtask.id,
+                    diagnosis.failure_type.value,
+                    len(diagnosis.fixes),
+                )
+            except Exception as exc:
+                logger.debug("forward_fixer unavailable: %s", exc)
+
             logger.warning(
                 "review_gate_failed subtask=%s score=%d min=%d issues=%s",
                 assignment.subtask.id,
@@ -1172,6 +1215,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 "review_gate_score": score,
                 "review_gate_issues": issues,
                 "code_review_score": code_review_result.score if code_review_result else None,
+                "forward_diagnosis": forward_diagnosis,
             }
             return False
 

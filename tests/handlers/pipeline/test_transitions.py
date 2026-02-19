@@ -10,11 +10,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.pipeline.transitions import (
+    VALID_MODES,
     PipelineEdge,
     PipelineNode,
     PipelineTransitionsHandler,
     TransitionResult,
     _cluster_ideas,
+    _extract_mode,
     _get_provenance_chain,
     _goals_to_tasks_logic,
     _ideas_to_goals_logic,
@@ -728,3 +730,242 @@ class TestProvenanceTracking:
             assert "method" in result.provenance
             assert "source_count" in result.provenance
             assert "output_count" in result.provenance
+
+
+# ---------------------------------------------------------------------------
+# Mode query parameter
+# ---------------------------------------------------------------------------
+
+
+class TestExtractMode:
+    """Unit tests for the _extract_mode helper."""
+
+    def test_default_is_quick(self):
+        assert _extract_mode({}) == "quick"
+
+    def test_explicit_quick(self):
+        assert _extract_mode({"mode": "quick"}) == "quick"
+
+    def test_debate_mode(self):
+        assert _extract_mode({"mode": "debate"}) == "debate"
+
+    def test_heuristic_mode(self):
+        assert _extract_mode({"mode": "heuristic"}) == "heuristic"
+
+    def test_case_insensitive(self):
+        assert _extract_mode({"mode": "DEBATE"}) == "debate"
+        assert _extract_mode({"mode": "Quick"}) == "quick"
+
+    def test_list_wrapped_value(self):
+        """parse_qs typically wraps values in a list."""
+        assert _extract_mode({"mode": ["debate"]}) == "debate"
+
+    def test_empty_list_defaults_to_quick(self):
+        assert _extract_mode({"mode": []}) == "quick"
+
+    def test_invalid_mode_raises(self):
+        with pytest.raises(ValueError, match="Invalid mode 'bogus'"):
+            _extract_mode({"mode": "bogus"})
+
+    def test_valid_modes_constant(self):
+        assert "quick" in VALID_MODES
+        assert "debate" in VALID_MODES
+        assert "heuristic" in VALID_MODES
+
+
+class TestIdeasToGoalsModeParam:
+    """Test the mode parameter on ideas-to-goals transitions."""
+
+    def test_heuristic_mode_skips_meta_planner(self):
+        """mode=heuristic should always use keyword_clustering, never MetaPlanner."""
+        ideas = [
+            {"id": "idea-1", "label": "Improve onboarding"},
+            {"id": "idea-2", "label": "Improve dashboard"},
+        ]
+        result = _ideas_to_goals_logic(ideas, mode="heuristic")
+        assert result.provenance["method"] == "keyword_clustering"
+        assert result.provenance["mode"] == "heuristic"
+
+    def test_quick_mode_is_default(self):
+        """Calling without mode should behave like quick (backward compat)."""
+        ideas = [{"id": "idea-1", "label": "Ship feature"}]
+        result = _ideas_to_goals_logic(ideas)
+        # Should use either meta_planner (quick) or keyword_clustering fallback
+        assert result.provenance["method"] in ("meta_planner", "keyword_clustering")
+        assert result.provenance["mode"] == "quick"
+
+    def test_quick_mode_sets_quick_flag_on_planner(self):
+        """mode=quick should instantiate MetaPlanner with quick_mode=True."""
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner"
+        ) as MockPlanner:
+            # Make MetaPlanner instantiation raise so we can inspect the config
+            MockPlanner.side_effect = RuntimeError("test intercept")
+            ideas = [{"id": "idea-1", "label": "Test"}]
+            result = _ideas_to_goals_logic(ideas, mode="quick")
+            # Should have fallen back to heuristic
+            assert result.provenance["method"] == "keyword_clustering"
+            # MetaPlanner was called with quick_mode=True
+            if MockPlanner.called:
+                config_arg = MockPlanner.call_args[0][0]
+                assert config_arg.quick_mode is True
+
+    def test_debate_mode_sets_quick_flag_false(self):
+        """mode=debate should instantiate MetaPlanner with quick_mode=False."""
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner"
+        ) as MockPlanner:
+            MockPlanner.side_effect = RuntimeError("test intercept")
+            ideas = [{"id": "idea-1", "label": "Test"}]
+            result = _ideas_to_goals_logic(ideas, mode="debate")
+            assert result.provenance["method"] == "keyword_clustering"
+            if MockPlanner.called:
+                config_arg = MockPlanner.call_args[0][0]
+                assert config_arg.quick_mode is False
+
+    def test_heuristic_mode_provenance_includes_mode_key(self):
+        ideas = [{"id": "idea-1", "label": "Feature X"}]
+        result = _ideas_to_goals_logic(ideas, mode="heuristic")
+        assert "mode" in result.provenance
+        assert result.provenance["mode"] == "heuristic"
+
+    def test_handler_passes_mode_query_param(self):
+        """The handler should forward ?mode= to the logic function."""
+        h = PipelineTransitionsHandler(ctx=_make_handler_ctx())
+        body = {"ideas": [{"id": "i1", "label": "idea one"}]}
+        http_handler = _make_http_handler(body)
+        resp = h.handle_post(
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            {"mode": "heuristic"},
+            http_handler,
+        )
+        assert resp is not None
+        data, status, _ = resp
+        assert data["provenance"]["method"] == "keyword_clustering"
+        assert data["provenance"]["mode"] == "heuristic"
+
+    def test_handler_rejects_invalid_mode(self):
+        h = PipelineTransitionsHandler(ctx=_make_handler_ctx())
+        body = {"ideas": [{"id": "i1", "label": "idea one"}]}
+        http_handler = _make_http_handler(body)
+        resp = h.handle_post(
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            {"mode": "invalid_mode"},
+            http_handler,
+        )
+        assert resp is not None
+        _, status, _ = resp
+        assert status == 400
+
+
+class TestGoalsToTasksModeParam:
+    """Test the mode parameter on goals-to-tasks transitions."""
+
+    def test_heuristic_mode_skips_task_decomposer(self):
+        """mode=heuristic should always use heuristic_decomposition."""
+        goals = [
+            {
+                "id": "goal-1",
+                "label": "Ship MVP",
+                "metadata": {"key_results": ["Build API", "Write tests"]},
+            }
+        ]
+        result = _goals_to_tasks_logic(goals, mode="heuristic")
+        assert result.provenance["method"] == "heuristic_decomposition"
+        assert result.provenance["mode"] == "heuristic"
+
+    def test_quick_mode_uses_analyze(self):
+        """mode=quick should call TaskDecomposer.analyze (not analyze_with_debate)."""
+        from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
+
+        mock_decomposition = TaskDecomposition(
+            original_task="Ship MVP",
+            complexity_score=6,
+            complexity_level="medium",
+            should_decompose=True,
+            subtasks=[
+                SubTask(id="sub-1", title="Build API", description="REST API"),
+            ],
+        )
+
+        with patch(
+            "aragora.nomic.task_decomposer.TaskDecomposer.analyze",
+            return_value=mock_decomposition,
+        ) as mock_analyze:
+            goals = [{"id": "goal-1", "label": "Ship MVP", "metadata": {}}]
+            result = _goals_to_tasks_logic(goals, mode="quick")
+            assert result.provenance["method"] == "task_decomposer"
+            assert result.provenance["mode"] == "quick"
+            mock_analyze.assert_called_once()
+
+    def test_debate_mode_uses_analyze_with_debate(self):
+        """mode=debate should call TaskDecomposer.analyze_with_debate."""
+        from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
+
+        mock_decomposition = TaskDecomposition(
+            original_task="Ship MVP",
+            complexity_score=8,
+            complexity_level="high",
+            should_decompose=True,
+            subtasks=[
+                SubTask(id="sub-1", title="Build API", description="REST API"),
+            ],
+        )
+
+        with patch(
+            "aragora.nomic.task_decomposer.TaskDecomposer.analyze_with_debate",
+            return_value=mock_decomposition,
+        ) as mock_debate:
+            goals = [{"id": "goal-1", "label": "Ship MVP", "metadata": {}}]
+            result = _goals_to_tasks_logic(goals, mode="debate")
+            assert result.provenance["method"] == "task_decomposer_debate"
+            assert result.provenance["mode"] == "debate"
+            mock_debate.assert_called_once()
+
+    def test_handler_passes_mode_query_param(self):
+        """The handler should forward ?mode= to the goals-to-tasks logic."""
+        h = PipelineTransitionsHandler(ctx=_make_handler_ctx())
+        body = {
+            "goals": [
+                {"id": "g1", "label": "Goal", "metadata": {"key_results": ["kr1"]}}
+            ]
+        }
+        http_handler = _make_http_handler(body)
+        resp = h.handle_post(
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            {"mode": "heuristic"},
+            http_handler,
+        )
+        assert resp is not None
+        data, status, _ = resp
+        assert data["provenance"]["method"] == "heuristic_decomposition"
+        assert data["provenance"]["mode"] == "heuristic"
+
+    def test_handler_rejects_invalid_mode(self):
+        h = PipelineTransitionsHandler(ctx=_make_handler_ctx())
+        body = {"goals": [{"id": "g1", "label": "Goal", "metadata": {}}]}
+        http_handler = _make_http_handler(body)
+        resp = h.handle_post(
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            {"mode": "nonsense"},
+            http_handler,
+        )
+        assert resp is not None
+        _, status, _ = resp
+        assert status == 400
+
+    def test_default_mode_is_backward_compatible(self):
+        """Omitting mode should behave identically to the old code."""
+        goals = [
+            {
+                "id": "goal-1",
+                "label": "Ship MVP",
+                "metadata": {"key_results": ["Build API"]},
+            }
+        ]
+        result = _goals_to_tasks_logic(goals)
+        assert result.provenance["method"] in (
+            "task_decomposer",
+            "heuristic_decomposition",
+        )
+        assert result.provenance["mode"] == "quick"

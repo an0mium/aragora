@@ -265,6 +265,15 @@ from aragora.nomic.self_improve import (
     SelfImproveResult,
 )
 
+# Code review agent
+from aragora.nomic.code_reviewer import (
+    CodeReviewerAgent,
+    IssueSeverity,
+    ReviewConfig,
+    ReviewIssue,
+    ReviewResult,
+)
+
 # Cross-agent learning bus
 from aragora.nomic.learning_bus import (
     Finding,
@@ -691,6 +700,12 @@ __all__ = [
     "ExecutionBridge",
     "ExecutionInstruction",
     "ExecutionResult",
+    # Code Reviewer
+    "CodeReviewerAgent",
+    "ReviewConfig",
+    "ReviewResult",
+    "ReviewIssue",
+    "IssueSeverity",
     # Learning Bus
     "Finding",
     "LearningBus",

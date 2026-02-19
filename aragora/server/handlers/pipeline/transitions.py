@@ -37,6 +37,27 @@ logger = logging.getLogger(__name__)
 
 _transition_limiter = RateLimiter(requests_per_minute=30)
 
+# Valid mode values for transition endpoints
+VALID_MODES = ("quick", "debate", "heuristic")
+
+
+def _extract_mode(query_params: dict[str, Any]) -> str:
+    """Extract and validate the ``mode`` query parameter.
+
+    Returns ``"quick"`` when the parameter is absent or empty (backward-compat).
+    Raises ``ValueError`` for unrecognised values.
+    """
+    raw = query_params.get("mode", "quick")
+    # query_params may wrap values in a list (e.g. from urllib.parse.parse_qs)
+    if isinstance(raw, list):
+        raw = raw[0] if raw else "quick"
+    mode = str(raw).lower().strip()
+    if mode not in VALID_MODES:
+        raise ValueError(
+            f"Invalid mode '{mode}'. Must be one of: {', '.join(VALID_MODES)}"
+        )
+    return mode
+
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
@@ -131,12 +152,22 @@ def _cluster_ideas(ideas: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
 
 
 def _ideas_to_goals_logic(
-    ideas: list[dict[str, Any]], context: str | None = None,
+    ideas: list[dict[str, Any]],
+    context: str | None = None,
+    mode: str = "quick",
 ) -> TransitionResult:
     """Cluster ideas by topic similarity and extract goals.
 
+    Args:
+        ideas: List of idea dicts with at least ``label`` or ``text``.
+        context: Optional freeform context string.
+        mode: Transition mode -- ``"quick"`` (default, MetaPlanner heuristic),
+              ``"debate"`` (full debate via MetaPlanner), or ``"heuristic"``
+              (pure keyword clustering, no LLM).
+
     Tries LLM-powered goal derivation via MetaPlanner first, falling back
-    to keyword-overlap clustering when MetaPlanner is unavailable.
+    to keyword-overlap clustering when MetaPlanner is unavailable or when
+    ``mode="heuristic"``.
     """
     # ── Build idea nodes (shared by both LLM and heuristic paths) ──────
     idea_nodes: list[PipelineNode] = []
@@ -154,71 +185,74 @@ def _ideas_to_goals_logic(
         _node_store[idea_id] = asdict(idea_node)
 
     # ── Try LLM-powered goal derivation via MetaPlanner ────────────────
-    try:
-        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
-        import asyncio
-
-        planner = MetaPlanner(MetaPlannerConfig(
-            quick_mode=True,
-            use_business_context=True,
-            max_goals=max(3, len(ideas) // 2),
-        ))
-
-        idea_summaries = [
-            idea.get("label", idea.get("content", idea.get("text", "")))
-            for idea in ideas
-        ]
-        objective = (
-            f"Derive actionable goals from these ideas: "
-            f"{'; '.join(idea_summaries[:10])}"
-        )
-
-        loop = asyncio.new_event_loop()
+    if mode != "heuristic":
         try:
-            prioritized_goals = loop.run_until_complete(
-                planner.prioritize_work(objective=objective)
-            )
-        finally:
-            loop.close()
+            from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
+            import asyncio
 
-        if prioritized_goals:
-            result_nodes: list[PipelineNode] = list(idea_nodes)
-            result_edges: list[PipelineEdge] = []
-            for pg in prioritized_goals:
-                goal_node = PipelineNode(
-                    id=f"goal-{pg.id}" if not pg.id.startswith("goal-") else pg.id,
-                    stage="goal",
-                    label=pg.description,
-                    metadata={
-                        "objective": pg.description,
-                        "key_results": pg.focus_areas,
-                        "priority": pg.priority,
-                        "rationale": pg.rationale,
-                        "estimated_impact": pg.estimated_impact,
-                        "context": context or "",
-                    },
-                    derived_from=idea_node_ids,
+            planner = MetaPlanner(MetaPlannerConfig(
+                quick_mode=(mode == "quick"),
+                use_business_context=True,
+                max_goals=max(3, len(ideas) // 2),
+            ))
+
+            idea_summaries = [
+                idea.get("label", idea.get("content", idea.get("text", "")))
+                for idea in ideas
+            ]
+            objective = (
+                f"Derive actionable goals from these ideas: "
+                f"{'; '.join(idea_summaries[:10])}"
+            )
+
+            loop = asyncio.new_event_loop()
+            try:
+                prioritized_goals = loop.run_until_complete(
+                    planner.prioritize_work(objective=objective)
                 )
-                result_nodes.append(goal_node)
-                _node_store[goal_node.id] = asdict(goal_node)
-                for idea_n in idea_nodes:
-                    result_edges.append(PipelineEdge(
-                        source=idea_n.id, target=goal_node.id, edge_type="derives",
-                    ))
+            finally:
+                loop.close()
 
-            goal_nodes = [n for n in result_nodes if n.stage == "goal"]
-            return TransitionResult(
-                nodes=result_nodes,
-                edges=result_edges,
-                provenance={
-                    "method": "meta_planner",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "source_count": len(ideas),
-                    "output_count": len(goal_nodes),
-                },
-            )
-    except (ImportError, RuntimeError, Exception) as e:
-        logger.debug("MetaPlanner unavailable, using heuristic: %s", e)
+            if prioritized_goals:
+                result_nodes: list[PipelineNode] = list(idea_nodes)
+                result_edges: list[PipelineEdge] = []
+                for pg in prioritized_goals:
+                    goal_node = PipelineNode(
+                        id=f"goal-{pg.id}" if not pg.id.startswith("goal-") else pg.id,
+                        stage="goal",
+                        label=pg.description,
+                        metadata={
+                            "objective": pg.description,
+                            "key_results": pg.focus_areas,
+                            "priority": pg.priority,
+                            "rationale": pg.rationale,
+                            "estimated_impact": pg.estimated_impact,
+                            "context": context or "",
+                        },
+                        derived_from=idea_node_ids,
+                    )
+                    result_nodes.append(goal_node)
+                    _node_store[goal_node.id] = asdict(goal_node)
+                    for idea_n in idea_nodes:
+                        result_edges.append(PipelineEdge(
+                            source=idea_n.id, target=goal_node.id, edge_type="derives",
+                        ))
+
+                goal_nodes = [n for n in result_nodes if n.stage == "goal"]
+                provenance_method = "meta_planner" if mode == "quick" else "meta_planner_debate"
+                return TransitionResult(
+                    nodes=result_nodes,
+                    edges=result_edges,
+                    provenance={
+                        "method": provenance_method,
+                        "mode": mode,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "source_count": len(ideas),
+                        "output_count": len(goal_nodes),
+                    },
+                )
+        except (ImportError, RuntimeError, Exception) as e:
+            logger.debug("MetaPlanner unavailable, using heuristic: %s", e)
 
     # ── Heuristic fallback: keyword-overlap clustering ─────────────────
     clusters = _cluster_ideas(ideas)
@@ -258,6 +292,7 @@ def _ideas_to_goals_logic(
         edges=edges,
         provenance={
             "method": "keyword_clustering",
+            "mode": mode,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source_count": len(ideas),
             "output_count": len(clusters),
@@ -268,11 +303,20 @@ def _ideas_to_goals_logic(
 def _goals_to_tasks_logic(
     goals: list[dict[str, Any]],
     max_tasks: int | None = None,
+    mode: str = "quick",
 ) -> TransitionResult:
     """Decompose goals into actionable tasks.
 
+    Args:
+        goals: List of goal dicts with at least ``label``.
+        max_tasks: Optional cap on total tasks generated.
+        mode: Transition mode -- ``"quick"`` (default, heuristic TaskDecomposer),
+              ``"debate"`` (debate-based decomposition), or ``"heuristic"``
+              (pure key-result splitting, no LLM).
+
     Tries LLM-powered decomposition via TaskDecomposer first, falling back
-    to heuristic key-result splitting when TaskDecomposer is unavailable.
+    to heuristic key-result splitting when TaskDecomposer is unavailable or
+    when ``mode="heuristic"``.
     """
     # Ensure all goals are stored
     for goal in goals:
@@ -287,78 +331,96 @@ def _goals_to_tasks_logic(
             _node_store[goal_id] = asdict(goal_node)
 
     # ── Try LLM-powered decomposition via TaskDecomposer ───────────────
-    try:
-        from aragora.nomic.task_decomposer import TaskDecomposer, DecomposerConfig
+    if mode != "heuristic":
+        try:
+            from aragora.nomic.task_decomposer import TaskDecomposer, DecomposerConfig
+            import asyncio
 
-        decomposer = TaskDecomposer(DecomposerConfig(max_depth=1))
+            decomposer = TaskDecomposer(DecomposerConfig(max_depth=1))
 
-        all_nodes: list[PipelineNode] = []
-        all_edges: list[PipelineEdge] = []
-        task_count = 0
+            all_nodes: list[PipelineNode] = []
+            all_edges: list[PipelineEdge] = []
+            task_count = 0
 
-        for goal in goals:
-            goal_id = goal.get("id") or f"goal-{uuid.uuid4().hex[:8]}"
-            goal_text = goal.get("label", goal.get("content", ""))
-            decomposition = decomposer.analyze(goal_text)
+            for goal in goals:
+                goal_id = goal.get("id") or f"goal-{uuid.uuid4().hex[:8]}"
+                goal_text = goal.get("label", goal.get("content", ""))
 
-            for idx, subtask in enumerate(decomposition.subtasks):
+                if mode == "debate":
+                    # Full debate-based decomposition (async)
+                    loop = asyncio.new_event_loop()
+                    try:
+                        decomposition = loop.run_until_complete(
+                            decomposer.analyze_with_debate(goal_text)
+                        )
+                    finally:
+                        loop.close()
+                else:
+                    # quick mode: heuristic-based analysis
+                    decomposition = decomposer.analyze(goal_text)
+
+                for idx, subtask in enumerate(decomposition.subtasks):
+                    if max_tasks and task_count >= max_tasks:
+                        break
+                    task_id = f"task-{subtask.id}" if not subtask.id.startswith("task-") else subtask.id
+                    assignee_type = _ASSIGNEE_TYPES[idx % len(_ASSIGNEE_TYPES)]
+
+                    task_node = PipelineNode(
+                        id=task_id,
+                        stage="action",
+                        label=subtask.title,
+                        metadata={
+                            "assignee_type": assignee_type,
+                            "priority": "high" if idx == 0 else "medium",
+                            "estimated_effort": subtask.estimated_complexity,
+                            "source_goal_id": goal_id,
+                            "description": subtask.description,
+                            "file_scope": subtask.file_scope,
+                        },
+                        derived_from=[goal_id],
+                    )
+                    all_nodes.append(task_node)
+                    _node_store[task_id] = asdict(task_node)
+                    all_edges.append(PipelineEdge(
+                        source=goal_id, target=task_id, edge_type="decomposes",
+                    ))
+                    task_count += 1
+
                 if max_tasks and task_count >= max_tasks:
                     break
-                task_id = f"task-{subtask.id}" if not subtask.id.startswith("task-") else subtask.id
-                assignee_type = _ASSIGNEE_TYPES[idx % len(_ASSIGNEE_TYPES)]
 
-                task_node = PipelineNode(
-                    id=task_id,
-                    stage="action",
-                    label=subtask.title,
-                    metadata={
-                        "assignee_type": assignee_type,
-                        "priority": "high" if idx == 0 else "medium",
-                        "estimated_effort": subtask.estimated_complexity,
-                        "source_goal_id": goal_id,
-                        "description": subtask.description,
-                        "file_scope": subtask.file_scope,
-                    },
-                    derived_from=[goal_id],
-                )
-                all_nodes.append(task_node)
-                _node_store[task_id] = asdict(task_node)
-                all_edges.append(PipelineEdge(
-                    source=goal_id, target=task_id, edge_type="decomposes",
-                ))
-                task_count += 1
-
-            if max_tasks and task_count >= max_tasks:
-                break
-
-        if all_nodes:
-            # Add dependency edges between sequential tasks of the same goal
-            goal_tasks: dict[str, list[str]] = {}
-            for node in all_nodes:
-                gid = node.metadata.get("source_goal_id", "")
-                if gid:
-                    goal_tasks.setdefault(gid, []).append(node.id)
-            for task_ids in goal_tasks.values():
-                for i in range(len(task_ids) - 1):
-                    all_edges.append(
-                        PipelineEdge(
-                            source=task_ids[i], target=task_ids[i + 1],
-                            edge_type="depends_on",
+            if all_nodes:
+                # Add dependency edges between sequential tasks of the same goal
+                goal_tasks: dict[str, list[str]] = {}
+                for node in all_nodes:
+                    gid = node.metadata.get("source_goal_id", "")
+                    if gid:
+                        goal_tasks.setdefault(gid, []).append(node.id)
+                for task_ids in goal_tasks.values():
+                    for i in range(len(task_ids) - 1):
+                        all_edges.append(
+                            PipelineEdge(
+                                source=task_ids[i], target=task_ids[i + 1],
+                                edge_type="depends_on",
+                            )
                         )
-                    )
 
-            return TransitionResult(
-                nodes=all_nodes,
-                edges=all_edges,
-                provenance={
-                    "method": "task_decomposer",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "source_count": len(goals),
-                    "output_count": len(all_nodes),
-                },
-            )
-    except (ImportError, RuntimeError, Exception) as e:
-        logger.debug("TaskDecomposer unavailable, using heuristic: %s", e)
+                provenance_method = (
+                    "task_decomposer_debate" if mode == "debate" else "task_decomposer"
+                )
+                return TransitionResult(
+                    nodes=all_nodes,
+                    edges=all_edges,
+                    provenance={
+                        "method": provenance_method,
+                        "mode": mode,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "source_count": len(goals),
+                        "output_count": len(all_nodes),
+                    },
+                )
+        except (ImportError, RuntimeError, Exception) as e:
+            logger.debug("TaskDecomposer unavailable, using heuristic: %s", e)
 
     # ── Heuristic fallback: key-result splitting ───────────────────────
     nodes: list[PipelineNode] = []
@@ -416,6 +478,7 @@ def _goals_to_tasks_logic(
         edges=edges,
         provenance={
             "method": "heuristic_decomposition",
+            "mode": mode,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source_count": len(goals),
             "output_count": len(nodes),
@@ -674,9 +737,9 @@ class PipelineTransitionsHandler(SecureHandler):
             return error_response("Invalid JSON body", 400)
 
         if cleaned == "/api/pipeline/transitions/ideas-to-goals":
-            return self._ideas_to_goals(body)
+            return self._ideas_to_goals(body, query_params)
         if cleaned == "/api/pipeline/transitions/goals-to-tasks":
-            return self._goals_to_tasks(body)
+            return self._goals_to_tasks(body, query_params)
         if cleaned == "/api/pipeline/transitions/tasks-to-workflow":
             return self._tasks_to_workflow(body)
         if cleaned == "/api/pipeline/transitions/execute":
@@ -686,23 +749,37 @@ class PipelineTransitionsHandler(SecureHandler):
 
     # ── Endpoint implementations ────────────────────────────────────────
 
-    def _ideas_to_goals(self, body: dict[str, Any]) -> HandlerResult:
+    def _ideas_to_goals(
+        self, body: dict[str, Any], query_params: dict[str, Any] | None = None,
+    ) -> HandlerResult:
         ideas = body.get("ideas")
         if not ideas or not isinstance(ideas, list):
             return error_response("'ideas' must be a non-empty list", 400)
 
+        try:
+            mode = _extract_mode(query_params or {})
+        except ValueError as exc:
+            return error_response(str(exc), 400)
+
         context = body.get("context")
-        result = _ideas_to_goals_logic(ideas, context)
+        result = _ideas_to_goals_logic(ideas, context, mode=mode)
         return json_response(self._serialize_result(result))
 
-    def _goals_to_tasks(self, body: dict[str, Any]) -> HandlerResult:
+    def _goals_to_tasks(
+        self, body: dict[str, Any], query_params: dict[str, Any] | None = None,
+    ) -> HandlerResult:
         goals = body.get("goals")
         if not goals or not isinstance(goals, list):
             return error_response("'goals' must be a non-empty list", 400)
 
+        try:
+            mode = _extract_mode(query_params or {})
+        except ValueError as exc:
+            return error_response(str(exc), 400)
+
         constraints = body.get("constraints") or {}
         max_tasks = constraints.get("max_tasks")
-        result = _goals_to_tasks_logic(goals, max_tasks)
+        result = _goals_to_tasks_logic(goals, max_tasks, mode=mode)
         return json_response(self._serialize_result(result))
 
     def _tasks_to_workflow(self, body: dict[str, Any]) -> HandlerResult:
