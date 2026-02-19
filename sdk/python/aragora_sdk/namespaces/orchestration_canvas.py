@@ -79,9 +79,7 @@ class OrchestrationCanvasAPI:
             body["description"] = description
         if metadata is not None:
             body["metadata"] = metadata
-        return self._client._request(
-            "PUT", f"/api/v1/orchestration/canvas/{canvas_id}", json=body
-        )
+        return self._client._request("PUT", f"/api/v1/orchestration/canvas/{canvas_id}", json=body)
 
     def delete_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Delete a canvas and all its nodes and edges."""
@@ -173,13 +171,9 @@ class OrchestrationCanvasAPI:
 
     def export_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Export a canvas as React Flow JSON."""
-        return self._client._request(
-            "GET", f"/api/v1/orchestration/canvas/{canvas_id}/export"
-        )
+        return self._client._request("GET", f"/api/v1/orchestration/canvas/{canvas_id}/export")
 
-    def execute_pipeline(
-        self, canvas_id: str
-    ) -> dict[str, Any]:
+    def execute_pipeline(self, canvas_id: str) -> dict[str, Any]:
         """Execute the orchestration pipeline defined by this canvas."""
         return self._client._request(
             "POST",
@@ -348,9 +342,7 @@ class AsyncOrchestrationCanvasAPI:
             "GET", f"/api/v1/orchestration/canvas/{canvas_id}/export"
         )
 
-    async def execute_pipeline(
-        self, canvas_id: str
-    ) -> dict[str, Any]:
+    async def execute_pipeline(self, canvas_id: str) -> dict[str, Any]:
         """Execute the orchestration pipeline defined by this canvas."""
         return await self._client._request(
             "POST",

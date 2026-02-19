@@ -109,9 +109,15 @@ class AragoraClient:
         return cls(
             base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
             api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
-            timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
-            max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
-            retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+            timeout=timeout
+            if timeout is not None
+            else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
+            max_retries=max_retries
+            if max_retries is not None
+            else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
+            retry_delay=retry_delay
+            if retry_delay is not None
+            else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
             demo=demo,
         )
 
@@ -119,10 +125,21 @@ class AragoraClient:
     def namespaces(self) -> list[str]:
         """List available API namespace names."""
         return sorted(
-            name for name in dir(self)
+            name
+            for name in dir(self)
             if not name.startswith("_")
-            and name not in ("base_url", "api_key", "timeout", "max_retries", "retry_delay",
-                             "demo", "close", "request", "namespaces")
+            and name
+            not in (
+                "base_url",
+                "api_key",
+                "timeout",
+                "max_retries",
+                "retry_delay",
+                "demo",
+                "close",
+                "request",
+                "namespaces",
+            )
             and hasattr(getattr(self, name, None), "_client")
         )
 
@@ -141,6 +158,7 @@ class AragoraClient:
         """Initialize namespace API objects."""
         from .namespaces.a2a import A2AAPI
         from .namespaces.accounting import AccountingAPI
+        from .namespaces.actions import ActionsAPI
         from .namespaces.admin import AdminAPI
         from .namespaces.advertising import AdvertisingAPI
         from .namespaces.agent_selection import AgentSelectionAPI
@@ -226,6 +244,7 @@ class AragoraClient:
         from .namespaces.openapi import OpenApiAPI
         from .namespaces.openclaw import OpenclawAPI
         from .namespaces.orchestration import OrchestrationAPI
+        from .namespaces.orchestration_canvas import OrchestrationCanvasAPI
         from .namespaces.organizations import OrganizationsAPI
         from .namespaces.outlook import OutlookAPI
         from .namespaces.partner import PartnerAPI
@@ -278,6 +297,7 @@ class AragoraClient:
 
         self.a2a = A2AAPI(self)
         self.accounting = AccountingAPI(self)
+        self.actions = ActionsAPI(self)
         self.admin = AdminAPI(self)
         self.advertising = AdvertisingAPI(self)
         self.agent_selection = AgentSelectionAPI(self)
@@ -364,6 +384,7 @@ class AragoraClient:
         self.openclaw = OpenclawAPI(self)
         self.openapi = OpenApiAPI(self)
         self.orchestration = OrchestrationAPI(self)
+        self.orchestration_canvas = OrchestrationCanvasAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
         self.outlook = OutlookAPI(self)
@@ -670,9 +691,15 @@ class AragoraAsyncClient:
             base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
             api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
             ws_url=ws_url or os.environ.get("ARAGORA_WS_URL"),
-            timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
-            max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
-            retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+            timeout=timeout
+            if timeout is not None
+            else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
+            max_retries=max_retries
+            if max_retries is not None
+            else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
+            retry_delay=retry_delay
+            if retry_delay is not None
+            else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
             demo=demo,
         )
 
@@ -691,6 +718,7 @@ class AragoraAsyncClient:
         """Initialize namespace API objects."""
         from .namespaces.a2a import AsyncA2AAPI
         from .namespaces.accounting import AsyncAccountingAPI
+        from .namespaces.actions import AsyncActionsAPI
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.advertising import AsyncAdvertisingAPI
         from .namespaces.agent_selection import AsyncAgentSelectionAPI
@@ -776,6 +804,7 @@ class AragoraAsyncClient:
         from .namespaces.openapi import AsyncOpenApiAPI
         from .namespaces.openclaw import AsyncOpenclawAPI
         from .namespaces.orchestration import AsyncOrchestrationAPI
+        from .namespaces.orchestration_canvas import AsyncOrchestrationCanvasAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
         from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.partner import AsyncPartnerAPI
@@ -828,6 +857,7 @@ class AragoraAsyncClient:
 
         self.a2a = AsyncA2AAPI(self)
         self.accounting = AsyncAccountingAPI(self)
+        self.actions = AsyncActionsAPI(self)
         self.admin = AsyncAdminAPI(self)
         self.advertising = AsyncAdvertisingAPI(self)
         self.agent_selection = AsyncAgentSelectionAPI(self)
@@ -914,6 +944,7 @@ class AragoraAsyncClient:
         self.openclaw = AsyncOpenclawAPI(self)
         self.openapi = AsyncOpenApiAPI(self)
         self.orchestration = AsyncOrchestrationAPI(self)
+        self.orchestration_canvas = AsyncOrchestrationCanvasAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
         self.outlook = AsyncOutlookAPI(self)

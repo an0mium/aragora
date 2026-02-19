@@ -6,6 +6,7 @@ Provides namespaced access to Aragora API endpoints.
 
 from .a2a import A2AAPI, AsyncA2AAPI
 from .accounting import AccountingAPI, AsyncAccountingAPI
+from .actions import ActionsAPI, AsyncActionsAPI
 from .admin import AdminAPI, AsyncAdminAPI
 from .advertising import AdvertisingAPI, AsyncAdvertisingAPI
 from .agent_selection import AgentSelectionAPI, AsyncAgentSelectionAPI
@@ -92,6 +93,7 @@ from .oauth_wizard import AsyncOAuthWizardAPI, OAuthWizardAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .openapi import AsyncOpenApiAPI, OpenApiAPI
 from .openclaw import AsyncOpenclawAPI, OpenclawAPI
+from .orchestration_canvas import AsyncOrchestrationCanvasAPI, OrchestrationCanvasAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
@@ -149,6 +151,8 @@ __all__ = [
     "AsyncA2AAPI",
     "AccountingAPI",
     "AsyncAccountingAPI",
+    "ActionsAPI",
+    "AsyncActionsAPI",
     "AdvertisingAPI",
     "AsyncAdvertisingAPI",
     "AdminAPI",
@@ -323,6 +327,8 @@ __all__ = [
     "AsyncOpenclawAPI",
     "OrganizationsAPI",
     "AsyncOrganizationsAPI",
+    "OrchestrationCanvasAPI",
+    "AsyncOrchestrationCanvasAPI",
     "OutlookAPI",
     "AsyncOutlookAPI",
     "PaymentsAPI",
