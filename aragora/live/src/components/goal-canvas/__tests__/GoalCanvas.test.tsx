@@ -5,7 +5,7 @@
  * Follows the mock pattern from PipelineCanvas.interactive.test.tsx.
  */
 
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type { GoalNodeData, GoalNodeType, GoalPriority } from '../types';
 import { GOAL_NODE_CONFIGS, PRIORITY_COLORS } from '../types';
 
@@ -14,12 +14,12 @@ import { GOAL_NODE_CONFIGS, PRIORITY_COLORS } from '../types';
 // ---------------------------------------------------------------------------
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ children, onNodeClick, onPaneClick, ...props }: any) => (
+  ReactFlow: ({ children, onNodeClick, onPaneClick, ...props }: Record<string, unknown> & { children?: React.ReactNode; onNodeClick?: (e: React.MouseEvent, node: Record<string, unknown>) => void; onPaneClick?: () => void; nodes?: Array<Record<string, unknown>> }) => (
     <div data-testid="react-flow">
       {children}
-      {props.nodes?.map((n: any) => (
-        <div key={n.id} data-testid={`node-${n.id}`} onClick={(e) => onNodeClick?.(e, n)}>
-          {n.data?.label}
+      {props.nodes?.map((n: Record<string, unknown>) => (
+        <div key={n.id as string} data-testid={`node-${n.id}`} onClick={(e) => onNodeClick?.(e, n)}>
+          {(n.data as Record<string, unknown>)?.label as string}
         </div>
       ))}
       <div data-testid="pane" onClick={() => onPaneClick?.()} />
@@ -28,15 +28,15 @@ jest.mock('@xyflow/react', () => ({
   Controls: () => <div data-testid="controls" />,
   Background: () => <div data-testid="background" />,
   MiniMap: () => <div data-testid="minimap" />,
-  Handle: ({ type, position }: any) => (
+  Handle: ({ type, position }: { type: string; position: string }) => (
     <div data-testid={`handle-${type}`} data-position={position} />
   ),
   Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
-  useNodesState: (initial: any[]) => {
+  useNodesState: (initial: unknown[]) => {
     const [nodes, setNodes] = require('react').useState(initial);
     return [nodes, setNodes, jest.fn()];
   },
-  useEdgesState: (initial: any[]) => {
+  useEdgesState: (initial: unknown[]) => {
     const [edges, setEdges] = require('react').useState(initial);
     return [edges, setEdges, jest.fn()];
   },
@@ -44,7 +44,7 @@ jest.mock('@xyflow/react', () => ({
     fitView: jest.fn(),
     screenToFlowPosition: ({ x, y }: { x: number; y: number }) => ({ x, y }),
   }),
-  addEdge: jest.fn((connection: any, edges: any[]) => [
+  addEdge: jest.fn((connection: Record<string, unknown>, edges: unknown[]) => [
     ...edges,
     { id: 'new-edge', ...connection },
   ]),
@@ -91,8 +91,8 @@ function makeGoalNodeData(overrides: Partial<GoalNodeData> = {}): GoalNodeData {
 
 function makeMockCanvas(overrides: Record<string, unknown> = {}) {
   return {
-    nodes: [] as any[],
-    edges: [] as any[],
+    nodes: [] as unknown[],
+    edges: [] as unknown[],
     onNodesChange: jest.fn(),
     onEdgesChange: jest.fn(),
     onConnect: jest.fn(),
@@ -109,7 +109,7 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     onlineUsers: [],
     sendCursorMove: jest.fn(),
     ...overrides,
-  } as any;
+  } as ReturnType<typeof useGoalCanvas>;
 }
 
 /**

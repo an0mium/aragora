@@ -4,7 +4,7 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PipelinePropertyEditor } from '../editors/PipelinePropertyEditor';
-import type { PipelineStageType } from '../types';
+import type { PipelineStageType, ProvenanceLink, StageTransition } from '../types';
 
 describe('PipelinePropertyEditor', () => {
   const baseProps = {
@@ -295,5 +295,183 @@ describe('PipelinePropertyEditor', () => {
     expect(screen.getByText('insight')).toBeInTheDocument();
     expect(screen.getByText('Locked content')).toBeInTheDocument();
     expect(screen.getByText('gemini')).toBeInTheDocument();
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  9. Tab switching between Properties and Provenance                      */
+  /* ---------------------------------------------------------------------- */
+
+  it('shows Properties and Provenance tabs when node is present', () => {
+    const node: Record<string, unknown> = {
+      label: 'Test Node',
+      ideaType: 'concept',
+    };
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'ideas' as PipelineStageType}
+      />,
+    );
+
+    expect(screen.getByTestId('tab-properties')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-provenance')).toBeInTheDocument();
+  });
+
+  it('defaults to Properties tab', () => {
+    const node: Record<string, unknown> = {
+      label: 'Test Node',
+      ideaType: 'concept',
+    };
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'ideas' as PipelineStageType}
+      />,
+    );
+
+    // Properties tab should be active (has border class)
+    const propsTab = screen.getByTestId('tab-properties');
+    expect(propsTab.className).toContain('bg-bg');
+
+    // Should show label input (properties content)
+    expect(screen.getByDisplayValue('Test Node')).toBeInTheDocument();
+  });
+
+  it('switches to Provenance tab on click', () => {
+    const node: Record<string, unknown> = {
+      label: 'Test Node',
+      ideaType: 'concept',
+    };
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'ideas' as PipelineStageType}
+      />,
+    );
+
+    const provTab = screen.getByTestId('tab-provenance');
+    fireEvent.click(provTab);
+
+    // Should show provenance content
+    expect(screen.getByText('No provenance data for this node.')).toBeInTheDocument();
+  });
+
+  /* ---------------------------------------------------------------------- */
+  /*  10. Provenance tab with data                                           */
+  /* ---------------------------------------------------------------------- */
+
+  it('shows provenance links in the Provenance tab', () => {
+    const node: Record<string, unknown> = {
+      label: 'Goal Node',
+      goalType: 'goal',
+    };
+
+    const links: ProvenanceLink[] = [
+      {
+        source_node_id: 'idea-1',
+        source_stage: 'ideas' as PipelineStageType,
+        target_node_id: 'goal-1',
+        target_stage: 'goals' as PipelineStageType,
+        content_hash: 'abc123def456',
+        timestamp: 1700000000,
+        method: 'ai_synthesis',
+      },
+    ];
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'goals' as PipelineStageType}
+        provenanceLinks={links}
+      />,
+    );
+
+    // Switch to provenance tab
+    fireEvent.click(screen.getByTestId('tab-provenance'));
+
+    // Should show provenance data
+    expect(screen.getByTestId('provenance-tab')).toBeInTheDocument();
+    expect(screen.getByTestId('provenance-link')).toBeInTheDocument();
+    expect(screen.getAllByText('ideas').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('goals').length).toBeGreaterThan(0);
+  });
+
+  it('shows green dot on provenance tab when links exist', () => {
+    const node: Record<string, unknown> = {
+      label: 'Goal Node',
+      goalType: 'goal',
+    };
+
+    const links: ProvenanceLink[] = [
+      {
+        source_node_id: 'idea-1',
+        source_stage: 'ideas' as PipelineStageType,
+        target_node_id: 'goal-1',
+        target_stage: 'goals' as PipelineStageType,
+        content_hash: 'abc123def456',
+        timestamp: 1700000000,
+        method: 'ai_synthesis',
+      },
+    ];
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'goals' as PipelineStageType}
+        provenanceLinks={links}
+      />,
+    );
+
+    // Provenance tab should have the green indicator dot
+    const provTab = screen.getByTestId('tab-provenance');
+    const dot = provTab.querySelector('.bg-emerald-400');
+    expect(dot).toBeInTheDocument();
+  });
+
+  it('shows transition details in the Provenance tab', () => {
+    const node: Record<string, unknown> = {
+      label: 'Goal Node',
+      goalType: 'goal',
+    };
+
+    const transitions: StageTransition[] = [
+      {
+        id: 'trans-1',
+        from_stage: 'ideas' as PipelineStageType,
+        to_stage: 'goals' as PipelineStageType,
+        provenance: [],
+        status: 'approved',
+        confidence: 0.85,
+        ai_rationale: 'Extracted 3 goals from idea cluster',
+        human_notes: '',
+        created_at: 1700000000,
+        reviewed_at: null,
+      },
+    ];
+
+    render(
+      <PipelinePropertyEditor
+        {...baseProps}
+        node={node}
+        stage={'goals' as PipelineStageType}
+        transitions={transitions}
+      />,
+    );
+
+    // Switch to provenance tab
+    fireEvent.click(screen.getByTestId('tab-provenance'));
+
+    // Should show transition details
+    expect(screen.getByText('85%')).toBeInTheDocument();
+    expect(screen.getByText('approved')).toBeInTheDocument();
+    expect(screen.getByText('Extracted 3 goals from idea cluster')).toBeInTheDocument();
   });
 });

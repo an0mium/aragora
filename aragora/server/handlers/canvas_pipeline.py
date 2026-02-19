@@ -17,6 +17,8 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 - POST /api/v1/canvas/pipeline/extract-goals            → Extract goals from ideas canvas
 - POST /api/v1/canvas/convert/debate                    → Convert debate to ideas canvas
 - POST /api/v1/canvas/convert/workflow                  → Convert workflow to actions canvas
+- GET  /api/v1/canvas/pipeline/templates                → List pipeline templates
+- POST /api/v1/canvas/pipeline/from-template            → Create pipeline from template
 """
 
 from __future__ import annotations
@@ -92,6 +94,7 @@ class CanvasPipelineHandler:
     ROUTES = [
         "POST /api/v1/canvas/pipeline/from-debate",
         "POST /api/v1/canvas/pipeline/from-ideas",
+        "POST /api/v1/canvas/pipeline/from-template",
         "POST /api/v1/canvas/pipeline/advance",
         "POST /api/v1/canvas/pipeline/run",
         "POST /api/v1/canvas/pipeline/{id}/approve-transition",
@@ -100,6 +103,7 @@ class CanvasPipelineHandler:
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
         "GET /api/v1/canvas/pipeline/{id}/graph",
         "GET /api/v1/canvas/pipeline/{id}/receipt",
+        "GET /api/v1/canvas/pipeline/templates",
         "PUT /api/v1/canvas/pipeline/{id}",
         "POST /api/v1/canvas/pipeline/extract-goals",
         "POST /api/v1/canvas/convert/debate",
@@ -116,6 +120,10 @@ class CanvasPipelineHandler:
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch GET requests to the appropriate handler method."""
         body = self._get_request_body(handler)
+
+        # GET /api/v1/canvas/pipeline/templates
+        if path.endswith("/pipeline/templates"):
+            return self.handle_list_templates(query_params)
 
         # GET /api/v1/canvas/pipeline/{id}/status
         m = _PIPELINE_STATUS.match(path)
@@ -180,6 +188,7 @@ class CanvasPipelineHandler:
         route_map = {
             "/from-debate": self.handle_from_debate,
             "/from-ideas": self.handle_from_ideas,
+            "/from-template": self.handle_from_template,
             "/pipeline/advance": self.handle_advance,
             "/pipeline/run": self.handle_run,
             "/pipeline/extract-goals": self.handle_extract_goals,
@@ -487,6 +496,81 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Convert workflow failed: %s", e)
             return error_response("Conversion failed", 500)
+
+    # =========================================================================
+    # Template endpoints
+    # =========================================================================
+
+    async def handle_list_templates(
+        self, query_params: dict[str, Any] | None = None,
+    ) -> HandlerResult:
+        """GET /api/v1/canvas/pipeline/templates
+
+        List available pipeline templates, optionally filtered by category.
+
+        Query params:
+            category: str (optional) — Filter by template category
+        """
+        try:
+            from aragora.pipeline.templates import list_templates
+
+            category = (query_params or {}).get("category")
+            templates = list_templates(category=category)
+            return json_response({
+                "templates": [t.to_dict() for t in templates],
+                "count": len(templates),
+            })
+        except (ImportError, Exception) as e:
+            logger.warning("List templates failed: %s", e)
+            return error_response("Failed to list templates", 500)
+
+    @handle_errors("create pipeline from template")
+    async def handle_from_template(
+        self, request_data: dict[str, Any],
+    ) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/from-template
+
+        Create a new pipeline from a named template.
+
+        Body:
+            template_name: str — Name of the template to use
+            auto_advance: bool (default False) — Auto-generate all stages
+        """
+        from aragora.pipeline.templates import get_template
+
+        template_name = request_data.get("template_name", "")
+        auto_advance = request_data.get("auto_advance", False)
+
+        if not template_name:
+            return error_response("Missing required field: template_name", 400)
+
+        template = get_template(template_name)
+        if not template:
+            return error_response(f"Template not found: {template_name}", 404)
+
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+        import uuid as _uuid
+
+        pipeline = IdeaToExecutionPipeline()
+        pipeline_id = f"pipe-{template_name}-{_uuid.uuid4().hex[:8]}"
+
+        result = pipeline.from_ideas(
+            template.stage_1_ideas,
+            auto_advance=auto_advance,
+            pipeline_id=pipeline_id,
+        )
+
+        result_dict = result.to_dict()
+        _get_store().save(result.pipeline_id, result_dict)
+        _pipeline_objects[result.pipeline_id] = result
+
+        return json_response({
+            "pipeline_id": result.pipeline_id,
+            "template": template.to_dict(),
+            "stage_status": result.stage_status,
+            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+            "result": result_dict,
+        }, 201)
 
     # =========================================================================
     # Async pipeline endpoints (run/status/graph/receipt)

@@ -4,7 +4,6 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PipelinePalette } from '../PipelinePalette';
-import { PIPELINE_STAGE_CONFIG } from '../types';
 
 describe('PipelinePalette', () => {
   it('renders correct node types for ideas stage', () => {
@@ -57,8 +56,6 @@ describe('PipelinePalette', () => {
 
   it('shows stage-colored header text', () => {
     const { container } = render(<PipelinePalette stage="orchestration" />);
-
-    const stageConfig = PIPELINE_STAGE_CONFIG['orchestration'];
 
     // The header should say "Orchestration Nodes"
     expect(screen.getByText('Orchestration Nodes')).toBeInTheDocument();

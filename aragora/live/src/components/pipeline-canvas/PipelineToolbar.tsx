@@ -35,6 +35,8 @@ interface PipelineToolbarProps {
   onExecute?: () => void;
   canAdvance?: boolean;
   onAdvance?: () => void;
+  onExportReceipt?: () => void;
+  pipelineId?: string;
 }
 
 export const PipelineToolbar = memo(function PipelineToolbar({
@@ -49,6 +51,8 @@ export const PipelineToolbar = memo(function PipelineToolbar({
   onExecute,
   canAdvance = false,
   onAdvance,
+  onExportReceipt,
+  pipelineId,
 }: PipelineToolbarProps) {
   if (readOnly) {
     return null;
@@ -127,6 +131,30 @@ export const PipelineToolbar = memo(function PipelineToolbar({
           className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
         >
           {getAdvanceLabel(stage)}
+        </button>
+      )}
+
+      {/* Export Receipt */}
+      {onExportReceipt && pipelineId && (
+        <button
+          onClick={onExportReceipt}
+          className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded flex items-center gap-2"
+          data-testid="export-receipt-btn"
+        >
+          <svg
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          EXPORT RECEIPT
         </button>
       )}
 

@@ -16,12 +16,12 @@ import { IDEA_NODE_CONFIGS } from '../types';
 // ---------------------------------------------------------------------------
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ children, onNodeClick, onPaneClick, ...props }: any) => (
+  ReactFlow: ({ children, onNodeClick, onPaneClick, ...props }: Record<string, unknown> & { children?: React.ReactNode; onNodeClick?: (e: React.MouseEvent, node: Record<string, unknown>) => void; onPaneClick?: () => void; nodes?: Array<Record<string, unknown>> }) => (
     <div data-testid="react-flow" onClick={() => onPaneClick?.()}>
       {children}
-      {props.nodes?.map((n: any) => (
-        <div key={n.id} data-testid={`node-${n.id}`} onClick={(e: any) => { e.stopPropagation(); onNodeClick?.(e, n); }}>
-          {n.data?.label}
+      {props.nodes?.map((n: Record<string, unknown>) => (
+        <div key={n.id as string} data-testid={`node-${n.id}`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); onNodeClick?.(e, n); }}>
+          {(n.data as Record<string, unknown>)?.label as string}
         </div>
       ))}
     </div>
@@ -29,13 +29,13 @@ jest.mock('@xyflow/react', () => ({
   Controls: () => <div data-testid="controls" />,
   Background: () => <div data-testid="background" />,
   MiniMap: () => <div data-testid="minimap" />,
-  Handle: ({ type }: any) => <div data-testid={`handle-${type}`} />,
+  Handle: ({ type }: { type: string }) => <div data-testid={`handle-${type}`} />,
   Position: { Top: 'top', Bottom: 'bottom', Left: 'left', Right: 'right' },
-  useNodesState: (initial: any[]) => {
+  useNodesState: (initial: unknown[]) => {
     const [nodes, setNodes] = require('react').useState(initial);
     return [nodes, setNodes, jest.fn()];
   },
-  useEdgesState: (initial: any[]) => {
+  useEdgesState: (initial: unknown[]) => {
     const [edges, setEdges] = require('react').useState(initial);
     return [edges, setEdges, jest.fn()];
   },
@@ -43,7 +43,7 @@ jest.mock('@xyflow/react', () => ({
     fitView: jest.fn(),
     screenToFlowPosition: ({ x, y }: { x: number; y: number }) => ({ x, y }),
   }),
-  addEdge: jest.fn((connection: any, edges: any[]) => [...edges, { id: 'new-edge', ...connection }]),
+  addEdge: jest.fn((connection: Record<string, unknown>, edges: unknown[]) => [...edges, { id: 'new-edge', ...connection }]),
 }));
 
 // ---------------------------------------------------------------------------
@@ -102,8 +102,8 @@ function makeIdeaNodeData(overrides: Partial<IdeaNodeData> = {}): IdeaNodeData {
 
 function makeMockCanvasHook(overrides: Record<string, unknown> = {}) {
   return {
-    nodes: [] as any[],
-    edges: [] as any[],
+    nodes: [] as unknown[],
+    edges: [] as unknown[],
     onNodesChange: jest.fn(),
     onEdgesChange: jest.fn(),
     onConnect: jest.fn(),
@@ -120,7 +120,7 @@ function makeMockCanvasHook(overrides: Record<string, unknown> = {}) {
     onlineUsers: [],
     sendCursorMove: jest.fn(),
     ...overrides,
-  } as any;
+  } as ReturnType<typeof useIdeaCanvas>;
 }
 
 // ---------------------------------------------------------------------------

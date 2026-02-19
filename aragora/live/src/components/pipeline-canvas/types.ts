@@ -197,6 +197,50 @@ export const PIPELINE_STAGE_CONFIG: Record<PipelineStageType, StageConfig> = {
 };
 
 // =============================================================================
+// Provenance Types
+// =============================================================================
+
+export interface ProvenanceLink {
+  source_node_id: string;
+  source_stage: PipelineStageType;
+  target_node_id: string;
+  target_stage: PipelineStageType;
+  content_hash: string;
+  timestamp: number;
+  method: string;
+}
+
+export interface StageTransition {
+  id: string;
+  from_stage: PipelineStageType;
+  to_stage: PipelineStageType;
+  provenance: ProvenanceLink[];
+  status: string;
+  confidence: number;
+  ai_rationale: string;
+  human_notes: string;
+  created_at: number;
+  reviewed_at: number | null;
+}
+
+/** A single step in a provenance breadcrumb trail. */
+export interface ProvenanceBreadcrumb {
+  nodeId: string;
+  nodeLabel: string;
+  stage: PipelineStageType;
+  contentHash: string;
+  method: string;
+}
+
+/** Stage color classes for provenance display. */
+export const STAGE_COLOR_CLASSES: Record<PipelineStageType, { text: string; bg: string; border: string }> = {
+  ideas: { text: 'text-indigo-300', bg: 'bg-indigo-500/20', border: 'border-indigo-500' },
+  goals: { text: 'text-emerald-300', bg: 'bg-emerald-500/20', border: 'border-emerald-500' },
+  actions: { text: 'text-amber-300', bg: 'bg-amber-500/20', border: 'border-amber-500' },
+  orchestration: { text: 'text-pink-300', bg: 'bg-pink-500/20', border: 'border-pink-500' },
+};
+
+// =============================================================================
 // API Response Types
 // =============================================================================
 
@@ -216,6 +260,7 @@ export interface ReactFlowData {
     label?: string;
     animated?: boolean;
     style?: Record<string, string>;
+    data?: Record<string, unknown>;
   }>;
   metadata: Record<string, unknown>;
 }
@@ -226,7 +271,8 @@ export interface PipelineResultResponse {
   goals: Record<string, unknown> | null;
   actions: ReactFlowData | null;
   orchestration: ReactFlowData | null;
-  transitions: Array<Record<string, unknown>>;
+  transitions: StageTransition[];
+  provenance: ProvenanceLink[];
   provenance_count: number;
   stage_status: Record<PipelineStageType, string>;
   integrity_hash: string;

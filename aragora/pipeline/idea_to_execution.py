@@ -70,6 +70,9 @@ class PipelineConfig:
     enable_receipts: bool = True
     event_callback: Any | None = None  # callable(event_type: str, data: dict)
     worktree_path: str | None = None  # Git worktree for agent execution
+    enable_smart_goals: bool = True
+    enable_elo_assignment: bool = True
+    enable_km_precedents: bool = True
 
 
 @dataclass
@@ -136,6 +139,7 @@ class PipelineResult:
                 else None
             ),
             "transitions": [t.to_dict() for t in self.transitions],
+            "provenance": [p.to_dict() for p in self.provenance],
             "provenance_count": len(self.provenance),
             "stage_status": self.stage_status,
             "integrity_hash": self._compute_integrity_hash(),
@@ -348,6 +352,27 @@ class IdeaToExecutionPipeline:
                 "node_type": "idea",
                 "label": node.label,
             })
+
+        # SMART score goals and detect conflicts
+        if result.goal_graph and result.goal_graph.goals:
+            try:
+                conflicts = self._goal_extractor.detect_goal_conflicts(result.goal_graph)
+                if conflicts:
+                    result.goal_graph.metadata["conflicts"] = conflicts
+            except Exception:
+                pass
+
+            for goal in result.goal_graph.goals:
+                try:
+                    smart_scores = self._goal_extractor.score_smart(goal)
+                    goal.metadata["smart_scores"] = smart_scores
+                    overall = smart_scores.get("overall", 0.5)
+                    if overall >= 0.7:
+                        goal.priority = "high"
+                    elif overall < 0.4:
+                        goal.priority = "low"
+                except Exception:
+                    pass
 
         # Goals already extracted via extract_from_raw_ideas
         result.stage_status[PipelineStage.GOALS.value] = "complete"
@@ -619,6 +644,40 @@ class IdeaToExecutionPipeline:
                 goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
             else:
                 goal_graph = GoalGraph(id=f"goals-{uuid.uuid4().hex[:8]}")
+
+            # SMART scoring and conflict detection
+            if goal_graph and goal_graph.goals:
+                # Detect conflicts
+                try:
+                    conflicts = self._goal_extractor.detect_goal_conflicts(goal_graph)
+                    if conflicts:
+                        goal_graph.metadata["conflicts"] = conflicts
+                except Exception:
+                    pass
+
+                # SMART score each goal
+                for goal in goal_graph.goals:
+                    try:
+                        smart_scores = self._goal_extractor.score_smart(goal)
+                        goal.metadata["smart_scores"] = smart_scores
+                        overall = smart_scores.get("overall", 0.5)
+                        if overall >= 0.7:
+                            goal.priority = "high"
+                        elif overall < 0.4:
+                            goal.priority = "low"
+                    except Exception:
+                        pass
+
+                # Query KM for precedents
+                try:
+                    from aragora.pipeline.km_bridge import PipelineKMBridge
+
+                    bridge = PipelineKMBridge()
+                    if bridge.available:
+                        precedents = bridge.query_similar_goals(goal_graph)
+                        bridge.enrich_with_precedents(goal_graph, precedents)
+                except (ImportError, Exception):
+                    pass
 
             # Emit individual goals
             if goal_graph:
@@ -943,7 +1002,46 @@ class IdeaToExecutionPipeline:
             return result
 
         canvas_data = result.ideas_canvas.to_dict()
+
+        # Pre-cluster related ideas semantically
+        try:
+            canvas_data = self._goal_extractor.cluster_ideas_semantically(canvas_data)
+        except Exception:
+            pass  # Continue with unclustered data
+
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
+
+        # Detect conflicts between goals
+        try:
+            conflicts = self._goal_extractor.detect_goal_conflicts(result.goal_graph)
+            if conflicts:
+                result.goal_graph.metadata["conflicts"] = conflicts
+        except Exception:
+            pass
+
+        # SMART score each goal and adjust priority
+        for goal in result.goal_graph.goals:
+            try:
+                smart_scores = self._goal_extractor.score_smart(goal)
+                goal.metadata["smart_scores"] = smart_scores
+                overall = smart_scores.get("overall", 0.5)
+                if overall >= 0.7:
+                    goal.priority = "high"
+                elif overall < 0.4:
+                    goal.priority = "low"
+            except Exception:
+                pass
+
+        # Query KM for precedents
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+
+            bridge = PipelineKMBridge()
+            if bridge.available:
+                precedents = bridge.query_similar_goals(result.goal_graph)
+                bridge.enrich_with_precedents(result.goal_graph, precedents)
+        except (ImportError, Exception):
+            pass
 
         if result.goal_graph.transition:
             result.transitions.append(result.goal_graph.transition)
@@ -1267,7 +1365,46 @@ class IdeaToExecutionPipeline:
 
         Assigns tasks to specialized agents based on step phase and type,
         using Aragora's agent archetypes for heterogeneous model consensus.
+        When available, uses ELO-aware TeamSelector for data-driven assignment.
         """
+        # Try ELO-aware agent ranking
+        elo_scores: dict[str, float] = {}
+        _PHASE_TO_DOMAIN = {
+            "research": "research",
+            "design": "creative",
+            "implement": "code",
+            "test": "technical",
+            "verify": "technical",
+            "review": "reasoning",
+            "define": "research",
+            "validate": "technical",
+            "assess": "research",
+            "mitigate": "code",
+            "instrument": "code",
+            "baseline": "technical",
+            "monitor": "technical",
+            "execute": "code",
+        }
+        _elo_domain_agents: dict[str, str] = {}
+        try:
+            from aragora.debate.team_selector import TeamSelector
+
+            selector = TeamSelector()
+            # Query ELO rankings for each domain
+            for domain in set(_PHASE_TO_DOMAIN.values()):
+                try:
+                    rankings = selector.get_rankings(domain=domain) if hasattr(selector, "get_rankings") else []
+                    if rankings:
+                        best = rankings[0]
+                        agent_id = getattr(best, "agent_id", None) or str(best)
+                        score = getattr(best, "elo", 1000.0)
+                        elo_scores[f"{domain}:{agent_id}"] = score
+                        _elo_domain_agents[domain] = agent_id
+                except Exception:
+                    pass
+        except (ImportError, Exception):
+            pass  # Fall back to static map
+
         # Agent pool with diverse model providers for adversarial vetting
         agents = [
             {
@@ -1334,8 +1471,18 @@ class IdeaToExecutionPipeline:
             step_type = node.data.get("step_type", "task")
             phase = node.data.get("phase", "")
 
-            # Determine assignment: prefer phase-based, fall back to step-type
-            if phase and phase in phase_agent_map:
+            # Determine assignment: prefer ELO-ranked agent, fall back to static map
+            elo_agent = None
+            elo_score = None
+            if _elo_domain_agents and phase:
+                domain = _PHASE_TO_DOMAIN.get(phase)
+                if domain and domain in _elo_domain_agents:
+                    elo_agent = _elo_domain_agents[domain]
+                    elo_score = elo_scores.get(f"{domain}:{elo_agent}")
+
+            if elo_agent:
+                assigned = elo_agent
+            elif phase and phase in phase_agent_map:
                 assigned = phase_agent_map[phase]
             elif step_type == "human_checkpoint":
                 assigned = ""
@@ -1365,14 +1512,17 @@ class IdeaToExecutionPipeline:
                 if edge.target_id == node_id
             ]
 
-            tasks.append({
+            task_dict: dict[str, Any] = {
                 "id": f"exec-{node_id}",
                 "name": node.label,
                 "type": task_type,
                 "assigned_agent": assigned,
                 "depends_on": [f"exec-{d}" for d in deps],
                 "source_action_id": node_id,
-            })
+            }
+            if elo_score is not None:
+                task_dict["elo_score"] = elo_score
+            tasks.append(task_dict)
 
         # Only include agents that are actually assigned tasks
         active_agents = [a for a in agents if a["id"] in used_agents]

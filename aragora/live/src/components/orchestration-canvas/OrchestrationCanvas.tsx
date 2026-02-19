@@ -18,7 +18,7 @@ export function OrchestrationCanvas({ canvasId }: OrchestrationCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const {
     nodes, edges, onNodesChange, onEdgesChange, onConnect, onDrop,
-    selectedNodeId, setSelectedNodeId, selectedNodeData,
+    selectedNodeId: _selectedNodeId, setSelectedNodeId, selectedNodeData,
     updateSelectedNode, deleteSelectedNode, saveCanvas, executePipeline,
   } = useOrchCanvas(canvasId);
 

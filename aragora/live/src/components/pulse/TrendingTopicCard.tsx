@@ -55,7 +55,7 @@ export function TrendingTopicCard({
   topic,
   isSelected = false,
   onClick,
-  onStartDebate,
+  onStartDebate: _onStartDebate,
 }: TrendingTopicCardProps) {
   const sourceIcon = SOURCE_ICONS[topic.source.toLowerCase()] || SOURCE_ICONS.default;
   const sourceColors = SOURCE_COLORS[topic.source.toLowerCase()] || SOURCE_COLORS.default;
@@ -95,11 +95,6 @@ export function TrendingTopicCard({
     if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
     if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
     return volume.toString();
-  };
-
-  const handleDebateClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onStartDebate?.();
   };
 
   return (

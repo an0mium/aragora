@@ -13,27 +13,27 @@ import type { PipelineStageType } from '../types';
 // ---------------------------------------------------------------------------
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ children, onNodeClick, onPaneClick, onDrop, onDragOver, ...props }: any) => (
+  ReactFlow: ({ children, onNodeClick, _onPaneClick, onDrop, onDragOver, ...props }: Record<string, unknown> & { children?: React.ReactNode; onNodeClick?: (e: React.MouseEvent, node: Record<string, unknown>) => void; _onPaneClick?: () => void; onDrop?: React.DragEventHandler; onDragOver?: React.DragEventHandler; nodes?: Array<Record<string, unknown>> }) => (
     <div data-testid="react-flow" {...{ onDrop, onDragOver }}>
       {children}
-      {props.nodes?.map((n: any) => (
-        <div key={n.id} data-testid={`node-${n.id}`} onClick={(e) => onNodeClick?.(e, n)}>
-          {n.data?.label}
+      {props.nodes?.map((n: Record<string, unknown>) => (
+        <div key={n.id as string} data-testid={`node-${n.id}`} onClick={(e) => onNodeClick?.(e, n)}>
+          {(n.data as Record<string, unknown>)?.label as string}
         </div>
       ))}
     </div>
   ),
-  ReactFlowProvider: ({ children }: any) => <div>{children}</div>,
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Controls: () => <div data-testid="controls" />,
   Background: () => <div data-testid="background" />,
   MiniMap: () => <div data-testid="minimap" />,
-  Panel: ({ children, position }: any) => <div data-testid={`panel-${position}`}>{children}</div>,
+  Panel: ({ children, position }: { children: React.ReactNode; position: string }) => <div data-testid={`panel-${position}`}>{children}</div>,
   BackgroundVariant: { Dots: 'dots' },
-  useNodesState: (initial: any[]) => {
+  useNodesState: (initial: unknown[]) => {
     const [nodes, setNodes] = require('react').useState(initial);
     return [nodes, setNodes, jest.fn()];
   },
-  useEdgesState: (initial: any[]) => {
+  useEdgesState: (initial: unknown[]) => {
     const [edges, setEdges] = require('react').useState(initial);
     return [edges, setEdges, jest.fn()];
   },
@@ -41,7 +41,7 @@ jest.mock('@xyflow/react', () => ({
     fitView: jest.fn(),
     screenToFlowPosition: ({ x, y }: { x: number; y: number }) => ({ x, y }),
   }),
-  addEdge: jest.fn((connection: any, edges: any[]) => [...edges, { id: 'new-edge', ...connection }]),
+  addEdge: jest.fn((connection: Record<string, unknown>, edges: unknown[]) => [...edges, { id: 'new-edge', ...connection }]),
 }));
 
 // ---------------------------------------------------------------------------
@@ -55,15 +55,15 @@ jest.mock('../PipelinePalette', () => ({
 }));
 
 jest.mock('../PipelineToolbar', () => ({
-  PipelineToolbar: (props: any) => (
-    <div data-testid="pipeline-toolbar">Toolbar: {props.stage}</div>
+  PipelineToolbar: (props: Record<string, unknown>) => (
+    <div data-testid="pipeline-toolbar">Toolbar: {props.stage as string}</div>
   ),
 }));
 
 jest.mock('../editors/PipelinePropertyEditor', () => ({
-  PipelinePropertyEditor: (props: any) => (
+  PipelinePropertyEditor: (props: Record<string, unknown>) => (
     <div data-testid="pipeline-property-editor">
-      PropertyEditor: {props.stage}
+      PropertyEditor: {props.stage as string}
     </div>
   ),
 }));
@@ -76,7 +76,7 @@ jest.mock('../nodes', () => ({
 }));
 
 jest.mock('../StageNavigator', () => ({
-  StageNavigator: (props: any) => (
+  StageNavigator: (props: { onStageSelect: (stage: string) => void }) => (
     <div data-testid="stage-navigator">
       {/* Expose stage buttons so tests can switch stages */}
       {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((s) => (
@@ -144,8 +144,8 @@ jest.mock('../../pipeline/StageTransitionGate', () => ({
 
 function makeMockCanvas(overrides: Record<string, unknown> = {}) {
   return {
-    nodes: [] as any[],
-    edges: [] as any[],
+    nodes: [] as unknown[],
+    edges: [] as unknown[],
     onNodesChange: jest.fn(),
     onEdgesChange: jest.fn(),
     onConnect: jest.fn(),
@@ -164,16 +164,16 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
       orchestration: 'pending',
     },
     stageNodes: {
-      ideas: [] as any[],
-      goals: [] as any[],
-      actions: [] as any[],
-      orchestration: [] as any[],
+      ideas: [] as unknown[],
+      goals: [] as unknown[],
+      actions: [] as unknown[],
+      orchestration: [] as unknown[],
     },
     stageEdges: {
-      ideas: [] as any[],
-      goals: [] as any[],
-      actions: [] as any[],
-      orchestration: [] as any[],
+      ideas: [] as unknown[],
+      goals: [] as unknown[],
+      actions: [] as unknown[],
+      orchestration: [] as unknown[],
     },
     savePipeline: jest.fn(),
     aiGenerate: jest.fn(),
@@ -188,7 +188,7 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     onDrop: jest.fn(),
     onDragOver: jest.fn(),
     ...overrides,
-  } as any;
+  } as ReturnType<typeof usePipelineCanvas>;
 }
 
 // Import PipelineCanvas AFTER all mocks are defined

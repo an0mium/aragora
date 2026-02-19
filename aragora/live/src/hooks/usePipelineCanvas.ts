@@ -15,8 +15,6 @@ import {
   addEdge,
   type Node,
   type Edge,
-  type OnNodesChange,
-  type OnEdgesChange,
   type OnConnect,
   type Connection,
 } from '@xyflow/react';

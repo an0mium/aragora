@@ -64,6 +64,12 @@ from aragora.pipeline.stage_transitions import (
     ideas_to_goals,
     promote_node,
 )
+from aragora.pipeline.templates import (
+    PipelineTemplate,
+    TEMPLATE_REGISTRY,
+    get_template,
+    list_templates,
+)
 from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
 from aragora.pipeline.verification_plan import (
     VerificationCase,
@@ -138,6 +144,11 @@ __all__ = [
     "from_argument_node",
     "canvas_to_universal_graph",
     "universal_graph_to_canvas",
+    # Templates
+    "PipelineTemplate",
+    "TEMPLATE_REGISTRY",
+    "get_template",
+    "list_templates",
     # Backward compatibility
     "TestPlan",
     "TestCase",

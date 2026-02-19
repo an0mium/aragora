@@ -81,6 +81,7 @@ class PostDebateResult:
     improvement_queued: bool = False
     outcome_feedback: dict[str, Any] | None = None
     canvas_result: dict[str, Any] | None = None
+    pipeline_id: str | None = None  # ID of auto-triggered canvas pipeline
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -197,6 +198,8 @@ class PostDebateCoordinator:
             result.canvas_result = self._step_trigger_canvas(
                 debate_id, debate_result, task
             )
+            if result.canvas_result:
+                result.pipeline_id = result.canvas_result.get("pipeline_id")
 
         # Step 8: Execution bridge — auto-trigger downstream actions
         if self.config.auto_execution_bridge and confidence >= self.config.execution_bridge_min_confidence:
@@ -748,62 +751,140 @@ class PostDebateCoordinator:
         """Step 8.5: Trigger idea-to-execution canvas pipeline from debate result.
 
         Converts the debate's argument graph into a visual canvas pipeline,
-        progressing through ideas → goals → actions → orchestration stages.
+        progressing through ideas -> goals -> actions -> orchestration stages.
+        Uses ArgumentCartographer when available, falls back to
+        _build_cartographer_data for lightweight conversion.
         """
         try:
             from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
-            from aragora.visualization.mapper import ArgumentCartographer
         except ImportError:
             logger.debug("Canvas pipeline not available")
             return None
 
         try:
-            # Build argument graph from debate messages
-            cartographer = ArgumentCartographer()
-            cartographer.set_debate_context(debate_id, task)
+            # Try ArgumentCartographer first for richer graph
+            export_data = None
+            try:
+                from aragora.visualization.mapper import ArgumentCartographer
 
-            messages = getattr(debate_result, "messages", [])
-            if isinstance(messages, list):
-                for msg in messages:
-                    agent = getattr(msg, "agent", "unknown")
-                    content = getattr(msg, "content", "")
-                    role = getattr(msg, "role", "proposal")
-                    round_num = getattr(msg, "round", 0) or 0
-                    if content:
-                        cartographer.update_from_message(
-                            agent=str(agent),
-                            content=str(content),
-                            role=str(role),
-                            round_num=int(round_num),
-                        )
+                cartographer = ArgumentCartographer()
+                cartographer.set_debate_context(debate_id, task)
 
-            if not cartographer.nodes:
+                messages = getattr(debate_result, "messages", [])
+                if isinstance(messages, list):
+                    for msg in messages:
+                        agent = getattr(msg, "agent", "unknown")
+                        content = getattr(msg, "content", "")
+                        role = getattr(msg, "role", "proposal")
+                        round_num = getattr(msg, "round", 0) or 0
+                        if content:
+                            cartographer.update_from_message(
+                                agent=str(agent),
+                                content=str(content),
+                                role=str(role),
+                                round_num=int(round_num),
+                            )
+
+                if cartographer.nodes:
+                    export_data = cartographer.export()
+            except (ImportError, AttributeError, TypeError, RuntimeError):
+                pass
+
+            # Fallback: build cartographer data directly from debate result
+            if not export_data:
+                export_data = self._build_cartographer_data(debate_result)
+
+            if not export_data.get("nodes"):
                 logger.debug("No argument nodes for canvas pipeline (debate %s)", debate_id)
                 return None
 
-            export_data = cartographer.export()
             pipeline = IdeaToExecutionPipeline()
             pipeline_result = pipeline.from_debate(
                 cartographer_data=export_data,
                 auto_advance=True,
             )
 
+            pipeline_id = getattr(pipeline_result, "pipeline_id", None)
             logger.info(
-                "Canvas pipeline triggered for debate %s: pipeline_id=%s",
+                "post_debate_canvas_pipeline debate_id=%s pipeline_id=%s",
                 debate_id,
-                getattr(pipeline_result, "pipeline_id", "unknown"),
+                pipeline_id,
             )
             return {
                 "debate_id": debate_id,
-                "pipeline_id": getattr(pipeline_result, "pipeline_id", None),
+                "pipeline_id": pipeline_id,
                 "stages_completed": [
                     k for k, v in getattr(pipeline_result, "stage_status", {}).items()
                     if v == "complete"
                 ],
             }
-        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning("Canvas pipeline trigger failed: %s", e)
+        except (ImportError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+            logger.warning("Canvas pipeline auto-trigger failed: %s", e)
             return None
+
+    @staticmethod
+    def _build_cartographer_data(debate_result: Any) -> dict[str, Any]:
+        """Convert DebateResult into ArgumentCartographer-compatible data.
+
+        Extracts proposals, evidence, critiques, and consensus from the
+        debate result and formats them as cartographer nodes/edges.
+        """
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        # Extract from messages
+        messages = getattr(debate_result, "messages", []) or []
+        for i, msg in enumerate(messages):
+            node_type = "proposal"
+            content = getattr(msg, "content", str(msg))
+            agent = getattr(msg, "agent", "unknown")
+            round_num = getattr(msg, "round", 0)
+
+            # Classify message type based on content/metadata
+            msg_type = getattr(msg, "type", None) or getattr(msg, "message_type", None)
+            if msg_type:
+                type_str = str(msg_type).lower()
+                if "critique" in type_str or "counter" in type_str:
+                    node_type = "critique"
+                elif "evidence" in type_str or "support" in type_str:
+                    node_type = "evidence"
+                elif "consensus" in type_str or "agree" in type_str:
+                    node_type = "consensus"
+
+            node_id = f"debate-msg-{i}"
+            nodes.append({
+                "id": node_id,
+                "type": node_type,
+                "summary": content[:100] if content else "",
+                "content": content or "",
+                "agent": agent,
+                "round": round_num,
+            })
+
+        # Extract from consensus/final decision
+        consensus = getattr(debate_result, "consensus", None)
+        if consensus:
+            consensus_text = (
+                getattr(consensus, "text", None)
+                or getattr(consensus, "summary", None)
+                or str(consensus)
+            )
+            nodes.append({
+                "id": "debate-consensus",
+                "type": "consensus",
+                "summary": consensus_text[:100],
+                "content": consensus_text,
+            })
+
+        # Build edges: sequential message flow
+        for i in range(1, len(nodes)):
+            edges.append({
+                "source_id": nodes[i - 1]["id"],
+                "target_id": nodes[i]["id"],
+                "relation": "responds_to",
+            })
+
+        return {"nodes": nodes, "edges": edges}
 
     @staticmethod
     def _classify_improvement_category(task: str) -> str:

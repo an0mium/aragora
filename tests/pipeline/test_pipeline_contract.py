@@ -18,12 +18,28 @@ the JSON shape matches what PipelineResultResponse expects in TypeScript:
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from aragora.server.handlers.canvas_pipeline import (
     CanvasPipelineHandler,
     _pipeline_objects,
 )
+
+
+def _body(resp):
+    """Parse a HandlerResult body into a dict."""
+    body = resp.body
+    if isinstance(body, bytes):
+        body = body.decode("utf-8")
+    return json.loads(body)
+
+
+def _result(resp):
+    """Get the 'result' sub-dict from a HandlerResult, or the full body."""
+    data = _body(resp)
+    return data.get("result", data)
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +55,7 @@ def handler():
 
 
 # =============================================================================
-# Full contract: from-ideas → auto_advance → validate shape
+# Full contract: from-ideas -> auto_advance -> validate shape
 # =============================================================================
 
 
@@ -52,7 +68,7 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
         assert isinstance(result["pipeline_id"], str)
         assert result["pipeline_id"].startswith("pipe-")
 
@@ -62,7 +78,7 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
         status = result["stage_status"]
         assert set(status.keys()) == {"ideas", "goals", "actions", "orchestration"}
         for stage in ("ideas", "goals", "actions", "orchestration"):
@@ -74,7 +90,7 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter"],
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
         assert isinstance(result["integrity_hash"], str)
         assert len(result["integrity_hash"]) == 16
 
@@ -84,7 +100,7 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
         assert isinstance(result["provenance_count"], int)
         assert result["provenance_count"] >= 0
 
@@ -94,7 +110,7 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
         assert isinstance(result["transitions"], list)
         for transition in result["transitions"]:
             assert "from_stage" in transition
@@ -109,7 +125,8 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        ideas = resp["result"]["ideas"]
+        result = _result(resp)
+        ideas = result["ideas"]
         assert ideas is not None
         assert "nodes" in ideas
         assert "edges" in ideas
@@ -132,7 +149,8 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        goals = resp["result"]["goals"]
+        result = _result(resp)
+        goals = result["goals"]
         assert goals is not None
         assert "goals" in goals
         assert isinstance(goals["goals"], list)
@@ -149,7 +167,8 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        actions = resp["result"]["actions"]
+        result = _result(resp)
+        actions = result["actions"]
         assert actions is not None
         assert "nodes" in actions
         assert "edges" in actions
@@ -162,7 +181,8 @@ class TestFromIdeasContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        orch = resp["result"]["orchestration"]
+        result = _result(resp)
+        orch = result["orchestration"]
         assert orch is not None
         assert "nodes" in orch
         assert "edges" in orch
@@ -170,7 +190,7 @@ class TestFromIdeasContract:
 
 
 # =============================================================================
-# Full contract: from-debate → auto_advance → validate shape
+# Full contract: from-debate -> auto_advance -> validate shape
 # =============================================================================
 
 
@@ -191,7 +211,7 @@ class TestFromDebateContract:
             },
             "auto_advance": True,
         })
-        result = resp["result"]
+        result = _result(resp)
 
         # Top-level required fields
         assert "pipeline_id" in result
@@ -219,16 +239,18 @@ class TestAdvanceContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": False,
         })
-        pid = create_resp["pipeline_id"]
+        create_data = _body(create_resp)
+        pid = create_data["pipeline_id"]
 
         advance_resp = await handler.handle_advance({
             "pipeline_id": pid,
             "target_stage": "actions",
         })
-        assert "result" in advance_resp
-        assert advance_resp["result"]["stage_status"]["actions"] == "complete"
+        advance_data = _body(advance_resp)
+        assert "result" in advance_data
+        assert advance_data["result"]["stage_status"]["actions"] == "complete"
         # Result should still have the full shape
-        result = advance_resp["result"]
+        result = advance_data["result"]
         assert "ideas" in result
         assert "goals" in result
         assert "actions" in result
@@ -248,9 +270,11 @@ class TestGetPipelineContract:
             "ideas": ["Test idea"],
             "auto_advance": True,
         })
-        pid = create_resp["pipeline_id"]
+        create_data = _body(create_resp)
+        pid = create_data["pipeline_id"]
 
-        result = await handler.handle_get_pipeline(pid)
+        get_resp = await handler.handle_get_pipeline(pid)
+        result = _body(get_resp)
         # Must have all required fields for PipelineResultResponse
         assert "pipeline_id" in result
         assert "ideas" in result
@@ -281,7 +305,8 @@ class TestNodeTypeContract:
             "ideas": ["Build rate limiter", "Add caching", "Improve docs"],
             "auto_advance": True,
         })
-        ideas = resp["result"]["ideas"]
+        result = _result(resp)
+        ideas = result["ideas"]
         for node in ideas["nodes"]:
             assert node["type"] in self.VALID_NODE_TYPES, f"Bad node type: {node['type']}"
             data = node["data"]
@@ -293,7 +318,8 @@ class TestNodeTypeContract:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": True,
         })
-        goals = resp["result"]["goals"]["goals"]
+        result = _result(resp)
+        goals = result["goals"]["goals"]
         for goal in goals:
             assert "id" in goal
             assert "title" in goal

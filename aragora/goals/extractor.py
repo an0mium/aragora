@@ -130,16 +130,22 @@ class GoalExtractor:
     Can operate in two modes:
     - Structural mode (no AI): Uses graph topology to derive goals
     - AI-assisted mode: Uses an agent to synthesize goals from idea content
+
+    Supports domain-specific extraction via the ``domain`` parameter, which
+    injects vertical-specific goals (e.g., HIPAA compliance for healthcare).
     """
 
-    def __init__(self, agent: Any | None = None):
+    def __init__(self, agent: Any | None = None, domain: str | None = None):
         """Initialize the goal extractor.
 
         Args:
             agent: Optional AI agent for synthesis. If None, uses
                    structural extraction only.
+            domain: Optional vertical domain for domain-specific goals.
+                    Supported: "healthcare", "financial", "legal"
         """
         self._agent = agent
+        self._domain = domain
 
     def extract_from_ideas(
         self,
@@ -279,6 +285,22 @@ class GoalExtractor:
                 f"using structural analysis (support connectivity + evidence counts)"
             ),
         )
+
+        # Inject domain-specific goals if a vertical domain is set
+        if self._domain:
+            domain_goals = _get_domain_goals(self._domain)
+            for dg in domain_goals:
+                dg_node = GoalNode(
+                    id=f"goal-domain-{uuid.uuid4().hex[:8]}",
+                    title=dg["title"],
+                    description=dg["description"],
+                    goal_type=GoalNodeType(dg.get("type", "goal")),
+                    priority=dg.get("priority", "high"),
+                    measurable=dg.get("measurable", ""),
+                    confidence=0.9,
+                    metadata={"domain": self._domain, "domain_injected": True},
+                )
+                goals.append(dg_node)
 
         return GoalGraph(
             id=f"goals-{uuid.uuid4().hex[:8]}",
@@ -1273,6 +1295,122 @@ def _score_time_bound(text: str) -> float:
         return 0.0
     matches = sum(1 for p in _TIME_BOUND_PATTERNS if p.search(text))
     return min(1.0, matches / len(_TIME_BOUND_PATTERNS))
+
+
+# =========================================================================
+# Domain-specific goal templates
+# =========================================================================
+
+_DOMAIN_GOALS: dict[str, list[dict[str, str]]] = {
+    "healthcare": [
+        {
+            "title": "Ensure HIPAA compliance for all patient data handling",
+            "description": (
+                "Verify that all data flows meet HIPAA Privacy and Security Rules. "
+                "Implement access controls, audit logging, and encryption at rest."
+            ),
+            "type": "goal",
+            "priority": "critical",
+            "measurable": "Zero HIPAA violations; 100% of PHI access logged",
+        },
+        {
+            "title": "Validate patient safety impact assessment",
+            "description": (
+                "Assess how the decision affects patient safety outcomes. "
+                "Cross-reference with clinical guidelines and adverse event databases."
+            ),
+            "type": "risk",
+            "priority": "critical",
+            "measurable": "Patient safety risk score below threshold",
+        },
+        {
+            "title": "Maintain clinical data integrity and provenance",
+            "description": (
+                "Ensure all clinical data used in decision-making has a clear "
+                "provenance chain and meets data quality standards."
+            ),
+            "type": "principle",
+            "priority": "high",
+            "measurable": "100% of clinical data sources documented",
+        },
+    ],
+    "financial": [
+        {
+            "title": "Complete risk assessment and exposure analysis",
+            "description": (
+                "Quantify financial risk exposure across all identified scenarios. "
+                "Model worst-case, base-case, and best-case outcomes."
+            ),
+            "type": "goal",
+            "priority": "critical",
+            "measurable": "Risk-adjusted return calculated for all scenarios",
+        },
+        {
+            "title": "Ensure regulatory compliance with financial standards",
+            "description": (
+                "Verify compliance with applicable financial regulations "
+                "(SOX, Basel III, SEC requirements). Document all controls."
+            ),
+            "type": "goal",
+            "priority": "critical",
+            "measurable": "All applicable regulations mapped with control evidence",
+        },
+        {
+            "title": "Establish audit trail for financial decision-making",
+            "description": (
+                "Create a complete, immutable audit trail documenting the "
+                "rationale, data sources, and approvals for the financial decision."
+            ),
+            "type": "principle",
+            "priority": "high",
+            "measurable": "SOX-compliant audit trail generated",
+        },
+    ],
+    "legal": [
+        {
+            "title": "Conduct thorough contract review and risk identification",
+            "description": (
+                "Review all contract clauses for potential risks, ambiguities, "
+                "and unfavorable terms. Flag indemnification and liability provisions."
+            ),
+            "type": "goal",
+            "priority": "critical",
+            "measurable": "All contract clauses reviewed; risks categorized by severity",
+        },
+        {
+            "title": "Complete legal due diligence checklist",
+            "description": (
+                "Execute comprehensive due diligence covering corporate structure, "
+                "IP rights, litigation history, and regulatory status."
+            ),
+            "type": "goal",
+            "priority": "critical",
+            "measurable": "100% of due diligence items completed",
+        },
+        {
+            "title": "Document legal basis and precedent for decision",
+            "description": (
+                "Establish the legal foundation for the decision including "
+                "applicable statutes, case law precedents, and regulatory guidance."
+            ),
+            "type": "principle",
+            "priority": "high",
+            "measurable": "Legal basis documented with cited authorities",
+        },
+    ],
+}
+
+
+def _get_domain_goals(domain: str) -> list[dict[str, str]]:
+    """Get domain-specific goal templates for the given vertical.
+
+    Args:
+        domain: Vertical domain name (e.g., "healthcare", "financial", "legal")
+
+    Returns:
+        List of goal template dicts, empty if domain not recognized
+    """
+    return _DOMAIN_GOALS.get(domain, [])
 
 
 def _score_relevance(text: str, source_idea_ids: list[str] | None = None) -> float:

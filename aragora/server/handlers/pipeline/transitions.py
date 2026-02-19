@@ -30,6 +30,7 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
+from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -371,7 +372,7 @@ def _get_provenance_chain(node_id: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-class PipelineTransitionsHandler(BaseHandler):
+class PipelineTransitionsHandler(SecureHandler):
     """Handler for AI stage transition endpoints."""
 
     ROUTES = ["/api/v1/pipeline/transitions"]

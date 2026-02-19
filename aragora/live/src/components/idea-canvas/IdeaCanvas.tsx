@@ -15,7 +15,7 @@ import { IdeaPalette } from './IdeaPalette';
 import { IdeaPropertyEditor } from './IdeaPropertyEditor';
 import { CollaborationOverlay } from './CollaborationOverlay';
 import { useIdeaCanvas } from './useIdeaCanvas';
-import { IDEA_NODE_CONFIGS, type IdeaNodeType } from './types';
+import { type IdeaNodeType } from './types';
 import { apiPost } from '../../lib/api';
 
 const nodeTypes: NodeTypes = {
@@ -165,7 +165,6 @@ export function IdeaCanvas({ canvasId, onGoalsGenerated }: IdeaCanvasProps) {
   // MiniMap color mapping
   const miniMapNodeColor = useCallback((node: { data?: Record<string, unknown> }) => {
     const ideaType = (node.data?.ideaType || 'concept') as IdeaNodeType;
-    const config = IDEA_NODE_CONFIGS[ideaType];
     // Extract color name from tailwind class (e.g., 'bg-indigo-500/20' -> '#818cf8')
     const colorMap: Record<IdeaNodeType, string> = {
       concept: '#818cf8',

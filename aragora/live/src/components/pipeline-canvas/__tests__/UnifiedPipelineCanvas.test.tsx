@@ -13,44 +13,44 @@ import type { PipelineStageType } from '../types';
 // ---------------------------------------------------------------------------
 
 let capturedOnViewportChange: ((viewport: { zoom: number; x: number; y: number }) => void) | null = null;
-let capturedOnNodeClick: ((event: React.MouseEvent, node: any) => void) | null = null;
-let capturedOnPaneClick: (() => void) | null = null;
+let _capturedOnNodeClick: ((event: React.MouseEvent, node: Record<string, unknown>) => void) | null = null;
+let _capturedOnPaneClick: (() => void) | null = null;
 
 jest.mock('@xyflow/react', () => ({
-  ReactFlow: ({ children, onViewportChange, onNodeClick, onPaneClick, nodes, edges, ...rest }: any) => {
+  ReactFlow: ({ children, onViewportChange, onNodeClick, onPaneClick, nodes, edges, ..._rest }: Record<string, unknown> & { children?: React.ReactNode; onViewportChange?: (viewport: { zoom: number; x: number; y: number }) => void; onNodeClick?: (e: React.MouseEvent, node: Record<string, unknown>) => void; onPaneClick?: () => void; nodes?: Array<Record<string, unknown>>; edges?: Array<Record<string, unknown>> }) => {
     capturedOnViewportChange = onViewportChange || null;
-    capturedOnNodeClick = onNodeClick || null;
-    capturedOnPaneClick = onPaneClick || null;
+    _capturedOnNodeClick = onNodeClick || null;
+    _capturedOnPaneClick = onPaneClick || null;
     return (
       <div data-testid="react-flow">
         {children}
-        {nodes?.map((n: any) => (
+        {nodes?.map((n: Record<string, unknown>) => (
           <div
-            key={n.id}
+            key={n.id as string}
             data-testid={`node-${n.id}`}
-            data-node-type={n.type}
+            data-node-type={n.type as string}
             onClick={(e) => onNodeClick?.(e, n)}
           >
             {(n.data as Record<string, unknown>)?.label as string}
           </div>
         ))}
-        {edges?.map((e: any) => (
-          <div key={e.id} data-testid={`edge-${e.id}`} data-edge-style={JSON.stringify(e.style)} />
+        {edges?.map((e: Record<string, unknown>) => (
+          <div key={e.id as string} data-testid={`edge-${e.id}`} data-edge-style={JSON.stringify(e.style)} />
         ))}
       </div>
     );
   },
-  ReactFlowProvider: ({ children }: any) => <div>{children}</div>,
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Controls: () => <div data-testid="controls" />,
   Background: () => <div data-testid="background" />,
   MiniMap: () => <div data-testid="minimap" />,
-  Panel: ({ children, position }: any) => <div data-testid={`panel-${position}`}>{children}</div>,
+  Panel: ({ children, position }: { children: React.ReactNode; position: string }) => <div data-testid={`panel-${position}`}>{children}</div>,
   BackgroundVariant: { Dots: 'dots' },
-  useNodesState: (initial: any[]) => {
+  useNodesState: (initial: unknown[]) => {
     const [nodes, setNodes] = require('react').useState(initial);
     return [nodes, setNodes, jest.fn()];
   },
-  useEdgesState: (initial: any[]) => {
+  useEdgesState: (initial: unknown[]) => {
     const [edges, setEdges] = require('react').useState(initial);
     return [edges, setEdges, jest.fn()];
   },
@@ -58,7 +58,7 @@ jest.mock('@xyflow/react', () => ({
     fitView: jest.fn(),
     screenToFlowPosition: ({ x, y }: { x: number; y: number }) => ({ x, y }),
   }),
-  addEdge: jest.fn((connection: any, edges: any[]) => [...edges, { id: 'new-edge', ...connection }]),
+  addEdge: jest.fn((connection: Record<string, unknown>, edges: unknown[]) => [...edges, { id: 'new-edge', ...connection }]),
 }));
 
 // ---------------------------------------------------------------------------
@@ -129,8 +129,8 @@ function makeEdge(id: string, source: string, target: string) {
 
 function makeMockCanvas(overrides: Record<string, unknown> = {}) {
   return {
-    nodes: [] as any[],
-    edges: [] as any[],
+    nodes: [] as unknown[],
+    edges: [] as unknown[],
     onNodesChange: jest.fn(),
     onEdgesChange: jest.fn(),
     onConnect: jest.fn(),
@@ -149,16 +149,16 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
       orchestration: 'pending',
     },
     stageNodes: {
-      ideas: [] as any[],
-      goals: [] as any[],
-      actions: [] as any[],
-      orchestration: [] as any[],
+      ideas: [] as unknown[],
+      goals: [] as unknown[],
+      actions: [] as unknown[],
+      orchestration: [] as unknown[],
     },
     stageEdges: {
-      ideas: [] as any[],
-      goals: [] as any[],
-      actions: [] as any[],
-      orchestration: [] as any[],
+      ideas: [] as unknown[],
+      goals: [] as unknown[],
+      actions: [] as unknown[],
+      orchestration: [] as unknown[],
     },
     savePipeline: jest.fn(),
     aiGenerate: jest.fn(),
@@ -169,7 +169,7 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     onDrop: jest.fn(),
     onDragOver: jest.fn(),
     ...overrides,
-  } as any;
+  } as ReturnType<typeof usePipelineCanvas>;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,8 +186,8 @@ describe('UnifiedPipelineCanvas', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     capturedOnViewportChange = null;
-    capturedOnNodeClick = null;
-    capturedOnPaneClick = null;
+    _capturedOnNodeClick = null;
+    _capturedOnPaneClick = null;
   });
 
   afterEach(() => {

@@ -1,8 +1,9 @@
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import {
   PIPELINE_STAGE_CONFIG,
+  STAGE_COLOR_CLASSES,
   type PipelineStageType,
   type IdeaType,
   type GoalType,
@@ -10,6 +11,8 @@ import {
   type OrchType,
   type ActionStatus,
   type OrchStatus,
+  type ProvenanceLink,
+  type StageTransition,
 } from '../types';
 import {
   InputField,
@@ -22,6 +25,8 @@ import {
 /*  Props                                                                     */
 /* -------------------------------------------------------------------------- */
 
+type EditorTab = 'properties' | 'provenance';
+
 interface PipelinePropertyEditorProps {
   node: Record<string, unknown> | null;
   stage: PipelineStageType;
@@ -29,6 +34,10 @@ interface PipelinePropertyEditorProps {
   onDelete: () => void;
   onShowProvenance?: () => void;
   readOnly?: boolean;
+  /** Provenance links relevant to the selected node. */
+  provenanceLinks?: ProvenanceLink[];
+  /** Transitions that involve this node's stage. */
+  transitions?: StageTransition[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -400,6 +409,142 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Provenance tab content                                                     */
+/* -------------------------------------------------------------------------- */
+
+function ProvenanceTab({
+  provenanceLinks,
+  transitions,
+  stage,
+}: {
+  provenanceLinks: ProvenanceLink[];
+  transitions: StageTransition[];
+  stage: PipelineStageType;
+}) {
+  if (provenanceLinks.length === 0 && transitions.length === 0) {
+    return (
+      <div className="text-center text-text-muted py-6">
+        <p className="text-sm font-mono">No provenance data for this node.</p>
+      </div>
+    );
+  }
+
+  // Find the deepest chain depth by counting unique stages in the links
+  const stagesInChain = new Set<string>();
+  for (const link of provenanceLinks) {
+    stagesInChain.add(link.source_stage);
+    stagesInChain.add(link.target_stage);
+  }
+  const chainDepth = stagesInChain.size;
+
+  // Find the relevant transition for this stage
+  const relevantTransition = transitions.find(
+    (t) => t.to_stage === stage || t.from_stage === stage,
+  );
+
+  return (
+    <div data-testid="provenance-tab">
+      {/* Chain depth indicator */}
+      <div className="mb-4">
+        <label className="block text-xs text-text-muted mb-2">Chain Depth</label>
+        <div className="flex items-center gap-1">
+          {(['ideas', 'goals', 'actions', 'orchestration'] as PipelineStageType[]).map((s) => {
+            const colors = STAGE_COLOR_CLASSES[s];
+            const config = PIPELINE_STAGE_CONFIG[s];
+            const isActive = stagesInChain.has(s);
+            return (
+              <div
+                key={s}
+                className={`flex-1 h-2 rounded-full transition-opacity ${isActive ? colors.bg : 'bg-border'}`}
+                style={isActive ? { backgroundColor: config.primary, opacity: 1 } : { opacity: 0.3 }}
+                title={`${config.label}${isActive ? ' (in chain)' : ''}`}
+              />
+            );
+          })}
+        </div>
+        <p className="text-xs text-text-muted font-mono mt-1">
+          {chainDepth} stage{chainDepth !== 1 ? 's' : ''} in provenance chain
+        </p>
+      </div>
+
+      {/* Transition details */}
+      {relevantTransition && (
+        <div className="mb-4 p-3 bg-bg border border-border rounded">
+          <label className="block text-xs text-text-muted mb-2 uppercase font-bold">Transition</label>
+          <div className="space-y-1 text-xs font-mono">
+            <div className="flex justify-between">
+              <span className="text-text-muted">From</span>
+              <span className={STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.text}>
+                {relevantTransition.from_stage}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">To</span>
+              <span className={STAGE_COLOR_CLASSES[relevantTransition.to_stage]?.text}>
+                {relevantTransition.to_stage}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Confidence</span>
+              <span className="text-text">{(relevantTransition.confidence * 100).toFixed(0)}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-text-muted">Status</span>
+              <span className="text-text">{relevantTransition.status}</span>
+            </div>
+            {relevantTransition.ai_rationale && (
+              <div className="mt-2 pt-2 border-t border-border">
+                <span className="text-text-muted">Rationale: </span>
+                <span className="text-text">{relevantTransition.ai_rationale}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Individual provenance links */}
+      <label className="block text-xs text-text-muted mb-2 uppercase font-bold">
+        Provenance Links ({provenanceLinks.length})
+      </label>
+      <div className="space-y-2">
+        {provenanceLinks.map((link, i) => {
+          const sourceColors = STAGE_COLOR_CLASSES[link.source_stage];
+          const targetColors = STAGE_COLOR_CLASSES[link.target_stage];
+          return (
+            <div key={i} className="p-2 bg-bg rounded border border-border" data-testid="provenance-link">
+              <div className="flex items-center gap-1 text-xs font-mono mb-1">
+                <span className={`px-1 py-0.5 rounded ${sourceColors?.bg} ${sourceColors?.text}`}>
+                  {link.source_stage}
+                </span>
+                <svg className="w-3 h-3 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                <span className={`px-1 py-0.5 rounded ${targetColors?.bg} ${targetColors?.text}`}>
+                  {link.target_stage}
+                </span>
+              </div>
+              <div className="text-xs font-mono text-text-muted space-y-0.5">
+                <p className="truncate">Source: <span className="text-text">{link.source_node_id}</span></p>
+                <p className="truncate">Target: <span className="text-text">{link.target_node_id}</span></p>
+                <div className="flex gap-3 mt-1">
+                  <span>#{link.content_hash.slice(0, 8)}</span>
+                  {link.method && <span>{link.method}</span>}
+                </div>
+                {link.timestamp > 0 && (
+                  <p className="text-text-muted opacity-60">
+                    {new Date(link.timestamp * 1000).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Main component                                                            */
 /* -------------------------------------------------------------------------- */
 
@@ -410,7 +555,11 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
   onDelete,
   onShowProvenance,
   readOnly,
+  provenanceLinks = [],
+  transitions = [],
 }: PipelinePropertyEditorProps) {
+  const [activeTab, setActiveTab] = useState<EditorTab>('properties');
+
   const handleLabelChange = useCallback(
     (label: string) => onUpdate({ label }),
     [onUpdate],
@@ -428,12 +577,13 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
   }
 
   const stageConfig = PIPELINE_STAGE_CONFIG[stage];
+  const hasProvenance = provenanceLinks.length > 0 || transitions.length > 0;
 
   return (
     <div className="w-72 flex-shrink-0 bg-surface border-l border-border h-full overflow-y-auto p-4">
       {/* Stage-colored header bar */}
       <div
-        className="flex items-center gap-2 mb-4 pb-3 border-b border-border"
+        className="flex items-center gap-2 mb-3 pb-3 border-b border-border"
         style={{ borderBottomColor: stageConfig.primary }}
       >
         <div
@@ -450,37 +600,80 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
         </div>
       </div>
 
-      {/* Common field: Label */}
-      {readOnly ? (
-        <ReadOnlyField label="Label" value={String(node.label ?? '')} />
-      ) : (
-        <InputField
-          label="Label"
-          value={String(node.label ?? '')}
-          onChange={handleLabelChange}
-          placeholder="Node label"
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-4">
+        <button
+          onClick={() => setActiveTab('properties')}
+          className={`flex-1 px-2 py-1.5 text-xs font-mono font-bold uppercase rounded transition-colors ${
+            activeTab === 'properties'
+              ? 'bg-bg text-text border border-border'
+              : 'text-text-muted hover:text-text'
+          }`}
+          data-testid="tab-properties"
+        >
+          Properties
+        </button>
+        <button
+          onClick={() => setActiveTab('provenance')}
+          className={`flex-1 px-2 py-1.5 text-xs font-mono font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
+            activeTab === 'provenance'
+              ? 'bg-bg text-text border border-border'
+              : 'text-text-muted hover:text-text'
+          }`}
+          data-testid="tab-provenance"
+        >
+          Provenance
+          {hasProvenance && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          )}
+        </button>
+      </div>
+
+      {/* Tab content: Properties */}
+      {activeTab === 'properties' && (
+        <>
+          {/* Common field: Label */}
+          {readOnly ? (
+            <ReadOnlyField label="Label" value={String(node.label ?? '')} />
+          ) : (
+            <InputField
+              label="Label"
+              value={String(node.label ?? '')}
+              onChange={handleLabelChange}
+              placeholder="Node label"
+            />
+          )}
+
+          {/* Stage-specific fields */}
+          <div className="mt-4 pt-4 border-t border-border">
+            {stage === 'ideas' && (
+              <IdeasEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
+            )}
+            {stage === 'goals' && (
+              <GoalsEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
+            )}
+            {stage === 'actions' && (
+              <ActionsEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
+            )}
+            {stage === 'orchestration' && (
+              <OrchestrationEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Tab content: Provenance */}
+      {activeTab === 'provenance' && (
+        <ProvenanceTab
+          provenanceLinks={provenanceLinks}
+          transitions={transitions}
+          stage={stage}
         />
       )}
 
-      {/* Stage-specific fields */}
-      <div className="mt-4 pt-4 border-t border-border">
-        {stage === 'ideas' && (
-          <IdeasEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
-        )}
-        {stage === 'goals' && (
-          <GoalsEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
-        )}
-        {stage === 'actions' && (
-          <ActionsEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
-        )}
-        {stage === 'orchestration' && (
-          <OrchestrationEditor node={node} onUpdate={onUpdate} readOnly={readOnly} />
-        )}
-      </div>
-
       {/* Bottom actions */}
       <div className="mt-6 pt-4 border-t border-border space-y-2">
-        {onShowProvenance && (
+        {onShowProvenance && activeTab === 'properties' && (
           <button
             onClick={onShowProvenance}
             className="w-full px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:bg-bg transition-colors rounded"
