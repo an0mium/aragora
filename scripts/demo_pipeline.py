@@ -73,29 +73,31 @@ def print_stage(title: str, items: list[str]) -> None:
 def print_result(result: Any, json_output: bool) -> None:
     """Print a TransitionResult in human-readable or JSON form."""
     if json_output:
-        print(json.dumps(
-            {
-                "nodes": [
-                    {
-                        "id": n.id,
-                        "stage": n.stage,
-                        "label": n.label,
-                        "hash": n.hash,
-                    }
-                    for n in result.nodes
-                ],
-                "edges": [
-                    {
-                        "source": e.source,
-                        "target": e.target,
-                        "type": e.edge_type,
-                    }
-                    for e in result.edges
-                ],
-                "provenance": result.provenance,
-            },
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "nodes": [
+                        {
+                            "id": n.id,
+                            "stage": n.stage,
+                            "label": n.label,
+                            "hash": n.hash,
+                        }
+                        for n in result.nodes
+                    ],
+                    "edges": [
+                        {
+                            "source": e.source,
+                            "target": e.target,
+                            "type": e.edge_type,
+                        }
+                        for e in result.edges
+                    ],
+                    "provenance": result.provenance,
+                },
+                indent=2,
+            )
+        )
     else:
         print(f"\n  Generated {len(result.nodes)} nodes, {len(result.edges)} edges")
         method = result.provenance.get("method", "unknown")
@@ -121,11 +123,7 @@ def print_provenance(
     print(f"{'=' * 60}")
 
     total_nodes = len(ideas) + len(goal_nodes) + len(task_nodes) + len(orch_nodes)
-    total_edges = (
-        len(goals_result.edges)
-        + len(tasks_result.edges)
-        + len(workflow_result.edges)
-    )
+    total_edges = len(goals_result.edges) + len(tasks_result.edges) + len(workflow_result.edges)
     print(
         f"  {len(ideas)} ideas -> {len(goal_nodes)} goals "
         f"-> {len(task_nodes)} tasks -> {len(orch_nodes)} orchestration nodes"
@@ -166,15 +164,11 @@ def format_full_json(
 
     def serialize_nodes(result: Any) -> list[dict[str, Any]]:
         return [
-            {"id": n.id, "stage": n.stage, "label": n.label, "hash": n.hash}
-            for n in result.nodes
+            {"id": n.id, "stage": n.stage, "label": n.label, "hash": n.hash} for n in result.nodes
         ]
 
     def serialize_edges(result: Any) -> list[dict[str, Any]]:
-        return [
-            {"source": e.source, "target": e.target, "type": e.edge_type}
-            for e in result.edges
-        ]
+        return [{"source": e.source, "target": e.target, "type": e.edge_type} for e in result.edges]
 
     goal_nodes = [n for n in goals_result.nodes if n.stage == "goal"]
     return {
@@ -202,9 +196,7 @@ def format_full_json(
             "tasks": len(tasks_result.nodes),
             "orchestration_nodes": len(workflow_result.nodes),
             "total_edges": (
-                len(goals_result.edges)
-                + len(tasks_result.edges)
-                + len(workflow_result.edges)
+                len(goals_result.edges) + len(tasks_result.edges) + len(workflow_result.edges)
             ),
             "methods": [
                 goals_result.provenance.get("method", "unknown"),
@@ -262,10 +254,7 @@ def run_pipeline(
     if not json_output:
         print_stage("Stage 2: Goals -> Tasks", [n.label for n in goal_nodes])
 
-    goal_dicts = [
-        {"id": n.id, "label": n.label, "metadata": n.metadata}
-        for n in goal_nodes
-    ]
+    goal_dicts = [{"id": n.id, "label": n.label, "metadata": n.metadata} for n in goal_nodes]
     tasks_result = _goals_to_tasks_logic(goal_dicts)
 
     if not json_output:
@@ -276,8 +265,7 @@ def run_pipeline(
         print_stage("Stage 3: Tasks -> Workflow", [n.label for n in tasks_result.nodes])
 
     task_dicts = [
-        {"id": n.id, "label": n.label, "metadata": n.metadata}
-        for n in tasks_result.nodes
+        {"id": n.id, "label": n.label, "metadata": n.metadata} for n in tasks_result.nodes
     ]
     workflow_result = _tasks_to_workflow_logic(task_dicts)
 
@@ -331,7 +319,8 @@ Examples:
     )
     parser.add_argument("ideas", nargs="*", help="Ideas to process")
     parser.add_argument(
-        "--file", "-f",
+        "--file",
+        "-f",
         help="Read ideas from file (one per line)",
     )
     parser.add_argument(
@@ -350,7 +339,8 @@ Examples:
         help="Output as JSON",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )

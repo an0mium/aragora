@@ -103,9 +103,7 @@ def mock_km_precedents():
         return precedents
 
     fake_bridge.query_similar_goals.side_effect = _query
-    fake_bridge.enrich_with_precedents.side_effect = (
-        lambda gg, prec: _enrich_bridge(gg, prec)
-    )
+    fake_bridge.enrich_with_precedents.side_effect = lambda gg, prec: _enrich_bridge(gg, prec)
 
     fake_module = MagicMock()
     fake_module.PipelineKMBridge.return_value = fake_bridge
@@ -114,9 +112,7 @@ def mock_km_precedents():
         yield fake_bridge
 
 
-def _enrich_bridge(
-    goal_graph: Any, precedents: dict[str, list[dict[str, Any]]]
-) -> Any:
+def _enrich_bridge(goal_graph: Any, precedents: dict[str, list[dict[str, Any]]]) -> Any:
     """Side-effect helper: inject precedents into goal metadata."""
     for goal in goal_graph.goals:
         if goal.id in precedents and precedents[goal.id]:
@@ -183,9 +179,7 @@ class TestSyncPipelineSmoke:
         )
 
         # Verify transition directions
-        transition_pairs = [
-            (t.from_stage.value, t.to_stage.value) for t in result.transitions
-        ]
+        transition_pairs = [(t.from_stage.value, t.to_stage.value) for t in result.transitions]
         assert ("goals", "actions") in transition_pairs, (
             f"Missing goals->actions transition, got: {transition_pairs}"
         )
@@ -200,20 +194,20 @@ class TestSyncPipelineSmoke:
         assert result.goal_graph is not None
         assert len(result.goal_graph.goals) > 0
 
-        goals_with_smart = [
-            g for g in result.goal_graph.goals
-            if "smart_scores" in g.metadata
-        ]
-        assert len(goals_with_smart) > 0, (
-            "Expected at least one goal with SMART scores"
-        )
+        goals_with_smart = [g for g in result.goal_graph.goals if "smart_scores" in g.metadata]
+        assert len(goals_with_smart) > 0, "Expected at least one goal with SMART scores"
 
         # Verify SMART score structure
         sample_scores = goals_with_smart[0].metadata["smart_scores"]
-        for dimension in ("specific", "measurable", "achievable", "relevant", "time_bound", "overall"):
-            assert dimension in sample_scores, (
-                f"Missing SMART dimension: {dimension}"
-            )
+        for dimension in (
+            "specific",
+            "measurable",
+            "achievable",
+            "relevant",
+            "time_bound",
+            "overall",
+        ):
+            assert dimension in sample_scores, f"Missing SMART dimension: {dimension}"
             assert 0.0 <= sample_scores[dimension] <= 1.0, (
                 f"SMART score for {dimension} out of range: {sample_scores[dimension]}"
             )
@@ -257,7 +251,11 @@ class TestSyncPipelineSmoke:
         cartographer_data = {
             "nodes": [
                 {"id": "n1", "node_type": "proposal", "content": "Build a rate limiter"},
-                {"id": "n2", "node_type": "consensus", "content": "Token bucket rate limiter with per-user limits"},
+                {
+                    "id": "n2",
+                    "node_type": "consensus",
+                    "content": "Token bucket rate limiter with per-user limits",
+                },
                 {"id": "n3", "node_type": "vote", "content": "Agreed: 100 req/min default"},
             ],
             "edges": [
@@ -269,10 +267,7 @@ class TestSyncPipelineSmoke:
         result = pipeline.from_debate(cartographer_data, auto_advance=True)
 
         assert result.goal_graph is not None
-        goals_with_precedents = [
-            g for g in result.goal_graph.goals
-            if "precedents" in g.metadata
-        ]
+        goals_with_precedents = [g for g in result.goal_graph.goals if "precedents" in g.metadata]
         assert len(goals_with_precedents) > 0, (
             "Expected at least one goal enriched with KM precedents"
         )
@@ -287,7 +282,9 @@ class TestSyncPipelineSmoke:
         """Event callback fires for each stage transition."""
         captured, callback = event_log
         result = pipeline.from_ideas(
-            NORMAL_IDEAS, auto_advance=True, event_callback=callback,
+            NORMAL_IDEAS,
+            auto_advance=True,
+            event_callback=callback,
         )
 
         event_types = [e[0] for e in captured]
@@ -344,9 +341,7 @@ class TestSyncPipelineSmoke:
                 has_agent_data = True
                 break
 
-        assert has_agent_data, (
-            "Orchestration canvas nodes should have agent assignment data"
-        )
+        assert has_agent_data, "Orchestration canvas nodes should have agent assignment data"
 
 
 # ---------------------------------------------------------------------------
@@ -389,9 +384,7 @@ class TestAsyncPipelineSmoke:
         # Verify timing is recorded
         for sr in result.stage_results:
             if sr.status == "completed":
-                assert sr.duration > 0, (
-                    f"Stage {sr.stage_name} should have positive duration"
-                )
+                assert sr.duration > 0, f"Stage {sr.stage_name} should have positive duration"
 
     @pytest.mark.asyncio
     async def test_async_run_emits_full_event_sequence(self, pipeline, event_log):
@@ -409,12 +402,8 @@ class TestAsyncPipelineSmoke:
 
         event_types = [e[0] for e in captured]
 
-        assert "started" in event_types, (
-            f"Missing 'started' event. Got: {event_types}"
-        )
-        assert "completed" in event_types, (
-            f"Missing 'completed' event. Got: {event_types}"
-        )
+        assert "started" in event_types, f"Missing 'started' event. Got: {event_types}"
+        assert "completed" in event_types, f"Missing 'completed' event. Got: {event_types}"
 
         # Should have stage_started and stage_completed for each stage
         stage_started_count = event_types.count("stage_started")
@@ -445,10 +434,7 @@ class TestAsyncPipelineSmoke:
         assert result.goal_graph is not None
         assert len(result.goal_graph.goals) > 0
 
-        goals_with_smart = [
-            g for g in result.goal_graph.goals
-            if "smart_scores" in g.metadata
-        ]
+        goals_with_smart = [g for g in result.goal_graph.goals if "smart_scores" in g.metadata]
         assert len(goals_with_smart) > 0, (
             "At least one goal should have SMART scores after async run"
         )
@@ -507,10 +493,7 @@ class TestAsyncPipelineSmoke:
         )
 
         assert result.goal_graph is not None
-        goals_with_precedents = [
-            g for g in result.goal_graph.goals
-            if "precedents" in g.metadata
-        ]
+        goals_with_precedents = [g for g in result.goal_graph.goals if "precedents" in g.metadata]
         assert len(goals_with_precedents) > 0, (
             "Expected goals enriched with KM precedents after async run"
         )
@@ -531,9 +514,7 @@ class TestAsyncPipelineSmoke:
         )
 
         # Orchestration should complete (or fall back gracefully)
-        orch_results = [
-            sr for sr in result.stage_results if sr.stage_name == "orchestration"
-        ]
+        orch_results = [sr for sr in result.stage_results if sr.stage_name == "orchestration"]
         assert len(orch_results) == 1
 
         # Receipt should be generated since dry_run=False and enable_receipts=True
@@ -555,9 +536,7 @@ class TestAsyncPipelineSmoke:
         result = await pipeline.run("Build a feature. Test it.", config=config)
         elapsed = time.monotonic() - start
 
-        assert elapsed < 5.0, (
-            f"Pipeline took {elapsed:.2f}s, expected < 5.0s"
-        )
+        assert elapsed < 5.0, f"Pipeline took {elapsed:.2f}s, expected < 5.0s"
         assert result.duration > 0
         assert result.duration < 5.0
 
@@ -582,12 +561,8 @@ class TestCrossCuttingIntegration:
 
         # Every action node should reference a source goal
         for node in result.actions_canvas.nodes.values():
-            assert node.data.get("source_goal_id"), (
-                f"Action node {node.id} missing source_goal_id"
-            )
-            assert node.data.get("step_type"), (
-                f"Action node {node.id} missing step_type"
-            )
+            assert node.data.get("source_goal_id"), f"Action node {node.id} missing source_goal_id"
+            assert node.data.get("step_type"), f"Action node {node.id} missing step_type"
 
     def test_integrity_hash_is_deterministic_per_run(self, pipeline):
         """The same pipeline run should produce a consistent integrity hash."""
@@ -623,7 +598,8 @@ class TestCrossCuttingIntegration:
             stages_to_run=["ideation", "goals"],
         )
         async_result = await pipeline.run(
-            ". ".join(NORMAL_IDEAS), config=config,
+            ". ".join(NORMAL_IDEAS),
+            config=config,
         )
 
         sync_count = len(sync_result.goal_graph.goals) if sync_result.goal_graph else 0

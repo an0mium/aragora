@@ -806,7 +806,8 @@ class PipelineTasks(TaskSet):
     def run_pipeline(self) -> None:
         """POST /api/v1/canvas/pipeline/run."""
         payload = {
-            "input_text": "Design a " + random.choice(["rate limiter", "cache system", "auth service"]),
+            "input_text": "Design a "
+            + random.choice(["rate limiter", "cache system", "auth service"]),
             "dry_run": True,
             "stages": ["ideation", "goals"],
             "enable_receipts": False,
