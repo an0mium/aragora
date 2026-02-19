@@ -10,4 +10,6 @@ scan:
     - .venv
     - venv
     - .git
+    - deploy/helm
     - deploy/kubernetes/helm
+    - deploy/multi-region/helm
