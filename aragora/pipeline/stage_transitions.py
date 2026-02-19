@@ -10,6 +10,7 @@ parent_ids provenance, and records a StageTransition on the graph.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -209,8 +210,173 @@ def _ideas_to_goals_with_extractor(
 def goals_to_actions(
     graph: UniversalGraph,
     goal_node_ids: list[str],
+    meta_planner: Any | None = None,
 ) -> list[UniversalNode]:
-    """Derive action/task nodes from goal nodes."""
+    """Derive action/task nodes from goal nodes.
+
+    If a MetaPlanner is provided, uses it to prioritize and enrich the
+    decomposition with debate-driven rationale.  Falls back to structural
+    decomposition when MetaPlanner is None or raises.
+    """
+    if meta_planner is not None:
+        try:
+            return _goals_to_actions_with_planner(graph, goal_node_ids, meta_planner)
+        except Exception:
+            logger.warning(
+                "MetaPlanner enrichment failed, falling back to structural decomposition",
+                exc_info=True,
+            )
+
+    return _goals_to_actions_structural(graph, goal_node_ids)
+
+
+def _goals_to_actions_with_planner(
+    graph: UniversalGraph,
+    goal_node_ids: list[str],
+    meta_planner: Any,
+) -> list[UniversalNode]:
+    """Use MetaPlanner for prioritized goal→action decomposition."""
+    # Collect goal descriptions for the planner
+    goal_descriptions: list[str] = []
+    valid_ids: list[str] = []
+    for goal_id in goal_node_ids:
+        source = graph.nodes.get(goal_id)
+        if source is not None and source.stage == PipelineStage.GOALS:
+            goal_descriptions.append(source.description or source.label)
+            valid_ids.append(goal_id)
+
+    if not valid_ids:
+        return []
+
+    objective = "; ".join(goal_descriptions)
+
+    # prioritize_work is async — run synchronously
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            prioritized = pool.submit(
+                asyncio.run, meta_planner.prioritize_work(objective=objective)
+            ).result()
+    else:
+        prioritized = asyncio.run(meta_planner.prioritize_work(objective=objective))
+
+    # Build a priority map from MetaPlanner results (keyed by description similarity)
+    priority_map: dict[str, Any] = {}
+    for pg in prioritized:
+        priority_map[pg.description.lower()] = pg
+
+    created: list[UniversalNode] = []
+    provenance_links: list[ProvenanceLink] = []
+
+    for goal_id in valid_ids:
+        source = graph.nodes[goal_id]
+        action_subtype = _goal_to_action_subtype(source.node_subtype)
+        action_label = source.label.replace("Achieve: ", "").replace("Maintain: ", "")
+
+        # Try to match this goal to a MetaPlanner result for enrichment
+        matched_pg = _match_prioritized_goal(source, priority_map)
+
+        if matched_pg is not None:
+            priority_val = matched_pg.estimated_impact
+            rationale = matched_pg.rationale
+            planner_priority = matched_pg.priority
+        else:
+            priority_val = source.data.get("priority", "medium")
+            rationale = ""
+            planner_priority = None
+
+        metadata: dict[str, Any] = {"promoted_from": source.id}
+        if rationale:
+            metadata["meta_planner_rationale"] = rationale
+        if planner_priority is not None:
+            metadata["meta_planner_priority"] = planner_priority
+
+        action_node = UniversalNode(
+            id=f"action-{uuid.uuid4().hex[:8]}",
+            stage=PipelineStage.ACTIONS,
+            node_subtype=action_subtype,
+            label=action_label,
+            description=source.description,
+            content_hash=content_hash(action_label + source.description),
+            previous_hash=source.content_hash,
+            parent_ids=[source.id],
+            source_stage=PipelineStage.GOALS,
+            confidence=source.confidence * 0.9,
+            data={
+                "priority": priority_val,
+                "source_goal_id": source.id,
+            },
+            metadata=metadata,
+        )
+        graph.add_node(action_node)
+        created.append(action_node)
+
+        edge = UniversalEdge(
+            id=f"edge-{uuid.uuid4().hex[:8]}",
+            source_id=source.id,
+            target_id=action_node.id,
+            edge_type=StageEdgeType.IMPLEMENTS,
+            label="implements",
+        )
+        graph.add_edge(edge)
+
+        provenance_links.append(ProvenanceLink(
+            source_node_id=source.id,
+            source_stage=PipelineStage.GOALS,
+            target_node_id=action_node.id,
+            target_stage=PipelineStage.ACTIONS,
+            content_hash=source.content_hash,
+            method="meta_planner_decomposition",
+        ))
+
+    # Sort created nodes by MetaPlanner priority when available
+    created.sort(
+        key=lambda n: n.metadata.get("meta_planner_priority", 999),
+    )
+
+    if created:
+        transition = StageTransition(
+            id=f"trans-goals-actions-{uuid.uuid4().hex[:8]}",
+            from_stage=PipelineStage.GOALS,
+            to_stage=PipelineStage.ACTIONS,
+            provenance=provenance_links,
+            status="pending",
+            confidence=sum(n.confidence for n in created) / len(created),
+            ai_rationale=(
+                f"MetaPlanner-prioritized decomposition of {len(created)} goals"
+            ),
+        )
+        graph.transitions.append(transition)
+
+    return created
+
+
+def _match_prioritized_goal(
+    source: UniversalNode,
+    priority_map: dict[str, Any],
+) -> Any | None:
+    """Best-effort match a goal node to a MetaPlanner PrioritizedGoal."""
+    desc_lower = (source.description or source.label).lower()
+    # Exact description match
+    if desc_lower in priority_map:
+        return priority_map[desc_lower]
+    # Substring containment
+    for key, pg in priority_map.items():
+        if key in desc_lower or desc_lower in key:
+            return pg
+    return None
+
+
+def _goals_to_actions_structural(
+    graph: UniversalGraph,
+    goal_node_ids: list[str],
+) -> list[UniversalNode]:
+    """Structural goal→action decomposition (original logic)."""
     created: list[UniversalNode] = []
     provenance_links: list[ProvenanceLink] = []
 

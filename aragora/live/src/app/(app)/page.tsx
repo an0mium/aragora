@@ -595,6 +595,48 @@ export default function Home() {
             <PanelErrorBoundary panelName="Recent Receipts">
               <RecentReceipts limit={5} />
             </PanelErrorBoundary>
+
+            {/* Pipeline Quick Launch */}
+            {isFeatureVisible('standard') && (
+              <div className="border border-border bg-surface/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="font-mono text-sm font-bold text-text">PIPELINE</h2>
+                    <p className="text-xs text-text-muted font-mono mt-0.5">
+                      Ideas &rarr; Goals &rarr; Actions &rarr; Orchestration
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push('/pipeline')}
+                    className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+                  >
+                    [VIEW ALL]
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => router.push('/pipeline')}
+                    className="px-3 py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-mono rounded hover:bg-indigo-600/30 transition-colors"
+                  >
+                    New Pipeline
+                  </button>
+                  <button
+                    onClick={() => router.push('/pipeline?demo=true')}
+                    className="px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs font-mono rounded hover:bg-emerald-600/30 transition-colors"
+                  >
+                    Try Demo
+                  </button>
+                  {currentDebateId && (
+                    <button
+                      onClick={() => router.push(`/pipeline?from=debate&id=${currentDebateId}`)}
+                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-mono rounded hover:bg-violet-600/30 transition-colors"
+                    >
+                      From Current Debate
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
 

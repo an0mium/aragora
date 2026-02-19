@@ -34,6 +34,7 @@ import {
 import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
 import { usePipelineWebSocket } from '../../hooks/usePipelineWebSocket';
 import { StageTransitionGate } from '../pipeline/StageTransitionGate';
+import { StageSidebar } from './StageSidebar';
 
 // =============================================================================
 // Constants
@@ -128,6 +129,9 @@ function PipelineCanvasInner({
   const [viewMode, setViewMode] = useState<ViewMode>(initialStage || 'all');
   const [showProvenance, setShowProvenance] = useState(false);
   const [showTemplates, setShowTemplates] = useState(!pipelineId && !initialData);
+
+  // -- Stage sidebar (stranded features) -------------------------------------
+  const [showStageSidebar, setShowStageSidebar] = useState(false);
 
   // -- Run pipeline state ----------------------------------------------------
   const [runInputText, setRunInputText] = useState('');
@@ -686,24 +690,37 @@ function PipelineCanvasInner({
 
             {/* Stats panel */}
             <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
-              <div className="text-xs font-mono text-text-muted">
-                <span className="text-text">{displayNodes.length}</span> nodes |{' '}
-                <span className="text-text">{displayEdges.length}</span> edges
-                {stageConfig && (
-                  <>
-                    {' | '}
-                    <span style={{ color: stageConfig.primary }} className="uppercase font-bold">
-                      {stageConfig.label}
-                    </span>
-                  </>
-                )}
-                {viewMode === 'all' && (
-                  <>
-                    {' | '}
-                    <span className="text-acid-green uppercase font-bold">ALL STAGES</span>
-                  </>
-                )}
-                <span className="ml-2 opacity-50">1-4: stages | A: all</span>
+              <div className="text-xs font-mono text-text-muted flex items-center gap-2">
+                <span>
+                  <span className="text-text">{displayNodes.length}</span> nodes |{' '}
+                  <span className="text-text">{displayEdges.length}</span> edges
+                  {stageConfig && (
+                    <>
+                      {' | '}
+                      <span style={{ color: stageConfig.primary }} className="uppercase font-bold">
+                        {stageConfig.label}
+                      </span>
+                    </>
+                  )}
+                  {viewMode === 'all' && (
+                    <>
+                      {' | '}
+                      <span className="text-acid-green uppercase font-bold">ALL STAGES</span>
+                    </>
+                  )}
+                  <span className="ml-2 opacity-50">1-4: stages | A: all</span>
+                </span>
+                <button
+                  onClick={() => setShowStageSidebar((s) => !s)}
+                  className={`ml-2 px-2 py-0.5 rounded text-xs font-mono transition-colors ${
+                    showStageSidebar
+                      ? 'bg-acid-green/20 text-acid-green'
+                      : 'text-text-muted hover:text-text'
+                  }`}
+                  title="Toggle stage tools panel"
+                >
+                  Tools
+                </button>
               </div>
             </Panel>
 
@@ -770,6 +787,15 @@ function PipelineCanvasInner({
           readOnly={readOnly}
           provenanceLinks={selectedProvenance}
           transitions={selectedTransitions}
+        />
+      )}
+
+      {/* Right: Stage Feature Sidebar */}
+      {showStageSidebar && !showPropertyEditor && !showProvenanceSidebar && (
+        <StageSidebar
+          stage={viewMode === 'all' ? activeStage : viewMode}
+          isOpen={showStageSidebar}
+          onClose={() => setShowStageSidebar(false)}
         />
       )}
 

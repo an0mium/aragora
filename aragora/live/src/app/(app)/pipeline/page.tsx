@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { usePipeline } from '@/hooks/usePipeline';
 import type { PipelineStageType } from '@/components/pipeline-canvas/types';
@@ -31,6 +32,14 @@ const _NEXT_STAGE: Record<string, PipelineStageType> = {
 };
 
 export default function PipelinePage() {
+  return (
+    <Suspense fallback={<CanvasLoadingState />}>
+      <PipelinePageContent />
+    </Suspense>
+  );
+}
+
+function PipelinePageContent() {
   const {
     pipelineData,
     createFromIdeas,
@@ -44,12 +53,55 @@ export default function PipelinePage() {
     error,
   } = usePipeline();
 
+  const searchParams = useSearchParams();
+
   const [showIdeaInput, setShowIdeaInput] = useState(false);
   const [showDebateInput, setShowDebateInput] = useState(false);
   const [ideaText, setIdeaText] = useState('');
   const [debateJson, setDebateJson] = useState('');
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
+  const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
+
+  // Auto-import from debate when ?from=debate&id=xxx is present
+  useEffect(() => {
+    const from = searchParams?.get('from');
+    const debateId = searchParams?.get('id');
+    if (from === 'debate' && debateId && !pipelineData) {
+      setDebateImportStatus('Fetching debate results...');
+      fetch(`/api/v1/debates/${encodeURIComponent(debateId)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Failed to fetch debate: ${res.status}`);
+          return res.json();
+        })
+        .then((debate) => {
+          // Extract proposals/conclusions as cartographer-style data
+          const nodes = (debate.proposals || debate.conclusions || debate.messages || []).map(
+            (item: Record<string, unknown>, i: number) => ({
+              id: (item.id as string) || `debate-node-${i}`,
+              type: (item.type as string) || 'proposal',
+              summary: (item.summary as string) || (item.content as string) || '',
+              content: (item.content as string) || (item.summary as string) || '',
+            }),
+          );
+          if (nodes.length === 0) {
+            setDebateImportStatus('No proposals found in debate');
+            return;
+          }
+          setDebateImportStatus(`Importing ${nodes.length} debate proposals...`);
+          return createFromDebate({ nodes, edges: [] });
+        })
+        .then(() => {
+          setDebateImportStatus(null);
+          setKey((k) => k + 1);
+        })
+        .catch((err) => {
+          setDebateImportStatus(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        });
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFromIdeas = useCallback(async () => {
     const ideas = ideaText
@@ -251,6 +303,13 @@ export default function PipelinePage() {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Debate import status */}
+      {debateImportStatus && (
+        <div className="px-6 py-2 bg-violet-500/10 border-b border-violet-500/30">
+          <p className="text-sm text-violet-400 font-mono">{debateImportStatus}</p>
         </div>
       )}
 

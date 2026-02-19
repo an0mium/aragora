@@ -5,6 +5,9 @@ DecisionPlan, then executes it via PlanExecutor. This gives self-improvement
 access to risk registers, verification plans, execution receipts, and KM
 ingestion for free.
 
+Also provides conversion from Nomic Loop results into UniversalGraph format
+for visual monitoring of self-improvement through the /pipeline UI.
+
 Usage:
     from aragora.nomic.pipeline_bridge import NomicPipelineBridge
 
@@ -15,6 +18,9 @@ Usage:
         consensus_result=debate_result,  # Optional DebateResult
         execution_mode="hybrid",
     )
+
+    # Convert cycle result to pipeline visualization
+    graph = bridge.create_pipeline_from_cycle(orchestration_result)
 
 The bridge is intentionally thin -- it transforms Nomic types to Pipeline
 types and delegates execution to PlanExecutor.
@@ -28,9 +34,13 @@ import hashlib
 import logging
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
+
+if TYPE_CHECKING:
+    from aragora.nomic.autonomous_orchestrator import OrchestrationResult
+    from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
 
 logger = logging.getLogger(__name__)
 
@@ -324,3 +334,254 @@ class NomicPipelineBridge:
             dissent=dissent,
             execution_mode=execution_mode,
         )
+
+    # -- UniversalGraph conversion (for /pipeline UI visualization) --------
+
+    def cycle_result_to_ideas(self, cycle_result: OrchestrationResult) -> list[dict[str, Any]]:
+        """Convert an OrchestrationResult into pipeline idea dicts.
+
+        Extracts proposals from completed assignments and surfaces them as
+        ideas suitable for the Ideas stage of the Idea-to-Execution Pipeline.
+
+        Args:
+            cycle_result: Result from AutonomousOrchestrator.execute_goal().
+
+        Returns:
+            List of idea dicts with keys: id, label, description, idea_type.
+        """
+        ideas: list[dict[str, Any]] = []
+
+        # The top-level goal becomes the primary insight
+        ideas.append({
+            "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
+            "label": cycle_result.goal,
+            "description": cycle_result.summary or cycle_result.goal,
+            "idea_type": "insight",
+        })
+
+        # Each assignment becomes a concept idea
+        for assignment in cycle_result.assignments:
+            subtask = assignment.subtask
+            idea_type = "concept"
+            if subtask.file_scope:
+                idea_type = "evidence"  # Grounded in specific files
+
+            ideas.append({
+                "id": f"nomic-idea-{uuid.uuid4().hex[:8]}",
+                "label": subtask.title,
+                "description": subtask.description,
+                "idea_type": idea_type,
+            })
+
+        return ideas
+
+    def design_phase_to_goals(self, design_output: dict[str, Any]) -> list[dict[str, Any]]:
+        """Convert Nomic design phase output to goal dicts.
+
+        Maps design decisions to SMART-style goals for the Goals stage
+        of the pipeline.
+
+        Args:
+            design_output: Dictionary from the design phase, expected keys:
+                - "goal": The high-level goal string.
+                - "subtasks": List of SubTask-like dicts or SubTask objects.
+                - "rationale": Optional design rationale.
+
+        Returns:
+            List of goal dicts with keys: id, label, description, goal_type,
+            confidence.
+        """
+        goals: list[dict[str, Any]] = []
+
+        # Primary goal from the design
+        goal_text = design_output.get("goal", "")
+        if goal_text:
+            goals.append({
+                "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
+                "label": goal_text,
+                "description": design_output.get("rationale", goal_text),
+                "goal_type": "goal",
+                "confidence": 0.8,
+            })
+
+        # Each subtask becomes a milestone
+        subtasks = design_output.get("subtasks", [])
+        for st in subtasks:
+            if isinstance(st, SubTask):
+                title, desc, complexity = st.title, st.description, st.estimated_complexity
+            else:
+                title = st.get("title", "")
+                desc = st.get("description", "")
+                complexity = st.get("estimated_complexity", "medium")
+
+            confidence_map = {"low": 0.9, "medium": 0.7, "high": 0.5}
+            goals.append({
+                "id": f"nomic-goal-{uuid.uuid4().hex[:8]}",
+                "label": title,
+                "description": desc,
+                "goal_type": "milestone",
+                "confidence": confidence_map.get(complexity, 0.7),
+            })
+
+        return goals
+
+    def create_pipeline_from_cycle(self, cycle_result: OrchestrationResult) -> UniversalGraph:
+        """Convert an OrchestrationResult into a populated UniversalGraph.
+
+        Produces a graph with:
+        - IDEAS stage: one node per proposal/assignment from the cycle
+        - GOALS stage: milestone nodes from completed assignments
+        - ACTIONS stage: task nodes for each subtask with file scope
+        - Cross-stage DERIVED_FROM edges linking goals to ideas, actions to goals
+
+        Args:
+            cycle_result: Result from AutonomousOrchestrator.execute_goal().
+
+        Returns:
+            A UniversalGraph ready for /pipeline visualization.
+        """
+        from aragora.canvas.stages import PipelineStage, StageEdgeType, content_hash
+        from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
+
+        graph = UniversalGraph(
+            id=f"nomic-pipeline-{uuid.uuid4().hex[:8]}",
+            name=f"Nomic: {cycle_result.goal[:60]}",
+            metadata={
+                "source": "nomic_loop",
+                "goal": cycle_result.goal,
+                "success": cycle_result.success,
+                "duration_seconds": cycle_result.duration_seconds,
+                "improvement_score": cycle_result.improvement_score,
+            },
+        )
+
+        # Track node IDs for cross-stage edges
+        idea_node_ids: list[str] = []
+        goal_node_ids: list[str] = []
+
+        # -- Stage 1: IDEAS (from proposals/assignments) --
+        y_offset = 0.0
+        for i, assignment in enumerate(cycle_result.assignments):
+            subtask = assignment.subtask
+            node_id = f"nomic-idea-{i}"
+            idea_type = "concept"
+            if subtask.file_scope:
+                idea_type = "evidence"
+
+            node = UniversalNode(
+                id=node_id,
+                stage=PipelineStage.IDEAS,
+                node_subtype=idea_type,
+                label=subtask.title,
+                description=subtask.description,
+                position_x=0.0,
+                position_y=y_offset,
+                confidence=0.75 if assignment.status == "completed" else 0.4,
+                status="completed" if assignment.status == "completed" else "active",
+                data={"agent_type": assignment.agent_type, "track": assignment.track.value},
+            )
+            graph.add_node(node)
+            idea_node_ids.append(node_id)
+            y_offset += 120.0
+
+        # -- Stage 2: GOALS (milestones from completed assignments) --
+        y_offset = 0.0
+        for i, assignment in enumerate(cycle_result.assignments):
+            if assignment.status != "completed":
+                continue
+            subtask = assignment.subtask
+            node_id = f"nomic-goal-{i}"
+            complexity_confidence = {"low": 0.9, "medium": 0.7, "high": 0.5}
+
+            node = UniversalNode(
+                id=node_id,
+                stage=PipelineStage.GOALS,
+                node_subtype="milestone",
+                label=f"Complete: {subtask.title}",
+                description=subtask.description,
+                position_x=300.0,
+                position_y=y_offset,
+                confidence=complexity_confidence.get(subtask.estimated_complexity, 0.7),
+                status="completed",
+                parent_ids=[f"nomic-idea-{i}"],
+                source_stage=PipelineStage.IDEAS,
+            )
+            graph.add_node(node)
+            goal_node_ids.append(node_id)
+
+            # Cross-stage edge: idea -> goal
+            edge = UniversalEdge(
+                id=f"nomic-edge-idea-goal-{i}",
+                source_id=f"nomic-idea-{i}",
+                target_id=node_id,
+                edge_type=StageEdgeType.DERIVED_FROM,
+                label="derived from",
+            )
+            graph.add_edge(edge)
+            y_offset += 120.0
+
+        # -- Stage 3: ACTIONS (tasks with file scope) --
+        y_offset = 0.0
+        action_idx = 0
+        for i, assignment in enumerate(cycle_result.assignments):
+            subtask = assignment.subtask
+            if not subtask.file_scope:
+                continue
+            node_id = f"nomic-action-{action_idx}"
+
+            node = UniversalNode(
+                id=node_id,
+                stage=PipelineStage.ACTIONS,
+                node_subtype="task",
+                label=subtask.title,
+                description=f"Files: {', '.join(subtask.file_scope[:5])}",
+                position_x=600.0,
+                position_y=y_offset,
+                confidence=0.8 if assignment.status == "completed" else 0.5,
+                status="completed" if assignment.status == "completed" else "active",
+                data={"files": subtask.file_scope, "complexity": subtask.estimated_complexity},
+            )
+            graph.add_node(node)
+
+            # Cross-stage edge: goal -> action (if the goal exists)
+            goal_id = f"nomic-goal-{i}"
+            if goal_id in graph.nodes:
+                edge = UniversalEdge(
+                    id=f"nomic-edge-goal-action-{action_idx}",
+                    source_id=goal_id,
+                    target_id=node_id,
+                    edge_type=StageEdgeType.IMPLEMENTS,
+                    label="implements",
+                )
+                graph.add_edge(edge)
+
+            y_offset += 120.0
+            action_idx += 1
+
+        # -- Intra-stage dependency edges --
+        # Map subtask IDs to idea node IDs for dependency resolution
+        subtask_to_node: dict[str, str] = {}
+        for i, assignment in enumerate(cycle_result.assignments):
+            subtask_to_node[assignment.subtask.id] = f"nomic-idea-{i}"
+
+        for i, assignment in enumerate(cycle_result.assignments):
+            for dep_id in assignment.subtask.dependencies:
+                dep_node = subtask_to_node.get(dep_id)
+                if dep_node and dep_node in graph.nodes:
+                    edge = UniversalEdge(
+                        id=f"nomic-edge-dep-{i}-{dep_id[:8]}",
+                        source_id=dep_node,
+                        target_id=f"nomic-idea-{i}",
+                        edge_type=StageEdgeType.REQUIRES,
+                        label="requires",
+                    )
+                    graph.add_edge(edge)
+
+        logger.info(
+            "Created UniversalGraph %s from cycle result: %d nodes, %d edges",
+            graph.id,
+            len(graph.nodes),
+            len(graph.edges),
+        )
+
+        return graph

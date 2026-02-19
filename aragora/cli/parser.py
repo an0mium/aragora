@@ -128,6 +128,7 @@ Examples:
     _add_outcome_parser(subparsers)
     _add_explain_parser(subparsers)
     _add_playbook_parser(subparsers)
+    _add_pipeline_parser(subparsers)
 
     return parser
 
@@ -1838,3 +1839,10 @@ def _add_playbook_parser(subparsers) -> None:
     from aragora.cli.commands.playbook import add_playbook_parser
 
     add_playbook_parser(subparsers)
+
+
+def _add_pipeline_parser(subparsers) -> None:
+    """Add the 'pipeline' subcommand for idea-to-execution pipeline."""
+    from aragora.cli.commands.pipeline import add_pipeline_parser
+
+    add_pipeline_parser(subparsers)

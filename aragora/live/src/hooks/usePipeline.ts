@@ -96,7 +96,7 @@ function getDemoPipeline(): PipelineResultResponse {
       { source_node_id: 'idea-4', source_stage: 'ideas', target_node_id: 'goal-3', target_stage: 'goals', content_hash: 'jkl01234', timestamp: Date.now(), method: 'structural_extraction' },
     ],
     provenance_count: 4,
-    stage_status: { ideas: 'complete', goals: 'complete', actions: 'complete', orchestration: 'complete' },
+    stage_status: { ideas: 'complete', goals: 'pending', actions: 'pending', orchestration: 'pending' },
     integrity_hash: 'demo0123456789ab',
   };
 }
@@ -107,6 +107,8 @@ interface PipelineExecuteResponse {
   results: unknown[];
 }
 
+const STAGE_ORDER: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
+
 export function usePipeline() {
   const api = useApi<PipelineCreateResponse>();
   const advanceApi = useApi<PipelineAdvanceResponse>();
@@ -114,6 +116,7 @@ export function usePipeline() {
   const stageApi = useApi<{ stage: string; data: unknown }>();
   const executeApi = useApi<PipelineExecuteResponse>();
   const [pipelineData, setPipelineData] = useState<PipelineResultResponse | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   const createFromDebate = useCallback(
     async (cartographerData: Record<string, unknown>, autoAdvance = true) => {
@@ -145,6 +148,27 @@ export function usePipeline() {
 
   const advanceStage = useCallback(
     async (pipelineId: string, targetStage: PipelineStageType) => {
+      // Demo mode: advance stages client-side without backend call
+      if (isDemo && pipelineData) {
+        const targetIdx = STAGE_ORDER.indexOf(targetStage);
+        if (targetIdx < 0) return null;
+        const newStatus = { ...pipelineData.stage_status } as Record<PipelineStageType, string>;
+        // Mark all stages up to target as complete
+        for (let i = 0; i <= targetIdx; i++) {
+          newStatus[STAGE_ORDER[i]] = 'complete';
+        }
+        // Mark transitions up to target as approved
+        const newTransitions = (pipelineData.transitions || []).map((t) => {
+          const toIdx = STAGE_ORDER.indexOf(t.to_stage as PipelineStageType);
+          if (toIdx >= 0 && toIdx <= targetIdx) {
+            return { ...t, status: 'approved' };
+          }
+          return t;
+        });
+        const updated = { ...pipelineData, stage_status: newStatus, transitions: newTransitions };
+        setPipelineData(updated);
+        return null;
+      }
       const result = await advanceApi.post('/api/v1/canvas/pipeline/advance', {
         pipeline_id: pipelineId,
         target_stage: targetStage,
@@ -154,7 +178,7 @@ export function usePipeline() {
       }
       return result;
     },
-    [advanceApi]
+    [advanceApi, isDemo, pipelineData]
   );
 
   const getPipeline = useCallback(
@@ -184,14 +208,17 @@ export function usePipeline() {
 
   const loadDemo = useCallback(() => {
     setPipelineData(getDemoPipeline());
+    setIsDemo(true);
   }, []);
 
   const reset = useCallback(() => {
     setPipelineData(null);
+    setIsDemo(false);
   }, []);
 
   return {
     pipelineData,
+    isDemo,
     createFromDebate,
     createFromIdeas,
     advanceStage,
