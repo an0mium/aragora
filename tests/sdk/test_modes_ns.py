@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aragora_sdk.namespaces.modes import AsyncModesAPI, ModesAPI
+pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
+
+from aragora_sdk.namespaces.modes import AsyncModesAPI, ModesAPI  # noqa: E402
 
 
 @pytest.fixture

@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aragora_sdk.namespaces.spectate import AsyncSpectateAPI, SpectateAPI
+pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
+
+from aragora_sdk.namespaces.spectate import AsyncSpectateAPI, SpectateAPI  # noqa: E402
 
 
 @pytest.fixture
