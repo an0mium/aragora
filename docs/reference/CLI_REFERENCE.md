@@ -1,7 +1,6 @@
 # Aragora CLI Reference
 
 > Source of truth: generated from `aragora/cli/parser.py` via `python scripts/generate_cli_reference.py`.
-> Generated: 2026-02-18
 
 ## Scope
 

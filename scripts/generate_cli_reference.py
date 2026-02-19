@@ -9,7 +9,6 @@ Outputs:
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 from collections import defaultdict
 from pathlib import Path
 
@@ -115,7 +114,6 @@ def _render_markdown(*, include_frontmatter: bool) -> str:
             "# Aragora CLI Reference",
             "",
             "> Source of truth: generated from `aragora/cli/parser.py` via `python scripts/generate_cli_reference.py`.",
-            f"> Generated: {dt.date.today().isoformat()}",
             "",
             "## Scope",
             "",
