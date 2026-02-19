@@ -82,6 +82,7 @@ class MergedConfig:
         "supermemory_enable_resilience",
         "supermemory_enable_km_adapter",
         "enable_belief_guidance",
+        "enable_outcome_context",
         "enable_auto_revalidation",
         "revalidation_staleness_threshold",
         "revalidation_check_interval_seconds",
@@ -205,6 +206,7 @@ class MergedConfig:
     supermemory_enable_resilience: bool
     supermemory_enable_km_adapter: bool
     enable_belief_guidance: bool
+    enable_outcome_context: bool
     enable_auto_revalidation: bool
     revalidation_staleness_threshold: float
     revalidation_check_interval_seconds: int
@@ -340,6 +342,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     supermemory_enable_resilience: bool,
     supermemory_enable_km_adapter: bool,
     enable_belief_guidance: bool,
+    enable_outcome_context: bool,
     enable_auto_revalidation: bool,
     revalidation_staleness_threshold: float,
     revalidation_check_interval_seconds: int,
@@ -466,6 +469,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         enable_knowledge_extraction = memory_config.enable_knowledge_extraction
         extraction_min_confidence = memory_config.extraction_min_confidence
         enable_belief_guidance = memory_config.enable_belief_guidance
+        enable_outcome_context = getattr(memory_config, "enable_outcome_context", enable_outcome_context)
         enable_auto_revalidation = memory_config.enable_auto_revalidation
         revalidation_staleness_threshold = memory_config.revalidation_staleness_threshold
         revalidation_check_interval_seconds = memory_config.revalidation_check_interval_seconds
@@ -567,6 +571,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
         revalidation_check_interval_seconds = knowledge_config.revalidation_check_interval_seconds
         revalidation_scheduler = knowledge_config.revalidation_scheduler or revalidation_scheduler
         enable_belief_guidance = knowledge_config.enable_belief_guidance
+        enable_outcome_context = getattr(knowledge_config, "enable_outcome_context", enable_outcome_context)
 
     if supermemory_config is not None:
         enable_supermemory = supermemory_config.enable_supermemory
@@ -735,6 +740,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.supermemory_enable_resilience = supermemory_enable_resilience
     cfg.supermemory_enable_km_adapter = supermemory_enable_km_adapter
     cfg.enable_belief_guidance = enable_belief_guidance
+    cfg.enable_outcome_context = enable_outcome_context
     cfg.enable_auto_revalidation = enable_auto_revalidation
     cfg.revalidation_staleness_threshold = revalidation_staleness_threshold
     cfg.revalidation_check_interval_seconds = revalidation_check_interval_seconds

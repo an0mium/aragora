@@ -789,6 +789,7 @@ class ArenaConfig:
             # Auto-revalidation
             "enable_auto_revalidation": self.enable_auto_revalidation,
             "enable_belief_guidance": self.enable_belief_guidance,
+            "enable_outcome_context": getattr(self, "enable_outcome_context", True),
             # Cross-debate institutional memory
             "cross_debate_memory": self.cross_debate_memory,
             "enable_cross_debate_memory": self.enable_cross_debate_memory,

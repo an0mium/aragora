@@ -305,6 +305,7 @@ class MemoryConfig:
     enable_knowledge_extraction: bool = False  # Extract structured claims
     extraction_min_confidence: float = 0.3  # Min confidence for extraction
     enable_belief_guidance: bool = True  # Inject historical cruxes
+    enable_outcome_context: bool = True  # Inject past outcome data into debates
 
     # Revalidation settings
     enable_auto_revalidation: bool = False  # Auto-trigger for stale knowledge
@@ -386,6 +387,7 @@ class KnowledgeConfig:
     revalidation_check_interval_seconds: int = 3600
     revalidation_scheduler: Any | None = None
     enable_belief_guidance: bool = True
+    enable_outcome_context: bool = True
 
 
 @dataclass

@@ -84,6 +84,7 @@ class PromptContextMixin:
     _pulse_topics: list
     _knowledge_context: str
     _km_item_ids: list
+    _outcome_context: str
 
     def get_deliberation_template_context(self) -> str:
         """Get deliberation template context for prompt injection.
@@ -468,6 +469,30 @@ class PromptContextMixin:
         self._knowledge_context = context or ""
         if item_ids is not None:
             self._km_item_ids = list(item_ids)
+
+    def get_outcome_context(self) -> str:
+        """Get past decision outcome context for prompt injection.
+
+        Returns the outcome context that was set via set_outcome_context().
+        This is injected as a dedicated prompt section so agents see past
+        decision successes and failures alongside other KM context.
+
+        Returns:
+            Formatted outcome context string, or empty string if not set.
+        """
+        return self._outcome_context
+
+    def set_outcome_context(self, context: str) -> None:
+        """Set past decision outcome context for prompt injection.
+
+        This allows the context initializer to provide outcome data as a
+        dedicated prompt section. Agents will see a "Past Decision Outcomes"
+        header with outcome types, impact scores, and lessons learned.
+
+        Args:
+            context: The outcome context string to inject into prompts.
+        """
+        self._outcome_context = context or ""
 
     def get_codebase_context(self) -> str:
         """Get codebase context for code-grounded debate prompt injection.

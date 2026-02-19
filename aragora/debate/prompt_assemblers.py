@@ -48,6 +48,7 @@ class PromptAssemblyMixin:
     get_continuum_context: Any
     get_supermemory_context: Any
     get_knowledge_mound_context: Any
+    get_outcome_context: Any
     get_codebase_context: Any
     get_prior_claims_context: Any
     format_pulse_context: Any
@@ -167,6 +168,12 @@ class PromptAssemblyMixin:
         if km_context:
             km_section = f"## Organizational Knowledge\n{km_context}"
 
+        # Past decision outcome context (successes/failures from similar decisions)
+        outcome_section = ""
+        outcome_context = self.get_outcome_context()
+        if outcome_context:
+            outcome_section = outcome_context
+
         # Codebase context for code-grounded debates
         codebase_section = ""
         codebase_ctx = self.get_codebase_context()
@@ -265,6 +272,7 @@ class PromptAssemblyMixin:
             ContextSection("continuum", continuum_section.strip()),
             ContextSection("supermemory", supermemory_section.strip()),
             ContextSection("knowledge_mound", km_section.strip()),
+            ContextSection("outcome", outcome_section.strip()),
             ContextSection("codebase", codebase_section.strip()),
             ContextSection("belief", belief_section.strip()),
             ContextSection("dissent", dissent_section.strip()),
@@ -347,6 +355,12 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if km_context:
             km_section = f"## Organizational Knowledge\n{km_context}"
 
+        # Past decision outcome context
+        outcome_section = ""
+        outcome_context = self.get_outcome_context()
+        if outcome_context:
+            outcome_section = outcome_context
+
         # Codebase context for code-grounded debates
         codebase_section = ""
         codebase_ctx = self.get_codebase_context()
@@ -396,6 +410,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
 
         sections = [
             ContextSection("knowledge_mound", km_section.strip()),
+            ContextSection("outcome", outcome_section.strip()),
             ContextSection("codebase", codebase_section.strip()),
             ContextSection("patterns", patterns_section.strip()),
             ContextSection("belief", belief_section.strip()),

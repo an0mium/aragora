@@ -99,6 +99,8 @@ class ContextInitializer:
         # Cross-debate memory for institutional knowledge
         cross_debate_memory: Any = None,  # CrossDebateMemory for institutional knowledge
         enable_cross_debate_memory: bool = True,  # Query cross-debate memory before debates
+        # Outcome context: inject past decision outcomes into new debates
+        enable_outcome_context: bool = True,  # Query OutcomeAdapter for similar past outcomes
         # Skills system for extensible evidence collection
         skill_registry: Any = None,  # SkillRegistry for debate-compatible skills
         enable_skills: bool = False,  # Invoke skills during evidence collection
@@ -159,6 +161,7 @@ class ContextInitializer:
         self.enable_belief_guidance = enable_belief_guidance
         self.cross_debate_memory = cross_debate_memory
         self.enable_cross_debate_memory = enable_cross_debate_memory
+        self.enable_outcome_context = enable_outcome_context
 
         # Skills system for extensible evidence collection
         self.skill_registry = skill_registry
@@ -301,7 +304,11 @@ class ContextInitializer:
         if self.enable_cross_debate_memory:
             await self._inject_cross_debate_context(ctx)
 
-        # 12d. Inject convergence history to suggest optimal round counts
+        # 12d. Inject past decision outcome data (successes/failures)
+        if self.enable_outcome_context:
+            await self._inject_outcome_context(ctx)
+
+        # 12e. Inject convergence history to suggest optimal round counts
         self._inject_convergence_history(ctx)
 
         # 13. Start research in background (non-blocking for fast startup)
@@ -1326,6 +1333,108 @@ class ContextInitializer:
             logger.debug("[cross_debate] Context fetch timed out")
         except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
             logger.debug(f"[cross_debate] Context injection error: {e}")
+
+    async def _inject_outcome_context(self, ctx: DebateContext) -> None:
+        """Inject past decision outcome data into the debate context.
+
+        Queries the OutcomeAdapter for outcomes from similar past decisions
+        and injects them as context so agents can learn from past successes
+        and failures. This closes the outcome feedback loop: decisions made
+        in past debates inform future ones via their measured outcomes.
+
+        The context is set on the PromptBuilder as a dedicated section
+        (``_outcome_context``) so it appears alongside other KM context
+        in agent prompts. Falls back to env.context injection.
+        """
+        if not self.knowledge_mound:
+            return
+
+        try:
+            from aragora.knowledge.mound.adapters.outcome_adapter import (
+                OutcomeAdapter,
+            )
+        except ImportError:
+            logger.debug("[outcome_context] OutcomeAdapter not available")
+            return
+
+        try:
+            adapter = OutcomeAdapter(mound=self.knowledge_mound)
+            topic = ctx.env.task if ctx.env else ""
+            if not topic:
+                return
+
+            similar_outcomes = await asyncio.wait_for(
+                adapter.find_similar_outcomes(query=topic, limit=5),
+                timeout=8.0,
+            )
+
+            if not similar_outcomes:
+                return
+
+            # Format outcome items as context
+            lines: list[str] = [
+                "## PAST DECISION OUTCOMES",
+                "The following outcomes were observed from similar past decisions.",
+                "Use these to avoid past mistakes and build on past successes:\n",
+            ]
+
+            for item in similar_outcomes:
+                meta = item.metadata or {}
+                outcome_type = meta.get("outcome_type", "unknown")
+                impact_score = meta.get("impact_score", 0.0)
+                lessons = meta.get("lessons_learned", "")
+                kpi_deltas = meta.get("kpi_deltas", {})
+
+                # Map outcome type to label
+                type_label = outcome_type.upper()
+                impact_pct = f"{impact_score:.0%}" if isinstance(impact_score, (int, float)) else "N/A"
+
+                content_preview = item.content[:300]
+                if len(item.content) > 300:
+                    content_preview += "..."
+
+                lines.append(
+                    f"- **[{type_label}, {impact_pct} impact]** {content_preview}"
+                )
+
+                if lessons:
+                    lesson_preview = lessons[:200]
+                    if len(lessons) > 200:
+                        lesson_preview += "..."
+                    lines.append(f"  Lesson: {lesson_preview}")
+
+                if kpi_deltas:
+                    delta_strs = [
+                        f"{k}: {v:+.2f}" if isinstance(v, float) else f"{k}: {v}"
+                        for k, v in list(kpi_deltas.items())[:3]
+                    ]
+                    lines.append(f"  KPI changes: {', '.join(delta_strs)}")
+
+            lines.append(
+                "\nConsider these outcomes when evaluating proposals."
+            )
+
+            outcome_text = "\n".join(lines)
+
+            # Set on prompt builder or fall back to env.context
+            prompt_builder = getattr(ctx, "_prompt_builder", None)
+            if prompt_builder and hasattr(prompt_builder, "set_outcome_context"):
+                prompt_builder.set_outcome_context(outcome_text)
+            else:
+                if ctx.env.context:
+                    ctx.env.context += "\n\n" + outcome_text
+                else:
+                    ctx.env.context = outcome_text
+
+            logger.info(
+                "[outcome_context] Injected %d past decision outcomes into debate context",
+                len(similar_outcomes),
+            )
+
+        except asyncio.TimeoutError:
+            logger.warning("[outcome_context] Outcome context fetch timed out")
+        except (RuntimeError, AttributeError, TypeError, ValueError, OSError) as e:
+            logger.debug("[outcome_context] Outcome context injection failed: %s", e)
 
     async def _perform_pre_debate_research(self, ctx: DebateContext) -> None:
         """Perform pre-debate research if enabled."""

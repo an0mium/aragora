@@ -379,6 +379,9 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self._knowledge_context: str = knowledge_context or ""
         self._km_item_ids: list[str] = []
 
+        # Past decision outcome context (successes/failures from similar decisions)
+        self._outcome_context: str = ""
+
         # Codebase context for code-grounded debates
         self._codebase_context: str = ""
 

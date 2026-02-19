@@ -109,6 +109,9 @@ class KnowledgeMoundConfig:
     cross_debate_memory: Any | None = None  # CrossDebateMemory for institutional knowledge
     enable_cross_debate_memory: bool = True  # Inject institutional knowledge from past debates
 
+    # Outcome context: inject past decision outcomes (successes/failures) into new debates
+    enable_outcome_context: bool = True  # Query OutcomeAdapter for similar past outcomes
+
 
 @dataclass
 class MemoryCoordinationConfig:
