@@ -881,6 +881,8 @@ __all__ = [
     "GatewayHandler",
     "KMCheckpointHandler",
     "SelectionHandler",
+    # Spectate (real-time debate observation bridge)
+    "SpectateStreamHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

@@ -384,11 +384,11 @@ class TestDemoMode:
         )
 
     def test_from_demo_has_multiple_idea_nodes(self):
-        """Demo should have 7 seed ideas represented as nodes."""
+        """Demo should have 6 seed ideas represented as nodes."""
         result, _config = IdeaToExecutionPipeline.from_demo()
 
         assert result.ideas_canvas is not None
-        assert len(result.ideas_canvas.nodes) == 7
+        assert len(result.ideas_canvas.nodes) == 6
 
 
 # =============================================================================

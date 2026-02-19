@@ -108,6 +108,13 @@ export { useBroadcast } from './useBroadcast';
 export { useAgentRouting } from './useAgentRouting';
 
 // =============================================================================
+// Spectate (Real-Time Debate Observation)
+// =============================================================================
+
+export { useSpectate } from './useSpectate';
+export type { SpectateEvent } from './useSpectate';
+
+// =============================================================================
 // Gauntlet & Testing
 // =============================================================================
 

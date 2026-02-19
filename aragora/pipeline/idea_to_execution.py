@@ -197,21 +197,25 @@ class IdeaToExecutionPipeline:
     def from_demo(cls) -> tuple[PipelineResult, PipelineConfig]:
         """Create a pre-built demo pipeline showcasing all flywheel features.
 
-        Demonstrates:
-        - **Semantic clustering**: Related API-performance ideas auto-group
-          into a single cluster (Redis caching, rate limiting, monitoring).
-        - **Goal conflict detection**: Contradictory deployment-cadence ideas
-          ("increase deployment frequency" vs "decrease deployment frequency")
-          trigger a conflict alert with resolution guidance.
-        - **SMART scoring**: Each extracted goal is scored on Specific,
-          Measurable, Achievable, Relevant, and Time-bound dimensions.
-          Goals with concrete metrics rank higher in priority.
-        - **ELO-aware agent assignment**: Orchestration stage assigns tasks
-          to agents ranked by historical ELO performance per domain.
+        The seed ideas are specifically crafted to exercise every flywheel
+        stage so the demo output is self-documenting:
+
+        - **Semantic clustering**: Ideas #3-#5 share API/latency/response
+          vocabulary and will be grouped into a performance cluster.
+        - **Goal conflict detection**: Ideas #1 and #2 contain the
+          contradictory pair ``increase``/``decrease`` applied to deployment
+          frequency.  The extractor flags the resulting goals as conflicting
+          and attaches resolution guidance.
+        - **SMART scoring**: Idea #6 is intentionally rich in specific,
+          measurable, and time-bound language (``99.9 %``, ``Q3 2026``) so
+          it scores high, demonstrating the contrast between well-defined
+          and vaguely-worded goals.
+        - **ELO-aware agent assignment**: When the TeamSelector is available,
+          orchestration tasks are assigned to agents ranked by domain ELO.
         - **KM precedent lookup**: Goals are enriched with prior decisions
-          from the Knowledge Mound when available.
+          from the Knowledge Mound when the bridge is available.
         - **Human approval gate**: ``human_approval_required=True`` signals
-          that a human review checkpoint exists between stages.
+          that a review checkpoint exists between stages.
         - **Dry-run mode**: No real execution engines are invoked.
 
         Returns:
@@ -227,18 +231,20 @@ class IdeaToExecutionPipeline:
         )
 
         pipeline = cls()
+        # NB: order matters — the structural extractor picks top-N by score
+        # (equal scores → insertion order).  The contradictory pair is placed
+        # first so both ideas become separate goals and trigger conflict
+        # detection.
         ideas = [
-            # --- Cluster: API performance (share "api", "latency", "response") ---
+            # Conflict pair — contradictory deployment cadence
+            "Increase API deployment frequency to ship features faster every sprint",
+            "Decrease API deployment frequency to improve stability and reduce risk",
+            # Cluster: API performance (share "api", "latency", "response")
             "Implement Redis caching to reduce API response latency by 40%",
             "Add rate limiting to API endpoints to prevent overload and improve response times",
             "Deploy API performance monitoring with response time and latency dashboards",
-            # --- Conflict pair: contradictory deployment cadence ---
-            "Increase deployment frequency to ship features faster every sprint",
-            "Decrease deployment frequency to improve stability and reduce risk",
-            # --- Standalone SMART-rich idea (specific + measurable + time-bound) ---
+            # SMART-rich idea (specific + measurable + time-bound)
             "Achieve 99.9% API uptime by Q3 2026 by implementing circuit breakers and failover",
-            # --- Broad / low-SMART idea for contrast ---
-            "Improve overall developer experience across the entire platform",
         ]
         result = pipeline.from_ideas(ideas, auto_advance=True)
         return result, config
