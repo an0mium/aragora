@@ -148,6 +148,12 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             <a href="#how-it-works" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
               [HOW IT WORKS]
             </a>
+            <Link
+              href="/oracle"
+              className="text-xs font-mono text-acid-magenta hover:text-acid-cyan transition-colors hidden sm:block"
+            >
+              [ORACLE]
+            </Link>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors hidden sm:block"
@@ -198,7 +204,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors resize-none disabled:opacity-50"
             />
 
-            <div className="flex justify-center mt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
               <button
                 type="submit"
                 disabled={isRunning || !question.trim()}
@@ -206,6 +212,12 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               >
                 {isRunning ? 'AGENTS DEBATING...' : 'RUN FREE DEBATE'}
               </button>
+              <Link
+                href="/oracle"
+                className="font-mono text-sm px-8 py-3 border border-[var(--acid-magenta)] text-[var(--acid-magenta)] font-bold hover:bg-[var(--acid-magenta)] hover:text-[var(--bg)] transition-all"
+              >
+                CONSULT THE ORACLE
+              </Link>
             </div>
           </form>
 
