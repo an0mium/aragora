@@ -6,14 +6,14 @@ description: Generated Aragora CLI command catalog from live parser
 # Aragora CLI Reference
 
 > Source of truth: generated from `aragora/cli/parser.py` via `python scripts/generate_cli_reference.py`.
-> Generated: 2026-02-14
+> Generated: 2026-02-18
 
 ## Scope
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **65**
-- Total top-level invocations (including aliases): **66**
+- Canonical top-level commands: **73**
+- Total top-level invocations (including aliases): **74**
 
 ## Installation
 
@@ -58,6 +58,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `connectors` | - | Connector management commands | `list`, `status`, `test` |
 | `context` | - | Build codebase context for RLM-powered analysis | - |
 | `control-plane` | - | Control plane status and management | - |
+| `coordinate` | - | Multi-agent worktree coordination | `events`, `merge`, `plan`, `register`, `scope`, `status`, `sync` |
 | `costs` | - | Cost tracking and billing management commands | `agents`, `budget`, `dashboard`, `forecast`, `report`, `usage` |
 | `cross-pollination` | `xpoll` | Cross-pollination event system diagnostics | - |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
@@ -67,8 +68,10 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `document-audit` | - | Audit documents using multi-agent analysis | `report`, `scan`, `status`, `upload` |
 | `documents` | - | Document management (upload, list, show) | `list`, `show`, `upload` |
 | `elo` | - | View ELO ratings, leaderboards, and match history | - |
+| `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
+| `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
 | `healthcare` | - | Healthcare vertical: adversarial clinical decision review | `review` |
 | `improve` | - | Self-improvement mode using AutonomousOrchestrator | - |
 | `init` | - | Initialize Aragora project | - |
@@ -80,8 +83,11 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status` |
+| `outcome` | - | Record and search decision outcomes | `record`, `search` |
 | `patterns` | - | Show learned patterns | - |
+| `pipeline` | - | Run idea-to-execution pipeline operations | `run`, `self-improve`, `status` |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
+| `playbook` | - | List and run decision playbooks | `list`, `run` |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
 | `rbac` | - | RBAC management commands | `assign`, `check`, `permissions`, `roles` |
@@ -91,6 +97,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `review` | - | Run AI code review on a diff or PR | - |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |
+| `self-improve` | - | Run self-improvement pipeline with worktree isolation and validation | - |
 | `serve` | - | Run live debate server | - |
 | `setup` | - | Interactive setup wizard for API keys and configuration | - |
 | `skills` | - | Skill marketplace commands | `info`, `install`, `list`, `scan`, `search`, `stats`, `uninstall` |
@@ -106,6 +113,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `verify` | - | Verify a decision receipt's integrity | - |
 | `verticals` | - | Manage vertical specialist configurations | - |
 | `workflow` | - | Workflow engine commands | `categories`, `list`, `patterns`, `run`, `status`, `templates` |
+| `worktree` | - | Manage git worktrees for parallel agent sessions | `cleanup`, `conflicts`, `create`, `list`, `merge`, `merge-all` |
 
 ## Core Workflows
 

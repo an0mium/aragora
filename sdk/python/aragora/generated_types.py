@@ -1572,6 +1572,132 @@ class CostDismissAlertResponse(BaseModel):
     success: bool
 
 
+class UsageItem(BaseModel):
+    name: str | None = None
+    cost_usd: float | None = None
+    api_calls: int | None = None
+
+
+class CostUsageResponse(BaseModel):
+    workspace_id: str | None = None
+    time_range: str | None = None
+    group_by: str | None = None
+    total_cost_usd: float | None = None
+    total_tokens_in: int | None = None
+    total_tokens_out: int | None = None
+    total_api_calls: int | None = None
+    usage: list[UsageItem] | None = None
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+
+
+class Budget(BaseModel):
+    id: str | None = None
+    workspace_id: str | None = None
+    name: str | None = None
+    monthly_limit_usd: float | None = None
+    daily_limit_usd: float | None = None
+    current_monthly_spend: float | None = None
+    current_daily_spend: float | None = None
+    active: bool | None = None
+
+
+class CostBudgetsListResponse(BaseModel):
+    budgets: list[Budget]
+    count: int
+    workspace_id: str | None = None
+
+
+class CostBudgetCreateRequest(BaseModel):
+    workspace_id: str | None = None
+    name: str | None = None
+    monthly_limit_usd: float
+    daily_limit_usd: float | None = None
+    alert_thresholds: Annotated[
+        list[int] | None,
+        Field(description="Alert threshold percentages (e.g. [50, 75, 90, 100])"),
+    ] = None
+
+
+class CostConstraintCheckResponse(BaseModel):
+    allowed: bool
+    reason: str
+    workspace_id: str | None = None
+    estimated_cost_usd: float | None = None
+    operation: str | None = None
+    remaining_monthly_budget: float | None = None
+
+
+class Breakdown(BaseModel):
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    input_cost_usd: float | None = None
+    output_cost_usd: float | None = None
+
+
+class Pricing(BaseModel):
+    model: str | None = None
+    provider: str | None = None
+    input_per_1m: float | None = None
+    output_per_1m: float | None = None
+
+
+class CostEstimateResponse(BaseModel):
+    estimated_cost_usd: float
+    breakdown: Breakdown | None = None
+    pricing: Pricing | None = None
+    operation: str | None = None
+
+
+class DailyForecast(BaseModel):
+    date: date_aliased | None = None
+    projected_cost_usd: float | None = None
+    confidence_low: float | None = None
+    confidence_high: float | None = None
+
+
+class CostForecastDetailedResponse(BaseModel):
+    workspace_id: str | None = None
+    forecast_days: int | None = None
+    summary: dict[str, Any] | None = None
+    daily_forecasts: list[DailyForecast] | None = None
+    confidence_level: float | None = None
+
+
+class Recommendation(BaseModel):
+    id: str | None = None
+    type: str | None = None
+    description: str | None = None
+    estimated_savings_usd: float | None = None
+    implementation_steps: list[str] | None = None
+    difficulty: str | None = None
+    time_to_implement: str | None = None
+
+
+class CostRecommendationsDetailedResponse(BaseModel):
+    recommendations: list[Recommendation] | None = None
+    count: int | None = None
+    summary: dict[str, Any] | None = None
+    workspace_id: str | None = None
+    total_potential_savings_usd: float | None = None
+
+
+class Alert(BaseModel):
+    id: str | None = None
+    workspace_id: str | None = None
+    name: str | None = None
+    type: str | None = None
+    threshold: float | None = None
+    notification_channels: list[str] | None = None
+    active: bool | None = None
+    created_at: datetime | None = None
+
+
+class CostAlertCreateResponse(BaseModel):
+    success: bool
+    alert: Alert | None = None
+
+
 class BudgetPeriod(StrEnum):
     daily = "daily"
     weekly = "weekly"
@@ -1606,7 +1732,7 @@ class BudgetThreshold(BaseModel):
     action: BudgetAction
 
 
-class Budget(BaseModel):
+class Budget1(BaseModel):
     id: str
     workspace_id: str
     name: str
@@ -1643,7 +1769,7 @@ class BudgetUpdateRequest(BaseModel):
 
 
 class BudgetListResponse(BaseModel):
-    budgets: list[Budget]
+    budgets: list[Budget1]
     total: int
     offset: int | None = None
     limit: int | None = None
