@@ -201,7 +201,7 @@ data/
 consolidated/
 .data/
 .aragora/
-knowledge/
+/knowledge/
 docs/openapi_generated.json
 .testfixer/
 .tmp/
