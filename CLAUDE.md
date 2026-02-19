@@ -61,7 +61,7 @@ Context for Claude Code when working with the Aragora codebase.
 | Marketplace | `aragora/marketplace/` | Agent template and protocol marketplace |
 | Moderation | `aragora/moderation/` | Spam filtering and content validation |
 | Modes | `aragora/modes/` | Operational modes (Architect, Coder, Reviewer, etc.) |
-| Pipeline | `aragora/pipeline/` | Decision-to-PR generation (DecisionMemo, PatchPlan) |
+| Pipeline | `aragora/pipeline/` | Idea-to-Execution 4-stage pipeline (Ideas→Goals→Workflows→Orchestration) |
 | Runtime | `aragora/runtime/` | Budget-aware autotuner, metadata, metrics |
 | Sandbox | `aragora/sandbox/` | Docker-based safe code execution |
 | Spectate | `aragora/spectate/` | Real-time debate observation |

@@ -20,6 +20,7 @@ Key features:
 """
 
 from .checkpoint import clear_progress, load_progress, save_progress
+from .error_analyzer import ErrorAnalyzer
 from .executor import HybridExecutor
 from .planner import create_single_task_plan, generate_implement_plan
 from .types import ImplementPlan, ImplementProgress, ImplementTask, TaskResult
@@ -53,6 +54,8 @@ __all__ = [
     "create_single_task_plan",
     # Executor
     "HybridExecutor",
+    # Error Analysis
+    "ErrorAnalyzer",
     "FabricImplementationConfig",
     "FabricImplementationRunner",
     "register_implementation_executor",

@@ -413,6 +413,10 @@ def __getattr__(name):
             "FeedbackGoal": _FG,
         }
         return _ofb_map[name]
+    elif name == "GoalEvaluator":
+        from aragora.nomic.goal_evaluator import GoalEvaluator
+
+        return GoalEvaluator
     elif name in {
         "ExecutionBridge",
         "ExecutionInstruction",
@@ -704,4 +708,6 @@ __all__ = [
     "ForwardFix",
     "DiagnosisResult",
     "FailureType",
+    # Goal Evaluator (lazy-loaded)
+    "GoalEvaluator",
 ]
