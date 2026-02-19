@@ -200,7 +200,7 @@ class TestIdeasToGoalExtraction:
         graph = extractor.extract_from_ideas(SAMPLE_IDEAS_CANVAS)
 
         # Apply max_goals manually (extractor may not take config)
-        capped = graph.goals[:config.max_goals]
+        capped = graph.goals[: config.max_goals]
         assert len(capped) <= 2
 
     def test_empty_canvas_produces_empty_graph(self):
@@ -222,6 +222,7 @@ class TestGoalCanvasHandlerIntegration:
     def test_handler_module_imports(self):
         """GoalCanvasHandler should be importable."""
         from aragora.server.handlers.goal_canvas import GoalCanvasHandler
+
         handler = GoalCanvasHandler()
         assert handler.can_handle("/api/v1/goals")
 
@@ -279,14 +280,17 @@ class TestFullPipelineFlow:
 
         # Step 1: Extract goals via pipeline handler
         handler = CanvasPipelineHandler()
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": SAMPLE_IDEAS_CANVAS,
-            "ideas_canvas_id": "ideas-canvas-001",
-            "config": {"confidence_threshold": 0, "max_goals": 10},
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": SAMPLE_IDEAS_CANVAS,
+                "ideas_canvas_id": "ideas-canvas-001",
+                "config": {"confidence_threshold": 0, "max_goals": 10},
+            }
+        )
 
         import json as _json
-        body = _json.loads(result.body) if hasattr(result, 'body') else result
+
+        body = _json.loads(result.body) if hasattr(result, "body") else result
         assert "error" not in body
         assert "goals" in body
         assert body["source_canvas_id"] == "ideas-canvas-001"
@@ -362,6 +366,7 @@ class TestGoalKMAdapterIntegration:
         from aragora.knowledge.mound.adapters.goal_canvas_adapter import (
             GoalCanvasAdapter,
         )
+
         adapter = GoalCanvasAdapter.__new__(GoalCanvasAdapter)
         assert adapter is not None
 
@@ -379,8 +384,12 @@ class TestGoalKMAdapterIntegration:
         # Check that the goal types are in the Literal union
         # We verify by checking the type annotation
         goal_types = [
-            "goal_goal", "goal_principle", "goal_strategy",
-            "goal_milestone", "goal_metric", "goal_risk",
+            "goal_goal",
+            "goal_principle",
+            "goal_strategy",
+            "goal_milestone",
+            "goal_metric",
+            "goal_risk",
         ]
         # These should be valid literal values
         for gt in goal_types:
@@ -436,9 +445,15 @@ class TestPipelineStageTypes:
     def test_idea_node_types_complete(self):
         """All 9 IdeaNodeType values should be defined."""
         expected = {
-            "concept", "cluster", "question", "insight",
-            "evidence", "assumption", "constraint",
-            "observation", "hypothesis",
+            "concept",
+            "cluster",
+            "question",
+            "insight",
+            "evidence",
+            "assumption",
+            "constraint",
+            "observation",
+            "hypothesis",
         }
         actual = {t.value for t in IdeaNodeType}
         assert expected == actual
