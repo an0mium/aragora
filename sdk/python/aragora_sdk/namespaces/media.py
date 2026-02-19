@@ -54,7 +54,7 @@ class MediaAPI:
         Returns:
             Audio file metadata including format, duration, size, and URL.
         """
-        return self._client.request("GET", f"/api/v1/media/audio/{audio_id}")
+        return self._client._request("GET", f"/api/v1/media/audio/{audio_id}")
 
     def get_audio_url(self, audio_id: str) -> str:
         """
@@ -96,7 +96,7 @@ class MediaAPI:
         if debate_id is not None:
             params["debate_id"] = debate_id
 
-        return self._client.request(
+        return self._client._request(
             "GET",
             "/api/v1/media/audio",
             params=params if params else None,
@@ -129,7 +129,7 @@ class MediaAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return self._client.request("POST", "/api/v1/media/audio", json=data)
+        return self._client._request("POST", "/api/v1/media/audio", json=data)
 
     def delete_audio(self, audio_id: str) -> dict[str, Any]:
         """
@@ -141,7 +141,7 @@ class MediaAPI:
         Returns:
             Dict confirming deletion.
         """
-        return self._client.request("DELETE", f"/api/v1/media/audio/{audio_id}")
+        return self._client._request("DELETE", f"/api/v1/media/audio/{audio_id}")
 
     # =========================================================================
     # Podcast Episodes
@@ -168,7 +168,7 @@ class MediaAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return self._client.request(
+        return self._client._request(
             "GET",
             "/api/v1/podcast/episodes",
             params=params if params else None,
@@ -184,7 +184,7 @@ class MediaAPI:
         Returns:
             Episode details including title, description, audio URL, and duration.
         """
-        return self._client.request("GET", f"/api/v1/podcast/episodes/{episode_id}")
+        return self._client._request("GET", f"/api/v1/podcast/episodes/{episode_id}")
 
     def get_feed_url(self) -> str:
         """
@@ -205,7 +205,7 @@ class MediaAPI:
         Returns:
             Feed metadata including title, description, and episodes.
         """
-        return self._client.request("GET", "/api/v1/podcast/feed")
+        return self._client._request("GET", "/api/v1/podcast/feed")
 
     # =========================================================================
     # Media Conversions
@@ -234,7 +234,7 @@ class MediaAPI:
         if bitrate is not None:
             data["bitrate"] = bitrate
 
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/media/audio/{audio_id}/convert",
             json=data,
@@ -250,7 +250,7 @@ class MediaAPI:
         Returns:
             Dict with transcription text and metadata.
         """
-        return self._client.request("GET", f"/api/v1/media/audio/{audio_id}/transcription")
+        return self._client._request("GET", f"/api/v1/media/audio/{audio_id}/transcription")
 
 
 class AsyncMediaAPI:
@@ -272,7 +272,7 @@ class AsyncMediaAPI:
 
     async def get_audio(self, audio_id: str) -> dict[str, Any]:
         """Get audio file metadata by ID."""
-        return await self._client.request("GET", f"/api/v1/media/audio/{audio_id}")
+        return await self._client._request("GET", f"/api/v1/media/audio/{audio_id}")
 
     def get_audio_url(self, audio_id: str) -> str:
         """Get the direct audio file URL."""
@@ -294,7 +294,7 @@ class AsyncMediaAPI:
         if debate_id is not None:
             params["debate_id"] = debate_id
 
-        return await self._client.request(
+        return await self._client._request(
             "GET",
             "/api/v1/media/audio",
             params=params if params else None,
@@ -316,11 +316,11 @@ class AsyncMediaAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return await self._client.request("POST", "/api/v1/media/audio", json=data)
+        return await self._client._request("POST", "/api/v1/media/audio", json=data)
 
     async def delete_audio(self, audio_id: str) -> dict[str, Any]:
         """Delete an audio file."""
-        return await self._client.request("DELETE", f"/api/v1/media/audio/{audio_id}")
+        return await self._client._request("DELETE", f"/api/v1/media/audio/{audio_id}")
 
     # =========================================================================
     # Podcast Episodes
@@ -338,7 +338,7 @@ class AsyncMediaAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return await self._client.request(
+        return await self._client._request(
             "GET",
             "/api/v1/podcast/episodes",
             params=params if params else None,
@@ -346,7 +346,7 @@ class AsyncMediaAPI:
 
     async def get_podcast_episode(self, episode_id: str) -> dict[str, Any]:
         """Get a specific podcast episode."""
-        return await self._client.request("GET", f"/api/v1/podcast/episodes/{episode_id}")
+        return await self._client._request("GET", f"/api/v1/podcast/episodes/{episode_id}")
 
     def get_feed_url(self) -> str:
         """Get the podcast RSS feed URL."""
@@ -355,7 +355,7 @@ class AsyncMediaAPI:
 
     async def get_feed(self) -> dict[str, Any]:
         """Get the full podcast feed metadata."""
-        return await self._client.request("GET", "/api/v1/podcast/feed")
+        return await self._client._request("GET", "/api/v1/podcast/feed")
 
     # =========================================================================
     # Media Conversions
@@ -374,7 +374,7 @@ class AsyncMediaAPI:
         if bitrate is not None:
             data["bitrate"] = bitrate
 
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/media/audio/{audio_id}/convert",
             json=data,
@@ -382,4 +382,4 @@ class AsyncMediaAPI:
 
     async def get_transcription(self, audio_id: str) -> dict[str, Any]:
         """Get transcription for an audio file."""
-        return await self._client.request("GET", f"/api/v1/media/audio/{audio_id}/transcription")
+        return await self._client._request("GET", f"/api/v1/media/audio/{audio_id}/transcription")

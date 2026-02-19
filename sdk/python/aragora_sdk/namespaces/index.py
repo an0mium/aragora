@@ -75,7 +75,7 @@ class IndexAPI:
         if model is not None:
             data["model"] = model
 
-        return self._client.request("POST", "/api/v1/ml/embed", json=data)
+        return self._client._request("POST", "/api/v1/ml/embed", json=data)
 
     def embed_batch(
         self,
@@ -103,7 +103,7 @@ class IndexAPI:
         if model is not None:
             data["model"] = model
 
-        return self._client.request("POST", "/api/v1/index/embed-batch", json=data)
+        return self._client._request("POST", "/api/v1/index/embed-batch", json=data)
 
     # =========================================================================
     # Semantic Search
@@ -128,7 +128,7 @@ class IndexAPI:
         Returns:
             Dict with results containing text, score, and index.
         """
-        return self._client.request(
+        return self._client._request(
             "POST",
             "/api/v1/ml/search",
             json={
@@ -166,7 +166,7 @@ class IndexAPI:
         if filters is not None:
             data["filters"] = filters
 
-        return self._client.request("POST", "/api/v1/index/search", json=data)
+        return self._client._request("POST", "/api/v1/index/search", json=data)
 
     # =========================================================================
     # Index Management
@@ -179,7 +179,7 @@ class IndexAPI:
         Returns:
             Dict with list of indexes and their metadata.
         """
-        return self._client.request("GET", "/api/v1/index")
+        return self._client._request("GET", "/api/v1/index")
 
     def get_index(self, index_name: str) -> dict[str, Any]:
         """
@@ -191,7 +191,7 @@ class IndexAPI:
         Returns:
             Dict with index details including status, document count, and dimension.
         """
-        return self._client.request("GET", f"/api/v1/index/{index_name}")
+        return self._client._request("GET", f"/api/v1/index/{index_name}")
 
     def create_index(
         self,
@@ -221,7 +221,7 @@ class IndexAPI:
         if description is not None:
             data["description"] = description
 
-        return self._client.request("POST", "/api/v1/index", json=data)
+        return self._client._request("POST", "/api/v1/index", json=data)
 
     def delete_index(self, index_name: str) -> dict[str, Any]:
         """
@@ -233,7 +233,7 @@ class IndexAPI:
         Returns:
             Dict confirming deletion.
         """
-        return self._client.request("DELETE", f"/api/v1/index/{index_name}")
+        return self._client._request("DELETE", f"/api/v1/index/{index_name}")
 
     def get_index_stats(self, index_name: str) -> dict[str, Any]:
         """
@@ -245,7 +245,7 @@ class IndexAPI:
         Returns:
             Dict with statistics including document count, size, and performance metrics.
         """
-        return self._client.request("GET", f"/api/v1/index/{index_name}/stats")
+        return self._client._request("GET", f"/api/v1/index/{index_name}/stats")
 
     # =========================================================================
     # Document Operations
@@ -266,7 +266,7 @@ class IndexAPI:
         Returns:
             Dict with number of documents added.
         """
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/index/{index_name}/documents",
             json={"documents": documents},
@@ -297,7 +297,7 @@ class IndexAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return self._client.request(
+        return self._client._request(
             "PUT",
             f"/api/v1/index/{index_name}/documents/{document_id}",
             json=data,
@@ -318,7 +318,7 @@ class IndexAPI:
         Returns:
             Dict with number of documents deleted.
         """
-        return self._client.request(
+        return self._client._request(
             "DELETE",
             f"/api/v1/index/{index_name}/documents",
             json={"document_ids": document_ids},
@@ -338,7 +338,7 @@ class IndexAPI:
         Returns:
             Dict with rebuild job status.
         """
-        return self._client.request("POST", f"/api/v1/index/{index_name}/rebuild")
+        return self._client._request("POST", f"/api/v1/index/{index_name}/rebuild")
 
     def optimize_index(self, index_name: str) -> dict[str, Any]:
         """
@@ -350,7 +350,7 @@ class IndexAPI:
         Returns:
             Dict with optimization status.
         """
-        return self._client.request("POST", f"/api/v1/index/{index_name}/optimize")
+        return self._client._request("POST", f"/api/v1/index/{index_name}/optimize")
 
 
 class AsyncIndexAPI:
@@ -385,7 +385,7 @@ class AsyncIndexAPI:
         if model is not None:
             data["model"] = model
 
-        return await self._client.request("POST", "/api/v1/ml/embed", json=data)
+        return await self._client._request("POST", "/api/v1/ml/embed", json=data)
 
     async def embed_batch(
         self,
@@ -401,7 +401,7 @@ class AsyncIndexAPI:
         if model is not None:
             data["model"] = model
 
-        return await self._client.request("POST", "/api/v1/index/embed-batch", json=data)
+        return await self._client._request("POST", "/api/v1/index/embed-batch", json=data)
 
     # =========================================================================
     # Semantic Search
@@ -415,7 +415,7 @@ class AsyncIndexAPI:
         threshold: float = 0.0,
     ) -> dict[str, Any]:
         """Perform semantic similarity search."""
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             "/api/v1/ml/search",
             json={
@@ -442,7 +442,7 @@ class AsyncIndexAPI:
         if filters is not None:
             data["filters"] = filters
 
-        return await self._client.request("POST", "/api/v1/index/search", json=data)
+        return await self._client._request("POST", "/api/v1/index/search", json=data)
 
     # =========================================================================
     # Index Management
@@ -450,11 +450,11 @@ class AsyncIndexAPI:
 
     async def list_indexes(self) -> dict[str, Any]:
         """List all available vector indexes."""
-        return await self._client.request("GET", "/api/v1/index")
+        return await self._client._request("GET", "/api/v1/index")
 
     async def get_index(self, index_name: str) -> dict[str, Any]:
         """Get details of a specific index."""
-        return await self._client.request("GET", f"/api/v1/index/{index_name}")
+        return await self._client._request("GET", f"/api/v1/index/{index_name}")
 
     async def create_index(
         self,
@@ -473,15 +473,15 @@ class AsyncIndexAPI:
         if description is not None:
             data["description"] = description
 
-        return await self._client.request("POST", "/api/v1/index", json=data)
+        return await self._client._request("POST", "/api/v1/index", json=data)
 
     async def delete_index(self, index_name: str) -> dict[str, Any]:
         """Delete a vector index."""
-        return await self._client.request("DELETE", f"/api/v1/index/{index_name}")
+        return await self._client._request("DELETE", f"/api/v1/index/{index_name}")
 
     async def get_index_stats(self, index_name: str) -> dict[str, Any]:
         """Get statistics for a vector index."""
-        return await self._client.request("GET", f"/api/v1/index/{index_name}/stats")
+        return await self._client._request("GET", f"/api/v1/index/{index_name}/stats")
 
     # =========================================================================
     # Document Operations
@@ -493,7 +493,7 @@ class AsyncIndexAPI:
         documents: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Add documents to an index."""
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/index/{index_name}/documents",
             json={"documents": documents},
@@ -513,7 +513,7 @@ class AsyncIndexAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return await self._client.request(
+        return await self._client._request(
             "PUT",
             f"/api/v1/index/{index_name}/documents/{document_id}",
             json=data,
@@ -525,7 +525,7 @@ class AsyncIndexAPI:
         document_ids: list[str],
     ) -> dict[str, Any]:
         """Delete documents from an index."""
-        return await self._client.request(
+        return await self._client._request(
             "DELETE",
             f"/api/v1/index/{index_name}/documents",
             json={"document_ids": document_ids},
@@ -537,8 +537,8 @@ class AsyncIndexAPI:
 
     async def rebuild_index(self, index_name: str) -> dict[str, Any]:
         """Rebuild an index from scratch."""
-        return await self._client.request("POST", f"/api/v1/index/{index_name}/rebuild")
+        return await self._client._request("POST", f"/api/v1/index/{index_name}/rebuild")
 
     async def optimize_index(self, index_name: str) -> dict[str, Any]:
         """Optimize an index for better search performance."""
-        return await self._client.request("POST", f"/api/v1/index/{index_name}/optimize")
+        return await self._client._request("POST", f"/api/v1/index/{index_name}/optimize")

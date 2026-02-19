@@ -48,7 +48,7 @@ class DocumentsAPI:
         if tag:
             params["tag"] = tag
 
-        return self._client.request("GET", "/api/v1/documents", params=params)
+        return self._client._request("GET", "/api/v1/documents", params=params)
 
     def upload(
         self,
@@ -83,7 +83,7 @@ class DocumentsAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return self._client.request("POST", "/api/v1/documents", json=data)
+        return self._client._request("POST", "/api/v1/documents", json=data)
 
     def get(self, document_id: str) -> dict[str, Any]:
         """
@@ -95,7 +95,7 @@ class DocumentsAPI:
         Returns:
             Document metadata
         """
-        return self._client.request("GET", f"/api/v1/documents/{document_id}")
+        return self._client._request("GET", f"/api/v1/documents/{document_id}")
 
     def download(self, document_id: str) -> bytes:
         """
@@ -109,7 +109,7 @@ class DocumentsAPI:
         """
         import base64
 
-        response = self._client.request("GET", f"/api/v1/documents/{document_id}/download")
+        response = self._client._request("GET", f"/api/v1/documents/{document_id}/download")
         return base64.b64decode(response.get("content", ""))
 
     def update(
@@ -135,7 +135,7 @@ class DocumentsAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return self._client.request("PATCH", f"/api/v1/documents/{document_id}", json=data)
+        return self._client._request("PATCH", f"/api/v1/documents/{document_id}", json=data)
 
     def delete(self, document_id: str) -> dict[str, Any]:
         """
@@ -147,7 +147,7 @@ class DocumentsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client.request("DELETE", f"/api/v1/documents/{document_id}")
+        return self._client._request("DELETE", f"/api/v1/documents/{document_id}")
 
     def search(
         self,
@@ -167,7 +167,7 @@ class DocumentsAPI:
             Matching document chunks
         """
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return self._client.request("GET", "/api/v1/documents/search", params=params)
+        return self._client._request("GET", "/api/v1/documents/search", params=params)
 
     def get_chunks(
         self,
@@ -187,7 +187,7 @@ class DocumentsAPI:
             Document chunks with embeddings info
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client.request(
+        return self._client._request(
             "GET", f"/api/v1/documents/{document_id}/chunks", params=params
         )
 
@@ -201,7 +201,7 @@ class DocumentsAPI:
         Returns:
             Reprocessing result
         """
-        return self._client.request("POST", f"/api/v1/documents/{document_id}/reprocess")
+        return self._client._request("POST", f"/api/v1/documents/{document_id}/reprocess")
 
 
 class AsyncDocumentsAPI:
@@ -224,7 +224,7 @@ class AsyncDocumentsAPI:
         if tag:
             params["tag"] = tag
 
-        return await self._client.request("GET", "/api/v1/documents", params=params)
+        return await self._client._request("GET", "/api/v1/documents", params=params)
 
     async def upload(
         self,
@@ -247,17 +247,17 @@ class AsyncDocumentsAPI:
         if workspace_id:
             data["workspace_id"] = workspace_id
 
-        return await self._client.request("POST", "/api/v1/documents", json=data)
+        return await self._client._request("POST", "/api/v1/documents", json=data)
 
     async def get(self, document_id: str) -> dict[str, Any]:
         """Get document metadata."""
-        return await self._client.request("GET", f"/api/v1/documents/{document_id}")
+        return await self._client._request("GET", f"/api/v1/documents/{document_id}")
 
     async def download(self, document_id: str) -> bytes:
         """Download document content."""
         import base64
 
-        response = await self._client.request("GET", f"/api/v1/documents/{document_id}/download")
+        response = await self._client._request("GET", f"/api/v1/documents/{document_id}/download")
         return base64.b64decode(response.get("content", ""))
 
     async def update(
@@ -273,11 +273,11 @@ class AsyncDocumentsAPI:
         if metadata is not None:
             data["metadata"] = metadata
 
-        return await self._client.request("PATCH", f"/api/v1/documents/{document_id}", json=data)
+        return await self._client._request("PATCH", f"/api/v1/documents/{document_id}", json=data)
 
     async def delete(self, document_id: str) -> dict[str, Any]:
         """Delete a document."""
-        return await self._client.request("DELETE", f"/api/v1/documents/{document_id}")
+        return await self._client._request("DELETE", f"/api/v1/documents/{document_id}")
 
     async def search(
         self,
@@ -287,7 +287,7 @@ class AsyncDocumentsAPI:
     ) -> dict[str, Any]:
         """Search document contents."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/documents/search", params=params)
+        return await self._client._request("GET", "/api/v1/documents/search", params=params)
 
     async def get_chunks(
         self,
@@ -297,10 +297,10 @@ class AsyncDocumentsAPI:
     ) -> dict[str, Any]:
         """Get document chunks (for RAG)."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request(
+        return await self._client._request(
             "GET", f"/api/v1/documents/{document_id}/chunks", params=params
         )
 
     async def reprocess(self, document_id: str) -> dict[str, Any]:
         """Reprocess a document (regenerate chunks/embeddings)."""
-        return await self._client.request("POST", f"/api/v1/documents/{document_id}/reprocess")
+        return await self._client._request("POST", f"/api/v1/documents/{document_id}/reprocess")

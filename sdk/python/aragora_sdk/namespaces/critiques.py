@@ -55,7 +55,7 @@ class CritiquesAPI:
             "limit": limit,
             "min_success": min_success,
         }
-        return self._client.request("GET", "/api/v1/critiques/patterns", params=params)
+        return self._client._request("GET", "/api/v1/critiques/patterns", params=params)
 
     def get_archive_stats(self) -> dict[str, Any]:
         """
@@ -67,7 +67,7 @@ class CritiquesAPI:
             - by_type: Breakdown by issue type
             - date_range: Time span of archived data
         """
-        return self._client.request("GET", "/api/v1/critiques/archive")
+        return self._client._request("GET", "/api/v1/critiques/archive")
 
     # =========================================================================
     # Agent Reputation
@@ -86,7 +86,7 @@ class CritiquesAPI:
             - critique_value: Quality of critiques provided
             - debates_participated: Total debate count
         """
-        return self._client.request("GET", "/api/v1/reputation/all")
+        return self._client._request("GET", "/api/v1/reputation/all")
 
     def get_agent_reputation(self, agent_name: str) -> dict[str, Any]:
         """
@@ -98,7 +98,7 @@ class CritiquesAPI:
         Returns:
             Agent reputation data or null if agent not found.
         """
-        return self._client.request("GET", f"/api/v1/agent/{agent_name}/reputation")
+        return self._client._request("GET", f"/api/v1/agent/{agent_name}/reputation")
 
 
 class AsyncCritiquesAPI:
@@ -134,11 +134,11 @@ class AsyncCritiquesAPI:
             "limit": limit,
             "min_success": min_success,
         }
-        return await self._client.request("GET", "/api/v1/critiques/patterns", params=params)
+        return await self._client._request("GET", "/api/v1/critiques/patterns", params=params)
 
     async def get_archive_stats(self) -> dict[str, Any]:
         """Get archive statistics for critique data."""
-        return await self._client.request("GET", "/api/v1/critiques/archive")
+        return await self._client._request("GET", "/api/v1/critiques/archive")
 
     # =========================================================================
     # Agent Reputation
@@ -146,7 +146,7 @@ class AsyncCritiquesAPI:
 
     async def list_reputations(self) -> dict[str, Any]:
         """Get reputation data for all agents."""
-        return await self._client.request("GET", "/api/v1/reputation/all")
+        return await self._client._request("GET", "/api/v1/reputation/all")
 
     async def get_agent_reputation(self, agent_name: str) -> dict[str, Any]:
         """
@@ -158,4 +158,4 @@ class AsyncCritiquesAPI:
         Returns:
             Agent reputation data or null if agent not found.
         """
-        return await self._client.request("GET", f"/api/v1/agent/{agent_name}/reputation")
+        return await self._client._request("GET", f"/api/v1/agent/{agent_name}/reputation")

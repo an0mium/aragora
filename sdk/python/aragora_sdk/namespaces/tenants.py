@@ -43,7 +43,7 @@ class TenantsAPI:
         if status:
             params["status"] = status
 
-        return self._client.request("GET", "/api/v1/tenants", params=params)
+        return self._client._request("GET", "/api/v1/tenants", params=params)
 
     def get(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -55,7 +55,7 @@ class TenantsAPI:
         Returns:
             Tenant details
         """
-        return self._client.request("GET", f"/api/v1/tenants/{tenant_id}")
+        return self._client._request("GET", f"/api/v1/tenants/{tenant_id}")
 
     def create(
         self,
@@ -88,7 +88,7 @@ class TenantsAPI:
         if quotas:
             data["quotas"] = quotas
 
-        return self._client.request("POST", "/api/v1/tenants", json=data)
+        return self._client._request("POST", "/api/v1/tenants", json=data)
 
     def update(
         self,
@@ -121,7 +121,7 @@ class TenantsAPI:
         if quotas is not None:
             data["quotas"] = quotas
 
-        return self._client.request("PATCH", f"/api/v1/tenants/{tenant_id}", json=data)
+        return self._client._request("PATCH", f"/api/v1/tenants/{tenant_id}", json=data)
 
     def delete(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -133,7 +133,7 @@ class TenantsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client.request("DELETE", f"/api/v1/tenants/{tenant_id}")
+        return self._client._request("DELETE", f"/api/v1/tenants/{tenant_id}")
 
     def suspend(self, tenant_id: str, reason: str | None = None) -> dict[str, Any]:
         """
@@ -150,7 +150,7 @@ class TenantsAPI:
         if reason:
             data["reason"] = reason
 
-        return self._client.request("POST", f"/api/v1/tenants/{tenant_id}/suspend", json=data)
+        return self._client._request("POST", f"/api/v1/tenants/{tenant_id}/suspend", json=data)
 
     def reactivate(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -162,7 +162,7 @@ class TenantsAPI:
         Returns:
             Updated tenant
         """
-        return self._client.request("POST", f"/api/v1/tenants/{tenant_id}/reactivate")
+        return self._client._request("POST", f"/api/v1/tenants/{tenant_id}/reactivate")
 
     def get_usage(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -174,7 +174,7 @@ class TenantsAPI:
         Returns:
             Usage statistics
         """
-        return self._client.request("GET", f"/api/v1/tenants/{tenant_id}/usage")
+        return self._client._request("GET", f"/api/v1/tenants/{tenant_id}/usage")
 
     def get_quotas(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -186,7 +186,7 @@ class TenantsAPI:
         Returns:
             Quota configuration and current usage
         """
-        return self._client.request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
+        return self._client._request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
 
     def update_quotas(self, tenant_id: str, quotas: dict[str, Any]) -> dict[str, Any]:
         """
@@ -199,7 +199,7 @@ class TenantsAPI:
         Returns:
             Updated quotas
         """
-        return self._client.request("PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas)
+        return self._client._request("PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas)
 
     def list_members(self, tenant_id: str) -> dict[str, Any]:
         """
@@ -211,7 +211,7 @@ class TenantsAPI:
         Returns:
             List of members
         """
-        return self._client.request("GET", f"/api/v1/tenants/{tenant_id}/members")
+        return self._client._request("GET", f"/api/v1/tenants/{tenant_id}/members")
 
     def invite_member(self, tenant_id: str, email: str, role: str = "member") -> dict[str, Any]:
         """
@@ -225,7 +225,7 @@ class TenantsAPI:
         Returns:
             Invitation record
         """
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/tenants/{tenant_id}/members/invite",
             json={"email": email, "role": role},
@@ -249,11 +249,11 @@ class AsyncTenantsAPI:
         if status:
             params["status"] = status
 
-        return await self._client.request("GET", "/api/v1/tenants", params=params)
+        return await self._client._request("GET", "/api/v1/tenants", params=params)
 
     async def get(self, tenant_id: str) -> dict[str, Any]:
         """Get tenant details."""
-        return await self._client.request("GET", f"/api/v1/tenants/{tenant_id}")
+        return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}")
 
     async def create(
         self,
@@ -274,7 +274,7 @@ class AsyncTenantsAPI:
         if quotas:
             data["quotas"] = quotas
 
-        return await self._client.request("POST", "/api/v1/tenants", json=data)
+        return await self._client._request("POST", "/api/v1/tenants", json=data)
 
     async def update(
         self,
@@ -295,11 +295,11 @@ class AsyncTenantsAPI:
         if quotas is not None:
             data["quotas"] = quotas
 
-        return await self._client.request("PATCH", f"/api/v1/tenants/{tenant_id}", json=data)
+        return await self._client._request("PATCH", f"/api/v1/tenants/{tenant_id}", json=data)
 
     async def delete(self, tenant_id: str) -> dict[str, Any]:
         """Delete a tenant."""
-        return await self._client.request("DELETE", f"/api/v1/tenants/{tenant_id}")
+        return await self._client._request("DELETE", f"/api/v1/tenants/{tenant_id}")
 
     async def suspend(self, tenant_id: str, reason: str | None = None) -> dict[str, Any]:
         """Suspend a tenant."""
@@ -307,37 +307,37 @@ class AsyncTenantsAPI:
         if reason:
             data["reason"] = reason
 
-        return await self._client.request(
+        return await self._client._request(
             "POST", f"/api/v1/tenants/{tenant_id}/suspend", json=data
         )
 
     async def reactivate(self, tenant_id: str) -> dict[str, Any]:
         """Reactivate a suspended tenant."""
-        return await self._client.request("POST", f"/api/v1/tenants/{tenant_id}/reactivate")
+        return await self._client._request("POST", f"/api/v1/tenants/{tenant_id}/reactivate")
 
     async def get_usage(self, tenant_id: str) -> dict[str, Any]:
         """Get tenant usage statistics."""
-        return await self._client.request("GET", f"/api/v1/tenants/{tenant_id}/usage")
+        return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}/usage")
 
     async def get_quotas(self, tenant_id: str) -> dict[str, Any]:
         """Get tenant quotas."""
-        return await self._client.request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
+        return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
 
     async def update_quotas(self, tenant_id: str, quotas: dict[str, Any]) -> dict[str, Any]:
         """Update tenant quotas."""
-        return await self._client.request(
+        return await self._client._request(
             "PUT", f"/api/v1/tenants/{tenant_id}/quotas", json=quotas
         )
 
     async def list_members(self, tenant_id: str) -> dict[str, Any]:
         """List tenant members."""
-        return await self._client.request("GET", f"/api/v1/tenants/{tenant_id}/members")
+        return await self._client._request("GET", f"/api/v1/tenants/{tenant_id}/members")
 
     async def invite_member(
         self, tenant_id: str, email: str, role: str = "member"
     ) -> dict[str, Any]:
         """Invite a member to the tenant."""
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/tenants/{tenant_id}/members/invite",
             json={"email": email, "role": role},

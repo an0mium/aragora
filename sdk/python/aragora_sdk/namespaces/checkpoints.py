@@ -68,7 +68,7 @@ class CheckpointsAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return self._client.request(
+        return self._client._request(
             "GET",
             "/api/v1/checkpoints",
             params=params if params else None,
@@ -82,7 +82,7 @@ class CheckpointsAPI:
             Dict with list of resumable debates, each containing
             debate_id, checkpoint_id, task, round, and paused_at.
         """
-        return self._client.request("GET", "/api/v1/checkpoints/resumable")
+        return self._client._request("GET", "/api/v1/checkpoints/resumable")
 
     def get(self, checkpoint_id: str) -> dict[str, Any]:
         """
@@ -95,7 +95,7 @@ class CheckpointsAPI:
             Checkpoint details including id, debate_id, status, round,
             created_at, expires_at, and metadata.
         """
-        return self._client.request("GET", f"/api/v1/checkpoints/{checkpoint_id}")
+        return self._client._request("GET", f"/api/v1/checkpoints/{checkpoint_id}")
 
     def resume(self, checkpoint_id: str) -> dict[str, Any]:
         """
@@ -107,7 +107,7 @@ class CheckpointsAPI:
         Returns:
             Dict with debate_id and resumed status.
         """
-        return self._client.request("POST", f"/api/v1/checkpoints/{checkpoint_id}/resume")
+        return self._client._request("POST", f"/api/v1/checkpoints/{checkpoint_id}/resume")
 
     def delete(self, checkpoint_id: str) -> dict[str, Any]:
         """
@@ -119,7 +119,7 @@ class CheckpointsAPI:
         Returns:
             Dict confirming deletion.
         """
-        return self._client.request("DELETE", f"/api/v1/checkpoints/{checkpoint_id}")
+        return self._client._request("DELETE", f"/api/v1/checkpoints/{checkpoint_id}")
 
     def intervene(
         self,
@@ -149,7 +149,7 @@ class CheckpointsAPI:
         if config is not None:
             data["config"] = config
 
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/checkpoints/{checkpoint_id}/intervention",
             json=data,
@@ -169,7 +169,7 @@ class CheckpointsAPI:
         Returns:
             Dict with list of checkpoints for this debate.
         """
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/checkpoints")
+        return self._client._request("GET", f"/api/v1/debates/{debate_id}/checkpoints")
 
     def create_for_debate(self, debate_id: str) -> dict[str, Any]:
         """
@@ -181,7 +181,7 @@ class CheckpointsAPI:
         Returns:
             The created checkpoint.
         """
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/checkpoint")
+        return self._client._request("POST", f"/api/v1/debates/{debate_id}/checkpoint")
 
     def pause_debate(self, debate_id: str) -> dict[str, Any]:
         """
@@ -193,7 +193,7 @@ class CheckpointsAPI:
         Returns:
             The created checkpoint with pause state.
         """
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
+        return self._client._request("POST", f"/api/v1/debates/{debate_id}/pause")
 
     # =========================================================================
     # Knowledge Mound Checkpoints
@@ -213,7 +213,7 @@ class CheckpointsAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return self._client.request(
+        return self._client._request(
             "GET",
             "/api/v1/km/checkpoints",
             params=params if params else None,
@@ -238,7 +238,7 @@ class CheckpointsAPI:
         if workspace_id is not None:
             data["workspace_id"] = workspace_id
 
-        return self._client.request("POST", "/api/v1/km/checkpoints", json=data)
+        return self._client._request("POST", "/api/v1/km/checkpoints", json=data)
 
     def get_km(self, name: str) -> dict[str, Any]:
         """
@@ -251,7 +251,7 @@ class CheckpointsAPI:
             KM checkpoint details including name, workspace_id, created_at,
             size_bytes, node_count, and metadata.
         """
-        return self._client.request("GET", f"/api/v1/km/checkpoints/{name}")
+        return self._client._request("GET", f"/api/v1/km/checkpoints/{name}")
 
     def compare_km(self, name: str, compare_to: str) -> dict[str, Any]:
         """
@@ -265,7 +265,7 @@ class CheckpointsAPI:
             Dict with checkpoint_a, checkpoint_b, additions, deletions,
             modifications, and details.
         """
-        return self._client.request(
+        return self._client._request(
             "GET",
             f"/api/v1/km/checkpoints/{name}/compare",
             params={"compare_to": compare_to},
@@ -281,7 +281,7 @@ class CheckpointsAPI:
         Returns:
             Dict with restored status.
         """
-        return self._client.request("POST", f"/api/v1/km/checkpoints/{name}/restore")
+        return self._client._request("POST", f"/api/v1/km/checkpoints/{name}/restore")
 
     def delete_km(self, name: str) -> dict[str, Any]:
         """
@@ -293,7 +293,7 @@ class CheckpointsAPI:
         Returns:
             Dict confirming deletion.
         """
-        return self._client.request("DELETE", f"/api/v1/km/checkpoints/{name}")
+        return self._client._request("DELETE", f"/api/v1/km/checkpoints/{name}")
 
 
 class AsyncCheckpointsAPI:
@@ -327,7 +327,7 @@ class AsyncCheckpointsAPI:
         if offset is not None:
             params["offset"] = offset
 
-        return await self._client.request(
+        return await self._client._request(
             "GET",
             "/api/v1/checkpoints",
             params=params if params else None,
@@ -335,19 +335,19 @@ class AsyncCheckpointsAPI:
 
     async def list_resumable(self) -> dict[str, Any]:
         """Get resumable debates with active checkpoints."""
-        return await self._client.request("GET", "/api/v1/checkpoints/resumable")
+        return await self._client._request("GET", "/api/v1/checkpoints/resumable")
 
     async def get(self, checkpoint_id: str) -> dict[str, Any]:
         """Get a specific checkpoint."""
-        return await self._client.request("GET", f"/api/v1/checkpoints/{checkpoint_id}")
+        return await self._client._request("GET", f"/api/v1/checkpoints/{checkpoint_id}")
 
     async def resume(self, checkpoint_id: str) -> dict[str, Any]:
         """Resume a debate from a checkpoint."""
-        return await self._client.request("POST", f"/api/v1/checkpoints/{checkpoint_id}/resume")
+        return await self._client._request("POST", f"/api/v1/checkpoints/{checkpoint_id}/resume")
 
     async def delete(self, checkpoint_id: str) -> dict[str, Any]:
         """Delete a checkpoint."""
-        return await self._client.request("DELETE", f"/api/v1/checkpoints/{checkpoint_id}")
+        return await self._client._request("DELETE", f"/api/v1/checkpoints/{checkpoint_id}")
 
     async def intervene(
         self,
@@ -363,7 +363,7 @@ class AsyncCheckpointsAPI:
         if config is not None:
             data["config"] = config
 
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/checkpoints/{checkpoint_id}/intervention",
             json=data,
@@ -375,15 +375,15 @@ class AsyncCheckpointsAPI:
 
     async def list_for_debate(self, debate_id: str) -> dict[str, Any]:
         """List checkpoints for a specific debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/checkpoints")
+        return await self._client._request("GET", f"/api/v1/debates/{debate_id}/checkpoints")
 
     async def create_for_debate(self, debate_id: str) -> dict[str, Any]:
         """Create a checkpoint for a running debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/checkpoint")
+        return await self._client._request("POST", f"/api/v1/debates/{debate_id}/checkpoint")
 
     async def pause_debate(self, debate_id: str) -> dict[str, Any]:
         """Pause a debate and create a checkpoint."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
+        return await self._client._request("POST", f"/api/v1/debates/{debate_id}/pause")
 
     # =========================================================================
     # Knowledge Mound Checkpoints
@@ -395,7 +395,7 @@ class AsyncCheckpointsAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return await self._client.request(
+        return await self._client._request(
             "GET",
             "/api/v1/km/checkpoints",
             params=params if params else None,
@@ -411,15 +411,15 @@ class AsyncCheckpointsAPI:
         if workspace_id is not None:
             data["workspace_id"] = workspace_id
 
-        return await self._client.request("POST", "/api/v1/km/checkpoints", json=data)
+        return await self._client._request("POST", "/api/v1/km/checkpoints", json=data)
 
     async def get_km(self, name: str) -> dict[str, Any]:
         """Get a Knowledge Mound checkpoint."""
-        return await self._client.request("GET", f"/api/v1/km/checkpoints/{name}")
+        return await self._client._request("GET", f"/api/v1/km/checkpoints/{name}")
 
     async def compare_km(self, name: str, compare_to: str) -> dict[str, Any]:
         """Compare two Knowledge Mound checkpoints."""
-        return await self._client.request(
+        return await self._client._request(
             "GET",
             f"/api/v1/km/checkpoints/{name}/compare",
             params={"compare_to": compare_to},
@@ -427,8 +427,8 @@ class AsyncCheckpointsAPI:
 
     async def restore_km(self, name: str) -> dict[str, Any]:
         """Restore a Knowledge Mound checkpoint."""
-        return await self._client.request("POST", f"/api/v1/km/checkpoints/{name}/restore")
+        return await self._client._request("POST", f"/api/v1/km/checkpoints/{name}/restore")
 
     async def delete_km(self, name: str) -> dict[str, Any]:
         """Delete a Knowledge Mound checkpoint."""
-        return await self._client.request("DELETE", f"/api/v1/km/checkpoints/{name}")
+        return await self._client._request("DELETE", f"/api/v1/km/checkpoints/{name}")

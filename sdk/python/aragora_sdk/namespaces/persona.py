@@ -79,7 +79,7 @@ class PersonaAPI:
         Returns:
             List of personas with total count.
         """
-        return self._client.request("GET", "/api/personas")
+        return self._client._request("GET", "/api/personas")
 
     def get_options(self) -> dict[str, Any]:
         """
@@ -88,7 +88,7 @@ class PersonaAPI:
         Returns:
             Available traits, expertise domains, and model options.
         """
-        return self._client.request("GET", "/api/personas/options")
+        return self._client._request("GET", "/api/personas/options")
 
     def get(self, agent_name: str) -> dict[str, Any]:
         """
@@ -100,7 +100,7 @@ class PersonaAPI:
         Returns:
             Persona definition with traits and expertise.
         """
-        return self._client.request("GET", f"/api/agent/{agent_name}/persona")
+        return self._client._request("GET", f"/api/agent/{agent_name}/persona")
 
     def get_grounded(self, agent_name: str) -> dict[str, Any]:
         """
@@ -112,7 +112,7 @@ class PersonaAPI:
         Returns:
             Grounded persona with ELO, domain ratings, and calibration.
         """
-        return self._client.request("GET", f"/api/agent/{agent_name}/grounded-persona")
+        return self._client._request("GET", f"/api/agent/{agent_name}/grounded-persona")
 
     def get_identity_prompt(
         self,
@@ -133,7 +133,7 @@ class PersonaAPI:
         if sections:
             params["sections"] = ",".join(sections)
 
-        return self._client.request(
+        return self._client._request(
             "GET", f"/api/agent/{agent_name}/identity-prompt", params=params
         )
 
@@ -147,7 +147,7 @@ class PersonaAPI:
         Returns:
             Performance metrics including wins, losses, streaks.
         """
-        return self._client.request("GET", f"/api/agent/{agent_name}/performance")
+        return self._client._request("GET", f"/api/agent/{agent_name}/performance")
 
     def get_domains(
         self,
@@ -168,7 +168,7 @@ class PersonaAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return self._client.request("GET", f"/api/agent/{agent_name}/domains", params=params)
+        return self._client._request("GET", f"/api/agent/{agent_name}/domains", params=params)
 
     def get_accuracy(self, agent_name: str) -> dict[str, Any]:
         """
@@ -180,7 +180,7 @@ class PersonaAPI:
         Returns:
             Position accuracy with domain breakdown.
         """
-        return self._client.request("GET", f"/api/agent/{agent_name}/accuracy")
+        return self._client._request("GET", f"/api/agent/{agent_name}/accuracy")
 
     def create(
         self,
@@ -217,7 +217,7 @@ class PersonaAPI:
         if temperature is not None:
             data["temperature"] = temperature
 
-        return self._client.request("POST", "/api/personas", json=data)
+        return self._client._request("POST", "/api/personas", json=data)
 
     def update(
         self,
@@ -254,7 +254,7 @@ class PersonaAPI:
         if temperature is not None:
             data["temperature"] = temperature
 
-        return self._client.request("PUT", f"/api/agent/{agent_name}/persona", json=data)
+        return self._client._request("PUT", f"/api/agent/{agent_name}/persona", json=data)
 
     def delete(self, agent_name: str) -> dict[str, Any]:
         """
@@ -266,7 +266,7 @@ class PersonaAPI:
         Returns:
             Deletion confirmation.
         """
-        return self._client.request("DELETE", f"/api/agent/{agent_name}/persona")
+        return self._client._request("DELETE", f"/api/agent/{agent_name}/persona")
 
 
 class AsyncPersonaAPI:
@@ -277,19 +277,19 @@ class AsyncPersonaAPI:
 
     async def list(self) -> dict[str, Any]:
         """List all personas."""
-        return await self._client.request("GET", "/api/personas")
+        return await self._client._request("GET", "/api/personas")
 
     async def get_options(self) -> dict[str, Any]:
         """Get available persona options."""
-        return await self._client.request("GET", "/api/personas/options")
+        return await self._client._request("GET", "/api/personas/options")
 
     async def get(self, agent_name: str) -> dict[str, Any]:
         """Get a persona by agent name."""
-        return await self._client.request("GET", f"/api/agent/{agent_name}/persona")
+        return await self._client._request("GET", f"/api/agent/{agent_name}/persona")
 
     async def get_grounded(self, agent_name: str) -> dict[str, Any]:
         """Get grounded persona with performance metrics."""
-        return await self._client.request("GET", f"/api/agent/{agent_name}/grounded-persona")
+        return await self._client._request("GET", f"/api/agent/{agent_name}/grounded-persona")
 
     async def get_identity_prompt(
         self,
@@ -301,13 +301,13 @@ class AsyncPersonaAPI:
         if sections:
             params["sections"] = ",".join(sections)
 
-        return await self._client.request(
+        return await self._client._request(
             "GET", f"/api/agent/{agent_name}/identity-prompt", params=params
         )
 
     async def get_performance(self, agent_name: str) -> dict[str, Any]:
         """Get performance summary for an agent."""
-        return await self._client.request("GET", f"/api/agent/{agent_name}/performance")
+        return await self._client._request("GET", f"/api/agent/{agent_name}/performance")
 
     async def get_domains(
         self,
@@ -319,11 +319,11 @@ class AsyncPersonaAPI:
         if limit is not None:
             params["limit"] = limit
 
-        return await self._client.request("GET", f"/api/agent/{agent_name}/domains", params=params)
+        return await self._client._request("GET", f"/api/agent/{agent_name}/domains", params=params)
 
     async def get_accuracy(self, agent_name: str) -> dict[str, Any]:
         """Get position accuracy metrics for an agent."""
-        return await self._client.request("GET", f"/api/agent/{agent_name}/accuracy")
+        return await self._client._request("GET", f"/api/agent/{agent_name}/accuracy")
 
     async def create(
         self,
@@ -347,7 +347,7 @@ class AsyncPersonaAPI:
         if temperature is not None:
             data["temperature"] = temperature
 
-        return await self._client.request("POST", "/api/personas", json=data)
+        return await self._client._request("POST", "/api/personas", json=data)
 
     async def update(
         self,
@@ -371,8 +371,8 @@ class AsyncPersonaAPI:
         if temperature is not None:
             data["temperature"] = temperature
 
-        return await self._client.request("PUT", f"/api/agent/{agent_name}/persona", json=data)
+        return await self._client._request("PUT", f"/api/agent/{agent_name}/persona", json=data)
 
     async def delete(self, agent_name: str) -> dict[str, Any]:
         """Delete a persona."""
-        return await self._client.request("DELETE", f"/api/agent/{agent_name}/persona")
+        return await self._client._request("DELETE", f"/api/agent/{agent_name}/persona")

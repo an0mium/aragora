@@ -39,7 +39,7 @@ class BudgetsAPI:
             List of budgets with pagination
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client.request("GET", "/api/v1/budgets", params=params)
+        return self._client._request("GET", "/api/v1/budgets", params=params)
 
     def create(
         self,
@@ -71,7 +71,7 @@ class BudgetsAPI:
         if scope:
             data["scope"] = scope
 
-        return self._client.request("POST", "/api/v1/budgets", json=data)
+        return self._client._request("POST", "/api/v1/budgets", json=data)
 
     def get(self, budget_id: str) -> dict[str, Any]:
         """
@@ -83,7 +83,7 @@ class BudgetsAPI:
         Returns:
             Budget details
         """
-        return self._client.request("GET", f"/api/v1/budgets/{budget_id}")
+        return self._client._request("GET", f"/api/v1/budgets/{budget_id}")
 
     def update(
         self,
@@ -116,7 +116,7 @@ class BudgetsAPI:
         if enabled is not None:
             data["enabled"] = enabled
 
-        return self._client.request("PATCH", f"/api/v1/budgets/{budget_id}", json=data)
+        return self._client._request("PATCH", f"/api/v1/budgets/{budget_id}", json=data)
 
     def delete(self, budget_id: str) -> dict[str, Any]:
         """
@@ -128,7 +128,7 @@ class BudgetsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}")
+        return self._client._request("DELETE", f"/api/v1/budgets/{budget_id}")
 
     # =========================================================================
     # Budget Checks
@@ -160,7 +160,7 @@ class BudgetsAPI:
         if budget_id:
             data["budget_id"] = budget_id
 
-        return self._client.request("POST", "/api/v1/budgets/check", json=data)
+        return self._client._request("POST", "/api/v1/budgets/check", json=data)
 
     def get_summary(self) -> dict[str, Any]:
         """
@@ -169,7 +169,7 @@ class BudgetsAPI:
         Returns:
             Summary including total budgets, exceeded count, etc.
         """
-        return self._client.request("GET", "/api/v1/budgets/summary")
+        return self._client._request("GET", "/api/v1/budgets/summary")
 
     # =========================================================================
     # Alerts
@@ -193,7 +193,7 @@ class BudgetsAPI:
             List of alerts
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return self._client.request("GET", f"/api/v1/budgets/{budget_id}/alerts", params=params)
+        return self._client._request("GET", f"/api/v1/budgets/{budget_id}/alerts", params=params)
 
     def acknowledge_alert(self, budget_id: str, alert_id: str) -> dict[str, Any]:
         """
@@ -206,7 +206,7 @@ class BudgetsAPI:
         Returns:
             Acknowledgment confirmation
         """
-        return self._client.request(
+        return self._client._request(
             "POST", f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge"
         )
 
@@ -239,7 +239,7 @@ class BudgetsAPI:
         if reason:
             data["reason"] = reason
 
-        return self._client.request("POST", f"/api/v1/budgets/{budget_id}/overrides", json=data)
+        return self._client._request("POST", f"/api/v1/budgets/{budget_id}/overrides", json=data)
 
     def remove_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
         """
@@ -252,7 +252,7 @@ class BudgetsAPI:
         Returns:
             Removal confirmation
         """
-        return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}")
+        return self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}")
 
     # =========================================================================
     # Period Management
@@ -270,7 +270,7 @@ class BudgetsAPI:
         Returns:
             Reset confirmation with new period start
         """
-        return self._client.request("POST", f"/api/v1/budgets/{budget_id}/reset")
+        return self._client._request("POST", f"/api/v1/budgets/{budget_id}/reset")
 
     # =========================================================================
     # Transaction History
@@ -307,7 +307,7 @@ class BudgetsAPI:
         if user_id:
             params["user_id"] = user_id
 
-        return self._client.request(
+        return self._client._request(
             "GET", f"/api/v1/budgets/{budget_id}/transactions", params=params
         )
 
@@ -333,7 +333,7 @@ class BudgetsAPI:
             Trend data for charts and analysis
         """
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return self._client.request("GET", f"/api/v1/budgets/{budget_id}/trends", params=params)
+        return self._client._request("GET", f"/api/v1/budgets/{budget_id}/trends", params=params)
 
     def get_org_trends(
         self,
@@ -353,15 +353,15 @@ class BudgetsAPI:
             Organization-wide trend data
         """
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return self._client.request("GET", "/api/v1/budgets/trends", params=params)
+        return self._client._request("GET", "/api/v1/budgets/trends", params=params)
 
     def add_single_override(self, budget_id: str) -> dict[str, Any]:
         """Add a budget override."""
-        return self._client.request("POST", f"/api/v1/budgets/{budget_id}/override")
+        return self._client._request("POST", f"/api/v1/budgets/{budget_id}/override")
 
     def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
         """Remove a budget override."""
-        return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+        return self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
 
     # =========================================================================
     # Cost Analytics
@@ -386,7 +386,7 @@ class BudgetsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client.request("GET", "/api/v1/costs/agents", params=params)
+        return self._client._request("GET", "/api/v1/costs/agents", params=params)
 
     def get_cost_anomalies(
         self,
@@ -407,7 +407,7 @@ class BudgetsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client.request("GET", "/api/v1/costs/anomalies", params=params)
+        return self._client._request("GET", "/api/v1/costs/anomalies", params=params)
 
 
 class AsyncBudgetsAPI:
@@ -427,7 +427,7 @@ class AsyncBudgetsAPI:
     ) -> dict[str, Any]:
         """List all budgets for the organization."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/budgets", params=params)
+        return await self._client._request("GET", "/api/v1/budgets", params=params)
 
     async def create(
         self,
@@ -447,11 +447,11 @@ class AsyncBudgetsAPI:
         if scope:
             data["scope"] = scope
 
-        return await self._client.request("POST", "/api/v1/budgets", json=data)
+        return await self._client._request("POST", "/api/v1/budgets", json=data)
 
     async def get(self, budget_id: str) -> dict[str, Any]:
         """Get a budget by ID."""
-        return await self._client.request("GET", f"/api/v1/budgets/{budget_id}")
+        return await self._client._request("GET", f"/api/v1/budgets/{budget_id}")
 
     async def update(
         self,
@@ -472,11 +472,11 @@ class AsyncBudgetsAPI:
         if enabled is not None:
             data["enabled"] = enabled
 
-        return await self._client.request("PATCH", f"/api/v1/budgets/{budget_id}", json=data)
+        return await self._client._request("PATCH", f"/api/v1/budgets/{budget_id}", json=data)
 
     async def delete(self, budget_id: str) -> dict[str, Any]:
         """Delete a budget."""
-        return await self._client.request("DELETE", f"/api/v1/budgets/{budget_id}")
+        return await self._client._request("DELETE", f"/api/v1/budgets/{budget_id}")
 
     # =========================================================================
     # Budget Checks
@@ -496,11 +496,11 @@ class AsyncBudgetsAPI:
         if budget_id:
             data["budget_id"] = budget_id
 
-        return await self._client.request("POST", "/api/v1/budgets/check", json=data)
+        return await self._client._request("POST", "/api/v1/budgets/check", json=data)
 
     async def get_summary(self) -> dict[str, Any]:
         """Get organization-wide budget summary."""
-        return await self._client.request("GET", "/api/v1/budgets/summary")
+        return await self._client._request("GET", "/api/v1/budgets/summary")
 
     # =========================================================================
     # Alerts
@@ -514,13 +514,13 @@ class AsyncBudgetsAPI:
     ) -> dict[str, Any]:
         """Get alerts for a budget."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request(
+        return await self._client._request(
             "GET", f"/api/v1/budgets/{budget_id}/alerts", params=params
         )
 
     async def acknowledge_alert(self, budget_id: str, alert_id: str) -> dict[str, Any]:
         """Acknowledge a budget alert."""
-        return await self._client.request(
+        return await self._client._request(
             "POST", f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge"
         )
 
@@ -540,13 +540,13 @@ class AsyncBudgetsAPI:
         if reason:
             data["reason"] = reason
 
-        return await self._client.request(
+        return await self._client._request(
             "POST", f"/api/v1/budgets/{budget_id}/overrides", json=data
         )
 
     async def remove_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
         """Remove a user-specific budget override."""
-        return await self._client.request(
+        return await self._client._request(
             "DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}"
         )
 
@@ -556,7 +556,7 @@ class AsyncBudgetsAPI:
 
     async def reset(self, budget_id: str) -> dict[str, Any]:
         """Reset a budget period."""
-        return await self._client.request("POST", f"/api/v1/budgets/{budget_id}/reset")
+        return await self._client._request("POST", f"/api/v1/budgets/{budget_id}/reset")
 
     # =========================================================================
     # Transaction History
@@ -580,7 +580,7 @@ class AsyncBudgetsAPI:
         if user_id:
             params["user_id"] = user_id
 
-        return await self._client.request(
+        return await self._client._request(
             "GET", f"/api/v1/budgets/{budget_id}/transactions", params=params
         )
 
@@ -596,7 +596,7 @@ class AsyncBudgetsAPI:
     ) -> dict[str, Any]:
         """Get spending trends for a budget."""
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return await self._client.request(
+        return await self._client._request(
             "GET", f"/api/v1/budgets/{budget_id}/trends", params=params
         )
 
@@ -607,15 +607,15 @@ class AsyncBudgetsAPI:
     ) -> dict[str, Any]:
         """Get organization-wide spending trends across all budgets."""
         params: dict[str, Any] = {"period": period, "limit": limit}
-        return await self._client.request("GET", "/api/v1/budgets/trends", params=params)
+        return await self._client._request("GET", "/api/v1/budgets/trends", params=params)
 
     async def add_single_override(self, budget_id: str) -> dict[str, Any]:
         """Add a budget override."""
-        return await self._client.request("POST", f"/api/v1/budgets/{budget_id}/override")
+        return await self._client._request("POST", f"/api/v1/budgets/{budget_id}/override")
 
     async def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
         """Remove a budget override."""
-        return await self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+        return await self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
 
     # =========================================================================
     # Cost Analytics
@@ -629,7 +629,7 @@ class AsyncBudgetsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request("GET", "/api/v1/costs/agents", params=params)
+        return await self._client._request("GET", "/api/v1/costs/agents", params=params)
 
     async def get_cost_anomalies(
         self,
@@ -639,4 +639,4 @@ class AsyncBudgetsAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request("GET", "/api/v1/costs/anomalies", params=params)
+        return await self._client._request("GET", "/api/v1/costs/anomalies", params=params)

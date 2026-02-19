@@ -61,7 +61,7 @@ class DecisionsAPI:
         if callback_url:
             data["callback_url"] = callback_url
 
-        return self._client.request("POST", "/api/v1/decisions", json=data)
+        return self._client._request("POST", "/api/v1/decisions", json=data)
 
     def get(self, decision_id: str) -> dict[str, Any]:
         """
@@ -73,7 +73,7 @@ class DecisionsAPI:
         Returns:
             Decision details including status and result
         """
-        return self._client.request("GET", f"/api/v1/decisions/{decision_id}")
+        return self._client._request("GET", f"/api/v1/decisions/{decision_id}")
 
     def get_status(self, decision_id: str) -> dict[str, Any]:
         """
@@ -87,7 +87,7 @@ class DecisionsAPI:
         Returns:
             Decision status
         """
-        return self._client.request("GET", f"/api/v1/decisions/{decision_id}/status")
+        return self._client._request("GET", f"/api/v1/decisions/{decision_id}/status")
 
     def list(
         self,
@@ -114,7 +114,7 @@ class DecisionsAPI:
         if decision_type:
             params["decision_type"] = decision_type
 
-        return self._client.request("GET", "/api/v1/decisions", params=params)
+        return self._client._request("GET", "/api/v1/decisions", params=params)
 
     def cancel(self, decision_id: str, reason: str | None = None) -> dict[str, Any]:
         """
@@ -136,7 +136,7 @@ class DecisionsAPI:
         if reason:
             data["reason"] = reason
 
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/decisions/{decision_id}/cancel",
             json=data if data else None,
@@ -158,7 +158,7 @@ class DecisionsAPI:
         Raises:
             HTTPError: If decision cannot be retried (wrong status or not found)
         """
-        return self._client.request("POST", f"/api/v1/decisions/{decision_id}/retry")
+        return self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
 
     def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """
@@ -173,7 +173,7 @@ class DecisionsAPI:
         Returns:
             Decision receipt with signature and audit data
         """
-        return self._client.request("GET", f"/api/v2/receipts/{decision_id}")
+        return self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """
@@ -185,7 +185,7 @@ class DecisionsAPI:
         Returns:
             Decision explanation with factors and reasoning
         """
-        return self._client.request("GET", f"/api/v1/decisions/{decision_id}/explain")
+        return self._client._request("GET", f"/api/v1/decisions/{decision_id}/explain")
 
     def submit_feedback(
         self,
@@ -214,7 +214,7 @@ class DecisionsAPI:
         else:
             data["comment"] = f"Feedback for decision {decision_id}"
 
-        return self._client.request("POST", "/api/v1/feedback/general", json=data)
+        return self._client._request("POST", "/api/v1/feedback/general", json=data)
 
     # -------------------------------------------------------------------------
     # DecisionPlan methods (gold path: debate → plan → execute → verify)
@@ -251,7 +251,7 @@ class DecisionsAPI:
         if metadata:
             data["metadata"] = metadata
 
-        return self._client.request("POST", "/api/v1/decisions/plans", json=data)
+        return self._client._request("POST", "/api/v1/decisions/plans", json=data)
 
     def get_plan(self, plan_id: str) -> dict[str, Any]:
         """
@@ -263,7 +263,7 @@ class DecisionsAPI:
         Returns:
             Plan details including status, risk assessment, and tasks
         """
-        return self._client.request("GET", f"/api/v1/decisions/plans/{plan_id}")
+        return self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}")
 
     def list_plans(
         self,
@@ -284,7 +284,7 @@ class DecisionsAPI:
         if status:
             params["status"] = status
 
-        return self._client.request("GET", "/api/v1/decisions/plans", params=params)
+        return self._client._request("GET", "/api/v1/decisions/plans", params=params)
 
     def approve_plan(
         self,
@@ -309,7 +309,7 @@ class DecisionsAPI:
         if conditions:
             data["conditions"] = conditions
 
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/decisions/plans/{plan_id}/approve",
             json=data if data else None,
@@ -330,7 +330,7 @@ class DecisionsAPI:
         if reason:
             data["reason"] = reason
 
-        return self._client.request(
+        return self._client._request(
             "POST",
             f"/api/v1/decisions/plans/{plan_id}/reject",
             json=data if data else None,
@@ -348,7 +348,7 @@ class DecisionsAPI:
         Returns:
             Execution result with plan status and outcome
         """
-        return self._client.request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
+        return self._client._request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
 
     def get_plan_outcome(self, plan_id: str) -> dict[str, Any]:
         """
@@ -360,7 +360,7 @@ class DecisionsAPI:
         Returns:
             Execution outcome with success status, tasks completed, and lessons
         """
-        return self._client.request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")
+        return self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")
 
 
 class AsyncDecisionsAPI:
@@ -391,15 +391,15 @@ class AsyncDecisionsAPI:
         if callback_url:
             data["callback_url"] = callback_url
 
-        return await self._client.request("POST", "/api/v1/decisions", json=data)
+        return await self._client._request("POST", "/api/v1/decisions", json=data)
 
     async def get(self, decision_id: str) -> dict[str, Any]:
         """Get a decision by ID."""
-        return await self._client.request("GET", f"/api/v1/decisions/{decision_id}")
+        return await self._client._request("GET", f"/api/v1/decisions/{decision_id}")
 
     async def get_status(self, decision_id: str) -> dict[str, Any]:
         """Get the status of a decision."""
-        return await self._client.request("GET", f"/api/v1/decisions/{decision_id}/status")
+        return await self._client._request("GET", f"/api/v1/decisions/{decision_id}/status")
 
     async def list(
         self,
@@ -415,7 +415,7 @@ class AsyncDecisionsAPI:
         if decision_type:
             params["decision_type"] = decision_type
 
-        return await self._client.request("GET", "/api/v1/decisions", params=params)
+        return await self._client._request("GET", "/api/v1/decisions", params=params)
 
     async def cancel(self, decision_id: str, reason: str | None = None) -> dict[str, Any]:
         """Cancel a pending or processing decision.
@@ -433,7 +433,7 @@ class AsyncDecisionsAPI:
         if reason:
             data["reason"] = reason
 
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/decisions/{decision_id}/cancel",
             json=data if data else None,
@@ -451,15 +451,15 @@ class AsyncDecisionsAPI:
         Returns:
             Retry result with new decision_id and result
         """
-        return await self._client.request("POST", f"/api/v1/decisions/{decision_id}/retry")
+        return await self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
 
     async def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """Get the receipt for a completed decision."""
-        return await self._client.request("GET", f"/api/v2/receipts/{decision_id}")
+        return await self._client._request("GET", f"/api/v2/receipts/{decision_id}")
 
     async def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """Get the explanation for a completed decision."""
-        return await self._client.request("GET", f"/api/v1/decisions/{decision_id}/explain")
+        return await self._client._request("GET", f"/api/v1/decisions/{decision_id}/explain")
 
     async def submit_feedback(
         self,
@@ -478,7 +478,7 @@ class AsyncDecisionsAPI:
         else:
             data["comment"] = f"Feedback for decision {decision_id}"
 
-        return await self._client.request("POST", "/api/v1/feedback/general", json=data)
+        return await self._client._request("POST", "/api/v1/feedback/general", json=data)
 
     # -------------------------------------------------------------------------
     # DecisionPlan methods (gold path: debate → plan → execute → verify)
@@ -503,11 +503,11 @@ class AsyncDecisionsAPI:
         if metadata:
             data["metadata"] = metadata
 
-        return await self._client.request("POST", "/api/v1/decisions/plans", json=data)
+        return await self._client._request("POST", "/api/v1/decisions/plans", json=data)
 
     async def get_plan(self, plan_id: str) -> dict[str, Any]:
         """Get a DecisionPlan by ID."""
-        return await self._client.request("GET", f"/api/v1/decisions/plans/{plan_id}")
+        return await self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}")
 
     async def list_plans(
         self,
@@ -519,7 +519,7 @@ class AsyncDecisionsAPI:
         if status:
             params["status"] = status
 
-        return await self._client.request("GET", "/api/v1/decisions/plans", params=params)
+        return await self._client._request("GET", "/api/v1/decisions/plans", params=params)
 
     async def approve_plan(
         self,
@@ -534,7 +534,7 @@ class AsyncDecisionsAPI:
         if conditions:
             data["conditions"] = conditions
 
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/decisions/plans/{plan_id}/approve",
             json=data if data else None,
@@ -546,7 +546,7 @@ class AsyncDecisionsAPI:
         if reason:
             data["reason"] = reason
 
-        return await self._client.request(
+        return await self._client._request(
             "POST",
             f"/api/v1/decisions/plans/{plan_id}/reject",
             json=data if data else None,
@@ -554,8 +554,8 @@ class AsyncDecisionsAPI:
 
     async def execute_plan(self, plan_id: str) -> dict[str, Any]:
         """Execute an approved DecisionPlan."""
-        return await self._client.request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
+        return await self._client._request("POST", f"/api/v1/decisions/plans/{plan_id}/execute")
 
     async def get_plan_outcome(self, plan_id: str) -> dict[str, Any]:
         """Get the execution outcome for a completed plan."""
-        return await self._client.request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")
+        return await self._client._request("GET", f"/api/v1/decisions/plans/{plan_id}/outcome")
