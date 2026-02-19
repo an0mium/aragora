@@ -156,6 +156,8 @@ ALLOWED_WITHOUT_RBAC = frozenset({
     "template_discovery",
     # Debate sharing (public spectate endpoint; POST/DELETE use inline require_auth_or_error)
     "debates/share",
+    # Spectate WebSocket/SSE (public read-only stream for live debate visualization)
+    "spectate_ws",
     # Marketplace browse (public catalog browsing, read-only)
     "marketplace_browse",
     # Health probes and dashboard monitoring (public liveness/readiness endpoints)
