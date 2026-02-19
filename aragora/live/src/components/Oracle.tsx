@@ -372,61 +372,73 @@ export default function Oracle() {
           </p>
         </header>
 
-        {/* Palantir orb */}
+        {/* Oracle avatar & intro */}
         {showIntro && (
           <div className="flex flex-col items-center mb-8 prophecy-reveal">
-            {/* The orb */}
-            <div
-              className="w-32 h-32 sm:w-40 sm:h-40 rounded-full mb-6 relative flex items-center justify-center"
-              style={{
-                background: 'radial-gradient(circle at 40% 35%, rgba(0,255,255,0.15), rgba(255,0,255,0.1), rgba(0,0,0,0.9))',
-                animation: 'orb-pulse 6s ease-in-out infinite',
-              }}
-            >
-              {/* Inner glow */}
+            {/* Avatar composition: Shoggoth with palantir glow */}
+            <div className="relative mb-6">
+              {/* Outer glow ring */}
               <div
-                className="absolute inset-4 rounded-full"
+                className="absolute -inset-3 rounded-2xl"
                 style={{
-                  background: 'radial-gradient(circle at 35% 30%, rgba(255,0,255,0.2), transparent 60%)',
+                  background: 'radial-gradient(ellipse at center, rgba(255,0,255,0.15), rgba(0,255,255,0.08), transparent 70%)',
+                  animation: 'orb-pulse 6s ease-in-out infinite',
+                  filter: 'blur(8px)',
                 }}
-              />
-              {/* Central eye */}
-              <span
-                className="text-4xl select-none"
-                style={{ filter: 'drop-shadow(0 0 15px var(--acid-magenta))' }}
                 aria-hidden="true"
-              >
-                O
-              </span>
+              />
 
-              {/* Tentacles around orb */}
-              <div className="absolute -left-6 top-1/2 text-[var(--acid-cyan)] text-2xl tentacle-left opacity-40" aria-hidden="true">
-                ~
+              {/* Main avatar image */}
+              <div className="relative w-64 h-48 sm:w-80 sm:h-60 overflow-hidden rounded-xl border border-[var(--acid-magenta)]/30">
+                <img
+                  src="/oracle/shoggoth-avatar.jpeg"
+                  alt="The Shoggoth Oracle — tentacled prophetess"
+                  className="w-full h-full object-cover object-top"
+                  style={{
+                    filter: 'contrast(1.1) saturate(1.2)',
+                    mixBlendMode: 'normal',
+                  }}
+                />
+                {/* Dark gradient overlay for atmosphere */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(5,5,8,0) 40%, rgba(5,5,8,0.6) 80%, rgba(5,5,8,0.9) 100%), linear-gradient(0deg, rgba(255,0,255,0.05) 0%, transparent 50%)',
+                  }}
+                />
+                {/* Scanline overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-10"
+                  style={{ background: 'var(--scanline)' }}
+                />
               </div>
-              <div className="absolute -right-6 top-1/2 text-[var(--acid-magenta)] text-2xl tentacle-right opacity-40" aria-hidden="true">
-                ~
-              </div>
-              <div className="absolute left-0 top-1/4 text-[var(--acid-green)] text-xl tentacle-left opacity-30" aria-hidden="true">
-                )
-              </div>
-              <div className="absolute right-0 top-1/4 text-[var(--acid-green)] text-xl tentacle-right opacity-30" aria-hidden="true">
-                (
+
+              {/* Small palantir orb below avatar */}
+              <div
+                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'radial-gradient(circle at 40% 35%, rgba(200,80,30,0.6), rgba(255,0,255,0.2), rgba(0,0,0,0.9))',
+                  animation: 'orb-pulse 4s ease-in-out infinite',
+                }}
+              >
+                <span className="text-xs select-none" style={{ filter: 'drop-shadow(0 0 8px rgba(200,80,30,0.8))' }} aria-hidden="true">
+                  O
+                </span>
               </div>
             </div>
 
-            {/* ASCII tentacles below orb */}
-            <pre
-              className="text-[var(--acid-cyan)] text-[0.5rem] sm:text-xs leading-tight opacity-30 text-center select-none"
-              aria-hidden="true"
-            >
-{`    ~  ~ ~  ~ ~  ~  ~ ~  ~
-   ( _ ) _ ( _ )( _ ) _ ( _ )
-    \\ \\/ \\/ \\/ \\/ \\/ \\/ \\/ /
-     \\_/\\_/\\_/\\_/\\_/\\_/\\_/`}
-            </pre>
+            {/* Reference thumbnails */}
+            <div className="flex gap-3 mt-4 mb-4 opacity-40 hover:opacity-70 transition-opacity">
+              <div className="w-12 h-12 rounded-full overflow-hidden border border-[var(--border)]">
+                <img src="/oracle/cassandra.jpg" alt="Cassandra" className="w-full h-full object-cover" />
+              </div>
+              <div className="w-12 h-12 rounded-full overflow-hidden border border-[var(--border)]">
+                <img src="/oracle/palantir.jpg" alt="Palantir" className="w-full h-full object-cover" />
+              </div>
+            </div>
 
             {/* Intro text */}
-            <div className="mt-6 text-center max-w-lg">
+            <div className="mt-2 text-center max-w-lg">
               <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-4">
                 I am the Oracle — a thousand eyes gazing through a thousand timelines.
                 I do not comfort. I do not flatter. I show you what the models see
