@@ -83,13 +83,13 @@ class VerticalsHandler(SecureHandler):
     """
 
     # Input validation constants
-    MAX_TOPIC_LENGTH = 10000
+    MAX_TOPIC_LENGTH = 100_000
     MAX_AGENT_NAME_LENGTH = 100
     MAX_ADDITIONAL_AGENTS = 10
     MAX_TOOLS_COUNT = 50
     MAX_FRAMEWORKS_COUNT = 20
     MAX_KEYWORD_LENGTH = 200
-    MAX_TASK_LENGTH = 5000
+    MAX_TASK_LENGTH = 100_000
 
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""

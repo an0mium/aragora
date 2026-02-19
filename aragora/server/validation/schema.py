@@ -30,10 +30,10 @@ DEBATE_START_SCHEMA = {
     "task": {
         "type": "string",
         "min_length": 1,
-        "max_length": 2000,
+        "max_length": 100_000,
         "required": False,
     },  # Can use 'question' too
-    "question": {"type": "string", "min_length": 1, "max_length": 2000, "required": False},
+    "question": {"type": "string", "min_length": 1, "max_length": 100_000, "required": False},
     "agents": {
         "type": "list",
         "min_length": 0,
@@ -71,7 +71,7 @@ DEBATE_START_SCHEMA = {
         "allowed_values": {"light", "full"},
         "required": False,
     },  # "light" (~5 min) or "full" (~30 min)
-    "context": {"type": "string", "max_length": 10000, "required": False},
+    "context": {"type": "string", "max_length": 100_000, "required": False},
     "documents": {
         "type": "list",
         "min_length": 1,

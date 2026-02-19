@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 
 # Input length limits
 MAX_DEBATE_TITLE_LENGTH = 500
-MAX_TASK_LENGTH = 10000
-MAX_CONTEXT_LENGTH = 100000  # 100KB
+MAX_TASK_LENGTH = 100_000  # ~15k words — supports long-form debate prompts
+MAX_CONTEXT_LENGTH = 100_000  # 100KB
 MAX_SEARCH_QUERY_LENGTH = 200
 MAX_REGEX_PATTERN_LENGTH = 100
 
