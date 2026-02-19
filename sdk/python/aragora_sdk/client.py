@@ -165,8 +165,6 @@ class AragoraClient:
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
-        from .namespaces.pipeline import PipelineAPI
-        from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.checkpoints import CheckpointsAPI
         from .namespaces.classify import ClassifyAPI
         from .namespaces.code_review import CodeReviewAPI
@@ -204,8 +202,8 @@ class AragoraClient:
         from .namespaces.graph_debates import GraphDebatesAPI
         from .namespaces.health import HealthAPI
         from .namespaces.hybrid_debates import HybridDebatesAPI
-        from .namespaces.inbox_command import InboxCommandAPI
         from .namespaces.ideas import IdeasAPI
+        from .namespaces.inbox_command import InboxCommandAPI
         from .namespaces.index import IndexAPI
         from .namespaces.insights import InsightsAPI
         from .namespaces.integrations import IntegrationsAPI
@@ -232,6 +230,8 @@ class AragoraClient:
         from .namespaces.outlook import OutlookAPI
         from .namespaces.partner import PartnerAPI
         from .namespaces.payments import PaymentsAPI
+        from .namespaces.pipeline import PipelineAPI
+        from .namespaces.pipeline_transitions import PipelineTransitionsAPI
         from .namespaces.plugins import PluginsAPI
         from .namespaces.podcast import PodcastAPI
         from .namespaces.policies import PoliciesAPI
@@ -715,8 +715,6 @@ class AragoraAsyncClient:
         from .namespaces.calibration import AsyncCalibrationAPI
         from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
-        from .namespaces.pipeline import AsyncPipelineAPI
-        from .namespaces.pipeline_transitions import AsyncPipelineTransitionsAPI
         from .namespaces.checkpoints import AsyncCheckpointsAPI
         from .namespaces.classify import AsyncClassifyAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
@@ -754,8 +752,8 @@ class AragoraAsyncClient:
         from .namespaces.graph_debates import AsyncGraphDebatesAPI
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
-        from .namespaces.inbox_command import AsyncInboxCommandAPI
         from .namespaces.ideas import AsyncIdeasAPI
+        from .namespaces.inbox_command import AsyncInboxCommandAPI
         from .namespaces.index import AsyncIndexAPI
         from .namespaces.insights import AsyncInsightsAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
@@ -782,6 +780,8 @@ class AragoraAsyncClient:
         from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.partner import AsyncPartnerAPI
         from .namespaces.payments import AsyncPaymentsAPI
+        from .namespaces.pipeline import AsyncPipelineAPI
+        from .namespaces.pipeline_transitions import AsyncPipelineTransitionsAPI
         from .namespaces.plugins import AsyncPluginsAPI
         from .namespaces.podcast import AsyncPodcastAPI
         from .namespaces.policies import AsyncPoliciesAPI
