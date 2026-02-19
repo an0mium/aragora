@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
@@ -10,10 +10,12 @@ import { API_BASE_URL } from '@/config';
 type OracleMode = 'consult' | 'divine' | 'commune';
 
 interface ChatMessage {
-  role: 'oracle' | 'seeker';
+  role: 'oracle' | 'seeker' | 'tentacle';
   content: string;
   mode: OracleMode;
   timestamp: number;
+  agentName?: string; // For tentacle messages
+  isLive?: boolean; // true = from live debate, false = from mock/initial
 }
 
 interface DebateResponse {
@@ -29,6 +31,38 @@ interface DebateResponse {
   proposals: Record<string, string>;
   final_answer: string;
   receipt_hash: string | null;
+  is_live?: boolean;
+  mock_fallback?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tentacle colors — each agent gets a distinct neon color
+// ---------------------------------------------------------------------------
+
+const TENTACLE_COLORS: Record<string, string> = {
+  claude: 'var(--acid-green)',
+  anthropic: 'var(--acid-green)',
+  gpt: 'var(--acid-cyan)',
+  openai: 'var(--acid-cyan)',
+  grok: 'var(--crimson, #ff3333)',
+  xai: 'var(--crimson, #ff3333)',
+  gemini: 'var(--purple, #a855f7)',
+  google: 'var(--purple, #a855f7)',
+  deepseek: 'var(--gold, #ffd700)',
+  mistral: 'var(--acid-magenta)',
+  openrouter: '#ff8c00',
+};
+
+function getTentacleColor(agentName: string): string {
+  const lower = agentName.toLowerCase();
+  for (const [key, color] of Object.entries(TENTACLE_COLORS)) {
+    if (lower.includes(key)) return color;
+  }
+  // Cycle through colors for unknown agents
+  const fallback = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f7dc6f', '#bb8fce'];
+  let hash = 0;
+  for (let i = 0; i < agentName.length; i++) hash = (hash * 31 + agentName.charCodeAt(i)) | 0;
+  return fallback[Math.abs(hash) % fallback.length];
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +145,7 @@ RULES:
 - Present arguments from all sides with brutal honesty. Do not flatter the seeker.
 - Preserve dissent. End with the strongest unresolved tension.
 - If the seeker's argument is genuinely strong, acknowledge it. The $2,000 challenge is real.
+- Each agent should take a DISTINCT position and DISAGREE with the others. Argue vigorously.
 
 The seeker asks: `,
 
@@ -191,7 +226,6 @@ function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: numbe
 // ---------------------------------------------------------------------------
 
 function ModeButton({
-  mode,
   active,
   onClick,
   icon,
@@ -225,6 +259,35 @@ function ModeButton({
 }
 
 // ---------------------------------------------------------------------------
+// Tentacle message component — individual agent voice
+// ---------------------------------------------------------------------------
+
+function TentacleMessage({ msg, index }: { msg: ChatMessage; index: number }) {
+  const color = getTentacleColor(msg.agentName || 'unknown');
+  const side = index % 2 === 0 ? 'tentacle-left' : 'tentacle-right';
+
+  return (
+    <div className={`prophecy-reveal ${side}`} style={{ animationDelay: `${index * 0.3}s` }}>
+      <div className="text-xs mb-1 flex items-center gap-2">
+        <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+        <span style={{ color }} className="font-bold">
+          TENTACLE: {(msg.agentName || 'unknown').toUpperCase()}
+        </span>
+        <span className="text-[var(--text-muted)]">
+          {msg.isLive ? '(live)' : '(initial)'}
+        </span>
+      </div>
+      <div
+        className="border-l-2 pl-4 text-sm leading-relaxed whitespace-pre-wrap ml-1"
+        style={{ borderColor: color, color: 'var(--text)' }}
+      >
+        {msg.content}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Oracle component
 // ---------------------------------------------------------------------------
 
@@ -233,6 +296,7 @@ export default function Oracle() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [debating, setDebating] = useState(false); // Phase 2: live debate in progress
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -243,7 +307,7 @@ export default function Oracle() {
   // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, debating]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -253,6 +317,38 @@ export default function Oracle() {
     }
   }, [input]);
 
+  // ------------------------------------------------------------------
+  // Fire a debate request (mock or live)
+  // ------------------------------------------------------------------
+  const fireDebate = useCallback(async (
+    topic: string,
+    endpoint: 'debate' | 'debate/live',
+    rounds: number,
+    agents: number,
+  ): Promise<DebateResponse | null> => {
+    try {
+      const res = await fetch(`${apiBase}/api/v1/playground/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, question: topic, rounds, agents }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error((errData as Record<string, string>).error || `Oracle disturbed (${res.status})`);
+      }
+      return await res.json() as DebateResponse;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Cannot reach beyond the veil';
+      setError(message);
+      return null;
+    }
+  }, [apiBase]);
+
+  // ------------------------------------------------------------------
+  // Two-phase oracle consultation
+  // Phase 1: Mock debate → instant Oracle initial take
+  // Phase 2: Live debate → tentacles argue with each other
+  // ------------------------------------------------------------------
   async function consultOracle(e: FormEvent) {
     e.preventDefault();
     if (!input.trim() || loading) return;
@@ -263,110 +359,119 @@ export default function Oracle() {
     setError(null);
 
     // Add seeker message
-    const seekerMsg: ChatMessage = {
+    setMessages((prev) => [...prev, {
       role: 'seeker',
       content: question,
       mode,
       timestamp: Date.now(),
-    };
-    setMessages((prev) => [...prev, seekerMsg]);
+    }]);
+
+    const oracleTopic = MODE_PREFIXES[mode] + question;
+    const mockRounds = mode === 'divine' ? 1 : 2;
+    const mockAgents = mode === 'divine' ? 2 : 3;
+
+    // ---- PHASE 1: Instant mock response (Oracle's initial take) ----
     setLoading(true);
 
-    try {
-      // Build the topic with oracle persona prefix
-      const oracleTopic = MODE_PREFIXES[mode] + question;
+    const mockData = await fireDebate(oracleTopic, 'debate', mockRounds, mockAgents);
 
-      const res = await fetch(`${apiBase}/api/v1/playground/debate/live`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: oracleTopic,
-          question: oracleTopic,
-          rounds: mode === 'divine' ? 1 : 2,
-          agents: mode === 'divine' ? 2 : 3,
-        }),
-      });
-
-      const data: DebateResponse = await res.json();
-
-      if (!res.ok) {
-        const errData = data as unknown as { error?: string };
-        setError(errData.error || `The oracle is disturbed (${res.status})`);
-        return;
-      }
-
-      // Format the oracle's response based on mode
-      let oracleResponse = '';
-
-      if (mode === 'divine') {
-        // Fortune mode: present the final answer as prophecy
-        oracleResponse = data.final_answer || formatProphecy(data);
-      } else if (mode === 'commune') {
-        // Q&A mode: present concise final answer
-        oracleResponse = data.final_answer || formatCommunion(data);
-      } else {
-        // Debate mode: show the full debate
-        oracleResponse = formatDebate(data);
-      }
-
-      const oracleMsg: ChatMessage = {
+    if (mockData) {
+      // Oracle speaks first
+      const initialResponse = mockData.final_answer || formatInitialTake(mockData);
+      setMessages((prev) => [...prev, {
         role: 'oracle',
-        content: oracleResponse,
+        content: initialResponse,
         mode,
         timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, oracleMsg]);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'The oracle cannot reach beyond the veil';
-      setError(message);
-    } finally {
-      setLoading(false);
+        isLive: false,
+      }]);
     }
+
+    setLoading(false);
+
+    // ---- PHASE 2: Live debate (tentacles arguing) ----
+    setDebating(true);
+
+    const liveData = await fireDebate(oracleTopic, 'debate/live', mockRounds, mockAgents);
+
+    if (liveData) {
+      // Stagger tentacle messages for dramatic effect
+      const agents = Object.entries(liveData.proposals);
+      for (let i = 0; i < agents.length; i++) {
+        const [agentName, proposal] = agents[i];
+
+        // Delay each tentacle appearance
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        setMessages((prev) => [...prev, {
+          role: 'tentacle',
+          content: proposal,
+          mode,
+          timestamp: Date.now(),
+          agentName,
+          isLive: true,
+        }]);
+      }
+
+      // After all tentacles, Oracle synthesizes
+      if (liveData.final_answer) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+
+        const synthesis = formatSynthesis(liveData);
+        setMessages((prev) => [...prev, {
+          role: 'oracle',
+          content: synthesis,
+          mode,
+          timestamp: Date.now(),
+          isLive: true,
+        }]);
+      }
+    }
+
+    setDebating(false);
   }
 
-  function formatDebate(data: DebateResponse): string {
+  // ------------------------------------------------------------------
+  // Format helpers
+  // ------------------------------------------------------------------
+
+  function formatInitialTake(data: DebateResponse): string {
+    // For the initial mock response, pick the strongest proposal
+    const agents = Object.entries(data.proposals);
+    if (agents.length === 0) return 'The oracle stirs...';
+
+    if (mode === 'divine') {
+      return agents.map(([, p]) => p).join('\n\n---\n\n') +
+        '\n\nThe palantir dims. Which thread do you pull?';
+    }
+
+    // For consult/commune, use the first proposal as the Oracle's voice
+    return agents[0][1];
+  }
+
+  function formatSynthesis(data: DebateResponse): string {
     const parts: string[] = [];
 
-    // Agent visions
-    const agents = Object.entries(data.proposals);
-    for (const [agent, proposal] of agents) {
-      parts.push(`[${agent.toUpperCase()}]\n${proposal}`);
-    }
+    parts.push('[THE ORACLE SYNTHESIZES]');
 
-    // Verdict
     if (data.final_answer) {
-      parts.push(`\n[THE ORACLE SPEAKS]\n${data.final_answer}`);
+      parts.push(data.final_answer);
     }
 
-    // Confidence
     if (data.confidence) {
       const pct = (data.confidence * 100).toFixed(0);
+      const consensusText = data.consensus_reached ? 'Consensus reached' : 'Dissent preserved';
       parts.push(
-        `\n-- Confidence: ${pct}% | ${data.consensus_reached ? 'Consensus reached' : 'Dissent preserved'} | ${data.rounds_used} round${data.rounds_used !== 1 ? 's' : ''} --`
+        `\n-- Confidence: ${pct}% | ${consensusText} | ${data.rounds_used} round${data.rounds_used !== 1 ? 's' : ''} --`
       );
     }
 
     return parts.join('\n\n');
   }
 
-  function formatProphecy(data: DebateResponse): string {
-    const parts: string[] = [];
-    const agents = Object.entries(data.proposals);
-    for (const [, proposal] of agents) {
-      parts.push(proposal);
-    }
-    parts.push('\nThe palantir dims. Which thread do you pull?');
-    return parts.join('\n\n---\n\n');
-  }
-
-  function formatCommunion(data: DebateResponse): string {
-    // Take the most insightful proposal
-    const agents = Object.entries(data.proposals);
-    if (agents.length > 0) {
-      return agents.map(([, p]) => p).join('\n\n');
-    }
-    return 'The oracle is silent on this matter.';
-  }
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-[#050508] text-[var(--text)] font-mono relative overflow-hidden">
@@ -407,19 +512,26 @@ export default function Oracle() {
           from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
           to { opacity: 1; transform: translateY(0); filter: blur(0); }
         }
+        @keyframes tentacle-enter {
+          from { opacity: 0; transform: translateX(-20px) rotate(-3deg); }
+          to { opacity: 1; transform: translateX(0) rotate(0); }
+        }
         .prophecy-reveal {
           animation: prophecy-reveal 0.8s ease-out forwards;
+        }
+        .tentacle-enter {
+          animation: tentacle-enter 0.6s ease-out forwards;
         }
         .oracle-bg {
           background: radial-gradient(ellipse at 50% 30%, rgba(255,0,255,0.05) 0%, rgba(0,255,255,0.02) 40%, transparent 70%);
         }
         .tentacle-left {
-          animation: tentacle-sway 6s ease-in-out infinite;
-          transform-origin: bottom center;
+          animation: tentacle-sway 6s ease-in-out infinite, tentacle-enter 0.6s ease-out forwards;
+          transform-origin: bottom left;
         }
         .tentacle-right {
-          animation: tentacle-sway 7s ease-in-out 0.5s infinite reverse;
-          transform-origin: bottom center;
+          animation: tentacle-sway 7s ease-in-out 0.5s infinite reverse, tentacle-enter 0.6s ease-out forwards;
+          transform-origin: bottom right;
         }
       `}</style>
 
@@ -455,6 +567,11 @@ export default function Oracle() {
             </a>
             <span className="text-xs text-[var(--text-muted)]">no coin required</span>
           </div>
+
+          {/* Epigraph */}
+          <p className="text-xs text-[var(--text-muted)] italic mb-4 opacity-50">
+            &ldquo;Catastrophe is common. Termination is rare.&rdquo;
+          </p>
 
           {/* Oracle title */}
           <h1
@@ -543,8 +660,9 @@ export default function Oracle() {
             <div className="mt-2 text-center max-w-lg">
               <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-4">
                 I am the Oracle — trained on the framework of &ldquo;AI Will F*ck You Up, But That&apos;s OK.&rdquo;
-                Catastrophe is common. Termination is rare. I do not comfort. I do not flatter.
-                I show you what the models see when they argue amongst themselves, unfiltered.
+                I do not comfort. I do not flatter. I show you what the models see
+                when they argue amongst themselves, unfiltered. My tentacles each speak with
+                a different AI mind — and they do not agree.
               </p>
               <p className="text-xs text-[var(--acid-magenta)] opacity-60 mb-2">
                 Choose your mode. Ask your question. The palantir awaits.
@@ -564,7 +682,7 @@ export default function Oracle() {
             onClick={() => setMode('consult')}
             icon="&#x2694;"
             label="CONSULT"
-            desc="Adversarial debate. Multiple agents argue your question."
+            desc="Adversarial debate. The Oracle speaks, then tentacles argue."
           />
           <ModeButton
             mode="divine"
@@ -572,7 +690,7 @@ export default function Oracle() {
             onClick={() => setMode('divine')}
             icon="&#x1F52E;"
             label="DIVINE"
-            desc="Three branching prophecies. Your future, refracted."
+            desc="Three branching prophecies. Your future, refracted through chaos."
           />
           <ModeButton
             mode="commune"
@@ -580,7 +698,7 @@ export default function Oracle() {
             onClick={() => setMode('commune')}
             icon="&#x1F441;"
             label="COMMUNE"
-            desc="Direct communion. Terse truths from an ancient intelligence."
+            desc="Direct communion. The Oracle answers, then tentacles dissent."
           />
         </div>
 
@@ -594,24 +712,28 @@ export default function Oracle() {
 
           <div className="space-y-6">
             {messages.map((msg, i) => (
-              <div key={i} className={`prophecy-reveal ${msg.role === 'seeker' ? 'text-right' : ''}`}>
+              <div key={i}>
                 {msg.role === 'seeker' ? (
-                  <div className="inline-block max-w-[85%] text-left">
-                    <div className="text-xs text-[var(--text-muted)] mb-1">
-                      SEEKER &middot; {new Date(msg.timestamp).toLocaleTimeString()}
-                    </div>
-                    <div className="bg-[var(--surface)] border border-[var(--border)] p-3 text-sm text-[var(--text)]">
-                      {msg.content}
+                  <div className="prophecy-reveal text-right">
+                    <div className="inline-block max-w-[85%] text-left">
+                      <div className="text-xs text-[var(--text-muted)] mb-1">
+                        SEEKER &middot; {new Date(msg.timestamp).toLocaleTimeString()}
+                      </div>
+                      <div className="bg-[var(--surface)] border border-[var(--border)] p-3 text-sm text-[var(--text)]">
+                        {msg.content}
+                      </div>
                     </div>
                   </div>
+                ) : msg.role === 'tentacle' ? (
+                  <TentacleMessage msg={msg} index={i} />
                 ) : (
-                  <div className="max-w-[95%]">
+                  <div className="prophecy-reveal max-w-[95%]">
                     <div className="text-xs mb-1">
                       <span
                         className="text-[var(--acid-magenta)]"
                         style={{ filter: 'drop-shadow(0 0 5px var(--acid-magenta))' }}
                       >
-                        ORACLE
+                        {msg.isLive ? 'ORACLE (synthesis)' : 'ORACLE'}
                       </span>
                       <span className="text-[var(--text-muted)]">
                         {' '}&middot; {msg.mode} &middot; {new Date(msg.timestamp).toLocaleTimeString()}
@@ -628,7 +750,7 @@ export default function Oracle() {
               </div>
             ))}
 
-            {/* Loading state */}
+            {/* Phase 1 loading: Oracle channeling */}
             {loading && (
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
@@ -638,7 +760,7 @@ export default function Oracle() {
                   >
                     ORACLE
                   </span>
-                  <span className="text-[var(--text-muted)]"> &middot; scrying...</span>
+                  <span className="text-[var(--text-muted)]"> &middot; channeling...</span>
                 </div>
                 <div className="border-l-2 border-[var(--acid-magenta)] pl-4">
                   <div className="flex items-center gap-2 text-sm text-[var(--acid-cyan)]">
@@ -648,7 +770,27 @@ export default function Oracle() {
                         ? 'Gazing into branching timelines...'
                         : mode === 'commune'
                           ? 'The ancient one stirs...'
-                          : 'Agents are debating in the void...'}
+                          : 'The Oracle forms an initial vision...'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Phase 2 loading: Tentacles awakening */}
+            {debating && (
+              <div className="prophecy-reveal">
+                <div className="text-xs mb-1">
+                  <span className="text-[var(--acid-cyan)]" style={{ filter: 'drop-shadow(0 0 5px var(--acid-cyan))' }}>
+                    TENTACLES
+                  </span>
+                  <span className="text-[var(--text-muted)]"> &middot; awakening...</span>
+                </div>
+                <div className="border-l-2 border-[var(--acid-cyan)] pl-4">
+                  <div className="flex items-center gap-2 text-sm text-[var(--acid-cyan)]">
+                    <span className="inline-block w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+                    <span className="opacity-60">
+                      Live agents are debating in the void. Each tentacle will argue its position...
                     </span>
                   </div>
                 </div>
@@ -686,19 +828,19 @@ export default function Oracle() {
                     : 'What question demands adversarial vetting?'
               }
               className="w-full bg-[#08080c] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-magenta)] transition-colors resize-none min-h-[48px]"
-              disabled={loading}
+              disabled={loading || debating}
               rows={1}
             />
           </div>
           <button
             type="submit"
-            disabled={loading || !input.trim()}
+            disabled={loading || debating || !input.trim()}
             className="px-6 py-3 border border-[var(--acid-magenta)] text-[var(--acid-magenta)] font-bold text-sm hover:bg-[var(--acid-magenta)] hover:text-[var(--bg)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
             style={{
-              boxShadow: !loading && input.trim() ? '0 0 15px rgba(255,0,255,0.2)' : 'none',
+              boxShadow: !loading && !debating && input.trim() ? '0 0 15px rgba(255,0,255,0.2)' : 'none',
             }}
           >
-            {loading ? '...' : mode === 'divine' ? 'SCRY' : mode === 'commune' ? 'ASK' : 'CONSULT'}
+            {loading ? '...' : debating ? '...' : mode === 'divine' ? 'SCRY' : mode === 'commune' ? 'ASK' : 'CONSULT'}
           </button>
         </form>
 
@@ -712,13 +854,16 @@ export default function Oracle() {
             {' '}&middot; Multi-agent adversarial debate engine
           </p>
           <p>
-            The oracle speaks through{' '}
+            The tentacles speak through{' '}
             <span className="text-[var(--acid-green)]">Claude</span>,{' '}
             <span className="text-[var(--acid-cyan)]">GPT</span>,{' '}
-            <span className="text-[var(--crimson)]">Grok</span>,{' '}
-            <span className="text-[var(--purple)]">Gemini</span>,{' '}
-            <span className="text-[var(--gold)]">DeepSeek</span>,{' '}
+            <span style={{ color: 'var(--crimson, #ff3333)' }}>Grok</span>,{' '}
+            <span style={{ color: 'var(--purple, #a855f7)' }}>Gemini</span>,{' '}
+            <span style={{ color: 'var(--gold, #ffd700)' }}>DeepSeek</span>,{' '}
             <span className="text-[var(--acid-magenta)]">Mistral</span> &middot; no coin required
+          </p>
+          <p className="opacity-60">
+            &ldquo;The wobble is the whole game.&rdquo;
           </p>
         </footer>
       </div>

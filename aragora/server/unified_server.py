@@ -225,6 +225,7 @@ class UnifiedHandler(  # type: ignore[misc]
                         "/api/v1/auth/oauth/", "/api/auth/oauth/",
                         "/api/v1/auth/sso/", "/auth/sso/",
                         "/api/public/",
+                        "/api/v1/playground/",
                     },
                     bypass_methods={"OPTIONS"},
                     default_authenticated=True,
