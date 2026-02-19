@@ -47,9 +47,7 @@ def mock_store():
     """Provide a mock pipeline store for GET tests."""
     store = MagicMock()
     store.get.return_value = None
-    with patch(
-        "aragora.server.handlers.canvas_pipeline._get_store", return_value=store
-    ):
+    with patch("aragora.server.handlers.canvas_pipeline._get_store", return_value=store):
         yield store
 
 
@@ -91,10 +89,12 @@ class TestFromDebate:
     @pytest.mark.asyncio
     async def test_successful_pipeline(self, handler):
         """Verify from_debate runs the real pipeline with minimal input."""
-        result = await handler.handle_from_debate({
-            "cartographer_data": {"nodes": [{"id": "n1", "label": "test"}], "edges": []},
-            "auto_advance": True,
-        })
+        result = await handler.handle_from_debate(
+            {
+                "cartographer_data": {"nodes": [{"id": "n1", "label": "test"}], "edges": []},
+                "auto_advance": True,
+            }
+        )
         body = _body(result)
         # Pipeline should succeed (may not advance all stages with minimal data)
         if "error" not in body:
@@ -108,9 +108,11 @@ class TestFromDebate:
     async def test_import_error_returns_error(self, handler):
         """Pipeline import failure returns error dict, not exception."""
         with patch.dict("sys.modules", {"aragora.pipeline.idea_to_execution": None}):
-            result = await handler.handle_from_debate({
-                "cartographer_data": {"nodes": [{"id": "1"}]},
-            })
+            result = await handler.handle_from_debate(
+                {
+                    "cartographer_data": {"nodes": [{"id": "1"}]},
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -137,9 +139,11 @@ class TestFromIdeas:
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
         with patch.dict("sys.modules", {"aragora.pipeline.idea_to_execution": None}):
-            result = await handler.handle_from_ideas({
-                "ideas": ["improve caching", "add monitoring"],
-            })
+            result = await handler.handle_from_ideas(
+                {
+                    "ideas": ["improve caching", "add monitoring"],
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -166,10 +170,12 @@ class TestAdvance:
 
     @pytest.mark.asyncio
     async def test_pipeline_not_found(self, handler):
-        result = await handler.handle_advance({
-            "pipeline_id": "nonexistent",
-            "target_stage": "goals",
-        })
+        result = await handler.handle_advance(
+            {
+                "pipeline_id": "nonexistent",
+                "target_stage": "goals",
+            }
+        )
         body = _body(result)
         assert "error" in body
         assert "not found" in body["error"]
@@ -177,10 +183,12 @@ class TestAdvance:
     @pytest.mark.asyncio
     async def test_invalid_stage(self, handler):
         _pipeline_objects["pipe-1"] = MagicMock()
-        result = await handler.handle_advance({
-            "pipeline_id": "pipe-1",
-            "target_stage": "invalid_stage",
-        })
+        result = await handler.handle_advance(
+            {
+                "pipeline_id": "pipe-1",
+                "target_stage": "invalid_stage",
+            }
+        )
         body = _body(result)
         assert "error" in body
         assert "Invalid stage" in body["error"]
@@ -188,14 +196,19 @@ class TestAdvance:
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
         _pipeline_objects["pipe-1"] = MagicMock()
-        with patch.dict("sys.modules", {
-            "aragora.canvas.stages": None,
-            "aragora.pipeline.idea_to_execution": None,
-        }):
-            result = await handler.handle_advance({
-                "pipeline_id": "pipe-1",
-                "target_stage": "goals",
-            })
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.canvas.stages": None,
+                "aragora.pipeline.idea_to_execution": None,
+            },
+        ):
+            result = await handler.handle_advance(
+                {
+                    "pipeline_id": "pipe-1",
+                    "target_stage": "goals",
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -300,9 +313,11 @@ class TestConvertDebate:
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
         with patch.dict("sys.modules", {"aragora.canvas.converters": None}):
-            result = await handler.handle_convert_debate({
-                "cartographer_data": {"nodes": []},
-            })
+            result = await handler.handle_convert_debate(
+                {
+                    "cartographer_data": {"nodes": []},
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -322,9 +337,11 @@ class TestConvertWorkflow:
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
         with patch.dict("sys.modules", {"aragora.canvas.converters": None}):
-            result = await handler.handle_convert_workflow({
-                "workflow_data": {"steps": []},
-            })
+            result = await handler.handle_convert_workflow(
+                {
+                    "workflow_data": {"steps": []},
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -355,10 +372,12 @@ class TestExtractGoals:
                 {"source": "n2", "target": "n1", "type": "supports"},
             ],
         }
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": canvas_data,
-            "ideas_canvas_id": "test-canvas-1",
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": canvas_data,
+                "ideas_canvas_id": "test-canvas-1",
+            }
+        )
         body = _body(result)
         assert "error" not in body
         assert "goals" in body
@@ -369,9 +388,11 @@ class TestExtractGoals:
     @pytest.mark.asyncio
     async def test_empty_nodes(self, handler):
         """Canvas with no nodes produces empty goals."""
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": {"nodes": [], "edges": []},
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": {"nodes": [], "edges": []},
+            }
+        )
         body = _body(result)
         assert "error" not in body
         assert body["goals_count"] == 0
@@ -383,10 +404,12 @@ class TestExtractGoals:
             {"id": f"n{i}", "data": {"idea_type": "concept", "label": f"Idea {i}"}}
             for i in range(20)
         ]
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": {"nodes": nodes, "edges": []},
-            "config": {"max_goals": 3, "confidence_threshold": 0},
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": {"nodes": nodes, "edges": []},
+                "config": {"max_goals": 3, "confidence_threshold": 0},
+            }
+        )
         body = _body(result)
         assert "error" not in body
         assert body["goals_count"] <= 3
@@ -394,15 +417,17 @@ class TestExtractGoals:
     @pytest.mark.asyncio
     async def test_config_confidence_threshold(self, handler):
         """Goals below confidence threshold are filtered out."""
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": {
-                "nodes": [
-                    {"id": "n1", "data": {"idea_type": "concept", "label": "Test"}},
-                ],
-                "edges": [],
-            },
-            "config": {"confidence_threshold": 0.99},
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": {
+                    "nodes": [
+                        {"id": "n1", "data": {"idea_type": "concept", "label": "Test"}},
+                    ],
+                    "edges": [],
+                },
+                "config": {"confidence_threshold": 0.99},
+            }
+        )
         body = _body(result)
         assert "error" not in body
         # With a high threshold, most structural goals should be filtered
@@ -411,9 +436,11 @@ class TestExtractGoals:
     @pytest.mark.asyncio
     async def test_import_error_returns_error(self, handler):
         with patch.dict("sys.modules", {"aragora.goals.extractor": None}):
-            result = await handler.handle_extract_goals({
-                "ideas_canvas_data": {"nodes": [{"id": "1"}]},
-            })
+            result = await handler.handle_extract_goals(
+                {
+                    "ideas_canvas_data": {"nodes": [{"id": "1"}]},
+                }
+            )
         body = _body(result)
         assert "error" in body
 
@@ -429,10 +456,12 @@ class TestExtractGoals:
                 {"source": "n2", "target": "n1", "type": "supports"},
             ],
         }
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_data": canvas_data,
-            "config": {"confidence_threshold": 0},
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_data": canvas_data,
+                "config": {"confidence_threshold": 0},
+            }
+        )
         body = _body(result)
         assert "error" not in body
         assert "provenance" in body
@@ -440,9 +469,11 @@ class TestExtractGoals:
     @pytest.mark.asyncio
     async def test_canvas_id_from_store_fallback(self, handler):
         """When only canvas_id given and store fails, returns error."""
-        result = await handler.handle_extract_goals({
-            "ideas_canvas_id": "nonexistent-canvas",
-        })
+        result = await handler.handle_extract_goals(
+            {
+                "ideas_canvas_id": "nonexistent-canvas",
+            }
+        )
         body = _body(result)
         assert "error" in body
 
@@ -451,9 +482,7 @@ class TestExtractGoals:
         """Verify handle_post dispatches extract-goals correctly."""
         mock_handler = MagicMock()
         mock_handler.request.body = b'{"ideas_canvas_data": {"nodes": [], "edges": []}}'
-        result = handler.handle_post(
-            "/api/v1/canvas/pipeline/extract-goals", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/canvas/pipeline/extract-goals", {}, mock_handler)
         # Should return a coroutine (async method), not None
         assert result is not None
 
@@ -490,10 +519,12 @@ class TestRunPipelineIdConsistency:
         stored_ids = []
         mock_store.save.side_effect = lambda pid, data: stored_ids.append(pid)
 
-        result = await handler.handle_run({
-            "input_text": "Build a caching layer",
-            "dry_run": True,
-        })
+        result = await handler.handle_run(
+            {
+                "input_text": "Build a caching layer",
+                "dry_run": True,
+            }
+        )
         body = _body(result)
         assert "error" not in body
         returned_id = body["pipeline_id"]
@@ -587,11 +618,14 @@ class TestSavePipeline:
     async def test_save_with_nodes(self, handler, mock_store):
         """Saving stages with nodes marks them complete."""
         mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
-        result = await handler.handle_save_pipeline("pipe-1", {
-            "stages": {
-                "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+        result = await handler.handle_save_pipeline(
+            "pipe-1",
+            {
+                "stages": {
+                    "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+                },
             },
-        })
+        )
         body = _body(result)
         assert body["saved"] is True
         assert body["pipeline_id"] == "pipe-1"
@@ -601,11 +635,14 @@ class TestSavePipeline:
     async def test_save_creates_new_pipeline(self, handler, mock_store):
         """PUT on a nonexistent pipeline_id creates a new entry (upsert)."""
         mock_store.get.return_value = None
-        result = await handler.handle_save_pipeline("pipe-new", {
-            "stages": {
-                "goals": {"nodes": [{"id": "g1"}], "edges": []},
+        result = await handler.handle_save_pipeline(
+            "pipe-new",
+            {
+                "stages": {
+                    "goals": {"nodes": [{"id": "g1"}], "edges": []},
+                },
             },
-        })
+        )
         body = _body(result)
         assert body["saved"] is True
         assert body["pipeline_id"] == "pipe-new"
@@ -618,11 +655,14 @@ class TestSavePipeline:
     async def test_empty_nodes_not_marked_complete(self, handler, mock_store):
         """Saving a stage with empty nodes doesn't mark it complete."""
         mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
-        result = await handler.handle_save_pipeline("pipe-1", {
-            "stages": {
-                "ideas": {"nodes": [], "edges": []},
+        result = await handler.handle_save_pipeline(
+            "pipe-1",
+            {
+                "stages": {
+                    "ideas": {"nodes": [], "edges": []},
+                },
             },
-        })
+        )
         body = _body(result)
         assert body["saved"] is True
         assert "ideas" not in body["stage_status"]
@@ -631,13 +671,16 @@ class TestSavePipeline:
     async def test_save_multiple_stages(self, handler, mock_store):
         """Multiple stages can be saved in a single request."""
         mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
-        result = await handler.handle_save_pipeline("pipe-1", {
-            "stages": {
-                "ideas": {"nodes": [{"id": "n1"}], "edges": []},
-                "goals": {"nodes": [{"id": "g1"}], "edges": [{"source": "g1", "target": "n1"}]},
-                "actions": {"nodes": [], "edges": []},
+        result = await handler.handle_save_pipeline(
+            "pipe-1",
+            {
+                "stages": {
+                    "ideas": {"nodes": [{"id": "n1"}], "edges": []},
+                    "goals": {"nodes": [{"id": "g1"}], "edges": [{"source": "g1", "target": "n1"}]},
+                    "actions": {"nodes": [], "edges": []},
+                },
             },
-        })
+        )
         body = _body(result)
         assert body["saved"] is True
         assert body["stage_status"]["ideas"] == "complete"
@@ -649,9 +692,7 @@ class TestSavePipeline:
         """handle_put dispatches to handle_save_pipeline."""
         mock_handler = MagicMock()
         mock_handler.request.body = b'{"stages": {"ideas": {"nodes": [{"id": "1"}], "edges": []}}}'
-        result = handler.handle_put(
-            "/api/v1/canvas/pipeline/pipe-test", {}, mock_handler
-        )
+        result = handler.handle_put("/api/v1/canvas/pipeline/pipe-test", {}, mock_handler)
         # Should return a coroutine
         assert result is not None
 
@@ -675,11 +716,14 @@ class TestApproveTransition:
     async def test_pipeline_not_found(self, handler, mock_store):
         """Nonexistent pipeline returns error."""
         mock_store.get.return_value = None
-        result = await handler.handle_approve_transition("nonexistent", {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": True,
-        })
+        result = await handler.handle_approve_transition(
+            "nonexistent",
+            {
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "approved": True,
+            },
+        )
         body = _body(result)
         assert "error" in body
         assert "not found" in body["error"]
@@ -688,10 +732,13 @@ class TestApproveTransition:
     async def test_missing_from_stage(self, handler, mock_store):
         """Missing from_stage returns error."""
         mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
-        result = await handler.handle_approve_transition("pipe-1", {
-            "to_stage": "goals",
-            "approved": True,
-        })
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
+                "to_stage": "goals",
+                "approved": True,
+            },
+        )
         body = _body(result)
         assert "error" in body
         assert "from_stage" in body["error"]
@@ -700,10 +747,13 @@ class TestApproveTransition:
     async def test_missing_to_stage(self, handler, mock_store):
         """Missing to_stage returns error."""
         mock_store.get.return_value = {"pipeline_id": "pipe-1", "stage_status": {}}
-        result = await handler.handle_approve_transition("pipe-1", {
-            "from_stage": "ideas",
-            "approved": True,
-        })
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
+                "from_stage": "ideas",
+                "approved": True,
+            },
+        )
         body = _body(result)
         assert "error" in body
         assert "to_stage" in body["error"]
@@ -716,12 +766,15 @@ class TestApproveTransition:
             "stage_status": {"ideas": "complete"},
             "transitions": [],
         }
-        result = await handler.handle_approve_transition("pipe-1", {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": True,
-            "comment": "Looks good",
-        })
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "approved": True,
+                "comment": "Looks good",
+            },
+        )
         body = _body(result)
         assert body["status"] == "approved"
         assert body["comment"] == "Looks good"
@@ -739,12 +792,15 @@ class TestApproveTransition:
             "stage_status": {"ideas": "complete"},
             "transitions": [],
         }
-        result = await handler.handle_approve_transition("pipe-1", {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": False,
-            "comment": "Needs more detail",
-        })
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "approved": False,
+                "comment": "Needs more detail",
+            },
+        )
         body = _body(result)
         assert body["status"] == "rejected"
         saved_data = mock_store.save.call_args[0][1]
@@ -758,11 +814,14 @@ class TestApproveTransition:
             "pipeline_id": "pipe-1",
             "stage_status": {},
         }
-        result = await handler.handle_approve_transition("pipe-1", {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": True,
-        })
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "approved": True,
+            },
+        )
         body = _body(result)
         assert body["status"] == "approved"
         saved_data = mock_store.save.call_args[0][1]
@@ -778,18 +837,23 @@ class TestApproveTransition:
         mock_store.get.return_value = {
             "pipeline_id": "pipe-1",
             "stage_status": {},
-            "transitions": [{
+            "transitions": [
+                {
+                    "from_stage": "ideas",
+                    "to_stage": "goals",
+                    "status": "pending",
+                }
+            ],
+        }
+        result = await handler.handle_approve_transition(
+            "pipe-1",
+            {
                 "from_stage": "ideas",
                 "to_stage": "goals",
-                "status": "pending",
-            }],
-        }
-        result = await handler.handle_approve_transition("pipe-1", {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": True,
-            "comment": "Approved after review",
-        })
+                "approved": True,
+                "comment": "Approved after review",
+            },
+        )
         body = _body(result)
         assert body["status"] == "approved"
         saved_data = mock_store.save.call_args[0][1]
@@ -801,7 +865,9 @@ class TestApproveTransition:
     async def test_post_routing_approve_transition(self, handler):
         """handle_post dispatches /approve-transition correctly."""
         mock_handler = MagicMock()
-        mock_handler.request.body = b'{"from_stage": "ideas", "to_stage": "goals", "approved": true}'
+        mock_handler.request.body = (
+            b'{"from_stage": "ideas", "to_stage": "goals", "approved": true}'
+        )
         result = handler.handle_post(
             "/api/v1/canvas/pipeline/pipe-test/approve-transition",
             {},
@@ -823,9 +889,11 @@ class TestE2ESmokeContract:
     async def test_full_pipeline_lifecycle(self, handler, mock_store):
         """Exercise the full lifecycle: create -> get -> save -> approve -> receipt."""
         # Step 1: Create pipeline via from-ideas
-        result = await handler.handle_from_ideas({
-            "ideas": ["build caching", "add monitoring"],
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["build caching", "add monitoring"],
+            }
+        )
         body = _body(result)
         if "error" in body:
             pytest.skip("Pipeline import unavailable in test env")
@@ -848,12 +916,15 @@ class TestE2ESmokeContract:
         assert stage_body["stage"] == "ideas"
 
         # Step 4: Save updated canvas state
-        save_result = await handler.handle_save_pipeline(pipeline_id, {
-            "stages": {
-                "ideas": {"nodes": [{"id": "n1"}, {"id": "n2"}], "edges": []},
-                "goals": {"nodes": [{"id": "g1"}], "edges": []},
+        save_result = await handler.handle_save_pipeline(
+            pipeline_id,
+            {
+                "stages": {
+                    "ideas": {"nodes": [{"id": "n1"}, {"id": "n2"}], "edges": []},
+                    "goals": {"nodes": [{"id": "g1"}], "edges": []},
+                },
             },
-        })
+        )
         save_body = _body(save_result)
         assert save_body["saved"] is True
         assert save_body["stage_status"]["ideas"] == "complete"
@@ -866,12 +937,15 @@ class TestE2ESmokeContract:
             "stage_status": {"ideas": "complete", "goals": "complete"},
             "transitions": [],
         }
-        approve_result = await handler.handle_approve_transition(pipeline_id, {
-            "from_stage": "ideas",
-            "to_stage": "goals",
-            "approved": True,
-            "comment": "Transition approved by test",
-        })
+        approve_result = await handler.handle_approve_transition(
+            pipeline_id,
+            {
+                "from_stage": "ideas",
+                "to_stage": "goals",
+                "approved": True,
+                "comment": "Transition approved by test",
+            },
+        )
         approve_body = _body(approve_result)
         assert approve_body["status"] == "approved"
 
@@ -887,9 +961,11 @@ class TestE2ESmokeContract:
     @pytest.mark.asyncio
     async def test_pipeline_from_ideas_to_get_status(self, handler, mock_store):
         """Create pipeline from ideas and check status."""
-        result = await handler.handle_from_ideas({
-            "ideas": ["idea one"],
-        })
+        result = await handler.handle_from_ideas(
+            {
+                "ideas": ["idea one"],
+            }
+        )
         body = _body(result)
         if "error" in body:
             pytest.skip("Pipeline import unavailable in test env")

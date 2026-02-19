@@ -52,7 +52,9 @@ logger = logging.getLogger(__name__)
 # Circuit Breaker for Vertical Registry Access
 # =============================================================================
 
-from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as VerticalsCircuitBreaker
+from aragora.resilience.simple_circuit_breaker import (
+    SimpleCircuitBreaker as VerticalsCircuitBreaker,
+)
 
 # Global circuit breaker instance for the vertical registry
 _circuit_breaker = VerticalsCircuitBreaker("verticals", failure_threshold=3, half_open_max_calls=2)

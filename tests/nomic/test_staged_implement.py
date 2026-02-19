@@ -146,7 +146,9 @@ class TestStagedImplementPhase:
             ):
                 # Since the import is inside a try block, we need to trigger
                 # the ImportError at import time. Patch builtins.__import__
-                original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+                original_import = (
+                    __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+                )
 
                 def selective_import(name, *args, **kwargs):
                     if name == "aragora.implement.executor":
@@ -200,6 +202,7 @@ class TestStagedImplementPhase:
 
         # Verify the executor was created with repo_path and memory_gateway
         from unittest.mock import ANY
+
         mock_cls.assert_called_once_with(repo_path=str(nomic_data_dir.parent), memory_gateway=ANY)
 
 

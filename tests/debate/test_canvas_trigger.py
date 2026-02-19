@@ -60,12 +60,15 @@ class TestCanvasTriggerStep:
         mock_pipeline_result.stage_status = {"ideas": "complete", "goals": "complete"}
         mock_pipeline.from_debate.return_value = mock_pipeline_result
 
-        with patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            return_value=mock_cartographer,
-        ), patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
-            return_value=mock_pipeline,
+        with (
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                return_value=mock_cartographer,
+            ),
+            patch(
+                "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
+                return_value=mock_pipeline,
+            ),
         ):
             result = coordinator._step_trigger_canvas("d1", debate_result, "test task")
 
@@ -88,11 +91,14 @@ class TestCanvasTriggerStep:
         mock_cartographer = MagicMock()
         mock_cartographer.nodes = []  # No nodes extracted
 
-        with patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            return_value=mock_cartographer,
-        ), patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
+        with (
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                return_value=mock_cartographer,
+            ),
+            patch(
+                "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
+            ),
         ):
             result = coordinator._step_trigger_canvas("d1", debate_result, "test")
 
@@ -175,12 +181,15 @@ class TestCanvasTriggerStep:
         debate_result = MagicMock()
         debate_result.messages = [msg]
 
-        with patch(
-            "aragora.visualization.mapper.ArgumentCartographer",
-            return_value=mock_cartographer,
-        ), patch(
-            "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
-            return_value=mock_pipeline,
+        with (
+            patch(
+                "aragora.visualization.mapper.ArgumentCartographer",
+                return_value=mock_cartographer,
+            ),
+            patch(
+                "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline",
+                return_value=mock_pipeline,
+            ),
         ):
             result = coordinator.run("d1", debate_result, confidence=0.9)
 

@@ -48,15 +48,14 @@ def mock_store():
     """Provide a mock pipeline store for GET tests."""
     store = MagicMock()
     store.get.return_value = None
-    with patch(
-        "aragora.server.handlers.canvas_pipeline._get_store", return_value=store
-    ):
+    with patch("aragora.server.handlers.canvas_pipeline._get_store", return_value=store):
         yield store
 
 
 # =========================================================================
 # ROUTES list
 # =========================================================================
+
 
 class TestRoutes:
     def test_run_route_registered(self, handler):
@@ -82,6 +81,7 @@ class TestRoutes:
 # handle_run
 # =========================================================================
 
+
 class TestHandleRun:
     @pytest.mark.asyncio
     async def test_run_missing_input(self, handler):
@@ -91,10 +91,12 @@ class TestHandleRun:
 
     @pytest.mark.asyncio
     async def test_run_returns_pipeline_id(self, handler):
-        result = await handler.handle_run({
-            "input_text": "Build a rate limiter",
-            "dry_run": True,
-        })
+        result = await handler.handle_run(
+            {
+                "input_text": "Build a rate limiter",
+                "dry_run": True,
+            }
+        )
         body = _body(result)
         assert "pipeline_id" in body
         assert body["status"] == "running"
@@ -104,20 +106,24 @@ class TestHandleRun:
 
     @pytest.mark.asyncio
     async def test_run_with_custom_stages(self, handler):
-        result = await handler.handle_run({
-            "input_text": "Test custom stages",
-            "stages": ["ideation", "goals"],
-            "dry_run": True,
-        })
+        result = await handler.handle_run(
+            {
+                "input_text": "Test custom stages",
+                "stages": ["ideation", "goals"],
+                "dry_run": True,
+            }
+        )
         body = _body(result)
         assert body["stages"] == ["ideation", "goals"]
 
     @pytest.mark.asyncio
     async def test_run_stores_pipeline(self, handler):
-        result = await handler.handle_run({
-            "input_text": "Store test",
-            "dry_run": True,
-        })
+        result = await handler.handle_run(
+            {
+                "input_text": "Store test",
+                "dry_run": True,
+            }
+        )
         body = _body(result)
         pid = body["pipeline_id"]
         # Pipeline should be tracked (either in objects or tasks)
@@ -127,6 +133,7 @@ class TestHandleRun:
 # =========================================================================
 # handle_status
 # =========================================================================
+
 
 class TestHandleStatus:
     @pytest.mark.asyncio
@@ -138,10 +145,12 @@ class TestHandleStatus:
     @pytest.mark.asyncio
     async def test_status_for_running_pipeline(self, handler):
         # Start a pipeline
-        run_result = await handler.handle_run({
-            "input_text": "Status test",
-            "dry_run": True,
-        })
+        run_result = await handler.handle_run(
+            {
+                "input_text": "Status test",
+                "dry_run": True,
+            }
+        )
         run_body = _body(run_result)
         pid = run_body["pipeline_id"]
 
@@ -153,11 +162,13 @@ class TestHandleStatus:
 
     @pytest.mark.asyncio
     async def test_status_after_completion(self, handler):
-        run_result = await handler.handle_run({
-            "input_text": "Complete test",
-            "stages": ["ideation"],
-            "dry_run": True,
-        })
+        run_result = await handler.handle_run(
+            {
+                "input_text": "Complete test",
+                "stages": ["ideation"],
+                "dry_run": True,
+            }
+        )
         run_body = _body(run_result)
         pid = run_body["pipeline_id"]
         # Wait for task to complete
@@ -175,6 +186,7 @@ class TestHandleStatus:
 # =========================================================================
 # handle_graph
 # =========================================================================
+
 
 class TestHandleGraph:
     @pytest.mark.asyncio
@@ -264,6 +276,7 @@ class TestHandleGraph:
 # =========================================================================
 # handle_receipt
 # =========================================================================
+
 
 class TestHandleReceipt:
     @pytest.mark.asyncio
