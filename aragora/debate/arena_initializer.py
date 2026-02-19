@@ -436,6 +436,7 @@ class ArenaInitializer:
         vertical_persona_manager=None,
         auto_detect_vertical: bool = True,
         task: str = "",
+        enable_outcome_context: bool = True,
     ) -> TrackerComponents:
         """Initialize tracking subsystems.
 
