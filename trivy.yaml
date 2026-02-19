@@ -10,3 +10,4 @@ scan:
     - .venv
     - venv
     - .git
+    - deploy/kubernetes/helm
