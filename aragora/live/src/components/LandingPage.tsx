@@ -108,10 +108,10 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
     setResult(null);
 
     try {
-      const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
+      const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate/live`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, rounds: 2, agents: 3 }),
+        body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3 }),
       });
 
       if (!res.ok) {

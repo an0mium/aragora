@@ -131,73 +131,93 @@ _AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]]
 # Inline mock debate (fallback when aragora-debate is not installed)
 # ---------------------------------------------------------------------------
 
-_MOCK_PROPOSALS: dict[str, list[str]] = {
-    "supportive": [
-        "After careful analysis, I strongly endorse this approach. "
-        "The benefits clearly outweigh the costs: reduced operational overhead, "
-        "improved developer velocity, and better alignment with industry best practices. "
-        "I recommend proceeding with a phased rollout starting with non-critical services.",
-        "This is a sound strategy. The evidence points toward significant gains in "
-        "maintainability and team productivity. Key advantages include clearer ownership "
-        "boundaries, independent deployability, and the ability to scale components "
-        "individually as demand requires.",
-    ],
-    "critical": [
-        "I have significant concerns about this approach. The migration cost is "
-        "severely underestimated -- distributed systems introduce network partitioning, "
-        "data consistency challenges, and operational complexity that monoliths avoid. "
-        "Before committing, we need a detailed total-cost-of-ownership analysis.",
-        "This proposal overlooks critical failure modes. The added latency from "
-        "inter-service communication, the complexity of distributed tracing, and the "
-        "talent cost of hiring engineers fluent in distributed architectures make "
-        "this a high-risk endeavour with uncertain payoff.",
-    ],
-    "balanced": [
-        "There are valid arguments on both sides. The proposed approach offers "
-        "scalability and team autonomy, but introduces operational complexity. "
-        "I recommend a hybrid strategy: identify 2-3 bounded contexts that would "
-        "benefit most, migrate those first, and measure results before expanding.",
-        "The tradeoffs here are real. On one hand, the current architecture limits "
-        "independent scaling and deployment. On the other, the migration carries "
-        "execution risk and requires new tooling. A staged approach with clear "
-        "success criteria at each gate would manage both sides effectively.",
-    ],
-    "contrarian": [
-        "I disagree with the prevailing direction. The popular choice is often wrong "
-        "because it optimises for the visible problem while ignoring systemic risks. "
-        "We should consider the opposite approach -- the simplest architecture that "
-        "meets our actual (not hypothetical) requirements.",
-        "Everyone seems to be converging too quickly. That's a red flag. Let me "
-        "argue the unpopular position: our current approach, with targeted improvements, "
-        "may outperform a wholesale migration. The grass isn't always greener.",
-    ],
-}
+def _build_mock_proposals(topic: str) -> dict[str, list[str]]:
+    """Build topic-aware mock proposals instead of canned microservices text."""
+    # Use first ~200 chars of topic as context snippet
+    snippet = topic[:200].strip()
+    if len(topic) > 200:
+        snippet = snippet.rsplit(" ", 1)[0] + "..."
+
+    return {
+        "supportive": [
+            f"After careful analysis of the submission, I find the core argument compelling. "
+            f"Regarding '{snippet}' -- the reasoning is well-structured, the evidence cited is "
+            f"substantive, and the conclusions follow logically from the premises. The key "
+            f"strengths are the specificity of claims and the willingness to engage with "
+            f"counterarguments. I recommend this position with minor caveats.",
+            f"This is a strong argument. The submission on '{snippet}' demonstrates clear "
+            f"thinking and grounded analysis. The supporting evidence is concrete rather than "
+            f"abstract, and the framework presented offers actionable insights. The conclusion "
+            f"is well-earned by the preceding analysis.",
+        ],
+        "critical": [
+            f"I have significant concerns about the argument presented. While '{snippet}' "
+            f"raises important points, several claims lack sufficient empirical backing. The "
+            f"causal reasoning conflates correlation with causation in key places, and the "
+            f"conclusion overreaches what the evidence supports. A more rigorous analysis "
+            f"would need to address the strongest counterarguments directly.",
+            f"This submission overlooks critical failure modes. The argument around "
+            f"'{snippet}' makes assumptions that haven't been validated -- particularly "
+            f"about timelines and magnitudes. The most likely scenario involves more "
+            f"uncertainty than the author acknowledges, and the recommended actions don't "
+            f"adequately account for second-order effects.",
+        ],
+        "balanced": [
+            f"There are valid points on both sides. The submission on '{snippet}' correctly "
+            f"identifies real dynamics, but the framing occasionally overstates certainty "
+            f"where the evidence is ambiguous. A more nuanced position would acknowledge "
+            f"where the author's model could be wrong and under what conditions the opposite "
+            f"conclusion might hold.",
+            f"The analysis of '{snippet}' has genuine strengths -- concrete examples, "
+            f"specific claims, falsifiable predictions. But it also has blind spots: the "
+            f"framework assumes certain structural dynamics will continue, which isn't "
+            f"guaranteed. A balanced assessment says: directionally right, calibrationally "
+            f"uncertain.",
+        ],
+        "contrarian": [
+            f"I disagree with the prevailing direction of this analysis. The argument "
+            f"about '{snippet}' optimizes for the visible pattern while ignoring systemic "
+            f"risks that would invalidate the thesis entirely. The most important question "
+            f"isn't whether the author's scenario is plausible -- it's whether the "
+            f"confidence level is warranted given the evidence.",
+            f"Everyone seems to be converging too quickly on this framing. Let me argue "
+            f"the unpopular position: the submission on '{snippet}' may be directionally "
+            f"wrong in ways that feel uncomfortable to acknowledge. The evidence cited "
+            f"is selectively chosen, and equally compelling evidence exists for the "
+            f"opposite conclusion.",
+        ],
+    }
+
+
+# Keep static version for backward compat with tests that reference _MOCK_PROPOSALS
+_MOCK_PROPOSALS = _build_mock_proposals(_DEFAULT_TOPIC)
 
 _MOCK_CRITIQUE_ISSUES: dict[str, list[str]] = {
     "supportive": [
         "Could benefit from more quantitative evidence",
-        "The timeline might be slightly optimistic",
+        "Some claims would be stronger with explicit confidence intervals",
     ],
     "critical": [
-        "Missing cost analysis for migration and ongoing operations",
-        "No rollback strategy if the approach fails",
-        "Assumes team expertise that hasn't been validated",
+        "Key causal claims lack sufficient empirical backing",
+        "No analysis of what happens if the core assumptions are wrong",
+        "Ignores the strongest counterarguments to the thesis",
+        "Conflates multiple distinct phenomena under one framework",
     ],
     "balanced": [
-        "The proposal could better acknowledge the opposing viewpoint",
-        "Risk assessment could be more specific to our context",
+        "The argument could better acknowledge where uncertainty is highest",
+        "Risk assessment is asymmetric -- considers one failure mode but not others",
     ],
     "contrarian": [
-        "The group appears to be converging prematurely",
-        "Alternative approaches have not been seriously considered",
+        "The group appears to be converging prematurely on this framing",
+        "The most important alternative scenarios have not been seriously considered",
     ],
 }
 
 _MOCK_CRITIQUE_SUGGESTIONS: dict[str, list[str]] = {
-    "supportive": ["Consider adding metrics from similar past initiatives"],
-    "critical": ["Provide a total-cost-of-ownership comparison"],
-    "balanced": ["Add a pros/cons matrix to help stakeholders weigh tradeoffs"],
-    "contrarian": ["Assign someone to argue the opposing case formally"],
+    "supportive": ["Consider adding falsification criteria for the key claims"],
+    "critical": ["Provide explicit evidence that would change this assessment"],
+    "balanced": ["Add a structured analysis of where this argument is most likely wrong"],
+    "contrarian": ["Steel-man the opposing position before dismissing it"],
 }
 
 _MOCK_SEVERITY: dict[str, tuple[float, float]] = {
@@ -227,9 +247,10 @@ def _run_inline_mock_debate(
     names = [all_names[i] if i < len(all_names) else f"agent_{i}" for i in range(agent_count)]
     styles = [_AGENT_STYLES[i % len(_AGENT_STYLES)] for i in range(agent_count)]
 
+    topic_proposals = _build_mock_proposals(topic)
     proposals: dict[str, str] = {}
     for name, style in zip(names, styles):
-        proposals[name] = random.choice(_MOCK_PROPOSALS[style])
+        proposals[name] = random.choice(topic_proposals[style])
 
     critiques: list[dict[str, Any]] = []
     for i, (name, style) in enumerate(zip(names, styles)):
