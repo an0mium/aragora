@@ -141,6 +141,7 @@ if TYPE_CHECKING:
     from ._analytics_metrics_impl import AnalyticsMetricsHandler
     from .ap_automation import APAutomationHandler
     from .ar_automation import ARAutomationHandler
+    from .audience_suggestions import AudienceSuggestionsHandler
     from .auditing import AuditingHandler
     from .security_debate import SecurityDebateHandler
     from .auth import AuthHandler
@@ -570,6 +571,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GatewayCredentialsHandler": Stability.STABLE,
     "HybridDebateHandler": Stability.STABLE,
     "ERC8004Handler": Stability.STABLE,
+    "AudienceSuggestionsHandler": Stability.EXPERIMENTAL,
 }
 
 
@@ -881,6 +883,8 @@ __all__ = [
     "GatewayHandler",
     "KMCheckpointHandler",
     "SelectionHandler",
+    # Audience suggestions
+    "AudienceSuggestionsHandler",
     # Spectate (real-time debate observation bridge)
     "SpectateStreamHandler",
     # Stability utilities

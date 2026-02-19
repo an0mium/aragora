@@ -33,6 +33,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AlertHandler": "aragora.server.handlers.autonomous",
     "TriggerHandler": "aragora.server.handlers.autonomous",
     "MonitoringHandler": "aragora.server.handlers.autonomous",
+    "AudienceSuggestionsHandler": "aragora.server.handlers.audience_suggestions",
     "AutonomousLearningHandler": "aragora.server.handlers.autonomous_learning",
     # approvals inbox
     "UnifiedApprovalsHandler": "aragora.server.handlers.approvals_inbox",
@@ -445,4 +446,5 @@ ALL_HANDLER_NAMES: list[str] = [
     "SelfImproveHandler",
     "SpectateStreamHandler",
     "VoiceHandler",
+    "AudienceSuggestionsHandler",
 ]

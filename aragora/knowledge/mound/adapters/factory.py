@@ -310,6 +310,18 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
         },
     ),
     (
+        ".outcome_adapter",
+        "OutcomeAdapter",
+        {
+            "name": "outcome",
+            "required_deps": [],
+            "forward_method": "ingest",
+            "reverse_method": "find_similar_outcomes",
+            "priority": 62,
+            "config_key": "km_outcome_adapter",
+        },
+    ),
+    (
         ".supermemory_adapter",
         "SupermemoryAdapter",
         {
@@ -863,6 +875,11 @@ class AdapterFactory:
                     mound=deps.get("mound"),
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "outcome":
+                adapter = adapter_class(
+                    mound=deps.get("mound"),
+                    event_callback=self._event_callback,
+                )
             elif spec.name == "supermemory":
                 from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
 
@@ -976,6 +993,8 @@ class AdapterFactory:
                 elif spec.name == "culture":
                     return adapter_class(mound=deps.get("mound"))
                 elif spec.name == "receipt":
+                    return adapter_class(mound=deps.get("mound"))
+                elif spec.name == "outcome":
                     return adapter_class(mound=deps.get("mound"))
                 elif spec.name == "supermemory":
                     from aragora.connectors.supermemory import SupermemoryConfig, SupermemoryClient
