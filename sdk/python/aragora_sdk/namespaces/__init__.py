@@ -80,9 +80,9 @@ from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .matches import AsyncMatchesAPI, MatchesAPI
 from .media import AsyncMediaAPI, MediaAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
+from .metrics import AsyncMetricsAPI, MetricsAPI
 from .moderation import AsyncModerationAPI, ModerationAPI
 from .modes import AsyncModesAPI, ModesAPI
-from .metrics import AsyncMetricsAPI, MetricsAPI
 from .moments import AsyncMomentsAPI, MomentsAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .nomic import AsyncNomicAPI, NomicAPI
@@ -119,10 +119,10 @@ from .routing import AsyncRoutingAPI, RoutingAPI
 from .security import AsyncSecurityAPI, SecurityAPI
 from .self_improve import AsyncSelfImproveAPI, SelfImproveAPI
 from .skills import AsyncSkillsAPI, SkillsAPI
-from .spectate import AsyncSpectateAPI, SpectateAPI
 from .slo import SLOAPI, AsyncSLOAPI
 from .sme import SMEAPI, AsyncSMEAPI
 from .social import AsyncSocialAPI, SocialAPI
+from .spectate import AsyncSpectateAPI, SpectateAPI
 from .sso import SSOAPI, AsyncSSOAPI
 from .support import AsyncSupportAPI, SupportAPI
 from .system import AsyncSystemAPI, SystemAPI
