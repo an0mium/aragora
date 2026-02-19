@@ -149,6 +149,14 @@ EXEMPT_HANDLERS = frozenset(
         # Public template/marketplace discovery (rate-limited, read-only browsing)
         "TemplateDiscoveryHandler",
         "MarketplaceBrowseHandler",
+        # Spectate stream (read-only observability for live debate visualization)
+        "SpectateStreamHandler",
+        # Benchmarking (read-only anonymized industry comparisons)
+        "BenchmarkingHandler",
+        # Playbook execution (uses internal validation, future RBAC)
+        "PlaybookHandler",
+        # Decision outcomes (uses internal validation, future RBAC)
+        "OutcomeHandler",
     }
 )
 
