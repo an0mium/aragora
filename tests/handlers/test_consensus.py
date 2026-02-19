@@ -208,7 +208,10 @@ class TestConsensusHandlerRouting:
     def test_cannot_handle_invalid(self, consensus_handler):
         """Test can_handle rejects invalid paths."""
         assert consensus_handler.can_handle("/api/v1/other/endpoint") is False
-        assert consensus_handler.can_handle("/api/v1/consensus") is False
+
+    def test_can_handle_consensus_root(self, consensus_handler):
+        """Test can_handle accepts /api/v1/consensus (maps to /api/consensus in ROUTES)."""
+        assert consensus_handler.can_handle("/api/v1/consensus") is True
 
 
 class TestConsensusHandlerSimilar:

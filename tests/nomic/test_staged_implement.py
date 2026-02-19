@@ -198,8 +198,9 @@ class TestStagedImplementPhase:
             ) as mock_cls:
                 await staged.phase_implement()
 
-        # Verify the executor was created with repo_path
-        mock_cls.assert_called_once_with(repo_path=str(nomic_data_dir.parent))
+        # Verify the executor was created with repo_path and memory_gateway
+        from unittest.mock import ANY
+        mock_cls.assert_called_once_with(repo_path=str(nomic_data_dir.parent), memory_gateway=ANY)
 
 
 class TestManualFallback:

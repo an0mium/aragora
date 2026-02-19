@@ -250,7 +250,7 @@ class TestAnalyticsHandlerBasics:
         assert isinstance(analytics_handler, AnalyticsHandler)
 
     def test_routes_count(self, analytics_handler):
-        assert len(analytics_handler.ROUTES) == 10
+        assert len(analytics_handler.ROUTES) == 11
 
     def test_can_handle_disagreements(self, analytics_handler):
         assert analytics_handler.can_handle("/api/analytics/disagreements") is True

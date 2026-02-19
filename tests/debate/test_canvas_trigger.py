@@ -81,6 +81,9 @@ class TestCanvasTriggerStep:
 
         debate_result = MagicMock()
         debate_result.messages = []
+        # Explicitly set consensus to None so _build_cartographer_data
+        # doesn't auto-create nodes from MagicMock's auto-attributes
+        debate_result.consensus = None
 
         mock_cartographer = MagicMock()
         mock_cartographer.nodes = []  # No nodes extracted
@@ -156,7 +159,7 @@ class TestCanvasTriggerStep:
 
         mock_cartographer = MagicMock()
         mock_cartographer.nodes = [{"id": "n1"}]
-        mock_cartographer.export.return_value = {"nodes": []}
+        mock_cartographer.export.return_value = {"nodes": [{"id": "n1"}]}
 
         mock_pipeline = MagicMock()
         mock_pipeline_result = MagicMock()

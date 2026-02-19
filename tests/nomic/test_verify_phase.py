@@ -21,7 +21,7 @@ class TestVerifyPhaseExecution:
 
     @pytest.mark.asyncio
     async def test_runs_pytest_successfully(self, mock_aragora_path, mock_verification_result):
-        """Should run pytest and return results."""
+        """Should run pytest and return results via TestRunner."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -29,20 +29,29 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.returncode = 0
-            mock_proc.communicate = AsyncMock(return_value=(b"All tests passed", b""))
-            mock_exec.return_value = mock_proc
+        mock_test_result = MagicMock()
+        mock_test_result.success = True
+        mock_test_result.exit_code = 0
+        mock_test_result.total_tests = 10
+        mock_test_result.passed = 10
+        mock_test_result.failed = 0
+        mock_test_result.errors = 0
+        mock_test_result.skipped = 0
+        mock_test_result.stdout = "All tests passed"
+        mock_test_result.failures = []
 
+        mock_runner = MagicMock()
+        mock_runner.run = AsyncMock(return_value=mock_test_result)
+
+        with patch("aragora.nomic.testfixer.runner.TestRunner", return_value=mock_runner):
             result = await phase._run_tests()
 
             assert result["passed"] is True
-            mock_exec.assert_called()
+            mock_runner.run.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_detects_test_failures(self, mock_aragora_path):
-        """Should detect and report test failures."""
+        """Should detect and report test failures via TestRunner."""
         from aragora.nomic.phases.verify import VerifyPhase
 
         phase = VerifyPhase(
@@ -50,14 +59,30 @@ class TestVerifyPhaseExecution:
             log_fn=MagicMock(),
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_exec:
-            mock_proc = AsyncMock()
-            mock_proc.returncode = 1
-            mock_proc.communicate = AsyncMock(
-                return_value=(b"FAILED test_example.py::test_func", b"")
-            )
-            mock_exec.return_value = mock_proc
+        mock_failure = MagicMock()
+        mock_failure.test_name = "test_example.py::test_func"
+        mock_failure.test_file = "test_example.py"
+        mock_failure.line_number = 10
+        mock_failure.error_type = "AssertionError"
+        mock_failure.error_message = "assert False"
+        mock_failure.stack_trace = "..."
+        mock_failure.involved_files = []
 
+        mock_test_result = MagicMock()
+        mock_test_result.success = False
+        mock_test_result.exit_code = 1
+        mock_test_result.total_tests = 5
+        mock_test_result.passed = 4
+        mock_test_result.failed = 1
+        mock_test_result.errors = 0
+        mock_test_result.skipped = 0
+        mock_test_result.stdout = "FAILED test_example.py::test_func"
+        mock_test_result.failures = [mock_failure]
+
+        mock_runner = MagicMock()
+        mock_runner.run = AsyncMock(return_value=mock_test_result)
+
+        with patch("aragora.nomic.testfixer.runner.TestRunner", return_value=mock_runner):
             result = await phase._run_tests()
 
             assert result["passed"] is False

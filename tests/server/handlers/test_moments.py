@@ -190,8 +190,8 @@ class TestCanHandle:
     def test_cannot_handle_unrelated(self, handler):
         assert handler.can_handle("/api/debates") is False
 
-    def test_cannot_handle_moments_root(self, handler):
-        assert handler.can_handle("/api/moments") is False
+    def test_can_handle_moments_root(self, handler):
+        assert handler.can_handle("/api/moments") is True
 
 
 # ===========================================================================
