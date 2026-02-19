@@ -246,6 +246,23 @@ class TestSQLiteGmailTokenStore:
         assert retrieved.email_address == "updated@example.com"
 
 
+def _redis_connectable(url: str = "redis://localhost:6379") -> bool:
+    """Check if Redis is reachable at the given URL."""
+    try:
+        import redis
+
+        client = redis.from_url(url, socket_connect_timeout=1)
+        client.ping()
+        client.close()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(
+    not _redis_connectable(),
+    reason="Redis not available at localhost:6379",
+)
 class TestRedisGmailTokenStore:
     """Tests for RedisGmailTokenStore (with SQLite fallback)."""
 

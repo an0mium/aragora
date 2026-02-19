@@ -568,7 +568,7 @@ class TestHealthChecks:
     ):
         """Health check marks replica as unhealthy after consecutive failures."""
         mock_asyncpg_pool.acquire.return_value = mock_asyncpg_connection
-        mock_asyncpg_connection.fetchval = AsyncMock(side_effect=Exception("Connection failed"))
+        mock_asyncpg_connection.fetchval = AsyncMock(side_effect=ConnectionError("Connection failed"))
 
         pool = ReplicaAwarePool(
             primary_dsn="postgresql://primary:5432/db",
