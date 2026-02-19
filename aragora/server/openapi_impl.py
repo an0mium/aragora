@@ -395,7 +395,10 @@ def _mark_legacy_paths_deprecated(paths: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_route(route: str) -> str:
-    return route.rstrip("*").rstrip("/")
+    # Strip HTTP method prefix if present (e.g. "POST /api/v1/..." -> "/api/v1/...")
+    parts = route.split(" ", 1)
+    path = parts[-1] if len(parts) > 1 and parts[0].isupper() else route
+    return path.rstrip("*").rstrip("/")
 
 
 def _extract_path_params(path: str) -> list[str]:
@@ -835,6 +838,7 @@ def generate_openapi_schema() -> dict[str, Any]:
             {"name": "Bots - Telegram", "description": "Telegram bot endpoints"},
             {"name": "Bots - WhatsApp", "description": "WhatsApp bot endpoints"},
             {"name": "Bots - Zoom", "description": "Zoom bot endpoints"},
+            {"name": "Pipeline", "description": "Idea-to-execution pipeline (Ideas, Goals, Actions, Orchestration)"},
             {"name": "Alexa", "description": "Alexa voice assistant endpoints"},
             {"name": "Google Home", "description": "Google Home voice assistant endpoints"},
             {"name": "Accounting", "description": "Accounting and ERP integrations"},

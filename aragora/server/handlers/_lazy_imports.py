@@ -53,6 +53,8 @@ HANDLER_MODULES: dict[str, str] = {
     # decisions/ directory
     "DecisionExplainHandler": "aragora.server.handlers.decisions",
     "DecisionPipelineHandler": "aragora.server.handlers.decisions",
+    # canvas pipeline
+    "CanvasPipelineHandler": "aragora.server.handlers.canvas_pipeline",
     # evolution/ directory
     "EvolutionABTestingHandler": "aragora.server.handlers.evolution",
     "EvolutionHandler": "aragora.server.handlers.evolution",
@@ -447,4 +449,5 @@ ALL_HANDLER_NAMES: list[str] = [
     "SpectateStreamHandler",
     "VoiceHandler",
     "AudienceSuggestionsHandler",
+    "CanvasPipelineHandler",
 ]
