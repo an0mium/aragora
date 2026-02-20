@@ -35,17 +35,37 @@ renderer.toneMappingExposure = 1.0;
 renderer.setClearColor(0x000000, 0);
 document.body.appendChild(renderer.domElement);
 
-// === MOUSE ===
+// === MOUSE / TOUCH ===
 const mouse = new THREE.Vector2(0, 0);
 const targetMouse = new THREE.Vector2(0, 0);
+// 3D world-space pointer position (projected from screen via raycaster plane)
+const mouseWorld = new THREE.Vector3(0, 0, 2);
+const raycaster = new THREE.Raycaster();
+const pointerPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -1.5); // z≈1.5 plane
+
+function updatePointerWorld() {
+  raycaster.setFromCamera(mouse, camera);
+  raycaster.ray.intersectPlane(pointerPlane, mouseWorld);
+}
+
 document.addEventListener('mousemove', (e) => {
   targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
+document.addEventListener('touchstart', (e) => {
+  const touch = e.touches[0];
+  targetMouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+  targetMouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+}, { passive: true });
 document.addEventListener('touchmove', (e) => {
   const touch = e.touches[0];
   targetMouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
   targetMouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  // Smoothly return pointer to center when touch ends
+  targetMouse.x = 0;
+  targetMouse.y = 0;
 }, { passive: true });
 
 // === NOISE ===
@@ -580,13 +600,13 @@ function animate(){
   mouse.x+=(targetMouse.x-mouse.x)*0.05;
   mouse.y+=(targetMouse.y-mouse.y)*0.05;
 
-  // --- BODY (more blobby deformation) ---
+  // --- BODY (reduced ripple — 40% less than original) ---
   const bpos=bodyGeo.attributes.position.array;
   for(let i=0;i<bpos.length;i+=3){
     const ox=bodyOrigPos[i],oy=bodyOrigPos[i+1],oz=bodyOrigPos[i+2];
     const n=fbm(ox*1.5+t*0.3,oy*1.5+t*0.25,oz*1.5+t*0.2,3);
-    const m=(mouse.x*ox+mouse.y*oy)*0.12;
-    const d=1.0+n*0.28+m; // more deformation than v3
+    const m=(mouse.x*ox+mouse.y*oy)*0.07;
+    const d=1.0+n*0.17+m;
     bpos[i]=ox*d;bpos[i+1]=oy*d;bpos[i+2]=oz*d;
   }
   bodyGeo.attributes.position.needsUpdate=true;
@@ -607,7 +627,10 @@ function animate(){
   }
   const summonIntensity = summoningActive ? Math.sin(summonT * Math.PI) : 0; // 0→1→0
 
-  // --- TENTACLES (avoid palantir, wave over it, summoning) ---
+  // Project mouse/touch into 3D world space for tentacle interaction
+  updatePointerWorld();
+
+  // --- TENTACLES (surface ripple, mouse stir + avoidance, palantir avoidance, summoning) ---
   tentacles.forEach(tent=>{
     const {mesh,baseAngle,length,yStart,baseThick,segs,phase,speed,amplitude}=tent;
     const pts=[];
@@ -621,25 +644,45 @@ function animate(){
       let py = yStart-s*1.2+Math.sin(s*Math.PI*0.5+t*speed*0.5)*0.2+wave*0.25;
       let pz = Math.sin(a)*r*(0.7+s*0.5);
 
+      // Surface ripple on tentacle (half of body's reduced strength → 0.085)
+      const tn = fbm(px*1.2+t*0.35, py*1.2+t*0.3, pz*1.2+t*0.25, 2);
+      const rippleStr = 0.085 * s; // stronger toward tips
+      px += px * tn * rippleStr;
+      py += py * tn * rippleStr * 0.5;
+      pz += pz * tn * rippleStr;
+
+      // Mouse/touch avoidance — tentacles shy away from pointer
+      const mdx = px - mouseWorld.x;
+      const mdy = py - mouseWorld.y;
+      const mdz = pz - mouseWorld.z;
+      const mDist = Math.sqrt(mdx*mdx+mdy*mdy+mdz*mdz);
+      const mouseAvoidR = 1.2;
+      if(mDist < mouseAvoidR && mDist > 0.01) {
+        const push = (mouseAvoidR - mDist) / mouseAvoidR;
+        const stir = push * push * s * 0.5; // quadratic falloff, stronger at tips
+        px += (mdx/mDist) * stir;
+        py += (mdy/mDist) * stir;
+        pz += (mdz/mDist) * stir;
+      }
+
       // Palantir avoidance — push tentacle points away from palantir center
       const dx = px - PALANTIR_POS.x;
       const dy = py - PALANTIR_POS.y;
       const dz = pz - PALANTIR_POS.z;
       const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
-      const avoidR = 0.6; // keep tentacles outside this radius
+      const avoidR = 0.6;
       if(dist < avoidR && dist > 0.01) {
         const push = (avoidR - dist) / avoidR;
-        // Push outward from palantir, but bias upward (wave over)
         px += (dx/dist) * push * 0.3;
-        py += (dy/dist) * push * 0.2 + push * 0.25; // lift over
+        py += (dy/dist) * push * 0.2 + push * 0.25;
         pz += (dz/dist) * push * 0.3;
       }
 
       // Summoning: tips reach toward palantir
       if(summonIntensity > 0 && s > 0.5) {
-        const reach = summonIntensity * (s - 0.5) * 2; // stronger at tips
+        const reach = summonIntensity * (s - 0.5) * 2;
         px += (PALANTIR_POS.x - px) * reach * 0.4;
-        py += (PALANTIR_POS.y - py) * reach * 0.3 + reach * 0.15; // arc over
+        py += (PALANTIR_POS.y - py) * reach * 0.3 + reach * 0.15;
         pz += (PALANTIR_POS.z - pz) * reach * 0.4;
       }
 
