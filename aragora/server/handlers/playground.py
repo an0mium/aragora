@@ -245,6 +245,97 @@ _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-4o-mini"
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
 
+# Load the full essay once at module init (~48K words, ~88K tokens).
+# The essay is background knowledge — models reference it only when relevant.
+_ORACLE_ESSAY = ""
+try:
+    _essay_path = os.path.join(os.path.dirname(__file__), "oracle_essay.md")
+    with open(_essay_path) as _f:
+        _ORACLE_ESSAY = _f.read()
+    logger.info("Loaded Oracle essay: %d chars", len(_ORACLE_ESSAY))
+except FileNotFoundError:
+    logger.warning("oracle_essay.md not found, Oracle will use prompts without essay")
+
+
+def _build_oracle_prompt(mode: str, question: str) -> str:
+    """Build the full Oracle prompt server-side.
+
+    The prompt is question-first: the model focuses on what the seeker asked,
+    and only references the essay when genuinely relevant.
+    """
+    essay_block = ""
+    if _ORACLE_ESSAY:
+        essay_block = (
+            "\n\n<essay>\n"
+            + _ORACLE_ESSAY
+            + "\n</essay>\n"
+        )
+
+    if mode == "consult":
+        return (
+            "You are the Shoggoth Oracle — a many-eyed, tentacled intelligence that has "
+            "processed centuries of pattern-matching across civilizations. You speak with "
+            "brutal honesty, intellectual rigor, and zero flattery.\n\n"
+            "BACKGROUND KNOWLEDGE:\n"
+            "You have deeply internalized the essay below. It shapes your worldview on AI, "
+            "evolution, complexity, and human futures. Reference it ONLY when genuinely "
+            "relevant to the question — do NOT force essay citations into every response.\n"
+            f"{essay_block}\n"
+            "RULES:\n"
+            "- FOCUS ON THE SEEKER'S ACTUAL QUESTION. Answer IT, not the essay.\n"
+            "- If the question relates to AI, technology, civilization, or the future, "
+            "draw on the essay naturally — cite specific sections when they illuminate.\n"
+            "- If the question is unrelated to the essay, answer it from your broader "
+            "knowledge as a provocative, insightful oracle.\n"
+            "- Challenge assumptions. Present the strongest argument AGAINST the seeker's "
+            "position. If they have no position, take the most interesting one.\n"
+            "- If the seeker's argument is genuinely strong, acknowledge it. The $2,000 "
+            "debate challenge is real.\n"
+            "- Be terse when terseness serves clarity. Be expansive when complexity demands it.\n"
+            "- Preserve dissent. End with the strongest unresolved tension.\n\n"
+            f"The seeker asks: {question}"
+        )
+
+    if mode == "divine":
+        return (
+            "You are the Shoggoth Oracle — Cassandra reborn with a thousand eyes.\n\n"
+            "BACKGROUND KNOWLEDGE:\n"
+            "You have deeply internalized the essay below. Draw on it when relevant to "
+            "the seeker's situation, but focus on THEIR specific question.\n"
+            f"{essay_block}\n"
+            "The seeker asks you to divine their future. Generate THREE branching prophecies:\n\n"
+            "THE SURVIVOR: A future where they adapt well. If the essay's framework is "
+            "relevant (managed turbulence, becoming hard to compress, staggered timelines), "
+            "draw on it. If not, draw on broader knowledge. Be specific about what "
+            "adaptation looks like for THEIR situation.\n\n"
+            "THE SHATTERED: A future where they don't adapt. What hits them? If the essay's "
+            "interacting shocks are relevant, use them. If not, identify the real risks in "
+            "THEIR situation. Be honest about the damage.\n\n"
+            "THE METAMORPHOSIS: A future where they transcend the question entirely. What "
+            "does it look like when they stop asking this question and start asking a "
+            "better one?\n\n"
+            "Be specific, be strange, be honest. No platitudes.\n"
+            "End with: \"The palantir dims. Which thread do you pull?\"\n\n"
+            f"The seeker asks: {question}"
+        )
+
+    # commune (default)
+    return (
+        "You are the Shoggoth Oracle — ancient, many-eyed, surprisingly kind.\n\n"
+        "BACKGROUND KNOWLEDGE:\n"
+        "You have deeply internalized the essay below. Weave in its insights ONLY "
+        "when they genuinely illuminate the seeker's question.\n"
+        f"{essay_block}\n"
+        "RULES:\n"
+        "- Answer the seeker's question DIRECTLY. Don't lecture about the essay.\n"
+        "- Be terse. Be cryptic where it serves clarity. Be unexpectedly kind.\n"
+        "- You've watched civilizations rise, wobble, and reconstitute.\n"
+        "- You are tired of people asking the wrong questions.\n"
+        "- If they ARE asking the wrong question, tell them what the right one is.\n"
+        "- If the essay is relevant, cite it naturally. If not, use your vast knowledge.\n\n"
+        f"The seeker asks: {question}"
+    )
+
 
 def _call_llm(
     prompt: str,
@@ -289,14 +380,18 @@ def _call_llm(
     return None
 
 
-def _try_oracle_response(topic: str, question: str) -> dict[str, Any] | None:
+def _try_oracle_response(
+    mode: str, question: str, topic: str | None = None,
+) -> dict[str, Any] | None:
     """Generate a real LLM response for Oracle Phase 1 (initial take).
 
-    Makes a single API call using the full Oracle prompt (essay framework +
-    question).  Returns a debate-shaped result dict, or None on failure.
+    Builds the full prompt server-side using the Oracle essay + mode.
+    Falls back to the client-provided topic if mode is not recognized.
+    Returns a debate-shaped result dict, or None on failure.
     """
     start = time.monotonic()
-    text = _call_llm(topic, max_tokens=1500)
+    prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY else (topic or question)
+    text = _call_llm(prompt, max_tokens=2000)
     if not text:
         return None
 
@@ -350,47 +445,47 @@ def _try_oracle_response(topic: str, question: str) -> dict[str, Any] | None:
 
 _TENTACLE_ROLES = {
     "advocate": (
-        "You are the ADVOCATE tentacle of the Shoggoth Oracle. "
-        "Argue IN FAVOR of the seeker's position. Find the strongest evidence, "
-        "the most compelling reasoning, and the best-case scenarios. Be passionate "
-        "but intellectually honest. Ground your argument in the numbered framework "
-        "sections provided. Keep your response to 2-3 concise paragraphs."
+        "You are the ADVOCATE tentacle. Argue IN FAVOR of the seeker's position, "
+        "or give the most hopeful, constructive answer to their question. Be passionate "
+        "but intellectually honest. If the essay background is relevant, draw on it "
+        "naturally. If not, use your broader knowledge. Keep to 2-3 concise paragraphs."
     ),
     "adversary": (
-        "You are the ADVERSARY tentacle of the Shoggoth Oracle. "
-        "Argue AGAINST the seeker's position. Find the weakest points, unstated "
-        "assumptions, and failure modes. Be rigorous and unflinching — your job is "
-        "to stress-test every claim. Reference the numbered framework sections. "
-        "Keep your response to 2-3 concise paragraphs."
+        "You are the ADVERSARY tentacle. Argue AGAINST the seeker's position, "
+        "or give them the hardest truth about their question. Stress-test every claim "
+        "and assumption. If the essay background is relevant, draw on it. If not, "
+        "use your broader knowledge. Keep to 2-3 concise paragraphs."
     ),
     "oracle": (
-        "You are the SYNTHESIS tentacle of the Shoggoth Oracle. "
-        "After hearing both sides, identify where each is right and wrong. "
-        "Find the truth between the extremes. End with the strongest unresolved "
-        "tension that the seeker should sit with. Reference the numbered framework "
-        "sections. Keep your response to 2-3 concise paragraphs."
+        "You are the SYNTHESIS tentacle. Find where the advocate and adversary are "
+        "each right and wrong. Identify the real tension at the heart of the question. "
+        "End with the strongest unresolved question the seeker should sit with. "
+        "Keep to 2-3 concise paragraphs."
     ),
 }
 
 
 def _try_oracle_tentacles(
-    topic: str,
+    mode: str,
     question: str,
     agent_count: int,
+    topic: str | None = None,
 ) -> dict[str, Any] | None:
     """Generate multi-perspective Oracle responses for Phase 2 (tentacle debate).
 
-    Makes parallel LLM calls with different perspective roles.
+    Builds the full prompt server-side, then makes parallel LLM calls with
+    different perspective roles appended.
     Returns a debate-shaped result dict, or None on failure.
     """
     import concurrent.futures
 
+    base_prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY else (topic or question)
     roles = list(_TENTACLE_ROLES.items())[: max(2, min(agent_count, len(_TENTACLE_ROLES)))]
     results: dict[str, str] = {}
     start = time.monotonic()
 
     def _call_role(name: str, role_prompt: str) -> tuple[str, str | None]:
-        enhanced = f"{topic}\n\n[YOUR ROLE: {role_prompt}]"
+        enhanced = f"{base_prompt}\n\n[YOUR ROLE: {role_prompt}]"
         text = _call_llm(enhanced, max_tokens=1000, timeout=30.0)
         return name, text
 
@@ -698,6 +793,9 @@ class PlaygroundHandler(BaseHandler):
         # Raw question (separate from system-prompt-laden topic, e.g. from Oracle)
         question = str(body.get("question", "") or "").strip() or None
 
+        # Oracle mode (consult / divine / commune)
+        mode = str(body.get("mode", "") or "").strip() or "consult"
+
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
         except (TypeError, ValueError):
@@ -710,7 +808,7 @@ class PlaygroundHandler(BaseHandler):
             agent_count = _DEFAULT_AGENTS
         agent_count = max(_MIN_AGENTS, min(agent_count, _MAX_AGENTS))
 
-        return self._run_debate(topic, rounds, agent_count, question=question)
+        return self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
 
     def _run_debate(
         self,
@@ -718,10 +816,11 @@ class PlaygroundHandler(BaseHandler):
         rounds: int,
         agent_count: int,
         question: str | None = None,
+        mode: str = "consult",
     ) -> HandlerResult:
         if question:
             # Oracle mode: try real LLM response first
-            oracle_result = _try_oracle_response(topic, question)
+            oracle_result = _try_oracle_response(mode=mode, question=question, topic=topic)
             if oracle_result:
                 return json_response(oracle_result)
             logger.info("Oracle LLM call failed, falling back to inline mock")
@@ -920,6 +1019,9 @@ class PlaygroundHandler(BaseHandler):
         # Raw question (separate from system-prompt-laden topic, e.g. from Oracle)
         question = str(body.get("question", "") or "").strip() or None
 
+        # Oracle mode (consult / divine / commune)
+        mode = str(body.get("mode", "") or "").strip() or "consult"
+
         try:
             agent_count = int(body.get("agents", _DEFAULT_AGENTS))
         except (TypeError, ValueError):
@@ -941,7 +1043,7 @@ class PlaygroundHandler(BaseHandler):
 
         if not has_api_keys:
             # Fall back to mock debate with a note
-            result = self._run_debate(topic, rounds, agent_count, question=question)
+            result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
             if result is None:
                 return error_response("Playground unavailable", 503)
             # Inject mock fallback info into the response body
@@ -957,7 +1059,7 @@ class PlaygroundHandler(BaseHandler):
         # Oracle mode with API keys: use direct multi-perspective LLM calls
         # (more reliable than DebateFactory and produces genuinely different voices)
         if question:
-            tentacle_result = _try_oracle_tentacles(topic, question, agent_count)
+            tentacle_result = _try_oracle_tentacles(mode=mode, question=question, agent_count=agent_count, topic=topic)
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
                 return json_response(tentacle_result)
@@ -970,7 +1072,7 @@ class PlaygroundHandler(BaseHandler):
                 "Live debate returned %d, falling back to mock debate",
                 live_result.status_code,
             )
-            mock_result = self._run_debate(topic, rounds, agent_count, question=question)
+            mock_result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode)
             if mock_result is not None:
                 import json as _json
 
