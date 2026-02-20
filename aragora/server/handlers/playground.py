@@ -518,23 +518,18 @@ def _call_llm(
     2. It provides access to the latest models (Opus 4.6, GPT-5.2, etc.).
     3. Direct provider APIs may have exhausted credits.
     """
-    logger.info(
-        "Phase 1 _call_llm: prompt=%d chars, max_tokens=%d, timeout=%.0f",
-        len(prompt), max_tokens, timeout,
-    )
     t0 = time.monotonic()
     result = _call_provider_llm("openrouter", _ORACLE_MODEL_OPENROUTER, prompt, max_tokens, timeout)
-    logger.info("Phase 1 OpenRouter: %s in %.1fs", "OK" if result else "FAIL", time.monotonic() - t0)
     if result:
+        logger.info("Phase 1 via OpenRouter in %.1fs", time.monotonic() - t0)
         return result
-    t1 = time.monotonic()
     result = _call_provider_llm("anthropic", _ORACLE_MODEL_ANTHROPIC, prompt, max_tokens, timeout)
-    logger.info("Phase 1 Anthropic: %s in %.1fs", "OK" if result else "FAIL", time.monotonic() - t1)
     if result:
+        logger.info("Phase 1 via Anthropic in %.1fs", time.monotonic() - t0)
         return result
-    t2 = time.monotonic()
     result = _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
-    logger.info("Phase 1 OpenAI: %s in %.1fs", "OK" if result else "FAIL", time.monotonic() - t2)
+    if result:
+        logger.info("Phase 1 via OpenAI in %.1fs", time.monotonic() - t0)
     return result
 
 
@@ -549,10 +544,9 @@ def _try_oracle_response(
     """
     start = time.monotonic()
     prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY_CONDENSED else (topic or question)
-    logger.info("Oracle Phase 1: mode=%s, prompt=%d chars, essay_condensed=%d chars", mode, len(prompt), len(_ORACLE_ESSAY_CONDENSED))
     text = _call_llm(prompt, max_tokens=2000)
     if not text:
-        logger.warning("Oracle Phase 1: all LLM calls failed after %.1fs", time.monotonic() - start)
+        logger.warning("Oracle Phase 1: all LLM providers failed after %.1fs", time.monotonic() - start)
         return None
 
     duration = time.monotonic() - start
