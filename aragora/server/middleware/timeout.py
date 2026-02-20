@@ -91,6 +91,7 @@ class RequestTimeoutConfig:
             "/api/verify",
             "/api/evidence/collect",
             "/api/broadcast",
+            "/api/v1/playground/debate",  # Oracle LLM calls take 15-40s
         ]
 
         for pattern in slow_patterns:

@@ -244,7 +244,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.2"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
-_ORACLE_CALL_TIMEOUT = 55.0  # seconds — full essay prompt needs time through OpenRouter
+_ORACLE_CALL_TIMEOUT = 45.0  # seconds — focused essay + OpenRouter latency
 
 
 def _get_api_key(name: str) -> str | None:
@@ -407,18 +407,36 @@ except FileNotFoundError:
         logger.warning("oracle_essay_condensed.md not found, using truncated fallback")
 
 
-def _build_oracle_prompt(mode: str, question: str) -> str:
-    """Build the Oracle prompt server-side using the condensed essay excerpt.
+# Build a focused excerpt for prompts (~3K tokens) from the condensed essay.
+# Includes: thesis + P-doom + practical advice + clover conclusion.
+# The full condensed essay (~8K tokens) is too slow for real-time Phase 1 calls.
+_ORACLE_ESSAY_FOCUSED = ""
+if _ORACLE_ESSAY_CONDENSED:
+    _sections = _ORACLE_ESSAY_CONDENSED.split("\n## ")
+    _focused_parts = []
+    # Always include the introduction (thesis statement)
+    if _sections:
+        _focused_parts.append(_sections[0])
+    # Cherry-pick the most impactful sections
+    _keep = {"II.", "X.", "XVI.", "XX.", "XXIV.", "XXV."}
+    for sec in _sections[1:]:
+        if any(sec.startswith(k) for k in _keep):
+            _focused_parts.append("## " + sec)
+    _ORACLE_ESSAY_FOCUSED = "\n\n".join(_focused_parts)
+    logger.info("Oracle essay focused: %d chars (from %d condensed)", len(_ORACLE_ESSAY_FOCUSED), len(_ORACLE_ESSAY_CONDENSED))
 
-    Uses ~8K tokens of essay context (intro + conclusion) instead of the full
-    88K tokens.  The model gets the essay's thesis, framework, and clover
-    metaphor — enough to channel the Oracle persona authentically.
+
+def _build_oracle_prompt(mode: str, question: str) -> str:
+    """Build the Oracle prompt server-side using focused essay excerpts.
+
+    Uses ~3K tokens of essay context (thesis + P-doom + practical advice +
+    clover conclusion) for fast Phase 1 responses (~15-25s through OpenRouter).
     """
     essay_block = ""
-    if _ORACLE_ESSAY_CONDENSED:
+    if _ORACLE_ESSAY_FOCUSED:
         essay_block = (
             "\n\n<essay>\n"
-            + _ORACLE_ESSAY_CONDENSED
+            + _ORACLE_ESSAY_FOCUSED
             + "\n</essay>\n"
         )
 
