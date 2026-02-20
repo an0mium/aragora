@@ -587,6 +587,42 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
 ]
 
 
+def _build_tentacle_prompt(mode: str, question: str, role_prompt: str) -> str:
+    """Build a lightweight prompt for tentacle calls (NO full essay).
+
+    Phase 1 already gave the deep essay-informed answer.  Phase 2 tentacles
+    provide multi-perspective debate — each AI model answers from its own
+    knowledge and training data, which is the whole point of using different
+    models.  Sending the 88K-token essay to 5+ models in parallel would be
+    prohibitively expensive and slow.
+    """
+    if mode == "divine":
+        context = (
+            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+            "with your own perspective. The seeker has asked for a prophecy about their "
+            "future. Respond with insight, honesty, and specificity."
+        )
+    elif mode == "commune":
+        context = (
+            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+            "with your own perspective. The seeker has communed with the Oracle. "
+            "Respond with cryptic wisdom, brutal honesty, and unexpected kindness."
+        )
+    else:  # consult
+        context = (
+            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+            "with your own perspective. The seeker is consulting the Oracle on an "
+            "important question. Respond with intellectual rigor, zero flattery, and "
+            "genuine insight."
+        )
+
+    return (
+        f"{context}\n\n"
+        f"YOUR ROLE: {role_prompt}\n\n"
+        f"The seeker asks: {question}"
+    )
+
+
 def _try_oracle_tentacles(
     mode: str,
     question: str,
@@ -602,40 +638,52 @@ def _try_oracle_tentacles(
 
     available = _get_available_tentacle_models()
     if not available:
+        logger.warning("No tentacle models available (no API keys)")
         return None
-
-    base_prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY else (topic or question)
 
     # Assign roles to available models (up to agent_count)
     count = max(2, min(agent_count, len(available), len(_TENTACLE_ROLE_PROMPTS)))
     assignments = list(zip(available[:count], _TENTACLE_ROLE_PROMPTS[:count]))
     results: dict[str, str] = {}
     start = time.monotonic()
+    logger.info(
+        "Starting %d tentacle calls: %s",
+        count,
+        [a[0]["name"] for a in assignments],
+    )
 
     def _call_tentacle(
         model_cfg: dict[str, str], role_prompt: str,
     ) -> tuple[str, str | None]:
-        enhanced = f"{base_prompt}\n\n[YOUR ROLE: {role_prompt}]"
+        prompt = _build_tentacle_prompt(mode, question, role_prompt)
         text = _call_provider_llm(
-            model_cfg["provider"], model_cfg["model"], enhanced,
-            max_tokens=1000, timeout=30.0,
+            model_cfg["provider"], model_cfg["model"], prompt,
+            max_tokens=800, timeout=45.0,
         )
         return model_cfg["name"], text
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(count, 6)) as pool:
         futures = [pool.submit(_call_tentacle, m, r) for m, r in assignments]
-        for future in concurrent.futures.as_completed(futures, timeout=45):
+        for future in concurrent.futures.as_completed(futures, timeout=60):
             try:
                 name, text = future.result()
                 if text:
                     results[name] = text
+                    logger.info("Tentacle %s responded (%d chars)", name, len(text))
+                else:
+                    logger.warning("Tentacle %s returned empty response", name)
             except Exception:
-                pass
+                logger.warning("Tentacle future failed", exc_info=True)
 
     if not results:
+        logger.warning("All %d tentacle calls failed — no results", count)
         return None
 
     duration = time.monotonic() - start
+    logger.info(
+        "Tentacles complete: %d/%d succeeded in %.1fs",
+        len(results), count, duration,
+    )
     participants = list(results.keys())
     # Last respondent synthesizes; prefer the synthesizer model if available
     final = results.get(available[min(2, len(available) - 1)]["name"]) or next(iter(results.values()))
