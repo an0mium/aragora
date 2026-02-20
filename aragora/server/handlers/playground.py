@@ -242,7 +242,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 # ---------------------------------------------------------------------------
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
-_ORACLE_MODEL_OPENAI = "gpt-4o"
+_ORACLE_MODEL_OPENAI = "gpt-5.2"
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
 
 # ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ _ORACLE_CALL_TIMEOUT = 25.0  # seconds
 _TENTACLE_MODELS: list[dict[str, str]] = [
     # provider, model, display name, env key
     {"provider": "anthropic", "model": "claude-sonnet-4-6", "name": "claude", "env": "ANTHROPIC_API_KEY"},
-    {"provider": "openai", "model": "gpt-4o", "name": "gpt", "env": "OPENAI_API_KEY"},
+    {"provider": "openai", "model": "gpt-5.2", "name": "gpt", "env": "OPENAI_API_KEY"},
     {"provider": "xai", "model": "grok-2", "name": "grok", "env": "XAI_API_KEY"},
     {"provider": "openrouter", "model": "deepseek/deepseek-chat-v3-0324", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
     {"provider": "google", "model": "gemini-2.0-flash", "name": "gemini", "env": "GEMINI_API_KEY"},
