@@ -1398,6 +1398,116 @@ export interface CostDismissAlertResponse {
   success: boolean;
 }
 
+export interface CostUsageResponse {
+  workspace_id?: string;
+  time_range?: string;
+  group_by?: string;
+  total_cost_usd?: number;
+  total_tokens_in?: number;
+  total_tokens_out?: number;
+  total_api_calls?: number;
+  usage?: {
+    name?: string;
+    cost_usd?: number;
+    api_calls?: number;
+  }[];
+  period_start?: string;
+  period_end?: string;
+}
+
+export interface CostBudgetsListResponse {
+  budgets: {
+    id?: string;
+    workspace_id?: string;
+    name?: string;
+    monthly_limit_usd?: number;
+    daily_limit_usd?: number;
+    current_monthly_spend?: number;
+    current_daily_spend?: number;
+    active?: boolean;
+  }[];
+  count: number;
+  workspace_id?: string;
+}
+
+export interface CostBudgetCreateRequest {
+  workspace_id?: string;
+  name?: string;
+  monthly_limit_usd: number;
+  daily_limit_usd?: number;
+  /** Alert threshold percentages (e.g. [50, 75, 90, 100]) */
+  alert_thresholds?: number[];
+}
+
+export interface CostConstraintCheckResponse {
+  allowed: boolean;
+  reason: string;
+  workspace_id?: string;
+  estimated_cost_usd?: number;
+  operation?: string;
+  remaining_monthly_budget?: number;
+}
+
+export interface CostEstimateResponse {
+  estimated_cost_usd: number;
+  breakdown?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    input_cost_usd?: number;
+    output_cost_usd?: number;
+  };
+  pricing?: {
+    model?: string;
+    provider?: string;
+    input_per_1m?: number;
+    output_per_1m?: number;
+  };
+  operation?: string;
+}
+
+export interface CostForecastDetailedResponse {
+  workspace_id?: string;
+  forecast_days?: number;
+  summary?: Record<string, any>;
+  daily_forecasts?: {
+    date?: string;
+    projected_cost_usd?: number;
+    confidence_low?: number;
+    confidence_high?: number;
+  }[];
+  confidence_level?: number;
+}
+
+export interface CostRecommendationsDetailedResponse {
+  recommendations?: {
+    id?: string;
+    type?: string;
+    description?: string;
+    estimated_savings_usd?: number;
+    implementation_steps?: string[];
+    difficulty?: string;
+    time_to_implement?: string;
+  }[];
+  count?: number;
+  summary?: Record<string, any>;
+  workspace_id?: string;
+  total_potential_savings_usd?: number;
+}
+
+export interface CostAlertCreateResponse {
+  success: boolean;
+  alert?: {
+    id?: string;
+    workspace_id?: string;
+    name?: string;
+    type?: string;
+    threshold?: number;
+    notification_channels?: string[];
+    active?: boolean;
+    created_at?: string;
+  };
+}
+
 export type BudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
 
 export type BudgetStatus = "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
