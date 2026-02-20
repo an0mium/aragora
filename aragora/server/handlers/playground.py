@@ -381,6 +381,7 @@ def _call_provider_llm(
 # Load the full essay once at module init (~48K words, ~88K tokens).
 # The essay is background knowledge — models reference it only when relevant.
 _ORACLE_ESSAY = ""
+_ORACLE_ESSAY_CONDENSED = ""
 try:
     _essay_path = os.path.join(os.path.dirname(__file__), "oracle_essay.md")
     with open(_essay_path) as _f:
@@ -389,18 +390,51 @@ try:
 except FileNotFoundError:
     logger.warning("oracle_essay.md not found, Oracle will use prompts without essay")
 
+# Build condensed excerpt for real-time API calls (~5K tokens vs ~88K tokens).
+# Includes: thesis statement + framework overview + P-doom decomposition + clover
+# conclusion.  This gives the model the full intellectual DNA of the essay without
+# the prohibitive latency/cost of sending 357KB through an LLM API.
+if _ORACLE_ESSAY:
+    # Find the conclusion (XXV. Coda) — the clover metaphor is the essay's soul
+    _coda_marker = "XXV. Coda"
+    _coda_start = _ORACLE_ESSAY.find(_coda_marker)
+    # Find where footnotes/references begin (after the conclusion)
+    _refs_marker = "Nick Bostrom (Superintelligence"
+    _refs_start = _ORACLE_ESSAY.find(_refs_marker)
+    if _refs_start < 0:
+        _refs_start = len(_ORACLE_ESSAY)
+
+    # Intro + thesis + framework + first 3 sections (~18K chars ≈ 5K tokens)
+    _intro = _ORACLE_ESSAY[:18000]
+    # Conclusion/coda without footnotes (~12K chars ≈ 3K tokens)
+    _coda = _ORACLE_ESSAY[_coda_start:_refs_start].rstrip() if _coda_start > 0 else ""
+
+    if _coda:
+        _ORACLE_ESSAY_CONDENSED = (
+            _intro.rstrip()
+            + "\n\n[... essay continues through 25 sections ...]\n\n"
+            + _coda
+        )
+    else:
+        _ORACLE_ESSAY_CONDENSED = _intro
+    logger.info(
+        "Oracle essay condensed: %d chars (from %d)",
+        len(_ORACLE_ESSAY_CONDENSED), len(_ORACLE_ESSAY),
+    )
+
 
 def _build_oracle_prompt(mode: str, question: str) -> str:
-    """Build the full Oracle prompt server-side.
+    """Build the Oracle prompt server-side using the condensed essay excerpt.
 
-    The prompt is question-first: the model focuses on what the seeker asked,
-    and only references the essay when genuinely relevant.
+    Uses ~8K tokens of essay context (intro + conclusion) instead of the full
+    88K tokens.  The model gets the essay's thesis, framework, and clover
+    metaphor — enough to channel the Oracle persona authentically.
     """
     essay_block = ""
-    if _ORACLE_ESSAY:
+    if _ORACLE_ESSAY_CONDENSED:
         essay_block = (
             "\n\n<essay>\n"
-            + _ORACLE_ESSAY
+            + _ORACLE_ESSAY_CONDENSED
             + "\n</essay>\n"
         )
 
