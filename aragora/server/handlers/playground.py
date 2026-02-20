@@ -1069,7 +1069,27 @@ class PlaygroundHandler(BaseHandler):
             oracle_result = _try_oracle_response(mode=mode, question=question, topic=topic)
             if oracle_result:
                 return json_response(oracle_result)
-            logger.info("Oracle LLM call failed, falling back to inline mock")
+            logger.info("Oracle LLM call failed — returning placeholder instead of irrelevant mock")
+            # Return an Oracle-themed placeholder instead of a generic mock debate
+            # (the generic mock talks about microservices which is nonsensical for Oracle)
+            debate_id = uuid.uuid4().hex[:16]
+            return json_response({
+                "id": debate_id,
+                "topic": question,
+                "status": "completed",
+                "rounds_used": 1,
+                "consensus_reached": True,
+                "confidence": 0.5,
+                "verdict": "pending",
+                "duration_seconds": 0.1,
+                "participants": ["oracle"],
+                "proposals": {"oracle": "The Oracle is gathering its thoughts... The tentacles will speak momentarily."},
+                "critiques": [],
+                "votes": [],
+                "dissenting_views": [],
+                "final_answer": "The Oracle is gathering its thoughts... The tentacles will speak momentarily.",
+                "receipt_hash": None,
+            })
         else:
             # Normal playground: try aragora-debate package
             try:

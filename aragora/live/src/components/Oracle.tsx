@@ -124,7 +124,14 @@ function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: numbe
 // Mode button
 // ---------------------------------------------------------------------------
 
+const MODE_COLORS: Record<OracleMode, { css: string; border: string; glow: string; hover: string }> = {
+  consult: { css: 'var(--acid-magenta)', border: 'rgba(200,100,200,0.6)', glow: 'rgba(200,100,200,0.15)', hover: 'rgba(200,100,200,0.1)' },
+  divine:  { css: '#60a5fa',             border: 'rgba(96,165,250,0.6)',  glow: 'rgba(96,165,250,0.15)',  hover: 'rgba(96,165,250,0.1)' },
+  commune: { css: '#4ade80',             border: 'rgba(74,222,128,0.6)',  glow: 'rgba(74,222,128,0.15)',  hover: 'rgba(74,222,128,0.1)' },
+};
+
 function ModeButton({
+  mode,
   active,
   onClick,
   icon,
@@ -138,18 +145,21 @@ function ModeButton({
   label: string;
   desc: string;
 }) {
-  const borderColor = active ? 'border-[var(--acid-magenta)]/60' : 'border-[var(--border)]/30';
-  const glowClass = active ? 'shadow-[0_0_12px_rgba(255,0,255,0.15)]' : '';
+  const c = MODE_COLORS[mode];
 
   return (
     <button
       onClick={onClick}
-      className={`flex-1 min-w-[140px] p-4 ${borderColor} border text-left transition-all duration-300 hover:border-[var(--acid-magenta)]/50 hover:shadow-[0_0_10px_rgba(255,0,255,0.1)] ${glowClass} bg-[var(--surface)]/60 rounded-xl`}
+      className="flex-1 min-w-[140px] p-4 border text-left transition-all duration-300 bg-[var(--surface)]/60 rounded-xl"
+      style={{
+        borderColor: active ? c.border : 'rgba(255,255,255,0.1)',
+        boxShadow: active ? `0 0 12px ${c.glow}` : 'none',
+      }}
     >
-      <div className="text-2xl mb-2" style={{ filter: active ? 'drop-shadow(0 0 10px var(--acid-magenta))' : 'none' }}>
+      <div className="text-2xl mb-2" style={{ filter: active ? `drop-shadow(0 0 10px ${c.css})` : 'none' }}>
         {icon}
       </div>
-      <div className={`text-sm font-bold mb-1 ${active ? 'text-[var(--acid-magenta)]' : 'text-[var(--text)]'}`}>
+      <div className="text-sm font-bold mb-1" style={{ color: active ? c.css : 'var(--text)' }}>
         {label}
       </div>
       <div className="text-xs text-[var(--text-muted)]">{desc}</div>
@@ -200,6 +210,7 @@ export default function Oracle() {
   const [showIntro, setShowIntro] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const avatarRef = useRef<HTMLIFrameElement>(null);
 
   const apiBase = API_BASE_URL;
 
@@ -265,6 +276,9 @@ export default function Oracle() {
 
     const rounds = mode === 'divine' ? 1 : 2;
     const agents = mode === 'divine' ? 3 : 5;  // Each tentacle = a different AI model
+
+    // Trigger 3D summoning animation
+    avatarRef.current?.contentWindow?.postMessage({ type: 'oracle-summon' }, '*');
 
     // ---- PHASE 1: Initial Oracle take (single LLM call) ----
     setLoading(true);
@@ -499,6 +513,7 @@ export default function Oracle() {
               {/* 3D Avatar iframe */}
               <div className="relative w-[320px] h-[260px] sm:w-[400px] sm:h-[320px] overflow-hidden rounded-xl border border-[rgba(127,219,202,0.2)]">
                 <iframe
+                  ref={avatarRef}
                   src="/oracle/shoggoth-3d.html"
                   className="avatar-iframe w-full h-full"
                   title="Shoggoth Oracle 3D Avatar"

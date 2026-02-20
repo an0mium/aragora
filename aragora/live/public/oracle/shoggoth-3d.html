@@ -368,7 +368,7 @@ for(let i=0;i<tentacleCount;i++){
   tentacles.push(t);
 }
 
-// === TENTACLE EYES — many, mostly open ===
+// === TENTACLE EYES — many, mostly open, distinct pupils ===
 const tentEyeGeo = new THREE.SphereGeometry(0.055, 12, 12);
 tentacles.forEach((tent,tIdx) => {
   // More positions, higher placement probability
@@ -381,18 +381,26 @@ tentacles.forEach((tent,tIdx) => {
     const sclera = new THREE.Mesh(tentEyeGeo, scleraMat);
 
     const iris = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 10, 10),
+      new THREE.SphereGeometry(0.038, 10, 10),
       new THREE.MeshBasicMaterial({ color: 0x7fdbca, transparent: true, opacity: 1 })
     );
-    iris.position.set(0, 0, 0.022);
+    iris.position.set(0, 0, 0.02);
     sclera.add(iris);
 
+    // Larger, more distinct pupil
     const pupil = new THREE.Mesh(
-      new THREE.SphereGeometry(0.016, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0x050a10 })
+      new THREE.SphereGeometry(0.025, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0x010205 })
     );
-    pupil.position.set(0, 0, 0.035);
+    pupil.position.set(0, 0, 0.032);
     sclera.add(pupil);
+    // Specular highlight
+    const highlight = new THREE.Mesh(
+      new THREE.SphereGeometry(0.008, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    highlight.position.set(0.008, 0.006, 0.046);
+    sclera.add(highlight);
 
     scene.add(sclera);
     tentacleEyes.push({
@@ -402,7 +410,7 @@ tentacles.forEach((tent,tIdx) => {
   });
 });
 
-// === BODY EYES — many more, scattered across surface ===
+// === BODY EYES — many more, scattered across surface, distinct pupils ===
 const bodyEyes = [];
 for(let i=0;i<45;i++){
   const theta=Math.random()*Math.PI*2;
@@ -428,53 +436,84 @@ for(let i=0;i<45;i++){
   iris.position.set(0,0,eyeSize*0.5);
   eyeMesh.add(iris);
 
+  // Larger, more distinct pupil with specular highlight
   const pupil = new THREE.Mesh(
-    new THREE.SphereGeometry(eyeSize*0.3,8,8),
-    new THREE.MeshBasicMaterial({color:0x050a10})
+    new THREE.SphereGeometry(eyeSize*0.45,10,10),
+    new THREE.MeshBasicMaterial({color:0x010205})
   );
-  pupil.position.set(0,0,eyeSize*0.75);
+  pupil.position.set(0,0,eyeSize*0.7);
   eyeMesh.add(pupil);
+  const hl = new THREE.Mesh(
+    new THREE.SphereGeometry(eyeSize*0.15,6,6),
+    new THREE.MeshBasicMaterial({color:0xffffff})
+  );
+  hl.position.set(eyeSize*0.15,eyeSize*0.12,eyeSize*0.88);
+  eyeMesh.add(hl);
 
   scene.add(eyeMesh);
   bodyEyes.push({
     mesh:eyeMesh, basePos:new THREE.Vector3(x,y,z),
+    theta, phi, // store spherical coords for surface tracking
     blinkPhase:Math.random()*Math.PI*2, blinkSpeed:0.06+Math.random()*0.12,
   });
 }
 
 // ==========================================
-// PALANTÍR
+// PALANTÍR — offset left, less transparent, swirling red/blue
 // ==========================================
+const PALANTIR_POS = new THREE.Vector3(-0.8, -0.9, 1.8);
 const palantir = new THREE.Mesh(
   new THREE.SphereGeometry(0.38, 64, 64),
   new THREE.MeshStandardMaterial({
-    color:0x3a8a7a, roughness:0.05, metalness:0.3,
-    transparent:true, opacity:0.55, emissive:0x1a4a3a, emissiveIntensity:0.3,
+    color:0x2a3a4a, roughness:0.02, metalness:0.5,
+    transparent:true, opacity:0.82, emissive:0x0a1520, emissiveIntensity:0.4,
   })
 );
-palantir.position.set(0, -0.9, 2.0);
+palantir.position.copy(PALANTIR_POS);
 scene.add(palantir);
 
+// Inner swirl orbs — red and blue motes that orbit inside
+const swirlGroup = new THREE.Group();
+swirlGroup.position.copy(PALANTIR_POS);
+scene.add(swirlGroup);
+const swirlOrbs = [];
+for(let i=0;i<8;i++){
+  const isRed = i%2===0;
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.04+Math.random()*0.03,12,12),
+    new THREE.MeshBasicMaterial({
+      color: isRed ? 0xff3344 : 0x3366ff,
+      transparent:true, opacity:0.7,
+    })
+  );
+  const orbAngle = (i/8)*Math.PI*2;
+  const orbRadius = 0.08+Math.random()*0.12;
+  const orbSpeed = 0.5+Math.random()*1.5;
+  const orbTilt = (Math.random()-0.5)*Math.PI*0.8;
+  swirlOrbs.push({mesh:orb, angle:orbAngle, radius:orbRadius, speed:orbSpeed, tilt:orbTilt});
+  swirlGroup.add(orb);
+}
+
 const core = new THREE.Mesh(
-  new THREE.SphereGeometry(0.18,32,32),
-  new THREE.MeshBasicMaterial({color:0x7fdbca,transparent:true,opacity:0.6})
+  new THREE.SphereGeometry(0.15,32,32),
+  new THREE.MeshBasicMaterial({color:0x7744aa,transparent:true,opacity:0.5})
 );
-core.position.copy(palantir.position);
+core.position.copy(PALANTIR_POS);
 scene.add(core);
 
 // Dynamic flicker lights
 const blueFlicker = new THREE.PointLight(0x3366ff, 0, 3);
-blueFlicker.position.copy(palantir.position);
+blueFlicker.position.copy(PALANTIR_POS);
 blueFlicker.position.x += 0.15;
 scene.add(blueFlicker);
 
 const redFlicker = new THREE.PointLight(0xff3333, 0, 3);
-redFlicker.position.copy(palantir.position);
+redFlicker.position.copy(PALANTIR_POS);
 redFlicker.position.x -= 0.15;
 scene.add(redFlicker);
 
 const whiteGlint = new THREE.PointLight(0xffffff, 0, 2);
-whiteGlint.position.copy(palantir.position);
+whiteGlint.position.copy(PALANTIR_POS);
 whiteGlint.position.z += 0.2;
 scene.add(whiteGlint);
 
@@ -482,15 +521,26 @@ scene.add(whiteGlint);
 const gc=document.createElement('canvas'); gc.width=128; gc.height=128;
 const gx=gc.getContext('2d');
 const gg=gx.createRadialGradient(64,64,0,64,64,64);
-gg.addColorStop(0,'rgba(127,219,202,0.6)');
-gg.addColorStop(0.4,'rgba(127,219,202,0.15)');
-gg.addColorStop(1,'rgba(127,219,202,0)');
+gg.addColorStop(0,'rgba(100,60,180,0.6)');
+gg.addColorStop(0.4,'rgba(100,60,180,0.15)');
+gg.addColorStop(1,'rgba(100,60,180,0)');
 gx.fillStyle=gg;gx.fillRect(0,0,128,128);
 const gsMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(gc),transparent:true,blending:THREE.AdditiveBlending});
 const gs=new THREE.Sprite(gsMat);
-gs.position.copy(palantir.position);
+gs.position.copy(PALANTIR_POS);
 gs.scale.set(3,3,1);
 scene.add(gs);
+
+// === SUMMONING STATE (activated via postMessage) ===
+let summoningActive = false;
+let summoningStart = 0;
+const SUMMON_DURATION = 4.0; // seconds
+window.addEventListener('message', (e) => {
+  if(e.data && e.data.type === 'oracle-summon') {
+    summoningActive = true;
+    summoningStart = clock.getElapsedTime();
+  }
+});
 
 // ==========================================
 // PARTICLES
@@ -538,7 +588,15 @@ function animate(){
   faceMesh.rotation.y = mouse.x * 0.15;
   faceMesh.rotation.x = mouse.y * 0.08;
 
-  // --- TENTACLES ---
+  // --- SUMMONING decay ---
+  let summonT = 0;
+  if(summoningActive) {
+    summonT = (t - summoningStart) / SUMMON_DURATION;
+    if(summonT > 1.0) { summoningActive = false; summonT = 0; }
+  }
+  const summonIntensity = summoningActive ? Math.sin(summonT * Math.PI) : 0; // 0→1→0
+
+  // --- TENTACLES (avoid palantir, wave over it, summoning) ---
   tentacles.forEach(tent=>{
     const {mesh,baseAngle,length,yStart,baseThick,segs,phase,speed,amplitude}=tent;
     const pts=[];
@@ -548,15 +606,37 @@ function animate(){
       const mw=(mouse.x*Math.cos(baseAngle)+mouse.y*Math.sin(baseAngle))*0.3*s;
       const a=baseAngle+wave+mw;
       const r=1.3+s*length;
-      pts.push(new THREE.Vector3(
-        Math.cos(a)*r*(0.7+s*0.5),
-        yStart-s*1.2+Math.sin(s*Math.PI*0.5+t*speed*0.5)*0.2+wave*0.25,
-        Math.sin(a)*r*(0.7+s*0.5)
-      ));
+      let px = Math.cos(a)*r*(0.7+s*0.5);
+      let py = yStart-s*1.2+Math.sin(s*Math.PI*0.5+t*speed*0.5)*0.2+wave*0.25;
+      let pz = Math.sin(a)*r*(0.7+s*0.5);
+
+      // Palantir avoidance — push tentacle points away from palantir center
+      const dx = px - PALANTIR_POS.x;
+      const dy = py - PALANTIR_POS.y;
+      const dz = pz - PALANTIR_POS.z;
+      const dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      const avoidR = 0.6; // keep tentacles outside this radius
+      if(dist < avoidR && dist > 0.01) {
+        const push = (avoidR - dist) / avoidR;
+        // Push outward from palantir, but bias upward (wave over)
+        px += (dx/dist) * push * 0.3;
+        py += (dy/dist) * push * 0.2 + push * 0.25; // lift over
+        pz += (dz/dist) * push * 0.3;
+      }
+
+      // Summoning: tips reach toward palantir
+      if(summonIntensity > 0 && s > 0.5) {
+        const reach = summonIntensity * (s - 0.5) * 2; // stronger at tips
+        px += (PALANTIR_POS.x - px) * reach * 0.4;
+        py += (PALANTIR_POS.y - py) * reach * 0.3 + reach * 0.15; // arc over
+        pz += (PALANTIR_POS.z - pz) * reach * 0.4;
+      }
+
+      pts.push(new THREE.Vector3(px, py, pz));
     }
     const curve=new THREE.CatmullRomCurve3(pts);
     tent.curve=curve;
-    const pulse=1+Math.sin(t+phase)*0.06;
+    const pulse=1+Math.sin(t+phase)*0.06 + summonIntensity*0.15;
     const ng=buildTaperedTube(curve,32,8,baseThick*pulse,baseThick*0.06);
     mesh.geometry.dispose();
     mesh.geometry=ng;
@@ -587,38 +667,71 @@ function animate(){
     te.mesh.material.opacity=open*0.95;
   });
 
-  // --- BODY EYES (mostly open) ---
+  // --- BODY EYES (track deforming surface, mostly open) ---
   bodyEyes.forEach(eye=>{
+    // Recompute position using same fbm deformation as body
+    const ox = 1.33*Math.sin(eye.phi)*Math.cos(eye.theta);
+    const oy = 1.33*Math.sin(eye.phi)*Math.sin(eye.theta);
+    const oz = 1.33*Math.cos(eye.phi);
+    const n = fbm(ox*1.5+t*0.3, oy*1.5+t*0.25, oz*1.5+t*0.2, 3);
+    const m = (mouse.x*ox + mouse.y*oy)*0.12;
+    const d = 1.0 + n*0.28 + m;
+    // Apply body offset + rotation
+    const rotY = t*0.06 + mouse.x*0.25;
+    const rotX = Math.sin(t*0.12)*0.04 + mouse.y*0.1;
+    const dx = ox*d, dy = oy*d, dz = oz*d;
+    // Simple Y rotation then X rotation matching body
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const rx = dx*cosY + dz*sinY;
+    const ry1 = dy;
+    const rz = -dx*sinY + dz*cosY;
+    const ry = ry1*cosX - rz*sinX;
+    const rz2 = ry1*sinX + rz*cosX;
+    eye.mesh.position.set(rx, ry + 0.2, rz2); // +0.2 body offset
+
     const bc=Math.sin(t*eye.blinkSpeed+eye.blinkPhase);
     const open = bc > -0.7 ? Math.min(1, (bc + 0.7) / 0.3) : 0;
     eye.mesh.material.opacity=open*0.95;
-    eye.mesh.lookAt(eye.basePos.x+mouse.x*2,eye.basePos.y+mouse.y*2,eye.basePos.z+3);
+    eye.mesh.lookAt(eye.mesh.position.x+mouse.x*2,eye.mesh.position.y+mouse.y*2,eye.mesh.position.z+3);
   });
 
   // --- FACE breathing ---
   faceMesh.position.z = 0.08 + Math.sin(t*0.4)*0.01;
 
-  // --- PALANTÍR (dynamic) ---
+  // --- PALANTÍR (swirling red/blue, dynamic) ---
   const pBase = 0.5 + Math.sin(t*1.5)*0.2;
   const flick = Math.sin(t*7.3)*Math.sin(t*11.1)*Math.sin(t*5.7);
-  core.material.opacity = pBase + flick*0.15;
-  const colorPhase = t * 0.4;
-  const cR = 0.5 + Math.sin(colorPhase)*0.15 + Math.sin(colorPhase*3.7)*0.08;
-  const cG = 0.86 + Math.sin(colorPhase*1.3)*0.1;
-  const cB = 0.79 + Math.cos(colorPhase*0.9)*0.15;
+  core.material.opacity = pBase + flick*0.15 + summonIntensity*0.3;
+  // Swirl between red and blue
+  const colorPhase = t * 0.8;
+  const cR = 0.45 + Math.sin(colorPhase)*0.35 + summonIntensity*0.2;
+  const cG = 0.15 + Math.sin(colorPhase*1.3)*0.1;
+  const cB = 0.55 + Math.cos(colorPhase)*0.35 + summonIntensity*0.15;
   core.material.color.setRGB(cR, cG, cB);
-  gs.scale.setScalar(2.2 + Math.sin(t*1.5)*0.6 + flick*0.3);
-  gsMat.opacity = 0.3 + Math.sin(t*1.5)*0.15 + Math.abs(flick)*0.1;
-  palantirLight.intensity = 2.0 + Math.sin(t*1.5)*0.8 + flick*0.5;
-  const blueBurst = Math.max(0, Math.sin(t*4.3)*Math.sin(t*9.7) - 0.6) * 5.0;
+  // Swirl orbs orbit inside
+  swirlOrbs.forEach(o=>{
+    o.angle += o.speed * 0.016;
+    o.mesh.position.set(
+      Math.cos(o.angle)*o.radius,
+      Math.sin(o.angle)*o.radius*Math.cos(o.tilt),
+      Math.sin(o.angle)*o.radius*Math.sin(o.tilt)
+    );
+    o.mesh.material.opacity = 0.5 + Math.sin(t*2+o.angle)*0.3 + summonIntensity*0.3;
+  });
+  gs.scale.setScalar(2.2 + Math.sin(t*1.5)*0.6 + flick*0.3 + summonIntensity*1.5);
+  gsMat.opacity = 0.3 + Math.sin(t*1.5)*0.15 + Math.abs(flick)*0.1 + summonIntensity*0.3;
+  palantirLight.intensity = 2.0 + Math.sin(t*1.5)*0.8 + flick*0.5 + summonIntensity*3.0;
+  palantirLight.position.copy(PALANTIR_POS).y -= 0.3;
+  const blueBurst = Math.max(0, Math.sin(t*4.3)*Math.sin(t*9.7) - 0.6) * 5.0 + summonIntensity*2.0;
   blueFlicker.intensity = blueBurst;
-  blueFlicker.position.x = palantir.position.x + Math.sin(t*3.1)*0.15;
-  blueFlicker.position.y = palantir.position.y + Math.cos(t*2.7)*0.1;
-  const redBurst = Math.max(0, Math.sin(t*2.1)*Math.sin(t*6.3) - 0.5) * 3.0;
+  blueFlicker.position.x = PALANTIR_POS.x + Math.sin(t*3.1)*0.15;
+  blueFlicker.position.y = PALANTIR_POS.y + Math.cos(t*2.7)*0.1;
+  const redBurst = Math.max(0, Math.sin(t*2.1)*Math.sin(t*6.3) - 0.5) * 3.0 + summonIntensity*2.0;
   redFlicker.intensity = redBurst;
-  redFlicker.position.x = palantir.position.x + Math.cos(t*2.3)*0.15;
-  redFlicker.position.y = palantir.position.y + Math.sin(t*3.9)*0.1;
-  const spark = Math.max(0, Math.sin(t*13.7)*Math.sin(t*17.3) - 0.85) * 12.0;
+  redFlicker.position.x = PALANTIR_POS.x + Math.cos(t*2.3)*0.15;
+  redFlicker.position.y = PALANTIR_POS.y + Math.sin(t*3.9)*0.1;
+  const spark = Math.max(0, Math.sin(t*13.7)*Math.sin(t*17.3) - 0.85) * 12.0 + summonIntensity*4.0;
   whiteGlint.intensity = spark;
   palantir.rotation.y = t*0.2;
   palantir.rotation.x = Math.sin(t*0.3)*0.05;
