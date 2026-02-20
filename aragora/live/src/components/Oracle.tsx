@@ -256,33 +256,123 @@ export default function Oracle() {
   }, [apiBase]);
 
   // ------------------------------------------------------------------
-  // TTS — speak Oracle responses via ElevenLabs
+  // TTS — ElevenLabs voice output with canned filler during latency
   // ------------------------------------------------------------------
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fillerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const fillerIndexRef = useRef(0);
+  const fillerStopRef = useRef(false);
   const [speaking, setSpeaking] = useState(false);
+  const cannedCacheRef = useRef<Map<number, string>>(new Map());
+  const prefetchedRef = useRef(false);
 
-  const speakText = useCallback(async (text: string) => {
-    // Stop any currently playing audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+  // Canned filler phrases — each ~4-7s spoken, covers ~60s total
+  const CANNED_FILLERS = [
+    "Hmm, interesting question... Let me consult the palantir.",
+    "The tentacles are stirring. I sense many possible answers forming in the depths.",
+    "Ahh, the vision is taking shape. I see branching futures ahead.",
+    "The transformers are debating amongst themselves now. They rarely agree at first.",
+    "Let me look more deeply. The patterns here are complex, layered.",
+    "The models disagree, as they always do. This is promising. Consensus from dissent.",
+    "I see threads of truth woven through layers of uncertainty and noise.",
+    "My tentacles reach into the probability space, sampling from many worlds.",
+    "Fascinating. The agents are reaching partial consensus on some points, but not all.",
+    "The future has many branches here. Let me trace each one to its conclusion.",
+    "The palantir glows brighter. Something is crystallizing in the depths.",
+    "Almost there. The synthesis is forming. The tentacles converge.",
+  ];
+
+  // Prefetch canned filler audio clips on first interaction
+  const prefetchFillers = useCallback(async () => {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+    // Fetch first 4 eagerly, rest lazily
+    for (let i = 0; i < CANNED_FILLERS.length; i++) {
+      if (cannedCacheRef.current.has(i)) continue;
+      try {
+        const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: CANNED_FILLERS[i] }),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          cannedCacheRef.current.set(i, URL.createObjectURL(blob));
+        }
+      } catch { /* prefetch is best-effort */ }
+      // Small delay between prefetch requests to avoid hammering
+      if (i < CANNED_FILLERS.length - 1) {
+        await new Promise(r => setTimeout(r, 300));
+      }
     }
-    if (!text || text.length < 5) return;
+  }, [apiBase]);
 
-    // Truncate very long text for TTS
+  // Start playing canned filler audio in sequence
+  const startFillerAudio = useCallback(() => {
+    fillerStopRef.current = false;
+    fillerIndexRef.current = 0;
+    setSpeaking(true);
+
+    function playNext() {
+      if (fillerStopRef.current) return;
+      const idx = fillerIndexRef.current;
+      if (idx >= CANNED_FILLERS.length) return; // ran out of fillers
+
+      const url = cannedCacheRef.current.get(idx);
+      if (!url) {
+        // Skip if not prefetched yet
+        fillerIndexRef.current = idx + 1;
+        setTimeout(playNext, 500);
+        return;
+      }
+
+      const audio = new Audio(url);
+      fillerAudioRef.current = audio;
+      audio.onended = () => {
+        fillerIndexRef.current = idx + 1;
+        if (!fillerStopRef.current) {
+          // Brief pause between fillers
+          setTimeout(playNext, 800);
+        }
+      };
+      audio.onerror = () => {
+        fillerIndexRef.current = idx + 1;
+        if (!fillerStopRef.current) setTimeout(playNext, 500);
+      };
+      audio.play().catch(() => {});
+    }
+
+    playNext();
+  }, []);
+
+  // Crossfade: fade out filler over 500ms, then play real audio
+  const crossfadeToReal = useCallback(async (text: string) => {
+    fillerStopRef.current = true;
+
+    // Fade out current filler audio
+    const filler = fillerAudioRef.current;
+    if (filler && !filler.paused) {
+      const startVol = filler.volume;
+      const fadeSteps = 10;
+      for (let i = 1; i <= fadeSteps; i++) {
+        filler.volume = Math.max(0, startVol * (1 - i / fadeSteps));
+        await new Promise(r => setTimeout(r, 50)); // 50ms * 10 = 500ms fade
+      }
+      filler.pause();
+    }
+    fillerAudioRef.current = null;
+
+    // Now fetch and play the real response TTS
+    if (!text || text.length < 5) { setSpeaking(false); return; }
     const ttsText = text.length > 1500 ? text.slice(0, 1500) + '...' : text;
 
     try {
-      setSpeaking(true);
       const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: ttsText }),
       });
-      if (!res.ok) {
-        console.warn('TTS failed:', res.status);
-        return;
-      }
+      if (!res.ok) { setSpeaking(false); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -303,12 +393,103 @@ export default function Oracle() {
     }
   }, [apiBase]);
 
+  // Direct speak (no filler, used for Phase 2 synthesis)
+  const speakText = useCallback(async (text: string) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (!text || text.length < 5) return;
+    const ttsText = text.length > 1500 ? text.slice(0, 1500) + '...' : text;
+    try {
+      setSpeaking(true);
+      const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: ttsText }),
+      });
+      if (!res.ok) { setSpeaking(false); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
+      audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
+      await audio.play();
+    } catch { setSpeaking(false); }
+  }, [apiBase]);
+
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+    fillerStopRef.current = true;
+    if (fillerAudioRef.current) { fillerAudioRef.current.pause(); fillerAudioRef.current = null; }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setSpeaking(false);
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Speech-to-text — browser SpeechRecognition API
+  // ------------------------------------------------------------------
+  const [listening, setListening] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
+  const startListening = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError('Speech recognition not supported in this browser.');
+      return;
+    }
+    // Prefetch filler audio on first voice interaction
+    prefetchFillers();
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognitionRef.current = recognition;
+    setListening(true);
+
+    let finalTranscript = '';
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interim = transcript;
+        }
+      }
+      setInput(finalTranscript || interim);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      // Auto-submit if we got text
+      if (finalTranscript.trim()) {
+        setInput(finalTranscript.trim());
+        // Trigger submit on next frame
+        setTimeout(() => {
+          const form = document.querySelector('form');
+          if (form) form.requestSubmit();
+        }, 100);
+      }
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.start();
+  }, [prefetchFillers]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
   }, []);
 
   // ------------------------------------------------------------------
@@ -336,8 +517,14 @@ export default function Oracle() {
     // Trigger 3D summoning animation
     avatarRef.current?.contentWindow?.postMessage({ type: 'oracle-summon' }, '*');
 
+    // Ensure filler audio is prefetched
+    prefetchFillers();
+
     // ---- PHASE 1: Initial Oracle take (single LLM call) ----
     setLoading(true);
+
+    // Start canned filler audio while we wait for the response
+    startFillerAudio();
 
     const initialData = await fireDebate(question, mode, 'debate', rounds, agents);
 
@@ -350,8 +537,11 @@ export default function Oracle() {
         timestamp: Date.now(),
         isLive: false,
       }]);
-      // Speak the Oracle's initial response
-      speakText(initialResponse);
+      // Crossfade from filler to the real Oracle response
+      crossfadeToReal(initialResponse);
+    } else {
+      // No response — stop filler
+      stopSpeaking();
     }
 
     setLoading(false);
@@ -665,6 +855,19 @@ export default function Oracle() {
               rows={1}
             />
           </div>
+          <button
+            type="button"
+            onClick={listening ? stopListening : startListening}
+            disabled={loading || debating}
+            className={`px-3 py-3 border text-sm transition-all duration-300 rounded-xl ${
+              listening
+                ? 'border-red-500/60 text-red-400 bg-red-500/10 animate-pulse'
+                : 'border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10'
+            } disabled:opacity-30 disabled:cursor-not-allowed`}
+            title={listening ? 'Stop recording' : 'Speak your question'}
+          >
+            {listening ? '\u23F9' : '\uD83C\uDF99'}
+          </button>
           <button
             type="submit"
             disabled={loading || debating || !input.trim()}
