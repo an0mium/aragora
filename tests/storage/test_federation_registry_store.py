@@ -398,6 +398,13 @@ class TestGlobalStore:
     def test_get_default_store(self, monkeypatch, temp_db_path):
         """Should create default SQLite store."""
         monkeypatch.setenv("ARAGORA_DATA_DIR", str(temp_db_path.parent))
+        # Ensure no Postgres/Supabase env vars interfere
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.delenv("ARAGORA_POSTGRES_DSN", raising=False)
+        monkeypatch.delenv("SUPABASE_URL", raising=False)
+        monkeypatch.delenv("SUPABASE_DB_PASSWORD", raising=False)
+        monkeypatch.delenv("ARAGORA_DB_BACKEND", raising=False)
+        monkeypatch.delenv("ARAGORA_FEDERATION_STORE_BACKEND", raising=False)
         store = get_federation_registry_store()
         assert isinstance(store, SQLiteFederationRegistryStore)
 

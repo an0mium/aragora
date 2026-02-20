@@ -275,7 +275,7 @@ class TestConsensusHandlerSimilar:
 
         result = consensus_handler.handle(
             "/api/v1/consensus/similar",
-            {"topic": "x" * 501},
+            {"topic": "x" * 100_001},
             mock_handler,
         )
 
