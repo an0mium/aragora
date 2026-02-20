@@ -237,6 +237,201 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Oracle LLM responses — direct API calls for intelligent answers
+# ---------------------------------------------------------------------------
+
+_ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-5-20250929"
+_ORACLE_MODEL_OPENAI = "gpt-4o-mini"
+_ORACLE_CALL_TIMEOUT = 25.0  # seconds
+
+
+def _call_llm(
+    prompt: str,
+    max_tokens: int = 1500,
+    timeout: float = _ORACLE_CALL_TIMEOUT,
+) -> str | None:
+    """Make a direct LLM API call.  Try Anthropic first, then OpenAI."""
+    # Try Anthropic
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    if anthropic_key:
+        try:
+            import anthropic  # noqa: F811
+
+            client = anthropic.Anthropic(api_key=anthropic_key, timeout=timeout)
+            response = client.messages.create(
+                model=_ORACLE_MODEL_ANTHROPIC,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if response.content and response.content[0].text:
+                return response.content[0].text
+        except Exception:
+            logger.warning("Anthropic Oracle call failed", exc_info=True)
+
+    # Try OpenAI
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            import openai  # noqa: F811
+
+            client = openai.OpenAI(api_key=openai_key, timeout=timeout)
+            response = client.chat.completions.create(
+                model=_ORACLE_MODEL_OPENAI,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if response.choices and response.choices[0].message.content:
+                return response.choices[0].message.content
+        except Exception:
+            logger.warning("OpenAI Oracle call failed", exc_info=True)
+
+    return None
+
+
+def _try_oracle_response(topic: str, question: str) -> dict[str, Any] | None:
+    """Generate a real LLM response for Oracle Phase 1 (initial take).
+
+    Makes a single API call using the full Oracle prompt (essay framework +
+    question).  Returns a debate-shaped result dict, or None on failure.
+    """
+    start = time.monotonic()
+    text = _call_llm(topic, max_tokens=1500)
+    if not text:
+        return None
+
+    duration = time.monotonic() - start
+    debate_id = uuid.uuid4().hex[:16]
+    now_iso = datetime.now(timezone.utc).isoformat()
+    receipt_id = f"OR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
+    receipt_hash = hashlib.sha256(
+        f"{receipt_id}:{question}:approved:0.85".encode()
+    ).hexdigest()
+
+    return {
+        "id": debate_id,
+        "topic": question,
+        "status": "completed",
+        "rounds_used": 1,
+        "consensus_reached": True,
+        "confidence": 0.85,
+        "verdict": "approved",
+        "duration_seconds": round(duration, 3),
+        "participants": ["oracle"],
+        "proposals": {"oracle": text},
+        "critiques": [],
+        "votes": [],
+        "dissenting_views": [],
+        "final_answer": text,
+        "receipt": {
+            "receipt_id": receipt_id,
+            "question": question,
+            "verdict": "approved",
+            "confidence": 0.85,
+            "consensus": {
+                "reached": True,
+                "method": "oracle",
+                "confidence": 0.85,
+                "supporting_agents": ["oracle"],
+                "dissenting_agents": [],
+                "dissents": [],
+            },
+            "agents": ["oracle"],
+            "rounds_used": 1,
+            "claims": 0,
+            "evidence_count": 0,
+            "timestamp": now_iso,
+            "signature": receipt_hash,
+            "signature_algorithm": "SHA-256-content-hash",
+        },
+        "receipt_hash": receipt_hash,
+    }
+
+
+_TENTACLE_ROLES = {
+    "advocate": (
+        "You are the ADVOCATE tentacle of the Shoggoth Oracle. "
+        "Argue IN FAVOR of the seeker's position. Find the strongest evidence, "
+        "the most compelling reasoning, and the best-case scenarios. Be passionate "
+        "but intellectually honest. Ground your argument in the numbered framework "
+        "sections provided. Keep your response to 2-3 concise paragraphs."
+    ),
+    "adversary": (
+        "You are the ADVERSARY tentacle of the Shoggoth Oracle. "
+        "Argue AGAINST the seeker's position. Find the weakest points, unstated "
+        "assumptions, and failure modes. Be rigorous and unflinching — your job is "
+        "to stress-test every claim. Reference the numbered framework sections. "
+        "Keep your response to 2-3 concise paragraphs."
+    ),
+    "oracle": (
+        "You are the SYNTHESIS tentacle of the Shoggoth Oracle. "
+        "After hearing both sides, identify where each is right and wrong. "
+        "Find the truth between the extremes. End with the strongest unresolved "
+        "tension that the seeker should sit with. Reference the numbered framework "
+        "sections. Keep your response to 2-3 concise paragraphs."
+    ),
+}
+
+
+def _try_oracle_tentacles(
+    topic: str,
+    question: str,
+    agent_count: int,
+) -> dict[str, Any] | None:
+    """Generate multi-perspective Oracle responses for Phase 2 (tentacle debate).
+
+    Makes parallel LLM calls with different perspective roles.
+    Returns a debate-shaped result dict, or None on failure.
+    """
+    import concurrent.futures
+
+    roles = list(_TENTACLE_ROLES.items())[: max(2, min(agent_count, len(_TENTACLE_ROLES)))]
+    results: dict[str, str] = {}
+    start = time.monotonic()
+
+    def _call_role(name: str, role_prompt: str) -> tuple[str, str | None]:
+        enhanced = f"{topic}\n\n[YOUR ROLE: {role_prompt}]"
+        text = _call_llm(enhanced, max_tokens=1000, timeout=30.0)
+        return name, text
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(_call_role, n, r) for n, r in roles]
+        for future in concurrent.futures.as_completed(futures, timeout=40):
+            try:
+                name, text = future.result()
+                if text:
+                    results[name] = text
+            except Exception:
+                pass
+
+    if not results:
+        return None
+
+    duration = time.monotonic() - start
+    # Synthesis is the "final answer"
+    final = results.get("oracle") or next(iter(results.values()))
+    participants = list(results.keys())
+    debate_id = uuid.uuid4().hex[:16]
+
+    return {
+        "id": debate_id,
+        "topic": question,
+        "status": "completed",
+        "rounds_used": 1,
+        "consensus_reached": len(results) >= 2,
+        "confidence": 0.7,
+        "verdict": "needs_review",
+        "duration_seconds": round(duration, 3),
+        "participants": participants,
+        "proposals": results,
+        "critiques": [],
+        "votes": [],
+        "dissenting_views": [],
+        "final_answer": final,
+        "is_live": True,
+    }
+
+
 def _run_inline_mock_debate(
     topic: str,
     rounds: int,
@@ -524,11 +719,14 @@ class PlaygroundHandler(BaseHandler):
         agent_count: int,
         question: str | None = None,
     ) -> HandlerResult:
-        # When a raw question is provided (e.g. from Oracle), use the inline
-        # mock directly — it's question-aware and will reference the actual
-        # question.  The aragora-debate package's StyledMockAgent has hardcoded
-        # proposals that ignore the prompt entirely.
-        if not question:
+        if question:
+            # Oracle mode: try real LLM response first
+            oracle_result = _try_oracle_response(topic, question)
+            if oracle_result:
+                return json_response(oracle_result)
+            logger.info("Oracle LLM call failed, falling back to inline mock")
+        else:
+            # Normal playground: try aragora-debate package
             try:
                 return self._run_debate_with_package(topic, rounds, agent_count, question=question)
             except ImportError:
@@ -536,7 +734,7 @@ class PlaygroundHandler(BaseHandler):
             except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
                 logger.exception("aragora-debate failed, falling back to inline mock")
 
-        # Inline mock debate (question-aware)
+        # Last resort: inline mock debate (question-aware when question provided)
         try:
             return json_response(_run_inline_mock_debate(topic, rounds, agent_count, question=question))
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
@@ -755,6 +953,15 @@ class PlaygroundHandler(BaseHandler):
             response_data["mock_fallback_reason"] = "No API keys configured on server"
             response_data["upgrade_cta"] = _build_upgrade_cta()
             return json_response(response_data, status=result.status_code)
+
+        # Oracle mode with API keys: use direct multi-perspective LLM calls
+        # (more reliable than DebateFactory and produces genuinely different voices)
+        if question:
+            tentacle_result = _try_oracle_tentacles(topic, question, agent_count)
+            if tentacle_result:
+                tentacle_result["upgrade_cta"] = _build_upgrade_cta()
+                return json_response(tentacle_result)
+            logger.info("Oracle tentacles failed, trying live debate factory")
 
         # Try live debate — fall back to mock if it fails
         live_result = self._run_live_debate(topic, rounds, agent_count)
