@@ -242,8 +242,131 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 # ---------------------------------------------------------------------------
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
-_ORACLE_MODEL_OPENAI = "gpt-4o-mini"
+_ORACLE_MODEL_OPENAI = "gpt-4o"
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
+
+# ---------------------------------------------------------------------------
+# Multi-model tentacles — each tentacle is a genuinely different AI
+# ---------------------------------------------------------------------------
+
+_TENTACLE_MODELS: list[dict[str, str]] = [
+    # provider, model, display name, env key
+    {"provider": "anthropic", "model": "claude-sonnet-4-6", "name": "claude", "env": "ANTHROPIC_API_KEY"},
+    {"provider": "openai", "model": "gpt-4o", "name": "gpt", "env": "OPENAI_API_KEY"},
+    {"provider": "xai", "model": "grok-2", "name": "grok", "env": "XAI_API_KEY"},
+    {"provider": "openrouter", "model": "deepseek/deepseek-chat-v3-0324", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
+    {"provider": "google", "model": "gemini-2.0-flash", "name": "gemini", "env": "GEMINI_API_KEY"},
+    {"provider": "openrouter", "model": "mistralai/mistral-large-latest", "name": "mistral", "env": "OPENROUTER_API_KEY"},
+]
+
+
+def _get_available_tentacle_models() -> list[dict[str, str]]:
+    """Return tentacle model configs for which API keys are present."""
+    seen_names: set[str] = set()
+    available: list[dict[str, str]] = []
+    for m in _TENTACLE_MODELS:
+        if m["name"] in seen_names:
+            continue
+        if os.environ.get(m["env"]):
+            available.append(m)
+            seen_names.add(m["name"])
+    return available
+
+
+def _call_provider_llm(
+    provider: str,
+    model: str,
+    prompt: str,
+    max_tokens: int = 1000,
+    timeout: float = 30.0,
+) -> str | None:
+    """Call a specific LLM provider. Returns response text or None."""
+    if provider == "anthropic":
+        key = os.environ.get("ANTHROPIC_API_KEY")
+        if not key:
+            return None
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=key, timeout=timeout)
+            resp = client.messages.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if resp.content and resp.content[0].text:
+                return resp.content[0].text
+        except Exception:
+            logger.warning("Anthropic tentacle call failed (%s)", model, exc_info=True)
+        return None
+
+    if provider == "openai":
+        key = os.environ.get("OPENAI_API_KEY")
+        if not key:
+            return None
+        try:
+            import openai
+            client = openai.OpenAI(api_key=key, timeout=timeout)
+            resp = client.chat.completions.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if resp.choices and resp.choices[0].message.content:
+                return resp.choices[0].message.content
+        except Exception:
+            logger.warning("OpenAI tentacle call failed (%s)", model, exc_info=True)
+        return None
+
+    if provider == "xai":
+        key = os.environ.get("XAI_API_KEY")
+        if not key:
+            return None
+        try:
+            import openai
+            client = openai.OpenAI(api_key=key, base_url="https://api.x.ai/v1", timeout=timeout)
+            resp = client.chat.completions.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if resp.choices and resp.choices[0].message.content:
+                return resp.choices[0].message.content
+        except Exception:
+            logger.warning("xAI tentacle call failed (%s)", model, exc_info=True)
+        return None
+
+    if provider == "openrouter":
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if not key:
+            return None
+        try:
+            import openai
+            client = openai.OpenAI(
+                api_key=key, base_url="https://openrouter.ai/api/v1", timeout=timeout,
+            )
+            resp = client.chat.completions.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if resp.choices and resp.choices[0].message.content:
+                return resp.choices[0].message.content
+        except Exception:
+            logger.warning("OpenRouter tentacle call failed (%s)", model, exc_info=True)
+        return None
+
+    if provider == "google":
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            return None
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=key)
+            gmodel = genai.GenerativeModel(model)
+            resp = gmodel.generate_content(prompt)
+            if resp.text:
+                return resp.text
+        except Exception:
+            logger.warning("Google tentacle call failed (%s)", model, exc_info=True)
+        return None
+
+    return None
 
 # Load the full essay once at module init (~48K words, ~88K tokens).
 # The essay is background knowledge — models reference it only when relevant.
@@ -343,41 +466,10 @@ def _call_llm(
     timeout: float = _ORACLE_CALL_TIMEOUT,
 ) -> str | None:
     """Make a direct LLM API call.  Try Anthropic first, then OpenAI."""
-    # Try Anthropic
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    if anthropic_key:
-        try:
-            import anthropic  # noqa: F811
-
-            client = anthropic.Anthropic(api_key=anthropic_key, timeout=timeout)
-            response = client.messages.create(
-                model=_ORACLE_MODEL_ANTHROPIC,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            if response.content and response.content[0].text:
-                return response.content[0].text
-        except Exception:
-            logger.warning("Anthropic Oracle call failed", exc_info=True)
-
-    # Try OpenAI
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    if openai_key:
-        try:
-            import openai  # noqa: F811
-
-            client = openai.OpenAI(api_key=openai_key, timeout=timeout)
-            response = client.chat.completions.create(
-                model=_ORACLE_MODEL_OPENAI,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            if response.choices and response.choices[0].message.content:
-                return response.choices[0].message.content
-        except Exception:
-            logger.warning("OpenAI Oracle call failed", exc_info=True)
-
-    return None
+    result = _call_provider_llm("anthropic", _ORACLE_MODEL_ANTHROPIC, prompt, max_tokens, timeout)
+    if result:
+        return result
+    return _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
 
 
 def _try_oracle_response(
@@ -443,26 +535,43 @@ def _try_oracle_response(
     }
 
 
-_TENTACLE_ROLES = {
-    "advocate": (
-        "You are the ADVOCATE tentacle. Argue IN FAVOR of the seeker's position, "
+_TENTACLE_ROLE_PROMPTS: list[str] = [
+    (
+        "You are the ADVOCATE. Argue IN FAVOR of the seeker's position, "
         "or give the most hopeful, constructive answer to their question. Be passionate "
         "but intellectually honest. If the essay background is relevant, draw on it "
         "naturally. If not, use your broader knowledge. Keep to 2-3 concise paragraphs."
     ),
-    "adversary": (
-        "You are the ADVERSARY tentacle. Argue AGAINST the seeker's position, "
+    (
+        "You are the ADVERSARY. Argue AGAINST the seeker's position, "
         "or give them the hardest truth about their question. Stress-test every claim "
         "and assumption. If the essay background is relevant, draw on it. If not, "
         "use your broader knowledge. Keep to 2-3 concise paragraphs."
     ),
-    "oracle": (
-        "You are the SYNTHESIS tentacle. Find where the advocate and adversary are "
+    (
+        "You are the SYNTHESIZER. Find where the other perspectives are "
         "each right and wrong. Identify the real tension at the heart of the question. "
         "End with the strongest unresolved question the seeker should sit with. "
         "Keep to 2-3 concise paragraphs."
     ),
-}
+    (
+        "You are the CONTRARIAN. Take the most unexpected, counterintuitive angle on "
+        "the question. Challenge the framing itself. What is everyone else missing? "
+        "What assumption do all sides share that might be wrong? Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the PRAGMATIST. Cut through the abstractions. What should the seeker "
+        "actually DO? Give concrete, actionable advice grounded in reality. If the essay "
+        "has practical insights, use them. Skip the philosophy and get to the punch line. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the HISTORIAN. Place this question in deep historical context. What "
+        "patterns from history illuminate this situation? What happened the last time "
+        "humans faced a comparable transition? Be specific with examples. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+]
 
 
 def _try_oracle_tentacles(
@@ -471,27 +580,38 @@ def _try_oracle_tentacles(
     agent_count: int,
     topic: str | None = None,
 ) -> dict[str, Any] | None:
-    """Generate multi-perspective Oracle responses for Phase 2 (tentacle debate).
+    """Generate multi-perspective Oracle responses using genuinely different AI models.
 
-    Builds the full prompt server-side, then makes parallel LLM calls with
-    different perspective roles appended.
-    Returns a debate-shaped result dict, or None on failure.
+    Each tentacle is a different AI (Claude, GPT, Grok, DeepSeek, Gemini, Mistral)
+    with a different argumentative role. Returns a debate-shaped result dict, or None.
     """
     import concurrent.futures
 
+    available = _get_available_tentacle_models()
+    if not available:
+        return None
+
     base_prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY else (topic or question)
-    roles = list(_TENTACLE_ROLES.items())[: max(2, min(agent_count, len(_TENTACLE_ROLES)))]
+
+    # Assign roles to available models (up to agent_count)
+    count = max(2, min(agent_count, len(available), len(_TENTACLE_ROLE_PROMPTS)))
+    assignments = list(zip(available[:count], _TENTACLE_ROLE_PROMPTS[:count]))
     results: dict[str, str] = {}
     start = time.monotonic()
 
-    def _call_role(name: str, role_prompt: str) -> tuple[str, str | None]:
+    def _call_tentacle(
+        model_cfg: dict[str, str], role_prompt: str,
+    ) -> tuple[str, str | None]:
         enhanced = f"{base_prompt}\n\n[YOUR ROLE: {role_prompt}]"
-        text = _call_llm(enhanced, max_tokens=1000, timeout=30.0)
-        return name, text
+        text = _call_provider_llm(
+            model_cfg["provider"], model_cfg["model"], enhanced,
+            max_tokens=1000, timeout=30.0,
+        )
+        return model_cfg["name"], text
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(_call_role, n, r) for n, r in roles]
-        for future in concurrent.futures.as_completed(futures, timeout=40):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(count, 6)) as pool:
+        futures = [pool.submit(_call_tentacle, m, r) for m, r in assignments]
+        for future in concurrent.futures.as_completed(futures, timeout=45):
             try:
                 name, text = future.result()
                 if text:
@@ -503,9 +623,9 @@ def _try_oracle_tentacles(
         return None
 
     duration = time.monotonic() - start
-    # Synthesis is the "final answer"
-    final = results.get("oracle") or next(iter(results.values()))
     participants = list(results.keys())
+    # Last respondent synthesizes; prefer the synthesizer model if available
+    final = results.get(available[min(2, len(available) - 1)]["name"]) or next(iter(results.values()))
     debate_id = uuid.uuid4().hex[:16]
 
     return {

@@ -263,16 +263,16 @@ export default function Oracle() {
       timestamp: Date.now(),
     }]);
 
-    const mockRounds = mode === 'divine' ? 1 : 2;
-    const mockAgents = mode === 'divine' ? 2 : 3;
+    const rounds = mode === 'divine' ? 1 : 2;
+    const agents = mode === 'divine' ? 3 : 5;  // Each tentacle = a different AI model
 
-    // ---- PHASE 1: Instant mock response ----
+    // ---- PHASE 1: Initial Oracle take (single LLM call) ----
     setLoading(true);
 
-    const mockData = await fireDebate(question, mode, 'debate', mockRounds, mockAgents);
+    const initialData = await fireDebate(question, mode, 'debate', rounds, agents);
 
-    if (mockData) {
-      const initialResponse = mockData.final_answer || formatInitialTake(mockData);
+    if (initialData) {
+      const initialResponse = initialData.final_answer || formatInitialTake(initialData);
       setMessages((prev) => [...prev, {
         role: 'oracle',
         content: initialResponse,
@@ -284,10 +284,10 @@ export default function Oracle() {
 
     setLoading(false);
 
-    // ---- PHASE 2: Live debate (tentacles arguing) ----
+    // ---- PHASE 2: Live multi-model debate (each tentacle = different AI) ----
     setDebating(true);
 
-    const liveData = await fireDebate(question, mode, 'debate/live', mockRounds, mockAgents);
+    const liveData = await fireDebate(question, mode, 'debate/live', rounds, agents);
 
     if (liveData) {
       const agents = Object.entries(liveData.proposals);
