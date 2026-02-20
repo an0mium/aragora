@@ -241,7 +241,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 # Oracle LLM responses — direct API calls for intelligent answers
 # ---------------------------------------------------------------------------
 
-_ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-5-20250929"
+_ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-4o-mini"
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
 
