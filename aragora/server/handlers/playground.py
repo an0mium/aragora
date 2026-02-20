@@ -53,22 +53,26 @@ _request_timestamps: dict[str, list[float]] = {}
 _live_request_timestamps: dict[str, list[float]] = {}
 
 
-def _check_rate_limit(client_ip: str) -> tuple[bool, int]:
+def _check_rate_limit(
+    client_ip: str,
+    limit: int = _PLAYGROUND_RATE_LIMIT,
+    window: float = _PLAYGROUND_RATE_WINDOW,
+) -> tuple[bool, int]:
     """Check whether the client IP is within the rate limit.
 
     Returns:
         (allowed, retry_after_seconds)
     """
     now = time.monotonic()
-    cutoff = now - _PLAYGROUND_RATE_WINDOW
+    cutoff = now - window
 
     timestamps = _request_timestamps.get(client_ip, [])
     # Prune old entries
     timestamps = [t for t in timestamps if t > cutoff]
 
-    if len(timestamps) >= _PLAYGROUND_RATE_LIMIT:
+    if len(timestamps) >= limit:
         oldest_in_window = timestamps[0]
-        retry_after = int(oldest_in_window + _PLAYGROUND_RATE_WINDOW - now) + 1
+        retry_after = int(oldest_in_window + window - now) + 1
         _request_timestamps[client_ip] = timestamps
         return False, max(retry_after, 1)
 
@@ -947,6 +951,7 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
         "/api/v1/playground/status",
+        "/api/v1/playground/tts",
     ]
 
     def __init__(self, ctx: dict | None = None):
@@ -958,6 +963,7 @@ class PlaygroundHandler(BaseHandler):
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
+            "/api/v1/playground/tts",
         )
 
     # ------------------------------------------------------------------
@@ -987,6 +993,99 @@ class PlaygroundHandler(BaseHandler):
         )
 
     # ------------------------------------------------------------------
+    # POST /api/v1/playground/tts — ElevenLabs TTS proxy
+    # ------------------------------------------------------------------
+
+    _TTS_RATE_LIMIT = 10  # requests per window
+    _TTS_RATE_WINDOW = 60.0  # seconds
+    _TTS_MAX_TEXT = 2000  # max characters
+    _TTS_VOICE_ID = "flHkNRp1BlvT73UL6gyz"  # Oracle voice
+    _TTS_MODEL = "eleven_multilingual_v2"
+
+    @handle_errors("playground TTS")
+    def _handle_tts(self, handler: Any) -> HandlerResult:
+        """Proxy text-to-speech through ElevenLabs, returning audio/mpeg."""
+        import urllib.request
+        import urllib.error
+
+        from aragora.config.secrets import get_secret
+
+        api_key = get_secret("ELEVENLABS_API_KEY")
+        if not api_key:
+            return error_response("TTS not configured", 503)
+
+        # Rate limit
+        client_ip = "unknown"
+        if handler and hasattr(handler, "client_address"):
+            addr = handler.client_address
+            if isinstance(addr, (list, tuple)) and len(addr) >= 1:
+                client_ip = str(addr[0])
+        allowed, retry_after = _check_rate_limit(
+            f"tts:{client_ip}",
+            limit=self._TTS_RATE_LIMIT,
+            window=self._TTS_RATE_WINDOW,
+        )
+        if not allowed:
+            return json_response(
+                {"error": "TTS rate limit exceeded", "retry_after": retry_after},
+                status=429,
+            )
+
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+        text = str(body.get("text", "") or "").strip()
+        if not text:
+            return error_response("Missing 'text' field", 400)
+        if len(text) > self._TTS_MAX_TEXT:
+            text = text[: self._TTS_MAX_TEXT]
+
+        import json as _json
+
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{self._TTS_VOICE_ID}"
+        payload = _json.dumps(
+            {
+                "text": text,
+                "model_id": self._TTS_MODEL,
+                "voice_settings": {
+                    "stability": 0.4,
+                    "similarity_boost": 0.8,
+                    "style": 0.6,
+                    "use_speaker_boost": True,
+                },
+            }
+        ).encode()
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                audio_bytes = resp.read()
+        except urllib.error.HTTPError as exc:
+            logger.warning("ElevenLabs TTS failed: %s", exc.code)
+            return error_response("TTS generation failed", 502)
+        except (urllib.error.URLError, TimeoutError):
+            logger.warning("ElevenLabs TTS timeout or network error")
+            return error_response("TTS service unavailable", 503)
+
+        return HandlerResult(
+            status=200,
+            body=audio_bytes,
+            headers={
+                "Content-Type": "audio/mpeg",
+                "Content-Length": str(len(audio_bytes)),
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
+    # ------------------------------------------------------------------
     # POST /api/v1/playground/debate
     # ------------------------------------------------------------------
 
@@ -997,6 +1096,8 @@ class PlaygroundHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
+        if path == "/api/v1/playground/tts":
+            return self._handle_tts(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
             return self._handle_cost_estimate(handler)
         if path == "/api/v1/playground/debate/live":

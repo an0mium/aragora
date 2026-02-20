@@ -256,6 +256,62 @@ export default function Oracle() {
   }, [apiBase]);
 
   // ------------------------------------------------------------------
+  // TTS — speak Oracle responses via ElevenLabs
+  // ------------------------------------------------------------------
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+
+  const speakText = useCallback(async (text: string) => {
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (!text || text.length < 5) return;
+
+    // Truncate very long text for TTS
+    const ttsText = text.length > 1500 ? text.slice(0, 1500) + '...' : text;
+
+    try {
+      setSpeaking(true);
+      const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: ttsText }),
+      });
+      if (!res.ok) {
+        console.warn('TTS failed:', res.status);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      audio.onerror = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      await audio.play();
+    } catch {
+      setSpeaking(false);
+    }
+  }, [apiBase]);
+
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setSpeaking(false);
+  }, []);
+
+  // ------------------------------------------------------------------
   // Two-phase oracle consultation
   // ------------------------------------------------------------------
   async function consultOracle(e: FormEvent) {
@@ -294,6 +350,8 @@ export default function Oracle() {
         timestamp: Date.now(),
         isLive: false,
       }]);
+      // Speak the Oracle's initial response
+      speakText(initialResponse);
     }
 
     setLoading(false);
@@ -320,13 +378,16 @@ export default function Oracle() {
 
       if (liveData.final_answer) {
         await new Promise((resolve) => setTimeout(resolve, 800));
+        const synthesis = formatSynthesis(liveData);
         setMessages((prev) => [...prev, {
           role: 'oracle',
-          content: formatSynthesis(liveData),
+          content: synthesis,
           mode,
           timestamp: Date.now(),
           isLive: true,
         }]);
+        // Speak the final synthesis
+        speakText(synthesis);
       }
     }
 
@@ -614,6 +675,16 @@ export default function Oracle() {
           >
             {loading ? '...' : debating ? '...' : 'SPEAK'}
           </button>
+          {speaking && (
+            <button
+              type="button"
+              onClick={stopSpeaking}
+              className="px-3 py-3 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] text-sm hover:bg-[var(--acid-cyan)]/20 transition-all rounded-xl"
+              title="Stop speaking"
+            >
+              &#x1F50A;
+            </button>
+          )}
         </form>
 
         {/* Chat area */}
