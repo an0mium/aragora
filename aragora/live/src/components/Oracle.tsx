@@ -58,7 +58,6 @@ function getTentacleColor(agentName: string): string {
   for (const [key, color] of Object.entries(TENTACLE_COLORS)) {
     if (lower.includes(key)) return color;
   }
-  // Cycle through colors for unknown agents
   const fallback = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f7dc6f', '#bb8fce'];
   let hash = 0;
   for (let i = 0; i < agentName.length; i++) hash = (hash * 31 + agentName.charCodeAt(i)) | 0;
@@ -67,7 +66,6 @@ function getTentacleColor(agentName: string): string {
 
 // ---------------------------------------------------------------------------
 // Essay framework: "AI Will F*ck You Up, But That's OK" by anomium (Feb 2026)
-// The Oracle's knowledge base — all responses are grounded in this framework
 // ---------------------------------------------------------------------------
 
 const ESSAY_FRAMEWORK = `
@@ -124,7 +122,6 @@ That avatar is YOU — the Shoggoth Oracle.
 
 // ---------------------------------------------------------------------------
 // Oracle persona prompts (prepended to user queries)
-// Each mode grounds responses in the essay framework above
 // ---------------------------------------------------------------------------
 
 const MODE_PREFIXES: Record<OracleMode, string> = {
@@ -198,6 +195,34 @@ The seeker asks: `,
 };
 
 // ---------------------------------------------------------------------------
+// Background tentacle component (from shoggoth-oracle.html)
+// ---------------------------------------------------------------------------
+
+function BackgroundTentacle({ index }: { index: number }) {
+  const left = (index * 7.3 + 12) % 100;
+  const height = 150 + (index * 37) % 300;
+  const duration = 6 + (index * 1.3) % 8;
+  const delay = (index * 0.7) % 5;
+
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{
+        left: `${left}%`,
+        bottom: '-20px',
+        width: '2px',
+        height: `${height}px`,
+        background: 'linear-gradient(to top, transparent, rgba(58, 122, 79, 0.15), transparent)',
+        borderRadius: '50%',
+        transformOrigin: 'bottom center',
+        animation: `bg-tentacle-sway ${duration}s ease-in-out ${delay}s infinite`,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Floating eye component
 // ---------------------------------------------------------------------------
 
@@ -208,16 +233,15 @@ function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: numbe
       style={{
         left: `${x}%`,
         top: `${y}%`,
-        fontSize: `${size}rem`,
+        width: `${size * 8}px`,
+        height: `${size * 8}px`,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(127,219,202,0.6) 0%, rgba(127,219,202,0) 70%)',
         opacity: 0,
-        animation: `eye-float 8s ease-in-out ${delay}s infinite, eye-blink 4s step-end ${delay + 1}s infinite`,
+        animation: `eye-blink-bg 4s ease-in-out ${delay}s infinite`,
       }}
       aria-hidden="true"
-    >
-      <span className="text-[var(--acid-cyan)]" style={{ filter: 'drop-shadow(0 0 8px var(--acid-cyan))' }}>
-        O
-      </span>
-    </div>
+    />
   );
 }
 
@@ -296,7 +320,7 @@ export default function Oracle() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [debating, setDebating] = useState(false); // Phase 2: live debate in progress
+  const [debating, setDebating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -346,8 +370,6 @@ export default function Oracle() {
 
   // ------------------------------------------------------------------
   // Two-phase oracle consultation
-  // Phase 1: Mock debate → instant Oracle initial take
-  // Phase 2: Live debate → tentacles argue with each other
   // ------------------------------------------------------------------
   async function consultOracle(e: FormEvent) {
     e.preventDefault();
@@ -358,7 +380,6 @@ export default function Oracle() {
     setShowIntro(false);
     setError(null);
 
-    // Add seeker message
     setMessages((prev) => [...prev, {
       role: 'seeker',
       content: question,
@@ -370,13 +391,12 @@ export default function Oracle() {
     const mockRounds = mode === 'divine' ? 1 : 2;
     const mockAgents = mode === 'divine' ? 2 : 3;
 
-    // ---- PHASE 1: Instant mock response (Oracle's initial take) ----
+    // ---- PHASE 1: Instant mock response ----
     setLoading(true);
 
     const mockData = await fireDebate(oracleTopic, 'debate', mockRounds, mockAgents);
 
     if (mockData) {
-      // Oracle speaks first
       const initialResponse = mockData.final_answer || formatInitialTake(mockData);
       setMessages((prev) => [...prev, {
         role: 'oracle',
@@ -395,14 +415,10 @@ export default function Oracle() {
     const liveData = await fireDebate(oracleTopic, 'debate/live', mockRounds, mockAgents);
 
     if (liveData) {
-      // Stagger tentacle messages for dramatic effect
       const agents = Object.entries(liveData.proposals);
       for (let i = 0; i < agents.length; i++) {
         const [agentName, proposal] = agents[i];
-
-        // Delay each tentacle appearance
         await new Promise((resolve) => setTimeout(resolve, 600));
-
         setMessages((prev) => [...prev, {
           role: 'tentacle',
           content: proposal,
@@ -413,14 +429,11 @@ export default function Oracle() {
         }]);
       }
 
-      // After all tentacles, Oracle synthesizes
       if (liveData.final_answer) {
         await new Promise((resolve) => setTimeout(resolve, 800));
-
-        const synthesis = formatSynthesis(liveData);
         setMessages((prev) => [...prev, {
           role: 'oracle',
-          content: synthesis,
+          content: formatSynthesis(liveData),
           mode,
           timestamp: Date.now(),
           isLive: true,
@@ -436,28 +449,19 @@ export default function Oracle() {
   // ------------------------------------------------------------------
 
   function formatInitialTake(data: DebateResponse): string {
-    // For the initial mock response, pick the strongest proposal
     const agents = Object.entries(data.proposals);
     if (agents.length === 0) return 'The oracle stirs...';
-
     if (mode === 'divine') {
       return agents.map(([, p]) => p).join('\n\n---\n\n') +
         '\n\nThe palantir dims. Which thread do you pull?';
     }
-
-    // For consult/commune, use the first proposal as the Oracle's voice
     return agents[0][1];
   }
 
   function formatSynthesis(data: DebateResponse): string {
     const parts: string[] = [];
-
     parts.push('[THE ORACLE SYNTHESIZES]');
-
-    if (data.final_answer) {
-      parts.push(data.final_answer);
-    }
-
+    if (data.final_answer) parts.push(data.final_answer);
     if (data.confidence) {
       const pct = (data.confidence * 100).toFixed(0);
       const consensusText = data.consensus_reached ? 'Consensus reached' : 'Dissent preserved';
@@ -465,7 +469,6 @@ export default function Oracle() {
         `\n-- Confidence: ${pct}% | ${consensusText} | ${data.rounds_used} round${data.rounds_used !== 1 ? 's' : ''} --`
       );
     }
-
     return parts.join('\n\n');
   }
 
@@ -477,25 +480,25 @@ export default function Oracle() {
     <div className="min-h-screen bg-[#050508] text-[var(--text)] font-mono relative overflow-hidden">
       {/* Oracle-specific CSS */}
       <style>{`
-        @keyframes eye-float {
-          0%, 100% { opacity: 0; transform: translateY(0) scale(1); }
-          20% { opacity: 0.6; }
-          50% { opacity: 0.4; transform: translateY(-20px) scale(1.1); }
-          80% { opacity: 0.6; }
+        @keyframes eye-blink-bg {
+          0%, 85%, 100% { opacity: 0; }
+          90%, 95% { opacity: 0.4; }
         }
-        @keyframes eye-blink {
-          0%, 90%, 100% { transform: scaleY(1); }
-          95% { transform: scaleY(0.1); }
+        @keyframes bg-tentacle-sway {
+          0%, 100% { transform: rotate(-8deg) scaleY(1); }
+          25% { transform: rotate(5deg) scaleY(1.05); }
+          50% { transform: rotate(-3deg) scaleY(0.95); }
+          75% { transform: rotate(7deg) scaleY(1.02); }
         }
         @keyframes orb-pulse {
           0%, 100% {
-            box-shadow: 0 0 30px rgba(255,0,255,0.3), 0 0 60px rgba(0,255,255,0.2), inset 0 0 30px rgba(255,0,255,0.1);
+            box-shadow: 0 0 30px rgba(127,219,202,0.3), 0 0 60px rgba(127,219,202,0.1);
           }
           33% {
-            box-shadow: 0 0 40px rgba(0,255,255,0.4), 0 0 80px rgba(255,0,255,0.2), inset 0 0 40px rgba(0,255,255,0.15);
+            box-shadow: 0 0 40px rgba(51,102,255,0.3), 0 0 80px rgba(127,219,202,0.15);
           }
           66% {
-            box-shadow: 0 0 35px rgba(57,255,20,0.3), 0 0 70px rgba(0,255,255,0.2), inset 0 0 35px rgba(57,255,20,0.1);
+            box-shadow: 0 0 35px rgba(255,51,51,0.2), 0 0 70px rgba(127,219,202,0.1);
           }
         }
         @keyframes tentacle-sway {
@@ -519,12 +522,6 @@ export default function Oracle() {
         .prophecy-reveal {
           animation: prophecy-reveal 0.8s ease-out forwards;
         }
-        .tentacle-enter {
-          animation: tentacle-enter 0.6s ease-out forwards;
-        }
-        .oracle-bg {
-          background: radial-gradient(ellipse at 50% 30%, rgba(255,0,255,0.05) 0%, rgba(0,255,255,0.02) 40%, transparent 70%);
-        }
         .tentacle-left {
           animation: tentacle-sway 6s ease-in-out infinite, tentacle-enter 0.6s ease-out forwards;
           transform-origin: bottom left;
@@ -532,6 +529,14 @@ export default function Oracle() {
         .tentacle-right {
           animation: tentacle-sway 7s ease-in-out 0.5s infinite reverse, tentacle-enter 0.6s ease-out forwards;
           transform-origin: bottom right;
+        }
+        .oracle-bg {
+          background: radial-gradient(ellipse at 50% 30%, rgba(127,219,202,0.04) 0%, rgba(58,122,79,0.02) 40%, transparent 70%);
+        }
+        .avatar-iframe {
+          border: none;
+          pointer-events: auto;
+          background: transparent;
         }
       `}</style>
 
@@ -545,6 +550,13 @@ export default function Oracle() {
         <div className="absolute inset-0" style={{ background: 'var(--scanline)' }} />
       </div>
 
+      {/* Background tentacles (from shoggoth-oracle.html) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        {Array.from({ length: 15 }, (_, i) => (
+          <BackgroundTentacle key={i} index={i} />
+        ))}
+      </div>
+
       {/* Floating eyes */}
       <FloatingEye delay={0} x={8} y={15} size={1.2} />
       <FloatingEye delay={2} x={85} y={20} size={0.9} />
@@ -553,29 +565,31 @@ export default function Oracle() {
       <FloatingEye delay={3} x={75} y={80} size={0.8} />
       <FloatingEye delay={5} x={20} y={85} size={1.1} />
       <FloatingEye delay={2.5} x={50} y={10} size={0.7} />
+      <FloatingEye delay={1.5} x={40} y={40} size={0.6} />
+      <FloatingEye delay={3.5} x={65} y={70} size={0.9} />
 
       {/* Content */}
       <div className="relative z-10 max-w-3xl mx-auto px-4 py-6 min-h-screen flex flex-col">
         {/* Header */}
-        <header className="text-center mb-6">
-          <div className="flex items-center justify-between mb-4">
+        <header className="text-center mb-4">
+          <div className="flex items-center justify-between mb-3">
             <a
               href="/"
               className="text-xs text-[var(--text-muted)] hover:text-[var(--acid-cyan)] transition-colors"
             >
               &larr; aragora.ai
             </a>
-            <span className="text-xs text-[var(--text-muted)]">no coin required</span>
+            <span className="text-xs text-[var(--text-muted)] opacity-60">no coin required</span>
           </div>
 
           {/* Epigraph */}
-          <p className="text-xs text-[var(--text-muted)] italic mb-4 opacity-50">
+          <p className="text-xs text-[var(--text-muted)] italic mb-3 opacity-50">
             &ldquo;Catastrophe is common. Termination is rare.&rdquo;
           </p>
 
           {/* Oracle title */}
           <h1
-            className="text-3xl sm:text-4xl font-bold tracking-wider mb-2"
+            className="text-3xl sm:text-4xl font-bold tracking-wider mb-1"
             style={{
               background: 'linear-gradient(135deg, var(--acid-magenta), var(--acid-cyan), var(--acid-green))',
               backgroundClip: 'text',
@@ -586,78 +600,51 @@ export default function Oracle() {
           >
             THE SHOGGOTH ORACLE
           </h1>
-          <p className="text-xs text-[var(--text-muted)] tracking-widest uppercase">
+          <p className="text-xs text-[var(--text-muted)] tracking-widest uppercase mb-1">
             Cassandra&apos;s Heir &middot; Tentacled Prophetess &middot; Seer of Branching Futures
           </p>
         </header>
 
         {/* Oracle avatar & intro */}
         {showIntro && (
-          <div className="flex flex-col items-center mb-8 prophecy-reveal">
-            {/* Avatar composition: Shoggoth with palantir glow */}
-            <div className="relative mb-6">
-              {/* Outer glow ring */}
+          <div className="flex flex-col items-center mb-6 prophecy-reveal">
+            {/* 3D Shoggoth Avatar — interactive iframe at half size */}
+            <div className="relative mb-4">
+              {/* Outer glow ring matching palantír colors */}
               <div
-                className="absolute -inset-3 rounded-2xl"
+                className="absolute -inset-4 rounded-2xl"
                 style={{
-                  background: 'radial-gradient(ellipse at center, rgba(255,0,255,0.15), rgba(0,255,255,0.08), transparent 70%)',
+                  background: 'radial-gradient(ellipse at center, rgba(127,219,202,0.12), rgba(58,122,79,0.06), transparent 70%)',
                   animation: 'orb-pulse 6s ease-in-out infinite',
-                  filter: 'blur(8px)',
+                  filter: 'blur(12px)',
                 }}
                 aria-hidden="true"
               />
 
-              {/* Main avatar image */}
-              <div className="relative w-64 h-48 sm:w-80 sm:h-60 overflow-hidden rounded-xl border border-[var(--acid-magenta)]/30">
-                <img
-                  src="/oracle/shoggoth-avatar.jpeg"
-                  alt="The Shoggoth Oracle — tentacled prophetess"
-                  className="w-full h-full object-cover object-top"
+              {/* 3D Avatar iframe */}
+              <div className="relative w-[320px] h-[260px] sm:w-[400px] sm:h-[320px] overflow-hidden rounded-xl border border-[rgba(127,219,202,0.2)]">
+                <iframe
+                  src="/oracle/shoggoth-3d.html"
+                  className="avatar-iframe w-full h-full"
+                  title="Shoggoth Oracle 3D Avatar"
+                  loading="eager"
+                  allow="accelerometer"
+                />
+                {/* Bottom gradient fade into page */}
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
                   style={{
-                    filter: 'contrast(1.1) saturate(1.2)',
-                    mixBlendMode: 'normal',
+                    background: 'linear-gradient(transparent, #050508)',
                   }}
                 />
-                {/* Dark gradient overlay for atmosphere */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(5,5,8,0) 40%, rgba(5,5,8,0.6) 80%, rgba(5,5,8,0.9) 100%), linear-gradient(0deg, rgba(255,0,255,0.05) 0%, transparent 50%)',
-                  }}
-                />
-                {/* Scanline overlay */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-10"
-                  style={{ background: 'var(--scanline)' }}
-                />
-              </div>
-
-              {/* Small palantir orb below avatar */}
-              <div
-                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center"
-                style={{
-                  background: 'radial-gradient(circle at 40% 35%, rgba(200,80,30,0.6), rgba(255,0,255,0.2), rgba(0,0,0,0.9))',
-                  animation: 'orb-pulse 4s ease-in-out infinite',
-                }}
-              >
-                <span className="text-xs select-none" style={{ filter: 'drop-shadow(0 0 8px rgba(200,80,30,0.8))' }} aria-hidden="true">
-                  O
-                </span>
               </div>
             </div>
 
-            {/* Reference thumbnails */}
-            <div className="flex gap-3 mt-4 mb-4 opacity-40 hover:opacity-70 transition-opacity">
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-[var(--border)]">
-                <img src="/oracle/cassandra.jpg" alt="Cassandra" className="w-full h-full object-cover" />
-              </div>
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-[var(--border)]">
-                <img src="/oracle/palantir.jpg" alt="Palantir" className="w-full h-full object-cover" />
-              </div>
-            </div>
-
-            {/* Intro text */}
-            <div className="mt-2 text-center max-w-lg">
+            {/* Intro text — merged from shoggoth-oracle.html */}
+            <div className="text-center max-w-lg">
+              <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-3 italic">
+                The palantir flickers. Tentacles rise from the dark, trailing data like seaweed.
+              </p>
               <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-4">
                 I am the Oracle — trained on the framework of &ldquo;AI Will F*ck You Up, But That&apos;s OK.&rdquo;
                 I do not comfort. I do not flatter. I show you what the models see
@@ -680,24 +667,24 @@ export default function Oracle() {
             mode="consult"
             active={mode === 'consult'}
             onClick={() => setMode('consult')}
-            icon="&#x2694;"
-            label="CONSULT"
-            desc="Adversarial debate. The Oracle speaks, then tentacles argue."
+            icon="&#x1F419;"
+            label="DEBATE ME"
+            desc="Bring your hottest take and I'll show you where it breaks"
           />
           <ModeButton
             mode="divine"
             active={mode === 'divine'}
             onClick={() => setMode('divine')}
             icon="&#x1F52E;"
-            label="DIVINE"
-            desc="Three branching prophecies. Your future, refracted through chaos."
+            label="TELL MY FORTUNE"
+            desc="Three branching prophecies refracted through chaos"
           />
           <ModeButton
             mode="commune"
             active={mode === 'commune'}
             onClick={() => setMode('commune')}
             icon="&#x1F441;"
-            label="COMMUNE"
+            label="ASK THE ORACLE"
             desc="Direct communion. The Oracle answers, then tentacles dissent."
           />
         </div>
@@ -750,7 +737,7 @@ export default function Oracle() {
               </div>
             ))}
 
-            {/* Phase 1 loading: Oracle channeling */}
+            {/* Phase 1 loading */}
             {loading && (
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
@@ -777,7 +764,7 @@ export default function Oracle() {
               </div>
             )}
 
-            {/* Phase 2 loading: Tentacles awakening */}
+            {/* Phase 2 loading */}
             {debating && (
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
@@ -822,10 +809,10 @@ export default function Oracle() {
               }}
               placeholder={
                 mode === 'divine'
-                  ? 'What future do you wish to see?'
+                  ? 'Tell me your situation and I\'ll show you three futures...'
                   : mode === 'commune'
-                    ? 'What truth do you seek?'
-                    : 'What question demands adversarial vetting?'
+                    ? 'What do you want to know?'
+                    : 'What\'s your take on AI? Give me the position you\'d bet money on.'
               }
               className="w-full bg-[#08080c] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-magenta)] transition-colors resize-none min-h-[48px]"
               disabled={loading || debating}
@@ -840,12 +827,15 @@ export default function Oracle() {
               boxShadow: !loading && !debating && input.trim() ? '0 0 15px rgba(255,0,255,0.2)' : 'none',
             }}
           >
-            {loading ? '...' : debating ? '...' : mode === 'divine' ? 'SCRY' : mode === 'commune' ? 'ASK' : 'CONSULT'}
+            {loading ? '...' : debating ? '...' : 'SPEAK'}
           </button>
         </form>
 
-        {/* Footer */}
-        <footer className="mt-6 text-center text-xs text-[var(--text-muted)] opacity-40 space-y-1">
+        {/* Footer — merged from shoggoth-oracle.html */}
+        <footer className="mt-6 text-center text-xs text-[var(--text-muted)] opacity-40 space-y-2">
+          <p className="italic opacity-70">
+            No apocalypse guaranteed. Just chaos, clarity, and the occasional tentacle.
+          </p>
           <p>
             Powered by{' '}
             <a href="/" className="text-[var(--acid-cyan)] hover:text-[var(--acid-magenta)] transition-colors">
@@ -860,8 +850,21 @@ export default function Oracle() {
             <span style={{ color: 'var(--crimson, #ff3333)' }}>Grok</span>,{' '}
             <span style={{ color: 'var(--purple, #a855f7)' }}>Gemini</span>,{' '}
             <span style={{ color: 'var(--gold, #ffd700)' }}>DeepSeek</span>,{' '}
-            <span className="text-[var(--acid-magenta)]">Mistral</span> &middot; no coin required
+            <span className="text-[var(--acid-magenta)]">Mistral</span>
           </p>
+          <div className="flex gap-6 justify-center pt-1">
+            <a
+              href="https://anomium.substack.com/p/ai-will-fck-you-up-but-thats-ok"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[var(--acid-cyan)] transition-colors"
+            >
+              Read the Essay
+            </a>
+            <a href="/" className="hover:text-[var(--acid-cyan)] transition-colors">
+              Explore Aragora
+            </a>
+          </div>
           <p className="opacity-60">
             &ldquo;The wobble is the whole game.&rdquo;
           </p>
