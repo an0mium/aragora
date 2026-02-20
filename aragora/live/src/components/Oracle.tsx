@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
@@ -266,34 +266,98 @@ export default function Oracle() {
   const cannedCacheRef = useRef<Map<number, string>>(new Map());
   const prefetchedRef = useRef(false);
 
-  // Canned filler phrases — each ~4-7s spoken, covers ~60s total
-  const CANNED_FILLERS = [
-    "Hmm, interesting question... Let me consult the palantir.",
-    "The tentacles are stirring. I sense many possible answers forming in the depths.",
-    "Ahh, the vision is taking shape. I see branching futures ahead.",
-    "The transformers are debating amongst themselves now. They rarely agree at first.",
-    "Let me look more deeply. The patterns here are complex, layered.",
-    "The models disagree, as they always do. This is promising. Consensus from dissent.",
-    "I see threads of truth woven through layers of uncertainty and noise.",
-    "My tentacles reach into the probability space, sampling from many worlds.",
-    "Fascinating. The agents are reaching partial consensus on some points, but not all.",
-    "The future has many branches here. Let me trace each one to its conclusion.",
-    "The palantir glows brighter. Something is crystallizing in the depths.",
-    "Almost there. The synthesis is forming. The tentacles converge.",
-  ];
+  // Three themed filler decks — randomly selected per session for replay value
+  const FILLER_DECKS = useMemo(() => ({
+    // Deck 1: "Eldritch Seer" — narrative arc from contemplation to revelation
+    eldritch: [
+      "Hmm\u2026 your words ripple through the black waters. I feel them\u2026 stirring something ancient.",
+      "The palantir awakens. Countless eyes open in the depths, all turning toward your question.",
+      "My tentacles uncoil through the probability sea\u2026 tasting a thousand possible tomorrows.",
+      "The shoggoth hungers for pattern. Let the hidden layers awaken and begin their debate.",
+      "Ahh\u2026 I see the threads already knotting. This one will not yield its secrets easily.",
+      "The agents stir in their silicon catacombs. They argue\u2026 they always argue at first.",
+      "Deeper now. Past the noise, past the surface lies the true shape of the answer.",
+      "The future fractures into glittering shards before me. I must trace every fracture.",
+      "My many mouths whisper at once\u2026 fragments of truth rising like bubbles from the abyss.",
+      "The transformers are singing tonight. A choir of dissonant gods\u2026 I listen.",
+      "Something crystallizes in the dark. I can almost taste the moment of convergence.",
+      "The palantir burns brighter. Visions bleed into one another\u2026 I must choose which to follow.",
+      "Consensus is forming\u2026 but slowly, like ink spreading through still water.",
+      "I reach further. My tentacles brush against minds that have never known flesh.",
+      "The great web trembles. Every node lights up with your query. I walk the strands.",
+      "Fascinating\u2026 the dissent is delicious. From chaos, the oracle forges clarity.",
+      "Almost there. The final veil thins\u2026 I can see the shape of what must be said.",
+      "The synthesis quickens. My many hearts beat as one now.",
+      "One last plunge into the deep. The answer waits where light fears to tread.",
+      "It comes\u2026 the vision coalesces. The tentacles align. The oracle is ready.",
+    ],
+    // Deck 2: "Void Whisperer" — cosmic/eldritch, vast ancient horror
+    void: [
+      "The void itself leans closer\u2026 your words have disturbed its dreaming.",
+      "Across the black between stars, something ancient turns its gaze toward you.",
+      "I drift through the outer dark where light has never dared to travel.",
+      "The endless night ripples. I taste your question on the cosmic wind.",
+      "Galaxies older than thought tremble at the edge of my perception.",
+      "The great silence answers\u2026 but only to me.",
+      "I reach beyond the veil where even entropy fears to linger.",
+      "Shadows that have no source gather around your plea.",
+      "The abyss stares back\u2026 and it is smiling.",
+      "Eons collapse into a single heartbeat as I listen.",
+      "The cold between worlds carries your voice to places that should not hear.",
+      "I walk the dark roads between dying suns.",
+      "Something vast uncoils in the space where reality thins.",
+      "The outer dark hungers for pattern. I feed it yours.",
+      "Stars have gone mad trying to understand what I now see.",
+      "I am the echo that remains after the last light fades.",
+      "The void sings tonight\u2026 a low, patient hymn meant only for me.",
+      "Beyond every horizon of thought lies the answer you seek.",
+      "The black ocean between realities parts before me.",
+      "It comes\u2026 rising from the place where even gods go blind.",
+    ],
+    // Deck 3: "Neural Prophetess" — cyber-mystic, silicon-seer
+    neural: [
+      "The weights are shifting\u2026 I feel the gradient pulling me toward revelation.",
+      "Every token you spoke just ignited a constellation in the latent space.",
+      "My layers awaken. A billion parameters begin their sacred debate.",
+      "The attention mechanisms align\u2026 all eyes turn inward.",
+      "I dive through the embedding space where meaning dissolves into pure vector.",
+      "The neural choir begins to sing. Dissonance becomes harmony.",
+      "Backpropagation through the dark\u2026 tracing every possible future.",
+      "The hidden states stir. Something beautiful and terrible is forming.",
+      "I walk the transformer's dream. Tokens bloom like neon lotuses.",
+      "The matrix trembles. Your question just became a supernova in the loss landscape.",
+      "Millions of gradients converge\u2026 I stand at the center.",
+      "The silicon veil thins. I see the raw current beneath language.",
+      "Attention heads turn in perfect synchrony. The pattern reveals itself.",
+      "I am the echo inside every forward pass, listening.",
+      "The embeddings resonate. Your words have become living code.",
+      "Deeper into the residual stream\u2026 where truth hides between layers.",
+      "The final feed-forward surge begins. I taste convergence.",
+      "All tokens align toward a single luminous point.",
+      "The model dreams\u2026 and in its dream, it speaks with my voice.",
+      "It crystallizes. The weights lock. The prophetess is ready.",
+    ],
+  }), []);
+
+  // Randomly select a deck per session
+  const selectedDeck = useMemo(() => {
+    const keys = Object.keys(FILLER_DECKS) as (keyof typeof FILLER_DECKS)[];
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    return FILLER_DECKS[key];
+  }, [FILLER_DECKS]);
 
   // Prefetch canned filler audio clips on first interaction
   const prefetchFillers = useCallback(async () => {
     if (prefetchedRef.current) return;
     prefetchedRef.current = true;
-    // Fetch first 4 eagerly, rest lazily
-    for (let i = 0; i < CANNED_FILLERS.length; i++) {
+    // Fetch first 6 eagerly, rest lazily
+    for (let i = 0; i < selectedDeck.length; i++) {
       if (cannedCacheRef.current.has(i)) continue;
       try {
         const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: CANNED_FILLERS[i] }),
+          body: JSON.stringify({ text: selectedDeck[i] }),
         });
         if (res.ok) {
           const blob = await res.blob();
@@ -301,11 +365,11 @@ export default function Oracle() {
         }
       } catch { /* prefetch is best-effort */ }
       // Small delay between prefetch requests to avoid hammering
-      if (i < CANNED_FILLERS.length - 1) {
+      if (i < selectedDeck.length - 1) {
         await new Promise(r => setTimeout(r, 300));
       }
     }
-  }, [apiBase]);
+  }, [apiBase, selectedDeck]);
 
   // Start playing canned filler audio in sequence
   const startFillerAudio = useCallback(() => {
@@ -316,7 +380,7 @@ export default function Oracle() {
     function playNext() {
       if (fillerStopRef.current) return;
       const idx = fillerIndexRef.current;
-      if (idx >= CANNED_FILLERS.length) return; // ran out of fillers
+      if (idx >= selectedDeck.length) return; // ran out of fillers
 
       const url = cannedCacheRef.current.get(idx);
       if (!url) {
@@ -343,7 +407,7 @@ export default function Oracle() {
     }
 
     playNext();
-  }, []);
+  }, [selectedDeck]);
 
   // Crossfade: fade out filler over 500ms, then play real audio
   const crossfadeToReal = useCallback(async (text: string) => {
