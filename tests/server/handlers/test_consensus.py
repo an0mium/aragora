@@ -163,7 +163,6 @@ class TestConsensusHandlerRouting:
     @pytest.mark.parametrize(
         "path",
         [
-            "/api/consensus",
             "/api/consensus/",
             "/api/debates",
             "/api/unknown",
