@@ -524,15 +524,19 @@ class PlaygroundHandler(BaseHandler):
         agent_count: int,
         question: str | None = None,
     ) -> HandlerResult:
-        # Try the full aragora-debate package first
-        try:
-            return self._run_debate_with_package(topic, rounds, agent_count, question=question)
-        except ImportError:
-            logger.info("aragora-debate not installed, using inline mock debate")
-        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
-            logger.exception("aragora-debate failed, falling back to inline mock")
+        # When a raw question is provided (e.g. from Oracle), use the inline
+        # mock directly — it's question-aware and will reference the actual
+        # question.  The aragora-debate package's StyledMockAgent has hardcoded
+        # proposals that ignore the prompt entirely.
+        if not question:
+            try:
+                return self._run_debate_with_package(topic, rounds, agent_count, question=question)
+            except ImportError:
+                logger.info("aragora-debate not installed, using inline mock debate")
+            except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
+                logger.exception("aragora-debate failed, falling back to inline mock")
 
-        # Fallback: inline mock debate (no external dependencies)
+        # Inline mock debate (question-aware)
         try:
             return json_response(_run_inline_mock_debate(topic, rounds, agent_count, question=question))
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
