@@ -371,22 +371,41 @@ export default function Oracle() {
     }
   }, [apiBase, selectedDeck]);
 
-  // Start playing canned filler audio in sequence
+  // Start playing canned filler audio in sequence (fetches on-demand if not cached)
   const startFillerAudio = useCallback(() => {
     fillerStopRef.current = false;
     fillerIndexRef.current = 0;
     setSpeaking(true);
 
-    function playNext() {
+    async function playNext() {
       if (fillerStopRef.current) return;
       const idx = fillerIndexRef.current;
       if (idx >= selectedDeck.length) return; // ran out of fillers
 
-      const url = cannedCacheRef.current.get(idx);
+      let url = cannedCacheRef.current.get(idx);
+
+      // Fetch on-demand if not yet cached (prefetch may still be running)
       if (!url) {
-        // Skip if not prefetched yet
+        try {
+          const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: selectedDeck[idx] }),
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            url = URL.createObjectURL(blob);
+            cannedCacheRef.current.set(idx, url);
+          }
+        } catch { /* best effort */ }
+      }
+
+      if (fillerStopRef.current) return; // check again after async fetch
+
+      if (!url) {
+        // TTS failed for this clip — skip to next
         fillerIndexRef.current = idx + 1;
-        setTimeout(playNext, 500);
+        setTimeout(playNext, 200);
         return;
       }
 
@@ -403,11 +422,15 @@ export default function Oracle() {
         fillerIndexRef.current = idx + 1;
         if (!fillerStopRef.current) setTimeout(playNext, 500);
       };
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        // Autoplay blocked — try next
+        fillerIndexRef.current = idx + 1;
+        if (!fillerStopRef.current) setTimeout(playNext, 200);
+      });
     }
 
     playNext();
-  }, [selectedDeck]);
+  }, [apiBase, selectedDeck]);
 
   // Crossfade: fade out filler over 500ms, then play real audio
   const crossfadeToReal = useCallback(async (text: string) => {
@@ -1054,8 +1077,16 @@ export default function Oracle() {
 
         {/* Error */}
         {error && (
-          <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-3 mb-4 text-sm text-[var(--crimson)] rounded-xl">
-            {error}
+          <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-3 mb-4 text-sm text-[var(--crimson)] rounded-xl flex items-center justify-between gap-3">
+            <span>{error}</span>
+            {/auth|unauthorized|401|login/i.test(error) && (
+              <a
+                href={`/login?redirect=${encodeURIComponent('/oracle')}`}
+                className="shrink-0 px-3 py-1 border border-[var(--acid-cyan)]/60 text-[var(--acid-cyan)] text-xs font-bold hover:bg-[var(--acid-cyan)]/10 transition-colors rounded-lg whitespace-nowrap"
+              >
+                Log in to continue
+              </a>
+            )}
           </div>
         )}
 

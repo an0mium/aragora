@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
@@ -14,6 +14,8 @@ import { TopBar } from '@/components/layout/TopBar';
  */
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/';
   const { login, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +30,7 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
-      router.push('/');
+      router.push(redirectTo);
     } else {
       setError(result.error || 'Login failed');
     }
