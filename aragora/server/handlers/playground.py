@@ -254,9 +254,9 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     {"provider": "anthropic", "model": "claude-sonnet-4-6", "name": "claude", "env": "ANTHROPIC_API_KEY"},
     {"provider": "openai", "model": "gpt-5.2", "name": "gpt", "env": "OPENAI_API_KEY"},
     {"provider": "xai", "model": "grok-4.2", "name": "grok", "env": "XAI_API_KEY"},
-    {"provider": "openrouter", "model": "deepseek/deepseek-chat-v3-0324", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
+    {"provider": "openrouter", "model": "deepseek/deepseek-v3.2", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
     {"provider": "google", "model": "gemini-3-pro-preview", "name": "gemini", "env": "GEMINI_API_KEY"},
-    {"provider": "openrouter", "model": "mistralai/mistral-large-latest", "name": "mistral", "env": "OPENROUTER_API_KEY"},
+    {"provider": "openrouter", "model": "mistralai/mistral-large-2512", "name": "mistral", "env": "OPENROUTER_API_KEY"},
 ]
 
 
