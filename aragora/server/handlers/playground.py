@@ -131,11 +131,13 @@ _AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]]
 # Inline mock debate (fallback when aragora-debate is not installed)
 # ---------------------------------------------------------------------------
 
-def _build_mock_proposals(topic: str) -> dict[str, list[str]]:
+def _build_mock_proposals(topic: str, question: str | None = None) -> dict[str, list[str]]:
     """Build topic-aware mock proposals instead of canned microservices text."""
-    # Use first ~200 chars of topic as context snippet
-    snippet = topic[:200].strip()
-    if len(topic) > 200:
+    # If a raw question was provided (e.g. from Oracle mode), use it for the snippet
+    # instead of the full system-prompt-laden topic
+    source = question or topic
+    snippet = source[:200].strip()
+    if len(source) > 200:
         snippet = snippet.rsplit(" ", 1)[0] + "..."
 
     return {
@@ -239,6 +241,7 @@ def _run_inline_mock_debate(
     topic: str,
     rounds: int,
     agent_count: int,
+    question: str | None = None,
 ) -> dict[str, Any]:
     """Run a mock debate without the aragora-debate package."""
     start = time.monotonic()
@@ -247,7 +250,7 @@ def _run_inline_mock_debate(
     names = [all_names[i] if i < len(all_names) else f"agent_{i}" for i in range(agent_count)]
     styles = [_AGENT_STYLES[i % len(_AGENT_STYLES)] for i in range(agent_count)]
 
-    topic_proposals = _build_mock_proposals(topic)
+    topic_proposals = _build_mock_proposals(topic, question=question)
     proposals: dict[str, str] = {}
     for name, style in zip(names, styles):
         proposals[name] = random.choice(topic_proposals[style])
@@ -270,8 +273,9 @@ def _run_inline_mock_debate(
 
     votes: list[dict[str, Any]] = []
     vote_tally: dict[str, float] = {}
-    topic_snippet = topic[:80] if topic else "the proposal"
-    if len(topic) > 80:
+    vote_source = question or topic
+    topic_snippet = vote_source[:80] if vote_source else "the proposal"
+    if len(vote_source) > 80:
         topic_snippet = topic_snippet.rsplit(" ", 1)[0] + "..."
     topic_snippet = topic_snippet.rstrip(".!? ")
     _vote_reasoning: dict[str, list[str]] = {
@@ -496,6 +500,9 @@ class PlaygroundHandler(BaseHandler):
                 400,
             )
 
+        # Raw question (separate from system-prompt-laden topic, e.g. from Oracle)
+        question = str(body.get("question", "") or "").strip() or None
+
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
         except (TypeError, ValueError):
@@ -508,17 +515,18 @@ class PlaygroundHandler(BaseHandler):
             agent_count = _DEFAULT_AGENTS
         agent_count = max(_MIN_AGENTS, min(agent_count, _MAX_AGENTS))
 
-        return self._run_debate(topic, rounds, agent_count)
+        return self._run_debate(topic, rounds, agent_count, question=question)
 
     def _run_debate(
         self,
         topic: str,
         rounds: int,
         agent_count: int,
+        question: str | None = None,
     ) -> HandlerResult:
         # Try the full aragora-debate package first
         try:
-            return self._run_debate_with_package(topic, rounds, agent_count)
+            return self._run_debate_with_package(topic, rounds, agent_count, question=question)
         except ImportError:
             logger.info("aragora-debate not installed, using inline mock debate")
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
@@ -526,7 +534,7 @@ class PlaygroundHandler(BaseHandler):
 
         # Fallback: inline mock debate (no external dependencies)
         try:
-            return json_response(_run_inline_mock_debate(topic, rounds, agent_count))
+            return json_response(_run_inline_mock_debate(topic, rounds, agent_count, question=question))
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
@@ -536,6 +544,7 @@ class PlaygroundHandler(BaseHandler):
         topic: str,
         rounds: int,
         agent_count: int,
+        question: str | None = None,
     ) -> HandlerResult:
         from aragora_debate.styled_mock import StyledMockAgent
         from aragora_debate.arena import Arena
@@ -555,7 +564,7 @@ class PlaygroundHandler(BaseHandler):
         )
 
         arena = Arena(
-            question=topic,
+            question=question or topic,
             agents=agents,  # type: ignore[arg-type]
             config=config,
         )
@@ -706,6 +715,9 @@ class PlaygroundHandler(BaseHandler):
                 400,
             )
 
+        # Raw question (separate from system-prompt-laden topic, e.g. from Oracle)
+        question = str(body.get("question", "") or "").strip() or None
+
         try:
             agent_count = int(body.get("agents", _DEFAULT_AGENTS))
         except (TypeError, ValueError):
@@ -727,7 +739,7 @@ class PlaygroundHandler(BaseHandler):
 
         if not has_api_keys:
             # Fall back to mock debate with a note
-            result = self._run_debate(topic, rounds, agent_count)
+            result = self._run_debate(topic, rounds, agent_count, question=question)
             if result is None:
                 return error_response("Playground unavailable", 503)
             # Inject mock fallback info into the response body
@@ -740,7 +752,24 @@ class PlaygroundHandler(BaseHandler):
             response_data["upgrade_cta"] = _build_upgrade_cta()
             return json_response(response_data, status=result.status_code)
 
-        return self._run_live_debate(topic, rounds, agent_count)
+        # Try live debate — fall back to mock if it fails
+        live_result = self._run_live_debate(topic, rounds, agent_count)
+        if live_result.status_code >= 500:
+            logger.warning(
+                "Live debate returned %d, falling back to mock debate",
+                live_result.status_code,
+            )
+            mock_result = self._run_debate(topic, rounds, agent_count, question=question)
+            if mock_result is not None:
+                import json as _json
+
+                response_data = _json.loads(mock_result.body.decode("utf-8"))
+                response_data["is_live"] = False
+                response_data["mock_fallback"] = True
+                response_data["mock_fallback_reason"] = "Live agents temporarily unavailable"
+                response_data["upgrade_cta"] = _build_upgrade_cta()
+                return json_response(response_data)
+        return live_result
 
     def _run_live_debate(
         self,

@@ -346,6 +346,7 @@ export default function Oracle() {
   // ------------------------------------------------------------------
   const fireDebate = useCallback(async (
     topic: string,
+    rawQuestion: string,
     endpoint: 'debate' | 'debate/live',
     rounds: number,
     agents: number,
@@ -354,7 +355,7 @@ export default function Oracle() {
       const res = await fetch(`${apiBase}/api/v1/playground/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, question: topic, rounds, agents }),
+        body: JSON.stringify({ topic, question: rawQuestion, rounds, agents }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -394,7 +395,7 @@ export default function Oracle() {
     // ---- PHASE 1: Instant mock response ----
     setLoading(true);
 
-    const mockData = await fireDebate(oracleTopic, 'debate', mockRounds, mockAgents);
+    const mockData = await fireDebate(oracleTopic, question, 'debate', mockRounds, mockAgents);
 
     if (mockData) {
       const initialResponse = mockData.final_answer || formatInitialTake(mockData);
@@ -412,7 +413,7 @@ export default function Oracle() {
     // ---- PHASE 2: Live debate (tentacles arguing) ----
     setDebating(true);
 
-    const liveData = await fireDebate(oracleTopic, 'debate/live', mockRounds, mockAgents);
+    const liveData = await fireDebate(oracleTopic, question, 'debate/live', mockRounds, mockAgents);
 
     if (liveData) {
       const agents = Object.entries(liveData.proposals);
