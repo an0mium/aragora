@@ -378,8 +378,13 @@ def _call_provider_llm(
 
     return None
 
-# Load the full essay once at module init (~48K words, ~88K tokens).
-# The essay is background knowledge — models reference it only when relevant.
+# Load the essay at module init.  We load TWO versions:
+# 1. The full essay (~48K words, ~88K tokens) — kept for reference/future use
+# 2. A hand-crafted condensed version (~4800 words, ~8K tokens) — used in prompts
+#
+# The condensed version preserves all 25 sections, key phrases, the clover metaphor,
+# P-doom decomposition, Shannon compressibility concept, and the essay's voice.
+# It's what gets sent to LLMs for real-time Oracle responses.
 _ORACLE_ESSAY = ""
 _ORACLE_ESSAY_CONDENSED = ""
 try:
@@ -388,39 +393,18 @@ try:
         _ORACLE_ESSAY = _f.read()
     logger.info("Loaded Oracle essay: %d chars", len(_ORACLE_ESSAY))
 except FileNotFoundError:
-    logger.warning("oracle_essay.md not found, Oracle will use prompts without essay")
+    logger.warning("oracle_essay.md not found")
 
-# Build condensed excerpt for real-time API calls (~5K tokens vs ~88K tokens).
-# Includes: thesis statement + framework overview + P-doom decomposition + clover
-# conclusion.  This gives the model the full intellectual DNA of the essay without
-# the prohibitive latency/cost of sending 357KB through an LLM API.
-if _ORACLE_ESSAY:
-    # Find the conclusion (XXV. Coda) — the clover metaphor is the essay's soul
-    _coda_marker = "XXV. Coda"
-    _coda_start = _ORACLE_ESSAY.find(_coda_marker)
-    # Find where footnotes/references begin (after the conclusion)
-    _refs_marker = "Nick Bostrom (Superintelligence"
-    _refs_start = _ORACLE_ESSAY.find(_refs_marker)
-    if _refs_start < 0:
-        _refs_start = len(_ORACLE_ESSAY)
-
-    # Intro + thesis + framework + first 3 sections (~18K chars ≈ 5K tokens)
-    _intro = _ORACLE_ESSAY[:18000]
-    # Conclusion/coda without footnotes (~12K chars ≈ 3K tokens)
-    _coda = _ORACLE_ESSAY[_coda_start:_refs_start].rstrip() if _coda_start > 0 else ""
-
-    if _coda:
-        _ORACLE_ESSAY_CONDENSED = (
-            _intro.rstrip()
-            + "\n\n[... essay continues through 25 sections ...]\n\n"
-            + _coda
-        )
-    else:
-        _ORACLE_ESSAY_CONDENSED = _intro
-    logger.info(
-        "Oracle essay condensed: %d chars (from %d)",
-        len(_ORACLE_ESSAY_CONDENSED), len(_ORACLE_ESSAY),
-    )
+try:
+    _condensed_path = os.path.join(os.path.dirname(__file__), "oracle_essay_condensed.md")
+    with open(_condensed_path) as _f:
+        _ORACLE_ESSAY_CONDENSED = _f.read()
+    logger.info("Loaded condensed essay: %d chars", len(_ORACLE_ESSAY_CONDENSED))
+except FileNotFoundError:
+    # Fall back to full essay if condensed version not available
+    if _ORACLE_ESSAY:
+        _ORACLE_ESSAY_CONDENSED = _ORACLE_ESSAY[:18000]
+        logger.warning("oracle_essay_condensed.md not found, using truncated fallback")
 
 
 def _build_oracle_prompt(mode: str, question: str) -> str:
@@ -546,7 +530,7 @@ def _try_oracle_response(
     Returns a debate-shaped result dict, or None on failure.
     """
     start = time.monotonic()
-    prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY else (topic or question)
+    prompt = _build_oracle_prompt(mode, question) if _ORACLE_ESSAY_CONDENSED else (topic or question)
     logger.info("Oracle Phase 1: mode=%s, prompt=%d chars, essay_condensed=%d chars", mode, len(prompt), len(_ORACLE_ESSAY_CONDENSED))
     text = _call_llm(prompt, max_tokens=2000)
     if not text:
