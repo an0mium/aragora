@@ -243,7 +243,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.2"
-_ORACLE_MODEL_OPENROUTER = "anthropic/claude-sonnet-4"  # OpenRouter fallback
+_ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
 
 
@@ -260,12 +260,12 @@ def _get_api_key(name: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 _TENTACLE_MODELS: list[dict[str, str]] = [
-    # provider, model, display name, env key
-    {"provider": "anthropic", "model": "claude-sonnet-4-6", "name": "claude", "env": "ANTHROPIC_API_KEY"},
-    {"provider": "openai", "model": "gpt-5.2", "name": "gpt", "env": "OPENAI_API_KEY"},
-    {"provider": "xai", "model": "grok-4.2", "name": "grok", "env": "XAI_API_KEY"},
+    # All tentacles route through OpenRouter for unified billing and latest models
+    {"provider": "openrouter", "model": "anthropic/claude-opus-4.6", "name": "claude", "env": "OPENROUTER_API_KEY"},
+    {"provider": "openrouter", "model": "openai/gpt-5.2", "name": "gpt", "env": "OPENROUTER_API_KEY"},
+    {"provider": "openrouter", "model": "x-ai/grok-4.1-fast", "name": "grok", "env": "OPENROUTER_API_KEY"},
     {"provider": "openrouter", "model": "deepseek/deepseek-v3.2", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
-    {"provider": "google", "model": "gemini-3-pro-preview", "name": "gemini", "env": "GEMINI_API_KEY"},
+    {"provider": "openrouter", "model": "google/gemini-3-pro-preview", "name": "gemini", "env": "OPENROUTER_API_KEY"},
     {"provider": "openrouter", "model": "mistralai/mistral-large-2512", "name": "mistral", "env": "OPENROUTER_API_KEY"},
 ]
 
