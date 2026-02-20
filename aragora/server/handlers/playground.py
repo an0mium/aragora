@@ -244,7 +244,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.2"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
-_ORACLE_CALL_TIMEOUT = 25.0  # seconds
+_ORACLE_CALL_TIMEOUT = 55.0  # seconds — full essay prompt needs time through OpenRouter
 
 
 def _get_api_key(name: str) -> str | None:
@@ -475,14 +475,22 @@ def _call_llm(
     max_tokens: int = 1500,
     timeout: float = _ORACLE_CALL_TIMEOUT,
 ) -> str | None:
-    """Make a direct LLM API call.  Try Anthropic → OpenAI → OpenRouter."""
+    """Make a direct LLM API call.  Try OpenRouter → Anthropic → OpenAI.
+
+    OpenRouter is tried first because:
+    1. All tentacle models already route through it (single billing).
+    2. It provides access to the latest models (Opus 4.6, GPT-5.2, etc.).
+    3. Direct provider APIs may have exhausted credits.
+    """
+    result = _call_provider_llm("openrouter", _ORACLE_MODEL_OPENROUTER, prompt, max_tokens, timeout)
+    if result:
+        return result
+    logger.info("OpenRouter Phase 1 failed, trying Anthropic direct")
     result = _call_provider_llm("anthropic", _ORACLE_MODEL_ANTHROPIC, prompt, max_tokens, timeout)
     if result:
         return result
-    result = _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
-    if result:
-        return result
-    return _call_provider_llm("openrouter", _ORACLE_MODEL_OPENROUTER, prompt, max_tokens, timeout)
+    logger.info("Anthropic Phase 1 failed, trying OpenAI direct")
+    return _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
 
 
 def _try_oracle_response(
