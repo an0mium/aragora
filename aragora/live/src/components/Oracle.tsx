@@ -159,7 +159,7 @@ function ModeButton({
       <div className="text-2xl mb-2" style={{ filter: active ? `drop-shadow(0 0 10px ${c.css})` : 'none' }}>
         {icon}
       </div>
-      <div className="text-sm font-bold mb-1" style={{ color: active ? c.css : 'var(--text)' }}>
+      <div className="text-sm font-bold mb-1" style={{ color: c.css, opacity: active ? 1 : 0.7 }}>
         {label}
       </div>
       <div className="text-xs text-[var(--text-muted)]">{desc}</div>

@@ -381,25 +381,25 @@ tentacles.forEach((tent,tIdx) => {
     const sclera = new THREE.Mesh(tentEyeGeo, scleraMat);
 
     const iris = new THREE.Mesh(
-      new THREE.SphereGeometry(0.038, 10, 10),
+      new THREE.SphereGeometry(0.042, 10, 10),
       new THREE.MeshBasicMaterial({ color: 0x7fdbca, transparent: true, opacity: 1 })
     );
-    iris.position.set(0, 0, 0.02);
+    iris.position.set(0, 0, 0.018);
     sclera.add(iris);
 
-    // Larger, more distinct pupil
+    // Big prominent pupil — clearly visible dark center
     const pupil = new THREE.Mesh(
-      new THREE.SphereGeometry(0.025, 10, 10),
-      new THREE.MeshBasicMaterial({ color: 0x010205 })
+      new THREE.SphereGeometry(0.032, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0x020308 })
     );
-    pupil.position.set(0, 0, 0.032);
+    pupil.position.set(0, 0, 0.03);
     sclera.add(pupil);
-    // Specular highlight
+    // Bright specular highlight
     const highlight = new THREE.Mesh(
-      new THREE.SphereGeometry(0.008, 6, 6),
+      new THREE.SphereGeometry(0.01, 6, 6),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
-    highlight.position.set(0.008, 0.006, 0.046);
+    highlight.position.set(0.01, 0.008, 0.05);
     sclera.add(highlight);
 
     scene.add(sclera);
@@ -410,50 +410,61 @@ tentacles.forEach((tent,tIdx) => {
   });
 });
 
-// === BODY EYES — many more, scattered across surface, distinct pupils ===
+// === BODY EYES — well-spaced, avoid face, large distinct pupils ===
 const bodyEyes = [];
-for(let i=0;i<45;i++){
+const MIN_EYE_DIST = 0.35; // minimum distance between any two body eyes
+const placedPositions = [];
+for(let attempts=0; attempts<200 && bodyEyes.length<30; attempts++){
   const theta=Math.random()*Math.PI*2;
   const phi=Math.acos(2*Math.random()-1);
   const r=1.33;
   const x=r*Math.sin(phi)*Math.cos(theta);
   const y=r*Math.sin(phi)*Math.sin(theta)+0.2;
   const z=r*Math.cos(phi);
-  // Allow eyes on front and side hemispheres
-  if(z<-0.2) continue;
-  // Avoid face zone
-  if(Math.abs(x)<0.4 && y>-0.1 && y<0.8 && z>0.7) continue;
+  // Only front and side hemispheres
+  if(z<-0.1) continue;
+  // Wide face avoidance zone — no eyes near Cassandra
+  if(Math.abs(x)<0.6 && y>-0.3 && y<1.0 && z>0.5) continue;
+  // Minimum spacing between eyes
+  let tooClose = false;
+  for(const p of placedPositions){
+    const dd = (x-p.x)**2 + (y-p.y)**2 + (z-p.z)**2;
+    if(dd < MIN_EYE_DIST*MIN_EYE_DIST) { tooClose = true; break; }
+  }
+  if(tooClose) continue;
 
+  placedPositions.push({x,y,z});
   const scleraMat = new THREE.MeshBasicMaterial({color:0xe8fff0, transparent:true, opacity:0});
-  const eyeSize = 0.04 + Math.random()*0.025;
+  const eyeSize = 0.05 + Math.random()*0.03;
   const eyeMesh = new THREE.Mesh(new THREE.SphereGeometry(eyeSize,12,12), scleraMat);
   eyeMesh.position.set(x,y,z);
 
   const iris = new THREE.Mesh(
-    new THREE.SphereGeometry(eyeSize*0.65,10,10),
+    new THREE.SphereGeometry(eyeSize*0.7,10,10),
     new THREE.MeshBasicMaterial({color:0x7fdbca})
   );
-  iris.position.set(0,0,eyeSize*0.5);
+  iris.position.set(0,0,eyeSize*0.45);
   eyeMesh.add(iris);
 
-  // Larger, more distinct pupil with specular highlight
+  // Large prominent pupil
   const pupil = new THREE.Mesh(
-    new THREE.SphereGeometry(eyeSize*0.45,10,10),
-    new THREE.MeshBasicMaterial({color:0x010205})
+    new THREE.SphereGeometry(eyeSize*0.55,10,10),
+    new THREE.MeshBasicMaterial({color:0x020308})
   );
-  pupil.position.set(0,0,eyeSize*0.7);
+  pupil.position.set(0,0,eyeSize*0.65);
   eyeMesh.add(pupil);
+  // Specular highlight dot
   const hl = new THREE.Mesh(
-    new THREE.SphereGeometry(eyeSize*0.15,6,6),
+    new THREE.SphereGeometry(eyeSize*0.18,6,6),
     new THREE.MeshBasicMaterial({color:0xffffff})
   );
-  hl.position.set(eyeSize*0.15,eyeSize*0.12,eyeSize*0.88);
+  hl.position.set(eyeSize*0.18,eyeSize*0.14,eyeSize*0.9);
   eyeMesh.add(hl);
 
   scene.add(eyeMesh);
   bodyEyes.push({
     mesh:eyeMesh, basePos:new THREE.Vector3(x,y,z),
-    theta, phi, // store spherical coords for surface tracking
+    theta, phi,
     blinkPhase:Math.random()*Math.PI*2, blinkSpeed:0.06+Math.random()*0.12,
   });
 }
@@ -667,28 +678,17 @@ function animate(){
     te.mesh.material.opacity=open*0.95;
   });
 
-  // --- BODY EYES (track deforming surface, mostly open) ---
+  // --- BODY EYES (surface-breathing but NOT rotating with sphere) ---
   bodyEyes.forEach(eye=>{
-    // Recompute position using same fbm deformation as body
-    const ox = 1.33*Math.sin(eye.phi)*Math.cos(eye.theta);
-    const oy = 1.33*Math.sin(eye.phi)*Math.sin(eye.theta);
-    const oz = 1.33*Math.cos(eye.phi);
+    // Apply fbm deformation for organic breathing, but no body rotation
+    const ox = eye.basePos.x, oy = eye.basePos.y - 0.2, oz = eye.basePos.z;
     const n = fbm(ox*1.5+t*0.3, oy*1.5+t*0.25, oz*1.5+t*0.2, 3);
-    const m = (mouse.x*ox + mouse.y*oy)*0.12;
-    const d = 1.0 + n*0.28 + m;
-    // Apply body offset + rotation
-    const rotY = t*0.06 + mouse.x*0.25;
-    const rotX = Math.sin(t*0.12)*0.04 + mouse.y*0.1;
-    const dx = ox*d, dy = oy*d, dz = oz*d;
-    // Simple Y rotation then X rotation matching body
-    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-    const rx = dx*cosY + dz*sinY;
-    const ry1 = dy;
-    const rz = -dx*sinY + dz*cosY;
-    const ry = ry1*cosX - rz*sinX;
-    const rz2 = ry1*sinX + rz*cosX;
-    eye.mesh.position.set(rx, ry + 0.2, rz2); // +0.2 body offset
+    const breathe = 1.0 + n*0.08; // subtle surface breathing only
+    eye.mesh.position.set(
+      eye.basePos.x * breathe,
+      eye.basePos.y + (breathe-1)*oy*0.5,
+      eye.basePos.z * breathe
+    );
 
     const bc=Math.sin(t*eye.blinkSpeed+eye.blinkPhase);
     const open = bc > -0.7 ? Math.min(1, (bc + 0.7) / 0.3) : 0;
