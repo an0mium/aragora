@@ -243,7 +243,17 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.2"
+_ORACLE_MODEL_OPENROUTER = "anthropic/claude-sonnet-4"  # OpenRouter fallback
 _ORACLE_CALL_TIMEOUT = 25.0  # seconds
+
+
+def _get_api_key(name: str) -> str | None:
+    """Get an API key from AWS Secrets Manager (production) or env vars (dev)."""
+    try:
+        from aragora.config.secrets import get_secret
+        return get_secret(name)
+    except ImportError:
+        return os.environ.get(name)
 
 # ---------------------------------------------------------------------------
 # Multi-model tentacles — each tentacle is a genuinely different AI
@@ -267,7 +277,7 @@ def _get_available_tentacle_models() -> list[dict[str, str]]:
     for m in _TENTACLE_MODELS:
         if m["name"] in seen_names:
             continue
-        if os.environ.get(m["env"]):
+        if _get_api_key(m["env"]):
             available.append(m)
             seen_names.add(m["name"])
     return available
@@ -282,7 +292,7 @@ def _call_provider_llm(
 ) -> str | None:
     """Call a specific LLM provider. Returns response text or None."""
     if provider == "anthropic":
-        key = os.environ.get("ANTHROPIC_API_KEY")
+        key = _get_api_key("ANTHROPIC_API_KEY")
         if not key:
             return None
         try:
@@ -299,7 +309,7 @@ def _call_provider_llm(
         return None
 
     if provider == "openai":
-        key = os.environ.get("OPENAI_API_KEY")
+        key = _get_api_key("OPENAI_API_KEY")
         if not key:
             return None
         try:
@@ -316,7 +326,7 @@ def _call_provider_llm(
         return None
 
     if provider == "xai":
-        key = os.environ.get("XAI_API_KEY")
+        key = _get_api_key("XAI_API_KEY")
         if not key:
             return None
         try:
@@ -333,7 +343,7 @@ def _call_provider_llm(
         return None
 
     if provider == "openrouter":
-        key = os.environ.get("OPENROUTER_API_KEY")
+        key = _get_api_key("OPENROUTER_API_KEY")
         if not key:
             return None
         try:
@@ -352,7 +362,7 @@ def _call_provider_llm(
         return None
 
     if provider == "google":
-        key = os.environ.get("GEMINI_API_KEY")
+        key = _get_api_key("GEMINI_API_KEY")
         if not key:
             return None
         try:
@@ -465,11 +475,14 @@ def _call_llm(
     max_tokens: int = 1500,
     timeout: float = _ORACLE_CALL_TIMEOUT,
 ) -> str | None:
-    """Make a direct LLM API call.  Try Anthropic first, then OpenAI."""
+    """Make a direct LLM API call.  Try Anthropic → OpenAI → OpenRouter."""
     result = _call_provider_llm("anthropic", _ORACLE_MODEL_ANTHROPIC, prompt, max_tokens, timeout)
     if result:
         return result
-    return _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
+    result = _call_provider_llm("openai", _ORACLE_MODEL_OPENAI, prompt, max_tokens, timeout)
+    if result:
+        return result
+    return _call_provider_llm("openrouter", _ORACLE_MODEL_OPENROUTER, prompt, max_tokens, timeout)
 
 
 def _try_oracle_response(
@@ -1156,9 +1169,9 @@ class PlaygroundHandler(BaseHandler):
 
         # Check if any API keys are available
         has_api_keys = bool(
-            os.environ.get("ANTHROPIC_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-            or os.environ.get("OPENROUTER_API_KEY")
+            _get_api_key("ANTHROPIC_API_KEY")
+            or _get_api_key("OPENAI_API_KEY")
+            or _get_api_key("OPENROUTER_API_KEY")
         )
 
         if not has_api_keys:
@@ -1289,13 +1302,13 @@ _live_semaphore = asyncio.Semaphore(_LIVE_MAX_CONCURRENT)
 def _get_available_live_agents(count: int) -> list[str]:
     """Pick agent providers that have API keys configured."""
     candidates: list[str] = []
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if _get_api_key("ANTHROPIC_API_KEY"):
         candidates.append("anthropic")
-    if os.environ.get("OPENAI_API_KEY"):
+    if _get_api_key("OPENAI_API_KEY"):
         candidates.append("openai")
-    if os.environ.get("OPENROUTER_API_KEY"):
+    if _get_api_key("OPENROUTER_API_KEY"):
         candidates.append("openrouter")
-    if os.environ.get("MISTRAL_API_KEY"):
+    if _get_api_key("MISTRAL_API_KEY"):
         candidates.append("mistral")
 
     # Pad to requested count by repeating
