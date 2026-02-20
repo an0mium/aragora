@@ -42,7 +42,7 @@ export default function TryPage() {
       const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate/live`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question.trim() }),
+        body: JSON.stringify({ question: question.trim(), source: 'landing' }),
         signal: abortRef.current.signal,
       });
 

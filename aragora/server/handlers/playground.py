@@ -636,7 +636,7 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
 ]
 
 
-def _build_tentacle_prompt(mode: str, question: str, role_prompt: str) -> str:
+def _build_tentacle_prompt(mode: str, question: str, role_prompt: str, *, source: str = "oracle") -> str:
     """Build a lightweight prompt for tentacle calls (NO full essay).
 
     Phase 1 already gave the deep essay-informed answer.  Phase 2 tentacles
@@ -644,31 +644,46 @@ def _build_tentacle_prompt(mode: str, question: str, role_prompt: str) -> str:
     knowledge and training data, which is the whole point of using different
     models.  Sending the 88K-token essay to 5+ models in parallel would be
     prohibitively expensive and slow.
+
+    When *source* is ``"oracle"`` the prompt uses Oracle/tentacle language.
+    For any other source (e.g. ``"landing"``) it uses neutral debate language
+    so the main site doesn't leak Oracle-specific terminology.
     """
-    if mode == "divine":
+    if source == "oracle":
+        # Oracle-specific tentacle flavour
+        if mode == "divine":
+            context = (
+                "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+                "with your own perspective. The seeker has asked for a prophecy about their "
+                "future. Respond with insight, honesty, and specificity."
+            )
+        elif mode == "commune":
+            context = (
+                "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+                "with your own perspective. The seeker has communed with the Oracle. "
+                "Respond with cryptic wisdom, brutal honesty, and unexpected kindness."
+            )
+        else:  # consult
+            context = (
+                "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
+                "with your own perspective. The seeker is consulting the Oracle on an "
+                "important question. Respond with intellectual rigor, zero flattery, and "
+                "genuine insight."
+            )
+    else:
+        # Neutral debate language for the main site
         context = (
-            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
-            "with your own perspective. The seeker has asked for a prophecy about their "
-            "future. Respond with insight, honesty, and specificity."
-        )
-    elif mode == "commune":
-        context = (
-            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
-            "with your own perspective. The seeker has communed with the Oracle. "
-            "Respond with cryptic wisdom, brutal honesty, and unexpected kindness."
-        )
-    else:  # consult
-        context = (
-            "You are one of the Shoggoth Oracle's tentacles — a distinct intelligence "
-            "with your own perspective. The seeker is consulting the Oracle on an "
-            "important question. Respond with intellectual rigor, zero flattery, and "
-            "genuine insight."
+            "You are one of several independent AI agents in an adversarial debate. "
+            "Each agent brings a different analytical perspective. Your job is to "
+            "provide a rigorous, honest, and well-reasoned response. Challenge weak "
+            "arguments, acknowledge strong ones, and prioritize intellectual honesty "
+            "over agreement."
         )
 
     return (
         f"{context}\n\n"
         f"YOUR ROLE: {role_prompt}\n\n"
-        f"The seeker asks: {question}"
+        f"The question: {question}"
     )
 
 
@@ -677,6 +692,7 @@ def _try_oracle_tentacles(
     question: str,
     agent_count: int,
     topic: str | None = None,
+    source: str = "oracle",
 ) -> dict[str, Any] | None:
     """Generate multi-perspective Oracle responses using genuinely different AI models.
 
@@ -704,7 +720,7 @@ def _try_oracle_tentacles(
     def _call_tentacle(
         model_cfg: dict[str, str], role_prompt: str,
     ) -> tuple[str, str | None]:
-        prompt = _build_tentacle_prompt(mode, question, role_prompt)
+        prompt = _build_tentacle_prompt(mode, question, role_prompt, source=source)
         text = _call_provider_llm(
             model_cfg["provider"], model_cfg["model"], prompt,
             max_tokens=800, timeout=45.0,
@@ -1252,6 +1268,9 @@ class PlaygroundHandler(BaseHandler):
         # Oracle mode (consult / divine / commune)
         mode = str(body.get("mode", "") or "").strip() or "consult"
 
+        # Source: "oracle" for Oracle page, "landing" for main site, etc.
+        source = str(body.get("source", "") or "").strip() or "oracle"
+
         try:
             agent_count = int(body.get("agents", _DEFAULT_AGENTS))
         except (TypeError, ValueError):
@@ -1286,10 +1305,10 @@ class PlaygroundHandler(BaseHandler):
             response_data["upgrade_cta"] = _build_upgrade_cta()
             return json_response(response_data, status=result.status_code)
 
-        # Oracle mode with API keys: use direct multi-perspective LLM calls
-        # (more reliable than DebateFactory and produces genuinely different voices)
+        # Multi-perspective LLM calls with source-appropriate prompts:
+        # "oracle" source uses tentacle language, "landing" uses neutral debate language.
         if question:
-            tentacle_result = _try_oracle_tentacles(mode=mode, question=question, agent_count=agent_count, topic=topic)
+            tentacle_result = _try_oracle_tentacles(mode=mode, question=question, agent_count=agent_count, topic=topic, source=source)
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
                 return json_response(tentacle_result)

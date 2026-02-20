@@ -138,13 +138,13 @@ function ModeButton({
   label: string;
   desc: string;
 }) {
-  const borderColor = active ? 'border-[var(--acid-magenta)]' : 'border-[var(--border)]';
-  const glowClass = active ? 'shadow-[0_0_20px_rgba(255,0,255,0.3)]' : '';
+  const borderColor = active ? 'border-[var(--acid-magenta)]/60' : 'border-[var(--border)]/30';
+  const glowClass = active ? 'shadow-[0_0_12px_rgba(255,0,255,0.15)]' : '';
 
   return (
     <button
       onClick={onClick}
-      className={`flex-1 min-w-[140px] p-4 ${borderColor} border text-left transition-all duration-300 hover:border-[var(--acid-magenta)] hover:shadow-[0_0_15px_rgba(255,0,255,0.2)] ${glowClass} bg-[var(--surface)]`}
+      className={`flex-1 min-w-[140px] p-4 ${borderColor} border text-left transition-all duration-300 hover:border-[var(--acid-magenta)]/50 hover:shadow-[0_0_10px_rgba(255,0,255,0.1)] ${glowClass} bg-[var(--surface)]/60 rounded-xl`}
     >
       <div className="text-2xl mb-2" style={{ filter: active ? 'drop-shadow(0 0 10px var(--acid-magenta))' : 'none' }}>
         {icon}
@@ -177,8 +177,8 @@ function TentacleMessage({ msg, index }: { msg: ChatMessage; index: number }) {
         </span>
       </div>
       <div
-        className="border-l-2 pl-4 text-sm leading-relaxed whitespace-pre-wrap ml-1"
-        style={{ borderColor: color, color: 'var(--text)' }}
+        className="border-l-2 pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
+        style={{ borderColor: color, color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
       >
         {msg.content}
       </div>
@@ -230,7 +230,7 @@ export default function Oracle() {
       const res = await fetch(`${apiBase}/api/v1/playground/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: rawQuestion, question: rawQuestion, mode: oracleMode, rounds, agents }),
+        body: JSON.stringify({ topic: rawQuestion, question: rawQuestion, mode: oracleMode, rounds, agents, source: 'oracle' }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -377,10 +377,10 @@ export default function Oracle() {
           }
         }
         @keyframes tentacle-sway {
-          0%, 100% { transform: rotate(-2deg) scaleY(1); }
-          25% { transform: rotate(1deg) scaleY(1.02); }
-          50% { transform: rotate(-1deg) scaleY(0.98); }
-          75% { transform: rotate(2deg) scaleY(1.01); }
+          0%, 100% { transform: rotate(-0.4deg) scaleY(1); }
+          25% { transform: rotate(0.2deg) scaleY(1.003); }
+          50% { transform: rotate(-0.2deg) scaleY(0.997); }
+          75% { transform: rotate(0.4deg) scaleY(1.002); }
         }
         @keyframes oracle-breathe {
           0%, 100% { opacity: 0.03; }
@@ -398,11 +398,11 @@ export default function Oracle() {
           animation: prophecy-reveal 0.8s ease-out forwards;
         }
         .tentacle-left {
-          animation: tentacle-sway 6s ease-in-out infinite, tentacle-enter 0.6s ease-out forwards;
+          animation: tentacle-sway 12s ease-in-out infinite, tentacle-enter 0.6s ease-out forwards;
           transform-origin: bottom left;
         }
         .tentacle-right {
-          animation: tentacle-sway 7s ease-in-out 0.5s infinite reverse, tentacle-enter 0.6s ease-out forwards;
+          animation: tentacle-sway 14s ease-in-out 0.5s infinite reverse, tentacle-enter 0.6s ease-out forwards;
           transform-origin: bottom right;
         }
         .oracle-bg {
@@ -564,8 +564,45 @@ export default function Oracle() {
           />
         </div>
 
+        {/* Input */}
+        <form onSubmit={consultOracle} className="flex gap-3 mb-4">
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  consultOracle(e);
+                }
+              }}
+              placeholder={
+                mode === 'divine'
+                  ? 'Tell me your situation and I\'ll show you three futures...'
+                  : mode === 'commune'
+                    ? 'What do you want to know?'
+                    : 'What\'s your take on AI? Give me the position you\'d bet money on.'
+              }
+              className="w-full bg-[#0c0c14] border border-[var(--border)]/40 text-white px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--acid-magenta)]/60 transition-colors resize-none min-h-[48px] rounded-xl"
+              disabled={loading || debating}
+              rows={1}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || debating || !input.trim()}
+            className="px-6 py-3 border border-[var(--acid-magenta)]/60 text-[var(--acid-magenta)] font-bold text-sm hover:bg-[var(--acid-magenta)] hover:text-[var(--bg)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap rounded-xl"
+            style={{
+              boxShadow: !loading && !debating && input.trim() ? '0 0 10px rgba(255,0,255,0.12)' : 'none',
+            }}
+          >
+            {loading ? '...' : debating ? '...' : 'SPEAK'}
+          </button>
+        </form>
+
         {/* Chat area */}
-        <div className="flex-1 min-h-[300px] border border-[var(--border)] bg-[#08080c] p-4 mb-4 overflow-y-auto max-h-[60vh]">
+        <div className="flex-1 min-h-[300px] border border-[var(--border)]/30 bg-[#08080c] p-4 mb-4 overflow-y-auto max-h-[60vh] rounded-xl">
           {messages.length === 0 && !loading && (
             <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm opacity-40">
               <span>The oracle awaits your question...</span>
@@ -581,7 +618,7 @@ export default function Oracle() {
                       <div className="text-xs text-[var(--text-muted)] mb-1">
                         SEEKER &middot; {new Date(msg.timestamp).toLocaleTimeString()}
                       </div>
-                      <div className="bg-[var(--surface)] border border-[var(--border)] p-3 text-sm text-[var(--text)]">
+                      <div className="bg-[var(--surface)] border border-[var(--border)]/30 p-3 text-sm text-[var(--text)] rounded-lg">
                         {msg.content}
                       </div>
                     </div>
@@ -602,8 +639,8 @@ export default function Oracle() {
                       </span>
                     </div>
                     <div
-                      className="border-l-2 border-[var(--acid-magenta)] pl-4 text-sm leading-relaxed whitespace-pre-wrap"
-                      style={{ color: 'var(--text)' }}
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
+                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
                     >
                       {msg.content}
                     </div>
@@ -664,50 +701,13 @@ export default function Oracle() {
 
         {/* Error */}
         {error && (
-          <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-3 mb-4 text-sm text-[var(--crimson)]">
+          <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-3 mb-4 text-sm text-[var(--crimson)] rounded-xl">
             {error}
           </div>
         )}
 
-        {/* Input */}
-        <form onSubmit={consultOracle} className="flex gap-3">
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  consultOracle(e);
-                }
-              }}
-              placeholder={
-                mode === 'divine'
-                  ? 'Tell me your situation and I\'ll show you three futures...'
-                  : mode === 'commune'
-                    ? 'What do you want to know?'
-                    : 'What\'s your take on AI? Give me the position you\'d bet money on.'
-              }
-              className="w-full bg-[#08080c] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-magenta)] transition-colors resize-none min-h-[48px]"
-              disabled={loading || debating}
-              rows={1}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || debating || !input.trim()}
-            className="px-6 py-3 border border-[var(--acid-magenta)] text-[var(--acid-magenta)] font-bold text-sm hover:bg-[var(--acid-magenta)] hover:text-[var(--bg)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
-            style={{
-              boxShadow: !loading && !debating && input.trim() ? '0 0 15px rgba(255,0,255,0.2)' : 'none',
-            }}
-          >
-            {loading ? '...' : debating ? '...' : 'SPEAK'}
-          </button>
-        </form>
-
         {/* Footer — merged from shoggoth-oracle.html */}
-        <footer className="mt-6 text-center text-xs text-[var(--text-muted)] opacity-40 space-y-2">
+        <footer className="mt-6 text-center text-xs text-[var(--text-muted)] opacity-40 space-y-2 rounded-xl">
           <p className="italic opacity-70">
             No apocalypse guaranteed. Just chaos, clarity, and the occasional tentacle.
           </p>
@@ -729,7 +729,7 @@ export default function Oracle() {
           </p>
           <div className="flex gap-6 justify-center pt-1">
             <a
-              href="https://anomium.substack.com/p/ai-will-fck-you-up-but-thats-ok"
+              href="https://anomium.substack.com/p/ai-evolution-and-the-myth-of-final?triedRedirect=true"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-[var(--acid-cyan)] transition-colors"
@@ -741,7 +741,7 @@ export default function Oracle() {
             </a>
           </div>
           <p className="opacity-60">
-            &ldquo;The wobble is the whole game.&rdquo;
+            &ldquo;Don&apos;t smash the amp.&rdquo;
           </p>
         </footer>
       </div>
