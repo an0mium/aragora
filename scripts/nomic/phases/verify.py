@@ -210,7 +210,7 @@ class VerifyPhase:
             self._log("    FAILED syntax: timeout")
             self._stream_emit("on_verification_result", "syntax", False, "timeout")
             return {"check": "syntax", "passed": False, "error": "timeout"}
-        except Exception as e:
+        except OSError as e:
             self._log(f"    FAILED syntax: {e}")
             self._stream_emit("on_verification_result", "syntax", False, str(e))
             return {"check": "syntax", "passed": False, "error": str(e)}
@@ -245,7 +245,7 @@ class VerifyPhase:
             self._log("    FAILED import: timeout")
             self._stream_emit("on_verification_result", "import", False, "timeout")
             return {"check": "import", "passed": False, "error": "timeout"}
-        except Exception as e:
+        except OSError as e:
             self._log(f"    FAILED import: {e}")
             self._stream_emit("on_verification_result", "import", False, str(e))
             return {"check": "import", "passed": False, "error": str(e)}
@@ -433,7 +433,7 @@ Be concise - this is a quality gate, not a full review."""
                         "passed": True,
                         "output": audit_response[:500],
                     }
-        except Exception as e:
+        except (OSError, asyncio.TimeoutError, ConnectionError, ValueError) as e:
             self._log(f"  [hybrid] Codex audit error: {e}")
             return {
                 "check": "codex_audit",
@@ -462,7 +462,7 @@ Be concise - this is a quality gate, not a full review."""
                 return []
             if proc.returncode == 0 and stdout:
                 return [f.strip() for f in stdout.decode().strip().split("\n") if f.strip()]
-        except Exception:
+        except OSError:
             pass
         return []
 
@@ -482,7 +482,7 @@ Be concise - this is a quality gate, not a full review."""
                 state={"all_passed": True, "changed_files": changed_files},
                 cycle=self.cycle_count,
             )
-        except Exception as e:
+        except (OSError, ValueError, ConnectionError, TimeoutError) as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
 
@@ -540,7 +540,7 @@ Be concise - this is a quality gate, not a full review."""
                                 "content": content[:5000],  # Limit content size
                             }
                         )
-                    except Exception as e:
+                    except OSError as e:
                         logger.warning(f"Failed to read {file_path}: {e}")
 
             if not chunks:
@@ -586,7 +586,7 @@ Be concise - this is a quality gate, not a full review."""
                     "output": f"Passed ({len(findings)} minor issues)",
                 }
 
-        except Exception as e:
+        except (ImportError, OSError, ValueError, TypeError) as e:
             self._log(f"    [consistency] Check failed: {e}")
             logger.warning(f"Consistency check error: {e}")
             # Don't block on consistency check failure
@@ -662,7 +662,7 @@ Be concise - this is a quality gate, not a full review."""
                 "conclusion": result.conclusion,
             }
 
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             self._log(f"    [ci] Check failed: {e}")
             # Don't block on CI check failure
             return {
@@ -726,7 +726,7 @@ Be concise - this is a quality gate, not a full review."""
                 "output": f"{finding_count} findings ({result.critical_count} critical)",
             }
 
-        except Exception as e:
+        except (ImportError, OSError, ValueError, AttributeError) as e:
             self._log(f"    [pr-review] Error: {e}")
             logger.warning("PR review check error: %s", e)
             # Don't block on PR review failure
@@ -751,7 +751,7 @@ Be concise - this is a quality gate, not a full review."""
             stdout, _ = await proc.communicate()
             if proc.returncode == 0 and stdout:
                 return stdout.decode()
-        except Exception:
+        except OSError:
             pass
         return ""
 

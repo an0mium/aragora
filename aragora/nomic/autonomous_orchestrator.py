@@ -1289,7 +1289,7 @@ class AutonomousOrchestrator:
         await self._update_bead_status(subtask.id, "running")
 
         # Register agent with Fabric for lifecycle + budget tracking
-        fabric_agent_id = await self._fabric_register_agent(assignment)
+        await self._fabric_register_agent(assignment)
 
         try:
             # Build workflow for this subtask
@@ -2090,7 +2090,6 @@ class AutonomousOrchestrator:
         if self.branch_coordinator is None:
             return
 
-        from aragora.nomic.meta_planner import PrioritizedGoal
         from aragora.nomic.meta_planner import Track as MetaTrack
 
         seen_tracks: set[str] = set()
@@ -2587,7 +2586,7 @@ class AutonomousOrchestrator:
             return
 
         try:
-            from aragora.fabric.nudge import NudgeRouter
+            from aragora.fabric.nudge import NudgeRouter  # noqa: F401
 
             router = getattr(self.agent_fabric, "_nudge_router", None)
             if router:

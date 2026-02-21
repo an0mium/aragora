@@ -206,3 +206,8 @@ docs/openapi_generated.json
 .testfixer/
 .tmp/
 aragora-demo-receipt.json
+
+# Personal/non-project files
+shoggoth/
+fire-alarm-essay-v3.md
+unified-outline.md
