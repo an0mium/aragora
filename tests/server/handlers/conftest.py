@@ -1080,6 +1080,21 @@ def _reset_rate_limiters():
     except ImportError:
         pass
 
+    # Reset the per-user rate limiter singleton.  The @user_rate_limit
+    # decorator (used by _create_debate, _debate_this, etc.) calls
+    # check_user_rate_limit() which uses a global UserRateLimiter.
+    # Without reset, earlier tests exhaust the per-user token bucket
+    # (e.g. "debate_create" allows only 10/min), causing later tests
+    # to receive 429 responses.
+    try:
+        from aragora.server.middleware.rate_limit.user_limiter import (
+            get_user_rate_limiter,
+        )
+
+        get_user_rate_limiter().reset()
+    except ImportError:
+        pass
+
     yield
 
     if rl_mod is not None:
@@ -1094,6 +1109,15 @@ def _reset_rate_limiters():
         )
 
         reset_distributed_limiter()
+    except (ImportError, Exception):
+        pass
+
+    try:
+        from aragora.server.middleware.rate_limit.user_limiter import (
+            get_user_rate_limiter,
+        )
+
+        get_user_rate_limiter().reset()
     except (ImportError, Exception):
         pass
 

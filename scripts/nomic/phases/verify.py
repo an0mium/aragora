@@ -726,7 +726,7 @@ Be concise - this is a quality gate, not a full review."""
                 "output": f"{finding_count} findings ({result.critical_count} critical)",
             }
 
-        except (ImportError, OSError, ValueError, AttributeError) as e:
+        except (ImportError, OSError, ValueError, AttributeError, RuntimeError) as e:
             self._log(f"    [pr-review] Error: {e}")
             logger.warning("PR review check error: %s", e)
             # Don't block on PR review failure

@@ -1,6 +1,6 @@
 """Tests for the CanvasPipelineHandler REST endpoints.
 
-Covers all 16 endpoints:
+Covers all 17 endpoints:
 - POST from-debate, from-ideas, from-template, advance, run, extract-goals
 - POST approve-transition, convert/debate, convert/workflow
 - GET pipeline/{id}, pipeline/{id}/status, pipeline/{id}/stage/{stage},
@@ -502,7 +502,7 @@ class TestConstructor:
         assert h.ctx["key"] == "val"
 
     def test_routes_defined(self):
-        assert len(CanvasPipelineHandler.ROUTES) == 16
+        assert len(CanvasPipelineHandler.ROUTES) == 17
 
 
 # ---------------------------------------------------------------------------
@@ -979,3 +979,84 @@ class TestE2ESmokeContract:
         status = await handler.handle_status(pipeline_id)
         status_body = _body(status)
         assert "pipeline_id" in status_body or "stage_status" in status_body
+
+
+# ---------------------------------------------------------------------------
+# POST execute
+# ---------------------------------------------------------------------------
+
+
+class TestExecutePipeline:
+    """Tests for POST /api/v1/canvas/pipeline/{id}/execute."""
+
+    @pytest.mark.asyncio
+    async def test_execute_not_found(self, handler, mock_store):
+        mock_store.get.return_value = None
+        result = await handler.handle_execute("nonexistent", {})
+        body = _body(result)
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_execute_incomplete_stages(self, handler, mock_store):
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "pending",
+                "orchestration": "pending",
+            },
+        }
+        result = await handler.handle_execute("pipe-1", {})
+        body = _body(result)
+        assert "error" in body
+        assert "actions" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_execute_dry_run(self, handler, mock_store):
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-1",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "pending",
+                "actions": "pending",
+                "orchestration": "pending",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Task 1"}},
+                ],
+                "edges": [],
+            },
+        }
+        result = await handler.handle_execute("pipe-1", {"dry_run": True})
+        body = _body(result)
+        assert body["status"] == "dry_run"
+        assert body["agent_tasks"] == 1
+        assert "goals" in body["stages_incomplete"]
+
+    @pytest.mark.asyncio
+    async def test_execute_success(self, handler, mock_store):
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-ok",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "complete",
+                "orchestration": "complete",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Build cache"}},
+                    {"id": "t2", "data": {"orch_type": "agent_task", "label": "Write tests"}},
+                    {"id": "a1", "data": {"orch_type": "agent", "label": "Claude"}},
+                ],
+                "edges": [],
+            },
+        }
+        result = await handler.handle_execute("pipe-ok", {})
+        body = _body(result)
+        assert body["status"] == "executing"
+        assert body["agent_tasks"] == 2  # only agent_task nodes
+        assert body["total_orchestration_nodes"] == 3
+        assert body["execution_id"].startswith("exec-")

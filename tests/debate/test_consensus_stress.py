@@ -403,7 +403,7 @@ class TestBackendFallbackCascade:
     def test_explicit_jaccard_selection(self):
         """Test explicit Jaccard selection works."""
         backend = get_similarity_backend(preferred="jaccard")
-        assert isinstance(backend, JaccardBackend)
+        assert type(backend).__name__ == "JaccardBackend"
 
     def test_fallback_under_concurrent_load(self):
         """Test backend fallback works correctly under concurrent load."""

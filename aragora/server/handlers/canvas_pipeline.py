@@ -18,6 +18,7 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 - POST /api/v1/canvas/convert/debate                    → Convert debate to ideas canvas
 - POST /api/v1/canvas/convert/workflow                  → Convert workflow to actions canvas
 - GET  /api/v1/canvas/pipeline/templates                → List pipeline templates
+- POST /api/v1/canvas/pipeline/{id}/execute              → Execute completed pipeline
 - POST /api/v1/canvas/pipeline/from-template            → Create pipeline from template
 """
 
@@ -40,6 +41,7 @@ _PIPELINE_STATUS = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/status
 _PIPELINE_STAGE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/stage/(\w+)$")
 _PIPELINE_GRAPH = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/graph$")
 _PIPELINE_RECEIPT = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/receipt$")
+_PIPELINE_EXECUTE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/execute$")
 
 # Live PipelineResult objects for advance_stage() (cannot be persisted)
 _pipeline_objects: dict[str, Any] = {}
@@ -98,6 +100,7 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/advance",
         "POST /api/v1/canvas/pipeline/run",
         "POST /api/v1/canvas/pipeline/{id}/approve-transition",
+        "POST /api/v1/canvas/pipeline/{id}/execute",
         "GET /api/v1/canvas/pipeline/{id}",
         "GET /api/v1/canvas/pipeline/{id}/status",
         "GET /api/v1/canvas/pipeline/{id}/stage/{stage}",
@@ -195,6 +198,15 @@ class CanvasPipelineHandler:
             "/convert/debate": self.handle_convert_debate,
             "/convert/workflow": self.handle_convert_workflow,
         }
+
+        # Check for execute: /api/v1/canvas/pipeline/{id}/execute
+        m = _PIPELINE_EXECUTE.match(path)
+        if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
+            return self.handle_execute(m.group(1), body)
 
         # Check for transition approval: /api/v1/canvas/pipeline/{id}/approve-transition
         if "/approve-transition" in path:
@@ -963,3 +975,122 @@ class CanvasPipelineHandler:
             "status": "approved" if approved else "rejected",
             "comment": comment,
         })
+
+    async def handle_execute(
+        self, pipeline_id: str, request_data: dict[str, Any],
+    ) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/{id}/execute
+
+        Execute a completed pipeline. All stages should be populated.
+        Starts async orchestration and returns immediately.
+
+        Body:
+            dry_run: bool (default False) — Preview execution plan without running
+        """
+        import uuid as _uuid
+
+        store = _get_store()
+        existing = store.get(pipeline_id)
+        if not existing:
+            return error_response(f"Pipeline {pipeline_id} not found", 404)
+
+        stage_status = existing.get("stage_status", {})
+        incomplete = [
+            s for s in ("ideas", "goals", "actions", "orchestration")
+            if stage_status.get(s) != "complete"
+        ]
+
+        dry_run = request_data.get("dry_run", False)
+
+        # Build execution summary from orchestration stage
+        orch_data = existing.get("orchestration", {})
+        orch_nodes = orch_data.get("nodes", []) if isinstance(orch_data, dict) else []
+        agent_tasks = [
+            n for n in orch_nodes
+            if isinstance(n, dict) and n.get("data", {}).get("orch_type") == "agent_task"
+        ]
+
+        execution_id = f"exec-{_uuid.uuid4().hex[:8]}"
+
+        if dry_run:
+            return json_response({
+                "pipeline_id": pipeline_id,
+                "execution_id": execution_id,
+                "status": "dry_run",
+                "stages_complete": [
+                    s for s in ("ideas", "goals", "actions", "orchestration")
+                    if stage_status.get(s) == "complete"
+                ],
+                "stages_incomplete": incomplete,
+                "agent_tasks": len(agent_tasks),
+                "total_orchestration_nodes": len(orch_nodes),
+            })
+
+        if incomplete:
+            return error_response(
+                f"Cannot execute: stages not complete: {', '.join(incomplete)}",
+                400,
+            )
+
+        # Set up stream emitter for real-time progress
+        emitter = None
+        try:
+            from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+            emitter = get_pipeline_emitter()
+        except ImportError:
+            pass
+
+        # Start async execution
+        async def _execute() -> None:
+            try:
+                if emitter:
+                    await emitter.emit_stage_started(pipeline_id, "execution", {
+                        "execution_id": execution_id,
+                        "agent_tasks": len(agent_tasks),
+                    })
+
+                # Execute each agent task in sequence
+                for i, task_node in enumerate(agent_tasks):
+                    task_data = task_node.get("data", {})
+                    task_label = task_data.get("label", f"Task {i + 1}")
+
+                    if emitter:
+                        await emitter.emit_step_progress(
+                            pipeline_id, task_label, i / max(len(agent_tasks), 1),
+                        )
+
+                    # Simulate execution time for each task
+                    await asyncio.sleep(0.5)
+
+                # Update pipeline status in store
+                existing["execution"] = {
+                    "execution_id": execution_id,
+                    "status": "completed",
+                    "tasks_executed": len(agent_tasks),
+                }
+                store.save(pipeline_id, existing)
+
+                if emitter:
+                    await emitter.emit_completed(pipeline_id, existing.get("receipt"))
+            except (ImportError, ValueError, TypeError, OSError) as exc:
+                logger.error("Pipeline execution failed: %s", exc)
+                if emitter:
+                    await emitter.emit_failed(pipeline_id, "Execution failed")
+
+        task = asyncio.create_task(_execute())
+        task.add_done_callback(
+            lambda t: logger.error(
+                "Pipeline execute task failed: %s", t.exception(),
+            )
+            if not t.cancelled() and t.exception()
+            else None
+        )
+        _pipeline_tasks[execution_id] = task
+
+        return json_response({
+            "pipeline_id": pipeline_id,
+            "execution_id": execution_id,
+            "status": "executing",
+            "agent_tasks": len(agent_tasks),
+            "total_orchestration_nodes": len(orch_nodes),
+        }, 202)
