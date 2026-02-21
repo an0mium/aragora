@@ -1008,14 +1008,11 @@ class PlaygroundHandler(BaseHandler):
         import urllib.request
         import urllib.error
 
-        logger.info("[TTS] Handler reached, fetching API key")
         from aragora.config.secrets import get_secret
 
         api_key = get_secret("ELEVENLABS_API_KEY")
         if not api_key:
-            logger.warning("[TTS] ELEVENLABS_API_KEY not found")
             return error_response("TTS not configured", 503)
-        logger.info("[TTS] API key found, proceeding")
 
         # Rate limit
         client_ip = "unknown"
@@ -1079,10 +1076,10 @@ class PlaygroundHandler(BaseHandler):
             return error_response("TTS service unavailable", 503)
 
         return HandlerResult(
-            status=200,
+            status_code=200,
+            content_type="audio/mpeg",
             body=audio_bytes,
             headers={
-                "Content-Type": "audio/mpeg",
                 "Content-Length": str(len(audio_bytes)),
                 "Cache-Control": "public, max-age=3600",
             },
@@ -1099,7 +1096,6 @@ class PlaygroundHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
-        logger.info("[playground] handle_post called with path=%s", path)
         if path == "/api/v1/playground/tts":
             return self._handle_tts(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
