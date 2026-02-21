@@ -111,11 +111,19 @@ export function useSWRFetch<T = unknown>(
     isValidating,
     mutate: boundMutate,
   } = useSWR<T>(url, swrFetcher, {
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
     dedupingInterval: 2000,
-    errorRetryCount: 3,
-    errorRetryInterval: 1000,
+    errorRetryCount: 2,
+    errorRetryInterval: 5000,
+    onErrorRetry: (err, _key, _config, revalidate, { retryCount }) => {
+      // Never retry on auth errors — prevents infinite loop when backend is down
+      const status = (err as Error & { status?: number }).status;
+      if (status === 401 || status === 403 || status === 404) return;
+      // Only retry up to 2 times with backoff
+      if (retryCount >= 2) return;
+      setTimeout(() => revalidate({ retryCount }), 5000 * (retryCount + 1));
+    },
     ...swrOptions,
   });
 

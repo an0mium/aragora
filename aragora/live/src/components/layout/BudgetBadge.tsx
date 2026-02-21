@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { useCostSummary } from '@/hooks/useCosts';
 
 /**
@@ -8,9 +9,13 @@ import { useCostSummary } from '@/hooks/useCosts';
  * Shows current budget utilization percentage with color coding.
  */
 export function BudgetBadge() {
-  const { summary, isLoading, error } = useCostSummary('30d');
+  const { isAuthenticated } = useAuth();
+  // Only fetch costs when authenticated to avoid 401 retry storms
+  const { summary, isLoading, error } = useCostSummary('30d', {
+    enabled: isAuthenticated,
+  });
 
-  if (isLoading || error || !summary || summary.budget_usd <= 0) {
+  if (!isAuthenticated || isLoading || error || !summary || summary.budget_usd <= 0) {
     return null;
   }
 
