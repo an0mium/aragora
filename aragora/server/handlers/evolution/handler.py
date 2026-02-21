@@ -85,7 +85,7 @@ class EvolutionHandler(BaseHandler):
     ) -> HandlerResult | None:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)
-        if not normalized.startswith("/api/evolution/"):
+        if normalized != "/api/evolution" and not normalized.startswith("/api/evolution/"):
             return None
 
         # Auth: skip for GET (public read-only dashboard data)
