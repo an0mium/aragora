@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 interface RightSidebarContextType {
   // Content
@@ -88,24 +88,38 @@ export function RightSidebarProvider({ children }: { children: ReactNode }) {
     setActivityContentState(null);
   }, []);
 
+  const value = useMemo<RightSidebarContextType>(() => ({
+    title,
+    subtitle,
+    statsContent,
+    propertiesContent,
+    actionsContent,
+    activityContent,
+    setTitle,
+    setStatsContent,
+    setPropertiesContent,
+    setActionsContent,
+    setActivityContent,
+    setContext,
+    clearContext,
+  }), [
+    title,
+    subtitle,
+    statsContent,
+    propertiesContent,
+    actionsContent,
+    activityContent,
+    setTitle,
+    setStatsContent,
+    setPropertiesContent,
+    setActionsContent,
+    setActivityContent,
+    setContext,
+    clearContext,
+  ]);
+
   return (
-    <RightSidebarContext.Provider
-      value={{
-        title,
-        subtitle,
-        statsContent,
-        propertiesContent,
-        actionsContent,
-        activityContent,
-        setTitle,
-        setStatsContent,
-        setPropertiesContent,
-        setActionsContent,
-        setActivityContent,
-        setContext,
-        clearContext,
-      }}
-    >
+    <RightSidebarContext.Provider value={value}>
       {children}
     </RightSidebarContext.Provider>
   );

@@ -98,7 +98,9 @@ export default function DebateDetailClient() {
     }
   }, [id]);
 
-  // Right sidebar context
+  // Right sidebar context — only update when pkg changes.
+  // setContext/clearContext are stable useCallback refs so we exclude them
+  // from deps to prevent re-render loops through the context provider.
   useEffect(() => {
     if (!pkg) return;
 
@@ -156,7 +158,8 @@ export default function DebateDetailClient() {
     });
 
     return () => clearContext();
-  }, [pkg, setContext, clearContext, handleShare]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pkg, handleShare]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'OVERVIEW' },

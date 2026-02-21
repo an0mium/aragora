@@ -16,7 +16,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const hideShell = NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const needsOnboarding = useOnboardingStore(selectIsOnboardingNeeded);
 
-  // Redirect authenticated users who haven't completed onboarding
+  // Redirect authenticated users who haven't completed onboarding.
+  // router is excluded from deps — it returns a new ref every render in Next.js
+  // but push() is safe to call with the captured closure reference.
   useEffect(() => {
     if (
       isAuthenticated &&
@@ -26,7 +28,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ) {
       router.push('/onboarding');
     }
-  }, [isAuthenticated, authLoading, needsOnboarding, pathname, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authLoading, needsOnboarding, pathname]);
 
   // Unauthenticated users at root see LandingPage (which has its own nav) — skip AppShell
   if (!hideShell && pathname === '/' && !authLoading && !isAuthenticated) {
