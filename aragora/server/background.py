@@ -401,8 +401,8 @@ def create_retention_gate_callback(
                 try:
                     from aragora.memory.continuum import ContinuumMemory
 
-                    data_dir = nomic_dir or "."
-                    memory = ContinuumMemory(data_dir=data_dir)
+                    base_dir = nomic_dir or "."
+                    memory = ContinuumMemory(base_dir=base_dir)
                 except (ImportError, OSError):
                     logger.debug("ContinuumMemory not available for retention sweep")
                     return

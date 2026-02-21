@@ -59,12 +59,12 @@ class PlaybookHandler:
         except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
-    def can_handle(self, method: str, path: str) -> bool:
+    def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given request."""
         if path.rstrip("/").endswith("/run"):
-            return method == "POST"
+            return True
         if "/playbooks" in path:
-            return method == "GET"
+            return True
         return False
 
     def handle(self, method: str, path: str, handler: Any) -> HandlerResult:

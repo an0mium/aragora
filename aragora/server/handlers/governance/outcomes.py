@@ -77,16 +77,16 @@ class OutcomeHandler:
         except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
-    def can_handle(self, method: str, path: str) -> bool:
+    def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given request."""
         if "/outcomes/search" in path:
-            return method == "GET"
+            return True
         if "/outcomes/impact" in path:
-            return method == "GET"
+            return True
         if path.rstrip("/").endswith("/outcome"):
-            return method == "POST"
+            return True
         if path.rstrip("/").endswith("/outcomes"):
-            return method == "GET"
+            return True
         return False
 
     def handle(self, method: str, path: str, handler: Any) -> HandlerResult:
