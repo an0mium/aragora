@@ -269,7 +269,7 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
     {"provider": "openrouter", "model": "openai/gpt-5.2", "name": "gpt", "env": "OPENROUTER_API_KEY"},
     {"provider": "openrouter", "model": "x-ai/grok-4.1-fast", "name": "grok", "env": "OPENROUTER_API_KEY"},
     {"provider": "openrouter", "model": "deepseek/deepseek-v3.2", "name": "deepseek", "env": "OPENROUTER_API_KEY"},
-    {"provider": "openrouter", "model": "google/gemini-3-pro-preview", "name": "gemini", "env": "OPENROUTER_API_KEY"},
+    {"provider": "openrouter", "model": "google/gemini-3.1-pro-preview", "name": "gemini", "env": "OPENROUTER_API_KEY"},
     {"provider": "openrouter", "model": "mistralai/mistral-large-2512", "name": "mistral", "env": "OPENROUTER_API_KEY"},
 ]
 
@@ -1008,11 +1008,14 @@ class PlaygroundHandler(BaseHandler):
         import urllib.request
         import urllib.error
 
+        logger.info("[TTS] Handler reached, fetching API key")
         from aragora.config.secrets import get_secret
 
         api_key = get_secret("ELEVENLABS_API_KEY")
         if not api_key:
+            logger.warning("[TTS] ELEVENLABS_API_KEY not found")
             return error_response("TTS not configured", 503)
+        logger.info("[TTS] API key found, proceeding")
 
         # Rate limit
         client_ip = "unknown"
@@ -1096,6 +1099,7 @@ class PlaygroundHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
+        logger.info("[playground] handle_post called with path=%s", path)
         if path == "/api/v1/playground/tts":
             return self._handle_tts(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
