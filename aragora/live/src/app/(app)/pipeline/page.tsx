@@ -4,6 +4,7 @@ import { Suspense, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { usePipeline } from '@/hooks/usePipeline';
+import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
 import type { PipelineStageType } from '@/components/pipeline-canvas/types';
 
 const PipelineCanvas = dynamic(
@@ -52,10 +53,14 @@ export default function PipelinePage() {
 function PipelinePageContent() {
   const {
     pipelineData,
+    setPipelineData,
+    isDemo,
     createFromIdeas,
     createFromDebate,
     advanceStage,
     executePipeline,
+    approveTransition,
+    rejectTransition,
     loadDemo,
     reset,
     loading,
@@ -73,6 +78,21 @@ function PipelinePageContent() {
   const [key, setKey] = useState(0);
   const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'provenance'>('stages');
+
+  const wsStageCompleted = useCallback(() => {
+    setKey((k) => k + 1);
+  }, []);
+
+  const wsCompleted = useCallback(() => {
+    setKey((k) => k + 1);
+  }, []);
+
+  const { isConnected } = usePipelineWebSocket({
+    pipelineId: pipelineData?.pipeline_id,
+    enabled: !!pipelineData && !isDemo,
+    onStageCompleted: wsStageCompleted,
+    onCompleted: wsCompleted,
+  });
 
   // Auto-import from debate when ?from=debate&id=xxx is present
   useEffect(() => {
@@ -164,25 +184,32 @@ function PipelinePageContent() {
 
   const handleTransitionApprove = useCallback(
     (pipelineId: string, transitionId: string) => {
-      // Find the transition to determine target stage
+      // Find the transition to determine source and target stages
       const transition = pipelineData?.transitions?.find(
         (t) => (t.id as string) === transitionId,
       );
       if (transition) {
+        const fromStage = transition.from_stage as PipelineStageType;
         const toStage = transition.to_stage as PipelineStageType;
-        advanceStage(pipelineId, toStage);
+        approveTransition(pipelineId, fromStage, toStage);
         setKey((k) => k + 1);
       }
     },
-    [pipelineData, advanceStage],
+    [pipelineData, approveTransition],
   );
 
   const handleTransitionReject = useCallback(
-    (_pipelineId: string, _transitionId: string) => {
-      // Rejection is a no-op for now — the stage stays pending
-      // Future: could send rejection reason to backend
+    (pipelineId: string, transitionId: string) => {
+      const transition = pipelineData?.transitions?.find(
+        (t) => (t.id as string) === transitionId,
+      );
+      if (transition) {
+        const fromStage = transition.from_stage as PipelineStageType;
+        const toStage = transition.to_stage as PipelineStageType;
+        rejectTransition(pipelineId, fromStage, toStage);
+      }
     },
-    [],
+    [pipelineData, rejectTransition],
   );
 
   const handleExecute = useCallback(async () => {
@@ -209,6 +236,15 @@ function PipelinePageContent() {
         </div>
 
         <div className="flex items-center gap-3">
+          {pipelineData && !isDemo && (
+            <span
+              className={`inline-block w-2.5 h-2.5 rounded-full ${
+                isConnected ? 'bg-emerald-400' : 'bg-red-400'
+              }`}
+              title={isConnected ? 'WebSocket connected' : 'WebSocket disconnected'}
+            />
+          )}
+
           <button
             onClick={handleNew}
             className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"

@@ -216,8 +216,41 @@ export function usePipeline() {
     setIsDemo(false);
   }, []);
 
+  const approveTransition = useCallback(
+    async (pipelineId: string, fromStage: PipelineStageType, toStage: PipelineStageType, comment?: string) => {
+      const result = await advanceApi.post('/api/v1/canvas/pipeline/approve-transition', {
+        pipeline_id: pipelineId,
+        from_stage: fromStage,
+        to_stage: toStage,
+        comment: comment ?? '',
+      });
+      if (result?.result) {
+        setPipelineData(result.result);
+      }
+      return result;
+    },
+    [advanceApi]
+  );
+
+  const rejectTransition = useCallback(
+    async (pipelineId: string, fromStage: PipelineStageType, toStage: PipelineStageType, reason?: string) => {
+      const result = await advanceApi.post('/api/v1/canvas/pipeline/reject-transition', {
+        pipeline_id: pipelineId,
+        from_stage: fromStage,
+        to_stage: toStage,
+        reason: reason ?? '',
+      });
+      if (result?.result) {
+        setPipelineData(result.result);
+      }
+      return result;
+    },
+    [advanceApi]
+  );
+
   return {
     pipelineData,
+    setPipelineData,
     isDemo,
     createFromDebate,
     createFromIdeas,
@@ -225,6 +258,8 @@ export function usePipeline() {
     getPipeline,
     getStage,
     executePipeline,
+    approveTransition,
+    rejectTransition,
     loadDemo,
     reset,
     loading: api.loading || advanceApi.loading || getApi.loading,
