@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useCallback, FormEvent } from 'react';
 import Link from 'next/link';
-import { DebateResultPreview, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
+import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
 
 interface LandingPageProps {
   apiBase?: string;
@@ -102,20 +102,14 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
 
-  // Restore pending debate results from sessionStorage (e.g., after OAuth login)
-  useEffect(() => {
-    const pending = sessionStorage.getItem(PENDING_DEBATE_KEY);
-    if (pending) {
-      try {
-        const parsed = JSON.parse(pending) as DebateResponse;
-        setResult(parsed);
-        setQuestion(parsed.topic || '');
-      } catch {
-        // Ignore invalid data
-      }
-      sessionStorage.removeItem(PENDING_DEBATE_KEY);
+  // Save active debate result before navigating to login so it can be
+  // restored on the dashboard after OAuth completes.
+  const saveDebateBeforeLogin = useCallback(() => {
+    if (result) {
+      sessionStorage.setItem(PENDING_DEBATE_KEY, JSON.stringify(result));
+      sessionStorage.setItem(RETURN_URL_KEY, '/');
     }
-  }, []);
+  }, [result]);
 
   async function runDebate(topic: string) {
     setIsRunning(true);
@@ -180,7 +174,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             </a>
             {onEnterDashboard ? (
               <button
-                onClick={onEnterDashboard}
+                onClick={() => { saveDebateBeforeLogin(); onEnterDashboard(); }}
                 className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
                 LOG IN
@@ -188,6 +182,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             ) : (
               <Link
                 href="/auth/login"
+                onClick={saveDebateBeforeLogin}
                 className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
                 LOG IN

@@ -137,7 +137,6 @@ class TestCanHandle:
     @pytest.mark.parametrize(
         "path",
         [
-            "/api/evolution",
             "/api/evolution/",
             "/api/debates",
             "/api/agents/claude/history",
@@ -912,7 +911,7 @@ class TestEdgeCases:
         assert "/api/v1/evolution/patterns" in routes
         assert "/api/evolution/*/history" in routes
         assert "/api/evolution/*/prompt" in routes
-        assert len(routes) == 8  # 4 endpoints x 2 (v1 and non-v1)
+        assert len(routes) == 10  # 5 endpoints x 2 (v1 and non-v1), including root
 
     def test_handler_is_none_for_rate_limit(self, handler, mod):
         """When HTTP handler is None, rate limiter should use 'unknown' as key."""
