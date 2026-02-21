@@ -1208,8 +1208,32 @@ class TestRateLimiting:
 # =============================================================================
 
 
+@pytest.mark.timeout(15)
 class TestExecutionFlow:
     """Tests for the full deliberation execution flow."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_decision_router(self):
+        """Prevent real HTTP calls via get_decision_router regardless of test order.
+
+        With certain pytest-randomly seeds (e.g. 99999), mock pollution can
+        cause per-test patches to silently fail, letting _execute_deliberation
+        reach the fallback path and block on real network I/O.  This autouse
+        fixture acts as a safety net.
+        """
+        mock_result = MagicMock(
+            success=True,
+            consensus_reached=False,
+            final_answer="mock fallback",
+            confidence=0.5,
+        )
+        mock_router = MagicMock()
+        mock_router.route = AsyncMock(return_value=mock_result)
+        with patch(
+            "aragora.core.decision.get_decision_router",
+            return_value=mock_router,
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_execute_deliberation_without_coordinator(self, handler):
