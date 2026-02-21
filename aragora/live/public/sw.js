@@ -1,5 +1,5 @@
 // Aragora Service Worker - Offline-first PWA support
-const CACHE_NAME = 'aragora-v1';
+const CACHE_NAME = 'aragora-v2';
 const _OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install
@@ -82,14 +82,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets, use cache-first
+  // For static assets, use network-first with cache fallback.
+  // Next.js uses content-hashed filenames so we always want to serve
+  // the latest version from the network when available.
   if (
     url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$/)
   ) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -97,8 +98,11 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return response;
-        });
-      })
+        })
+        .catch(() => {
+          // Offline fallback — serve cached version if available
+          return caches.match(request);
+        })
     );
     return;
   }
