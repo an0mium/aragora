@@ -74,6 +74,9 @@ class PipelineConfig:
     enable_elo_assignment: bool = True
     enable_km_precedents: bool = True
     human_approval_required: bool = False  # Require human approval between stages
+    enable_km_persistence: bool = False  # Auto-persist results to KnowledgeMound
+    use_arena_orchestration: bool = False  # Use Arena mini-debate in Stage 4
+    use_hardened_orchestrator: bool = False  # Use HardenedOrchestrator in Stage 4
 
 
 @dataclass
@@ -192,6 +195,49 @@ class IdeaToExecutionPipeline:
         self._goal_extractor = goal_extractor or GoalExtractor(agent=agent)
         self._agent = agent
         self._use_universal = use_universal
+
+    @classmethod
+    def from_prioritized_goals(
+        cls,
+        goals: list[Any],
+        auto_advance: bool = True,
+        pipeline_id: str | None = None,
+    ) -> PipelineResult:
+        """Create a pipeline from MetaPlanner PrioritizedGoal objects.
+
+        Bridges the self-improvement system (MetaPlanner) into the visual
+        pipeline by converting each PrioritizedGoal into a formatted idea
+        string and running ``from_ideas()``.
+
+        Args:
+            goals: List of PrioritizedGoal objects from MetaPlanner.prioritize_work()
+            auto_advance: If True, auto-generate all stages
+            pipeline_id: Optional pipeline ID
+
+        Returns:
+            PipelineResult with all stages populated
+        """
+        ideas: list[str] = []
+        for goal in goals:
+            impact = getattr(goal, "estimated_impact", "medium")
+            description = getattr(goal, "description", str(goal))
+            rationale = getattr(goal, "rationale", "")
+            track = getattr(goal, "track", None)
+            track_str = track.value if hasattr(track, "value") else str(track or "core")
+
+            parts = [f"[{impact}]"]
+            if track_str:
+                parts.append(f"({track_str})")
+            parts.append(description)
+            if rationale:
+                parts.append(f"— {rationale}")
+
+            ideas.append(" ".join(parts))
+
+        pipeline = cls()
+        return pipeline.from_ideas(
+            ideas, auto_advance=auto_advance, pipeline_id=pipeline_id,
+        )
 
     @classmethod
     def from_demo(cls) -> tuple[PipelineResult, PipelineConfig]:
@@ -584,6 +630,29 @@ class IdeaToExecutionPipeline:
             if cfg.enable_receipts and not cfg.dry_run:
                 result.receipt = self._generate_receipt(result)
 
+            # Auto-persist to KnowledgeMound
+            if cfg.enable_km_persistence and not cfg.dry_run:
+                try:
+                    from aragora.pipeline.km_bridge import PipelineKMBridge
+
+                    km_bridge = PipelineKMBridge()
+                    if km_bridge.available:
+                        stored = km_bridge.store_pipeline_result(result)
+                        if stored:
+                            logger.info(
+                                "Pipeline %s: results persisted to KnowledgeMound",
+                                pipeline_id,
+                            )
+                        else:
+                            logger.warning(
+                                "Pipeline %s: KM persistence returned False",
+                                pipeline_id,
+                            )
+                except ImportError:
+                    logger.debug("KM persistence skipped: PipelineKMBridge not available")
+                except (RuntimeError, ValueError, OSError) as exc:
+                    logger.warning("Pipeline %s: KM persistence failed: %s", pipeline_id, exc)
+
             result.duration = time.monotonic() - start_time
             self._emit(cfg, "completed", {
                 "pipeline_id": pipeline_id,
@@ -677,9 +746,57 @@ class IdeaToExecutionPipeline:
 
             # If we have debate data with argument nodes, use debate analysis
             if debate_output and debate_output.get("nodes"):
-                cartographer_data = {"nodes": debate_output["nodes"]}
+                cartographer_data = {
+                    "nodes": debate_output["nodes"],
+                    "edges": debate_output.get("edges", []),
+                }
+
+                # Build BeliefNetwork from debate nodes/edges for centrality scoring
+                belief_result = None
+                try:
+                    from aragora.reasoning.belief import BeliefNetwork, RelationType
+
+                    bn = BeliefNetwork()
+                    for node in debate_output["nodes"]:
+                        node_id = node.get("id", "")
+                        statement = node.get("label", node.get("content", ""))
+                        author = node.get("author", node.get("agent", "unknown"))
+                        confidence = node.get("weight", node.get("confidence", 0.5))
+                        if node_id and statement:
+                            bn.add_claim(
+                                node_id, statement, author,
+                                initial_confidence=float(confidence),
+                            )
+
+                    _EDGE_TO_RELATION = {
+                        "supports": RelationType.SUPPORTS,
+                        "support": RelationType.SUPPORTS,
+                        "contradicts": RelationType.CONTRADICTS,
+                        "refutes": RelationType.CONTRADICTS,
+                        "refines": RelationType.REFINES,
+                        "modifies": RelationType.REFINES,
+                    }
+                    for edge in debate_output.get("edges", []):
+                        src = edge.get("source", edge.get("source_id", ""))
+                        tgt = edge.get("target", edge.get("target_id", ""))
+                        rel = edge.get("type", edge.get("relation", "supports")).lower()
+                        relation = _EDGE_TO_RELATION.get(rel, RelationType.SUPPORTS)
+                        strength = float(edge.get("weight", edge.get("strength", 1.0)))
+                        if src and tgt:
+                            bn.add_factor(src, tgt, relation, strength=strength)
+
+                    if bn.nodes:  # Only propagate if we added claims
+                        belief_result = bn.propagate()
+                        logger.debug(
+                            "BeliefNetwork propagated: converged=%s, iterations=%d",
+                            belief_result.converged, belief_result.iterations,
+                        )
+                except (ImportError, RuntimeError, ValueError) as exc:
+                    logger.warning("BeliefNetwork integration skipped: %s", exc)
+
                 goal_graph = self._goal_extractor.extract_from_debate_analysis(
                     cartographer_data,
+                    belief_result=belief_result,
                     config=cfg.goal_extraction_config,
                 )
             elif debate_output and debate_output.get("goal_graph_preview"):
@@ -726,6 +843,66 @@ class IdeaToExecutionPipeline:
                         bridge.enrich_with_precedents(goal_graph, precedents)
                 except (ImportError, Exception):
                     pass
+
+                # Cross-cycle learning: query past Nomic cycles for similar objectives
+                try:
+                    from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                        NomicCycleAdapter,
+                    )
+
+                    adapter = NomicCycleAdapter()
+                    objective = " | ".join(g.title for g in goal_graph.goals[:5])
+                    # NomicCycleAdapter.find_similar_cycles is async; use sync wrapper
+                    import asyncio
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        loop = None
+
+                    if loop and loop.is_running():
+                        # Already in async context — schedule directly
+                        similar_cycles = await adapter.find_similar_cycles(
+                            objective, limit=3,
+                        )
+                    else:
+                        similar_cycles = asyncio.run(
+                            adapter.find_similar_cycles(objective, limit=3)
+                        )
+
+                    if similar_cycles:
+                        recommendations = []
+                        past_failures = []
+                        for cycle in similar_cycles:
+                            recommendations.extend(
+                                getattr(cycle, "recommendations", [])
+                            )
+                            past_failures.extend(
+                                getattr(cycle, "what_failed", [])
+                            )
+                        goal_graph.metadata["cross_cycle_learning"] = {
+                            "similar_cycles": len(similar_cycles),
+                            "recommendations": recommendations[:10],
+                            "past_failures": past_failures[:10],
+                        }
+                        # Boost confidence of goals aligned with past successes
+                        for goal in goal_graph.goals:
+                            for cycle in similar_cycles:
+                                if getattr(cycle, "success_rate", 0) > 0.7:
+                                    for tip in getattr(cycle, "what_worked", []):
+                                        if any(
+                                            w in goal.title.lower()
+                                            for w in tip.lower().split()[:3]
+                                        ):
+                                            goal.confidence = min(
+                                                1.0, goal.confidence + 0.05
+                                            )
+                                            break
+                        logger.debug(
+                            "Cross-cycle learning: %d similar cycles found",
+                            len(similar_cycles),
+                        )
+                except (ImportError, RuntimeError, ValueError) as exc:
+                    logger.debug("Cross-cycle learning skipped: %s", exc)
 
             # Emit individual goals
             if goal_graph:
@@ -929,20 +1106,74 @@ class IdeaToExecutionPipeline:
         task: dict[str, Any],
         cfg: PipelineConfig,
     ) -> dict[str, Any]:
-        """Execute a single task, using DebugLoop if available.
+        """Execute a single task using the best available backend.
 
-        Falls back to ``planned`` status when the execution engine
-        (DebugLoop / ClaudeCodeHarness) is not installed or raises.
+        Tries backends in order of preference:
+        1. HardenedOrchestrator (if ``use_hardened_orchestrator`` enabled)
+        2. Arena mini-debate (if ``use_arena_orchestration`` enabled)
+        3. DebugLoop (default)
+        4. Falls back to ``planned`` status when no engine is available.
         """
+        instruction = f"Implement: {task['name']}\n\n{task.get('description', '')}"
+
+        # Backend 1: HardenedOrchestrator (worktree isolation + gauntlet)
+        if cfg.use_hardened_orchestrator:
+            try:
+                from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+
+                orchestrator = HardenedOrchestrator(
+                    use_worktree_isolation=True,
+                    enable_gauntlet_validation=True,
+                    generate_receipts=cfg.enable_receipts,
+                )
+                result = await orchestrator.execute_goal(instruction)
+                return {
+                    "task_id": task["id"],
+                    "name": task["name"],
+                    "status": "completed" if getattr(result, "success", False) else "failed",
+                    "output": result.to_dict() if hasattr(result, "to_dict") else {},
+                    "backend": "hardened_orchestrator",
+                }
+            except ImportError:
+                logger.debug("HardenedOrchestrator not available, trying next backend")
+            except (RuntimeError, ValueError, OSError) as exc:
+                logger.warning("HardenedOrchestrator failed: %s", exc)
+
+        # Backend 2: Arena mini-debate for consensus-driven execution
+        if cfg.use_arena_orchestration:
+            try:
+                from aragora.debate.orchestrator import Arena
+                from aragora.debate import DebateProtocol
+                from aragora.core_types import Environment
+
+                env = Environment(task=instruction)
+                protocol = DebateProtocol(rounds=2)
+                arena = Arena(env, [], protocol)
+                debate_result = await arena.run()
+                arena_rationale = getattr(debate_result, "summary", str(debate_result))
+                return {
+                    "task_id": task["id"],
+                    "name": task["name"],
+                    "status": "completed",
+                    "output": {
+                        "arena_rationale": arena_rationale[:500],
+                        "consensus_reached": getattr(debate_result, "consensus_reached", False),
+                    },
+                    "backend": "arena",
+                }
+            except ImportError:
+                logger.debug("Arena not available, trying DebugLoop")
+            except (RuntimeError, ValueError, OSError) as exc:
+                logger.warning("Arena mini-debate failed: %s", exc)
+
+        # Backend 3: DebugLoop (default)
         try:
             from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
 
             loop_cfg = DebugLoopConfig(max_retries=2)
             loop = DebugLoop(loop_cfg)
             result = await loop.execute_with_retry(
-                instruction=(
-                    f"Implement: {task['name']}\n\n{task.get('description', '')}"
-                ),
+                instruction=instruction,
                 worktree_path=getattr(cfg, "worktree_path", None) or "/tmp/aragora-worktree",
                 test_scope=task.get("test_scope", []),
             )
@@ -951,6 +1182,7 @@ class IdeaToExecutionPipeline:
                 "name": task["name"],
                 "status": "completed" if result.success else "failed",
                 "output": result.to_dict() if hasattr(result, "to_dict") else {},
+                "backend": "debug_loop",
             }
         except (ImportError, AttributeError):
             # DebugLoop not available — fall back to planned status
@@ -1457,10 +1689,12 @@ class IdeaToExecutionPipeline:
                         score = getattr(best, "elo", 1000.0)
                         elo_scores[f"{domain}:{agent_id}"] = score
                         _elo_domain_agents[domain] = agent_id
-                except Exception:
-                    pass
-        except (ImportError, Exception):
-            pass  # Fall back to static map
+                except (RuntimeError, ValueError, KeyError) as exc:
+                    logger.debug("ELO ranking unavailable for domain %s: %s", domain, exc)
+        except ImportError:
+            logger.debug("TeamSelector not available, using static agent map")
+        except (RuntimeError, ValueError) as exc:
+            logger.debug("ELO ranking system unavailable: %s", exc)
 
         # Agent pool with diverse model providers for adversarial vetting
         agents = [
@@ -1584,4 +1818,8 @@ class IdeaToExecutionPipeline:
         # Only include agents that are actually assigned tasks
         active_agents = [a for a in agents if a["id"] in used_agents]
 
-        return {"agents": active_agents, "tasks": tasks}
+        return {
+            "agents": active_agents,
+            "tasks": tasks,
+            "elo_used": bool(elo_scores),
+        }
