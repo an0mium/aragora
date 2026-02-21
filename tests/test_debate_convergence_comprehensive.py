@@ -17,6 +17,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import aragora.debate.similarity.backends as _backends_mod
+
 from aragora.debate.convergence import (
     AdvancedConvergenceAnalyzer,
     AdvancedConvergenceMetrics,
@@ -31,6 +33,94 @@ from aragora.debate.convergence import (
     get_similarity_backend,
     _normalize_backend_name,
 )
+from aragora.debate.similarity.factory import SimilarityFactory
+
+
+@pytest.fixture(autouse=True)
+def _reset_similarity_state():
+    """Reset global similarity state before each test to prevent cross-test pollution.
+
+    Two independent contamination vectors are handled:
+
+    1. **SimilarityFactory class-level state** -- Other test files (e.g.
+       ``tests/debate/test_similarity_factory.py``) mutate ``_registry`` and
+       ``_initialized`` without restoring them.  When pytest-randomly reorders
+       tests the factory can return an unexpected backend.
+
+    2. **Module reload poisoning** -- ``tests/debate/similarity/test_backends.py``
+       uses ``importlib.reload()`` on the backends module.  Reload re-executes
+       the module body, creating *new* class objects (``JaccardBackend``,
+       ``TFIDFBackend``, etc.) in the module's ``__dict__``.  Functions such as
+       ``get_similarity_backend`` share that ``__dict__`` as their globals, so
+       they start returning instances of the *new* classes.  But this test file
+       captured the *old* class objects at import time, causing every
+       ``isinstance`` check to fail.  The fix is to re-sync this module's
+       global names with whatever the backends module currently exposes.
+    """
+    # -- 1. Refresh class references after potential importlib.reload() ------
+    #
+    # Other tests (e.g. tests/debate/similarity/test_backends.py) use
+    # ``importlib.reload()`` on the backends module.  Reload re-executes
+    # the module body and replaces every name in its ``__dict__`` with a
+    # *new* class / function object.  Functions defined in the module
+    # (like ``get_similarity_backend``) share that ``__dict__`` as their
+    # ``func.__globals__``, so they start returning instances of the new
+    # classes.  But the factory module and this test file still hold
+    # references to the *old* classes captured at their original import
+    # time, causing ``isinstance`` checks to fail.
+    #
+    # We reconcile by picking the canonical classes from the backends
+    # module (the only version that ``get_similarity_backend`` can return)
+    # and propagating them everywhere: this module's globals, the factory
+    # module, and the detector module.
+    _globals = globals()
+    _globals["JaccardBackend"] = _backends_mod.JaccardBackend
+    _globals["TFIDFBackend"] = _backends_mod.TFIDFBackend
+    _globals["SimilarityBackend"] = _backends_mod.SimilarityBackend
+    _globals["get_similarity_backend"] = _backends_mod.get_similarity_backend
+
+    # Sync the factory module so SimilarityFactory._ensure_initialized()
+    # registers the same class objects that get_similarity_backend returns.
+    import aragora.debate.similarity.factory as _factory_mod
+    _factory_mod.JaccardBackend = _backends_mod.JaccardBackend
+    _factory_mod.TFIDFBackend = _backends_mod.TFIDFBackend
+    _factory_mod.SentenceTransformerBackend = _backends_mod.SentenceTransformerBackend
+    _factory_mod.SimilarityBackend = _backends_mod.SimilarityBackend
+
+    # Sync the detector module so _select_backend returns matching types.
+    import aragora.debate.convergence.detector as _det_mod
+    _det_mod.JaccardBackend = _backends_mod.JaccardBackend
+    _det_mod.get_similarity_backend = _backends_mod.get_similarity_backend
+
+    # -- 2. Reset SimilarityFactory class-level state -----------------------
+    orig_registry = SimilarityFactory._registry
+    orig_initialized = SimilarityFactory._initialized
+
+    SimilarityFactory._registry = {}
+    SimilarityFactory._initialized = False
+
+    # -- 3. Clean environment variables -------------------------------------
+    saved_env = {}
+    for key in ("ARAGORA_SIMILARITY_BACKEND", "ARAGORA_CONVERGENCE_BACKEND"):
+        if key in os.environ:
+            saved_env[key] = os.environ.pop(key)
+
+    # -- 4. Clear backend similarity caches ---------------------------------
+    _backends_mod.JaccardBackend.clear_cache()
+    _backends_mod.TFIDFBackend.clear_cache()
+
+    yield
+
+    # Restore factory state
+    SimilarityFactory._registry = orig_registry
+    SimilarityFactory._initialized = orig_initialized
+
+    # Restore environment variables
+    for key in ("ARAGORA_SIMILARITY_BACKEND", "ARAGORA_CONVERGENCE_BACKEND"):
+        if key in saved_env:
+            os.environ[key] = saved_env[key]
+        else:
+            os.environ.pop(key, None)
 
 
 # =============================================================================

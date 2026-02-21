@@ -17,6 +17,58 @@ import pytest
 from aragora.server.handlers.control_plane import ControlPlaneHandler
 
 
+# ---------------------------------------------------------------------------
+# Autouse fixture: reset global state that other tests may pollute
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_control_plane_globals():
+    """Reset global state that other test files may pollute.
+
+    When running with pytest-randomly, other tests may run before ours and
+    leave behind stale module-level singletons.  This fixture cleans:
+
+    1. ControlPlaneHandler.coordinator -- class attribute set by server
+       startup or other test fixtures that forget to tear down.
+    2. The ``_cached_has_permission`` function cache in the health mixin
+       (60-second TTL that can hold a monkey-patched lambda from another
+       file's conftest bypass fixture).
+    3. The ``_get_has_permission`` lookup helpers in agents, tasks, and
+       policy mixins resolve ``has_permission`` via ``sys.modules``; if the
+       control-plane package's ``has_permission`` export was replaced by
+       monkeypatch (e.g. with ``lambda role, perm: True``), the resolved
+       function may be stale.  Invalidating the cache forces re-resolution.
+
+    Note: ``_test_user_context_override`` is intentionally NOT touched here;
+    the existing ``_bypass_decorator_auth`` fixture manages that lifecycle.
+    """
+    # --- 1. Coordinator class attribute ---
+    ControlPlaneHandler.coordinator = None
+
+    # --- 2. Health module's permission function cache ---
+    try:
+        import aragora.server.handlers.control_plane.health as _health_mod
+
+        _health_mod._cached_has_permission = None
+        _health_mod._cache_timestamp = 0
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+    # Teardown: clean up after ourselves as well
+    ControlPlaneHandler.coordinator = None
+
+    try:
+        import aragora.server.handlers.control_plane.health as _health_mod
+
+        _health_mod._cached_has_permission = None
+        _health_mod._cache_timestamp = 0
+    except (ImportError, AttributeError):
+        pass
+
+
 class MockCoordinator:
     """Mock ControlPlaneCoordinator for testing."""
 

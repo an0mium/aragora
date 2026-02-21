@@ -2,6 +2,8 @@
 Tests for LangChain integration.
 """
 
+import asyncio
+
 import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,6 +20,21 @@ from aragora.integrations.langchain.tools import (
     AragoraToolInput,
     get_langchain_version,
 )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_event_loop():
+    """Ensure a fresh event loop for each test.
+
+    Async tests (e.g. ``_aget_relevant_documents``) and helpers that call
+    ``run_async()`` / ``asyncio.run()`` need a live loop.  A stale or closed
+    loop left by prior async tests in a randomized suite causes RuntimeError.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield
+    loop.close()
+    asyncio.set_event_loop(None)
 
 
 # =============================================================================

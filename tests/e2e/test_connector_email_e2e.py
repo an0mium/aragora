@@ -88,6 +88,8 @@ def create_test_email_config(
         "from_name": "Test Aragora",
         "max_emails_per_hour": 100,
         "enable_circuit_breaker": False,
+        "enable_distributed_rate_limit": False,
+        "enable_oauth_refresh": False,
     }
     defaults.update(kwargs)
     return EmailConfig(**defaults)
@@ -135,6 +137,33 @@ def create_test_debate_result(
 # ============================================================================
 # Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _isolate_email_global_state(monkeypatch):
+    """Reset module-level singletons that leak between tests.
+
+    The ``aragora.integrations.email`` module caches a distributed rate
+    limiter (``_distributed_rate_limiter``) and lazily resolves an OAuth
+    credential store.  When other tests (or earlier tests in a randomised
+    run) trigger these code paths, the cached objects persist for the
+    lifetime of the process and pollute subsequent tests:
+
+    * The distributed rate limiter may accumulate counts and eventually
+      return ``allowed=False``, causing ``_send_email`` to bail out before
+      reaching the mocked SMTP layer.
+    * The credential store may attempt real OAuth refresh flows.
+
+    By patching these to ``None`` / no-ops we ensure every test in this
+    file exercises only the local, per-instance rate limiter and skips
+    external OAuth interactions -- matching the isolation strategy used in
+    ``tests/integrations/test_email_rate_limit.py``.
+    """
+    import aragora.integrations.email as _email_mod
+
+    monkeypatch.setattr(_email_mod, "_distributed_rate_limiter", None)
+    monkeypatch.setattr(_email_mod, "_get_distributed_rate_limiter", lambda: None)
+    monkeypatch.setattr(_email_mod, "_get_credential_store", lambda: None)
 
 
 @pytest.fixture
