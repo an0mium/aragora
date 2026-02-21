@@ -124,7 +124,9 @@ class AuthChecksMixin:
             # Playground - public demo endpoints (rate-limited by IP)
             "/api/v1/playground/debate",
             "/api/v1/playground/debate/live",
+            "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
+            "/api/v1/playground/tts",
         ]
     )
 
