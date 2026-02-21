@@ -572,6 +572,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "HybridDebateHandler": Stability.STABLE,
     "ERC8004Handler": Stability.STABLE,
     "AudienceSuggestionsHandler": Stability.EXPERIMENTAL,
+    # Governance
+    "OutcomeHandler": Stability.STABLE,
 }
 
 

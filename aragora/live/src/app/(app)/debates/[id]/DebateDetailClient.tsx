@@ -9,6 +9,7 @@ import { API_BASE_URL } from '@/config';
 import { DecisionPackageView } from '@/components/debates/DecisionPackageView';
 import { CostBreakdown } from '@/components/debates/CostBreakdown';
 import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
+import { ExplanationPanel } from '@/components/ExplanationPanel';
 import { logger } from '@/utils/logger';
 
 type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
@@ -290,6 +291,11 @@ export default function DebateDetailClient() {
                 <p className="text-sm font-mono text-[var(--text)]">{pkg.final_answer}</p>
               </div>
             )}
+          </div>
+
+          {/* Explanation Panel - "Why this decision?" */}
+          <div className="mb-6">
+            <ExplanationPanel debateId={id} />
           </div>
 
           {/* Tabs */}

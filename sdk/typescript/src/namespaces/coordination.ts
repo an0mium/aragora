@@ -1,7 +1,9 @@
 /**
  * Coordination Namespace API
  *
- * Cross-workspace federation and coordination capabilities.
+ * Cross-workspace federation and coordination capabilities including
+ * workspace registration, federation policy management, cross-workspace
+ * execution, and data sharing consent.
  */
 
 interface CoordinationClientInterface {
@@ -10,6 +12,18 @@ interface CoordinationClientInterface {
     json?: Record<string, unknown>;
     body?: Record<string, unknown>;
   }): Promise<T>;
+}
+
+export interface RegisterWorkspaceRequest {
+  id: string;
+  name?: string;
+  org_id?: string;
+  federation_mode?: string;
+  endpoint_url?: string;
+  supports_agent_execution?: boolean;
+  supports_workflow_execution?: boolean;
+  supports_knowledge_query?: boolean;
+  [key: string]: unknown;
 }
 
 export interface FederatedWorkspace {
@@ -27,6 +41,21 @@ export interface FederatedWorkspace {
   latency_ms: number;
 }
 
+export interface CreateFederationPolicyRequest {
+  name: string;
+  description?: string;
+  mode?: string;
+  sharing_scope?: string;
+  allowed_operations?: string[];
+  max_requests_per_hour?: number;
+  require_approval?: boolean;
+  audit_all_requests?: boolean;
+  workspace_id?: string;
+  source_workspace_id?: string;
+  target_workspace_id?: string;
+  [key: string]: unknown;
+}
+
 export interface FederationPolicy {
   id: string;
   name: string;
@@ -37,6 +66,37 @@ export interface FederationPolicy {
   blocked_operations: string[];
   max_requests_per_hour: number;
   require_approval: boolean;
+}
+
+export interface ExecuteCrossWorkspaceRequest {
+  operation: string;
+  source_workspace_id: string;
+  target_workspace_id: string;
+  payload?: Record<string, unknown>;
+  timeout_seconds?: number;
+  requester_id?: string;
+  consent_id?: string;
+  [key: string]: unknown;
+}
+
+export interface CrossWorkspaceResult {
+  request_id: string;
+  success: boolean;
+  data: unknown;
+  error: string | null;
+  error_code: string | null;
+  execution_time_ms: number;
+}
+
+export interface GrantConsentRequest {
+  source_workspace_id: string;
+  target_workspace_id: string;
+  scope?: string;
+  data_types?: string[];
+  operations?: string[];
+  granted_by?: string;
+  expires_in_days?: number;
+  [key: string]: unknown;
 }
 
 export interface DataSharingConsent {
@@ -53,13 +113,9 @@ export interface DataSharingConsent {
   times_used: number;
 }
 
-export interface CrossWorkspaceResult {
-  request_id: string;
-  success: boolean;
-  data: unknown;
-  error: string | null;
-  error_code: string | null;
-  execution_time_ms: number;
+export interface ApproveRequestBody {
+  approved_by?: string;
+  [key: string]: unknown;
 }
 
 export interface CoordinationStats {
@@ -82,6 +138,13 @@ export interface CoordinationHealth {
  * Coordination API namespace.
  *
  * Manages cross-workspace federation, consent, and execution.
+ *
+ * @example
+ * ```ts
+ * const workspaces = await client.coordination.listWorkspaces();
+ * await client.coordination.registerWorkspace({ id: 'ws-1', name: 'Primary' });
+ * await client.coordination.createFederationPolicy({ name: 'default' });
+ * ```
  */
 export class CoordinationAPI {
   constructor(private client: CoordinationClientInterface) {}
@@ -90,20 +153,17 @@ export class CoordinationAPI {
   // Workspaces
   // ===========================================================================
 
-  async registerWorkspace(body: {
-    id: string;
-    name?: string;
-    org_id?: string;
-    federation_mode?: string;
-    endpoint_url?: string;
-  }): Promise<FederatedWorkspace> {
+  /** Register a workspace for federation. */
+  async registerWorkspace(body: RegisterWorkspaceRequest): Promise<FederatedWorkspace> {
     return this.client.request('POST', '/api/v1/coordination/workspaces', { body });
   }
 
+  /** List all registered workspaces. */
   async listWorkspaces(): Promise<{ workspaces: FederatedWorkspace[]; total: number }> {
     return this.client.request('GET', '/api/v1/coordination/workspaces');
   }
 
+  /** Unregister a workspace from federation. */
   async unregisterWorkspace(workspaceId: string): Promise<{ unregistered: boolean }> {
     return this.client.request('DELETE', `/api/v1/coordination/workspaces/${encodeURIComponent(workspaceId)}`);
   }
@@ -112,80 +172,85 @@ export class CoordinationAPI {
   // Federation Policies
   // ===========================================================================
 
-  async createPolicy(body: {
-    name: string;
-    description?: string;
-    mode?: string;
-    sharing_scope?: string;
-    allowed_operations?: string[];
-    max_requests_per_hour?: number;
-    require_approval?: boolean;
-  }): Promise<FederationPolicy> {
+  /** Create a federation policy. */
+  async createFederationPolicy(body: CreateFederationPolicyRequest): Promise<FederationPolicy> {
     return this.client.request('POST', '/api/v1/coordination/federation', { body });
   }
 
-  async listPolicies(): Promise<{ policies: FederationPolicy[]; total: number }> {
+  /** List all federation policies. */
+  async listFederationPolicies(): Promise<{ policies: FederationPolicy[]; total: number }> {
     return this.client.request('GET', '/api/v1/coordination/federation');
+  }
+
+  /** @deprecated Use createFederationPolicy instead. */
+  async createPolicy(body: CreateFederationPolicyRequest): Promise<FederationPolicy> {
+    return this.createFederationPolicy(body);
+  }
+
+  /** @deprecated Use listFederationPolicies instead. */
+  async listPolicies(): Promise<{ policies: FederationPolicy[]; total: number }> {
+    return this.listFederationPolicies();
   }
 
   // ===========================================================================
   // Execution
   // ===========================================================================
 
-  async execute(body: {
-    operation: string;
-    source_workspace_id: string;
-    target_workspace_id: string;
-    payload?: Record<string, unknown>;
-    timeout_seconds?: number;
-  }): Promise<CrossWorkspaceResult> {
+  /** Execute a cross-workspace operation. */
+  async executeCrossWorkspace(body: ExecuteCrossWorkspaceRequest): Promise<CrossWorkspaceResult> {
     return this.client.request('POST', '/api/v1/coordination/execute', { body });
   }
 
+  /** @deprecated Use executeCrossWorkspace instead. */
+  async execute(body: ExecuteCrossWorkspaceRequest): Promise<CrossWorkspaceResult> {
+    return this.executeCrossWorkspace(body);
+  }
+
+  /** List pending cross-workspace execution requests. */
   async listExecutions(workspaceId?: string): Promise<{ executions: unknown[]; total: number }> {
     const params = workspaceId ? { workspace_id: workspaceId } : undefined;
     return this.client.request('GET', '/api/v1/coordination/executions', { params });
-  }
-
-  async approveRequest(requestId: string, body?: {
-    approved_by?: string;
-  }): Promise<{ approved: boolean }> {
-    return this.client.request('POST', `/api/v1/coordination/approve/${encodeURIComponent(requestId)}`, { body: body ?? {} });
   }
 
   // ===========================================================================
   // Consent
   // ===========================================================================
 
-  async grantConsent(body: {
-    source_workspace_id: string;
-    target_workspace_id: string;
-    scope?: string;
-    data_types?: string[];
-    operations?: string[];
-    granted_by?: string;
-    expires_in_days?: number;
-  }): Promise<DataSharingConsent> {
+  /** Grant data sharing consent between workspaces. */
+  async grantConsent(body: GrantConsentRequest): Promise<DataSharingConsent> {
     return this.client.request('POST', '/api/v1/coordination/consent', { body });
   }
 
+  /** Revoke a data sharing consent. */
   async revokeConsent(consentId: string): Promise<{ revoked: boolean }> {
     return this.client.request('DELETE', `/api/v1/coordination/consent/${encodeURIComponent(consentId)}`);
   }
 
+  /** List data sharing consents. */
   async listConsents(workspaceId?: string): Promise<{ consents: DataSharingConsent[]; total: number }> {
     const params = workspaceId ? { workspace_id: workspaceId } : undefined;
     return this.client.request('GET', '/api/v1/coordination/consent', { params });
   }
 
   // ===========================================================================
+  // Approval
+  // ===========================================================================
+
+  /** Approve a pending cross-workspace execution request. */
+  async approveRequest(requestId: string, body?: ApproveRequestBody): Promise<{ approved: boolean }> {
+    return this.client.request('POST', `/api/v1/coordination/approve/${encodeURIComponent(requestId)}`, { body: body ?? {} });
+  }
+
+  // ===========================================================================
   // Stats and Health
   // ===========================================================================
 
+  /** Get coordination statistics. */
   async getStats(): Promise<CoordinationStats> {
     return this.client.request('GET', '/api/v1/coordination/stats');
   }
 
+  /** Get coordination health status. */
   async getHealth(): Promise<CoordinationHealth> {
     return this.client.request('GET', '/api/v1/coordination/health');
   }

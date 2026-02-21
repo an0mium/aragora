@@ -27,7 +27,20 @@ export { AgentsAPI } from './agents';
 export { WorkflowsAPI } from './workflows';
 export { SMEAPI } from './sme';
 export { ControlPlaneAPI } from './control-plane';
-export { CoordinationAPI } from './coordination';
+export {
+  CoordinationAPI,
+  type RegisterWorkspaceRequest,
+  type FederatedWorkspace,
+  type CreateFederationPolicyRequest,
+  type FederationPolicy,
+  type ExecuteCrossWorkspaceRequest,
+  type CrossWorkspaceResult,
+  type GrantConsentRequest,
+  type DataSharingConsent,
+  type ApproveRequestBody,
+  type CoordinationStats,
+  type CoordinationHealth,
+} from './coordination';
 export { ModerationAPI } from './moderation';
 export { AudienceAPI } from './audience';
 export { ModesAPI } from './modes';

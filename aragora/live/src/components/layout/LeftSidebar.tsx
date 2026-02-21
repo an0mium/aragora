@@ -19,6 +19,7 @@ interface NavItem {
 
 // Quick action items - always visible at top
 const quickActions: NavItem[] = [
+  { label: 'Demo', href: '/demo', icon: '\u2605' },
   { label: 'New Debate', href: '/arena', icon: '+' },
   { label: 'Inbox', href: '/inbox', icon: '!', minMode: 'standard' },
   { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'standard' },

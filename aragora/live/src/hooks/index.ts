@@ -73,6 +73,20 @@ export { useEvidence } from './useEvidence';
 export { useGlobalKnowledge } from './useGlobalKnowledge';
 
 // =============================================================================
+// Explainability
+// =============================================================================
+
+export { useExplanation } from './useExplanation';
+export type {
+  ExplanationData,
+  EvidenceLink as ExplanationEvidenceLink,
+  VotePivot,
+  BeliefChange,
+  ConfidenceAttribution,
+  Counterfactual,
+} from './useExplanation';
+
+// =============================================================================
 // Control Plane & Policies
 // =============================================================================
 
