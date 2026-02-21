@@ -1080,7 +1080,6 @@ class PlaygroundHandler(BaseHandler):
             content_type="audio/mpeg",
             body=audio_bytes,
             headers={
-                "Content-Length": str(len(audio_bytes)),
                 "Cache-Control": "public, max-age=3600",
             },
         )
