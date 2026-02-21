@@ -31,7 +31,7 @@ async function runSimpleDebate(options: RunOptions): Promise<DebateResult | obje
   const agents: Agent[] = [
     { name: 'claude', model: 'claude-sonnet-4-20250514' },
     { name: 'gpt', model: 'gpt-4o' },
-    { name: 'gemini', model: 'gemini-2.0-flash' },
+    { name: 'gemini', model: 'gemini-3.1-pro-preview' },
   ];
 
   // Configure the debate

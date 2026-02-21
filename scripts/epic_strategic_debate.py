@@ -60,7 +60,7 @@ ELEVENLABS_VOICES = {
 FALLBACK_MODELS = {
     "anthropic-api": "anthropic/claude-sonnet-4",
     "openai-api": "openai/gpt-4o",
-    "gemini": "google/gemini-2.0-flash-001",
+    "gemini": "google/gemini-3.1-pro-preview",
     "grok": "x-ai/grok-2-1212",
     "mistral-api": "mistralai/mistral-large-2411",
     "kimi": "moonshot/moonshot-v1-8k",

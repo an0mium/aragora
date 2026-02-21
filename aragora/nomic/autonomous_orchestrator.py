@@ -78,8 +78,8 @@ AGENTS_WITH_CODING_HARNESS = {"claude", "codex"}
 # Mapping from model types to their KiloCode provider_id for coding tasks
 # These models don't have dedicated harnesses but can use KiloCode
 KILOCODE_PROVIDER_MAPPING = {
-    "gemini": "openrouter/google/gemini-3-pro-preview",  # Gemini via OpenRouter
-    "gemini-cli": "openrouter/google/gemini-3-pro-preview",
+    "gemini": "openrouter/google/gemini-3.1-pro-preview",  # Gemini via OpenRouter
+    "gemini-cli": "openrouter/google/gemini-3.1-pro-preview",
     "grok": "openrouter/x-ai/grok-4",  # Grok via OpenRouter
     "grok-cli": "openrouter/x-ai/grok-4",
     "deepseek": "openrouter/deepseek/deepseek-chat-v3-0324",  # DeepSeek via OpenRouter

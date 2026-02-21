@@ -480,7 +480,7 @@ class TestGeminiModelMapping:
         """Test model mapping dictionary exists and has entries."""
         agent = GeminiAgent(api_key="test-key")
         assert len(agent.OPENROUTER_MODEL_MAP) > 0
-        assert "gemini-3-pro-preview" in agent.OPENROUTER_MODEL_MAP
+        assert "gemini-3.1-pro-preview" in agent.OPENROUTER_MODEL_MAP
 
     def test_fallback_uses_correct_model(self):
         """Test fallback agent uses mapped model via mixin."""

@@ -77,7 +77,7 @@ class AgentFileFilter:
 
     def __init__(
         self,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3.1-pro-preview",
         batch_size: int = DEFAULT_BATCH_SIZE,
         include_previews: bool = True,
         max_preview_size: int = MAX_PREVIEW_SIZE,

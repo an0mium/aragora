@@ -3175,14 +3175,14 @@ CRITICAL: You are part of a self-improving system. You MUST:
         if use_openrouter_gemini:
             self.gemini = OpenRouterAgent(
                 name="gemini-visionary",
-                model="google/gemini-3-pro-preview",
+                model="google/gemini-3.1-pro-preview",
                 role="proposer",
                 timeout=720,  # Doubled to 12 min for thorough codebase exploration
             )
         else:
             self.gemini = GeminiAgent(
                 name="gemini-visionary",
-                model="gemini-3-pro-preview",  # Gemini 3 Pro
+                model="gemini-3.1-pro-preview",  # Gemini 3.1 Pro
                 role="proposer",
                 timeout=720,  # Doubled to 12 min for thorough codebase exploration
             )

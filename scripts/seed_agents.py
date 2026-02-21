@@ -123,7 +123,7 @@ AGENT_METADATA = [
     {
         "name": "gemini-ultra",
         "provider": "google",
-        "model_id": "gemini-2.5-pro-preview",
+        "model_id": "gemini-3.1-pro-preview",
         "context_window": 1000000,
         "specialties": ["reasoning", "multimodal", "analysis"],
         "strengths": ["Deep reasoning", "Agentic capabilities"],

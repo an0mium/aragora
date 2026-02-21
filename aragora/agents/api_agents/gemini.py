@@ -67,7 +67,8 @@ GEMINI_MODEL_ALIASES = {
     "gemini-1.5-pro-002": "gemini-1.5-pro-002",
     "gemini-2.0-flash": "gemini-2.0-flash",
     "gemini-2.0-flash-001": "gemini-2.0-flash-001",
-    "gemini-3-pro-preview": "gemini-3-pro-preview",
+    "gemini-3-pro-preview": "gemini-3.1-pro-preview",  # Upgraded to 3.1
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
 }
 
 
@@ -85,7 +86,7 @@ def _normalize_gemini_model(model: str) -> str:
 
 @AgentRegistry.register(
     "gemini",
-    default_model="gemini-3-pro-preview",
+    default_model="gemini-3.1-pro-preview",
     agent_type="API",
     env_vars="GEMINI_API_KEY or GOOGLE_API_KEY",
     accepts_api_key=True,
@@ -104,20 +105,21 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
 
     # Model mapping from Gemini to OpenRouter format (used by QuotaFallbackMixin)
     OPENROUTER_MODEL_MAP = {
-        "gemini-3-pro-preview": "google/gemini-2.0-flash-001",
-        "gemini-2.5-pro": "google/gemini-2.0-flash-001",
+        "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-2.5-pro": "google/gemini-3.1-pro-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-2.0-flash-001": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         "gemini-1.5-flash": "google/gemini-flash-1.5",
         "gemini-pro": "google/gemini-pro",
     }
-    DEFAULT_FALLBACK_MODEL = "google/gemini-2.0-flash-001"
+    DEFAULT_FALLBACK_MODEL = "google/gemini-3.1-pro-preview"
 
     def __init__(
         self,
         name: str = "gemini",
-        model: str = "gemini-3-pro-preview",  # Gemini 3 Pro Preview - frontier model
+        model: str = "gemini-3.1-pro-preview",  # Gemini 3.1 Pro Preview - frontier model
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

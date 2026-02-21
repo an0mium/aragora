@@ -495,7 +495,7 @@ class GeminiAgent(Agent):
 
     Args:
         name: Agent display name.
-        model: Gemini model ID.  Defaults to ``gemini-2.0-flash``.
+        model: Gemini model ID.  Defaults to ``gemini-3.1-pro-preview``.
         api_key: Gemini API key.  Falls back to ``GEMINI_API_KEY`` env var.
         max_tokens: Maximum tokens per response.
         temperature: Sampling temperature (0-2).
@@ -504,7 +504,7 @@ class GeminiAgent(Agent):
     def __init__(
         self,
         name: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3.1-pro-preview",
         *,
         api_key: str | None = None,
         max_tokens: int = 1024,

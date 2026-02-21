@@ -1293,7 +1293,7 @@ class TestCLIAgentModelMapping:
     def test_gemini_model_mapping(self):
         """Should map Gemini models correctly."""
         agent = GeminiCLIAgent(name="test", model="gemini-3-pro")
-        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-2.0-flash-001"
+        assert agent.OPENROUTER_MODEL_MAP.get("gemini-3-pro") == "google/gemini-3.1-pro-preview"
 
     def test_grok_model_mapping(self):
         """Should map Grok models correctly."""

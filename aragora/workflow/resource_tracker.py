@@ -56,6 +56,7 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "o1-mini": {"input": 0.003, "output": 0.012},
     "o3-mini": {"input": 0.003, "output": 0.012},
     # Google
+    "gemini-3.1-pro-preview": {"input": 0.002, "output": 0.012},
     "gemini-pro": {"input": 0.00025, "output": 0.0005},
     "gemini-1.5-pro": {"input": 0.00125, "output": 0.005},
     "gemini-2.0-flash": {"input": 0.0001, "output": 0.0004},

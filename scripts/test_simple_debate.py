@@ -65,7 +65,7 @@ async def main():
     agent1 = AgentRegistry.create(
         "gemini",
         name="agent1",
-        model="gemini-3-pro-preview",
+        model="gemini-3.1-pro-preview",
         role="proposer",
         use_cache=False,
         timeout=60,

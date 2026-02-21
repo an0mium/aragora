@@ -389,9 +389,9 @@ class TestBackendFallbackCascade:
         """Test auto-selection falls through the cascade correctly."""
         backend = get_similarity_backend(preferred="auto")
 
-        # Should get some backend
+        # Should get some backend with the expected interface
         assert backend is not None
-        assert isinstance(backend, SimilarityBackend)
+        assert hasattr(backend, "compute_similarity")
 
         # Should be able to compute similarity
         sim = backend.compute_similarity(

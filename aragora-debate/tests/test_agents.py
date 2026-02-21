@@ -364,7 +364,7 @@ class TestGeminiAgentWithMock:
             "google.genai": mock_genai,
             "google.genai.types": mock_types,
         }):
-            agent = GeminiAgent("gemini-test", model="gemini-2.0-flash")
+            agent = GeminiAgent("gemini-test", model="gemini-3.1-pro-preview")
         mock_client = mock_genai.Client.return_value
         return agent, mock_client, mock_types
 

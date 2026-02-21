@@ -311,12 +311,12 @@ async def run_expanded_debate():
     print("\nCreating agents...", flush=True)
     agents = []
 
-    # Agent 1: Gemini 3 Pro - Strategic Consultant
+    # Agent 1: Gemini 3.1 Pro - Strategic Consultant
     try:
         gemini = AgentRegistry.create(
             "gemini",
             name="strategic-consultant",
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             role="proposer",
             use_cache=False,
             timeout=300,

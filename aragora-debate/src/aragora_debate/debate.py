@@ -229,7 +229,7 @@ def create_agent(
 
         return GeminiAgent(
             name=agent_name,
-            model=model or "gemini-2.0-flash",
+            model=model or "gemini-3.1-pro-preview",
             api_key=api_key,
             system_prompt=system_prompt,
             stance=stance,  # type: ignore[arg-type]

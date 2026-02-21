@@ -45,6 +45,7 @@ _MODEL_TO_AGENT_TYPE: dict[str, AgentType] = {
     "gpt-4": "openai-api",
     "gpt-4-turbo": "openai-api",
     "gpt-4o": "openai-api",
+    "gemini-3.1-pro-preview": "gemini",
     "gemini-1.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",
     "gemini-2.0-flash": "gemini",

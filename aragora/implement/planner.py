@@ -174,7 +174,7 @@ async def generate_implement_plan(
     design: str,
     repo_path: Path,
     timeout: int = 180,
-    gemini_model: str = "gemini-3-pro-preview",
+    gemini_model: str = "gemini-3.1-pro-preview",
 ) -> ImplementPlan:
     """
     Use Gemini to decompose a design into implementation tasks.
@@ -282,7 +282,7 @@ async def decompose_failed_task(
     task: ImplementTask,
     error: str,
     repo_path: Path,
-    gemini_model: str = "gemini-2.0-flash",
+    gemini_model: str = "gemini-3.1-pro-preview",
 ) -> list[ImplementTask]:
     """
     Decompose a failed complex task into smaller subtasks.

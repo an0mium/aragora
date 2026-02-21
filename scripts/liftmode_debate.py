@@ -213,18 +213,18 @@ async def run_debate():
         print(f"GPT 5.2 not available: {e}")
 
     try:
-        # Gemini 3 Pro Preview - Google's best
+        # Gemini 3.1 Pro Preview - Google's best
         gemini_agent = AgentRegistry.create(
             "gemini",
             name="growth-marketer",
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             role="synthesizer",
             use_cache=False,
             timeout=300,
         )
         gemini_agent.system_prompt = "You are a growth marketing expert with experience scaling DTC supplement brands. Focus on customer acquisition and retention strategies."
         agents.append(gemini_agent)
-        print("Added Gemini 3 Pro Preview")
+        print("Added Gemini 3.1 Pro Preview")
     except (ImportError, ValueError) as e:
         print(f"Gemini 3 Pro not available: {e}")
 
@@ -446,7 +446,7 @@ What's the probability of success for each option?
             agent1 = AgentRegistry.create(
                 "gemini",
                 name="analyst-1",
-                model="gemini-3-pro-preview",
+                model="gemini-3.1-pro-preview",
                 role="proposer",
                 use_cache=False,
                 timeout=300,

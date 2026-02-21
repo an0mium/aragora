@@ -305,7 +305,8 @@ MODEL_TOKEN_LIMITS = {
     "gpt-4": 8_192,
     "gpt-3.5-turbo": 16_385,
     # Google
-    "gemini-3-pro": 1_000_000,  # 1M tokens!
+    "gemini-3.1-pro-preview": 1_000_000,  # 1M tokens
+    "gemini-3-pro": 1_000_000,
     "gemini-2.0-pro": 1_000_000,
     "gemini-1.5-pro": 1_000_000,
     "gemini-1.5-flash": 1_000_000,

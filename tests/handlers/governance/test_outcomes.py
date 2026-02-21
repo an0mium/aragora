@@ -68,23 +68,23 @@ class TestCanHandle:
 
     def test_post_outcome(self):
         h = OutcomeHandler()
-        assert h.can_handle("POST", "/api/v1/decisions/dec123/outcome") is True
+        assert h.can_handle("/api/v1/decisions/dec123/outcome") is True
 
     def test_get_outcomes(self):
         h = OutcomeHandler()
-        assert h.can_handle("GET", "/api/v1/decisions/dec123/outcomes") is True
+        assert h.can_handle("/api/v1/decisions/dec123/outcomes") is True
 
     def test_get_search(self):
         h = OutcomeHandler()
-        assert h.can_handle("GET", "/api/v1/outcomes/search") is True
+        assert h.can_handle("/api/v1/outcomes/search") is True
 
     def test_get_impact(self):
         h = OutcomeHandler()
-        assert h.can_handle("GET", "/api/v1/outcomes/impact") is True
+        assert h.can_handle("/api/v1/outcomes/impact") is True
 
-    def test_wrong_method(self):
+    def test_unrelated_path(self):
         h = OutcomeHandler()
-        assert h.can_handle("DELETE", "/api/v1/decisions/dec123/outcome") is False
+        assert h.can_handle("/api/v1/debates") is False
 
 
 class TestRecordOutcome:

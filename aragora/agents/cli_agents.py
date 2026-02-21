@@ -92,8 +92,9 @@ class CLIAgent(CritiqueMixin, Agent):
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
         # Gemini models
-        "gemini-3-pro-preview": "google/gemini-2.0-flash-001",
-        "gemini-3-pro": "google/gemini-2.0-flash-001",
+        "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3-pro": "google/gemini-3.1-pro-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
@@ -578,7 +579,7 @@ class ClaudeAgent(CLIAgent):
 
 @AgentRegistry.register(
     "gemini-cli",
-    default_model="gemini-3-pro-preview",
+    default_model="gemini-3.1-pro-preview",
     agent_type="CLI",
     requires="gemini CLI (npm install -g @google/gemini-cli)",
 )
@@ -633,13 +634,13 @@ class KiloCodeAgent(CLIAgent):
     via direct API or OpenRouter.
 
     Provider IDs should be in provider/model format for the `kilo run` CLI.
-    Example: openrouter/google/gemini-3-pro-preview
+    Example: openrouter/google/gemini-3.1-pro-preview
     """
 
     def __init__(
         self,
         name: str,
-        provider_id: str = "openrouter/google/gemini-3-pro-preview",
+        provider_id: str = "openrouter/google/gemini-3.1-pro-preview",
         model: str | None = None,
         role: AgentRole = "proposer",
         timeout: int = 600,
@@ -975,7 +976,7 @@ def get_default_agents() -> list[Agent]:
     agents: list[Agent] = [
         ClaudeAgent(name="claude", model="claude-sonnet-4"),
         CodexAgent(name="codex", model="gpt-5.2-codex"),
-        GeminiCLIAgent(name="gemini-cli", model="gemini-3-pro-preview"),
+        GeminiCLIAgent(name="gemini-cli", model="gemini-3.1-pro-preview"),
     ]
     return agents
 

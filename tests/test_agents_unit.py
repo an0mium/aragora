@@ -206,7 +206,7 @@ class TestGeminiResponseExtraction:
         """Test that YOLO mode message is filtered out."""
         from aragora.agents.cli_agents import GeminiCLIAgent
 
-        agent = GeminiCLIAgent(name="test", model="gemini-3-pro-preview")
+        agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview")
         raw_output = """YOLO mode is enabled
 Actual response content"""
         result = agent._extract_gemini_response(raw_output)
@@ -217,7 +217,7 @@ Actual response content"""
         """Test that normal responses are preserved."""
         from aragora.agents.cli_agents import GeminiCLIAgent
 
-        agent = GeminiCLIAgent(name="test", model="gemini-3-pro-preview")
+        agent = GeminiCLIAgent(name="test", model="gemini-3.1-pro-preview")
         raw_output = "Normal response without YOLO"
         result = agent._extract_gemini_response(raw_output)
         assert result == "Normal response without YOLO"
@@ -454,8 +454,8 @@ class TestOpenRouterModelMapping:
         from aragora.agents.cli_agents import CLIAgent
 
         mapping = CLIAgent.OPENROUTER_MODEL_MAP
-        assert "gemini-3-pro-preview" in mapping
-        assert "google/" in mapping.get("gemini-3-pro-preview", "")
+        assert "gemini-3.1-pro-preview" in mapping
+        assert "google/" in mapping.get("gemini-3.1-pro-preview", "")
 
     def test_grok_model_mapping(self):
         """Test Grok models map to OpenRouter correctly."""
@@ -894,7 +894,7 @@ class TestKiloCodeAgentConfiguration:
         from aragora.agents.cli_agents import KiloCodeAgent
 
         agent = KiloCodeAgent(name="test")
-        assert agent.provider_id == "openrouter/google/gemini-3-pro-preview"
+        assert agent.provider_id == "openrouter/google/gemini-3.1-pro-preview"
 
     def test_custom_provider_id(self):
         """Test custom provider ID."""

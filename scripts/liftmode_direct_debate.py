@@ -128,19 +128,19 @@ async def run_direct_debate():
 
     agents = []
 
-    # Gemini 3 Pro
+    # Gemini 3.1 Pro
     try:
         gemini = AgentRegistry.create(
             "gemini",
             name="strategic-consultant",
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             role="proposer",
             use_cache=False,
             timeout=300,
         )
         gemini.system_prompt = "You are a strategic business consultant specializing in e-commerce turnarounds. Focus on practical, executable recommendations with clear financial justification."
         agents.append(gemini)
-        print("  Added: Gemini 3 Pro (strategic-consultant)", flush=True)
+        print("  Added: Gemini 3.1 Pro (strategic-consultant)", flush=True)
     except Exception as e:
         print(f"  Gemini not available: {e}", flush=True)
 

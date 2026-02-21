@@ -33,7 +33,7 @@ class TestGeminiAgentInitialization:
         agent = GeminiAgent()
 
         assert agent.name == "gemini"
-        assert agent.model == "gemini-3-pro-preview"
+        assert agent.model == "gemini-3.1-pro-preview"
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "gemini"
@@ -75,7 +75,7 @@ class TestGeminiAgentInitialization:
         spec = AgentRegistry.get_spec("gemini")
 
         assert spec is not None
-        assert spec.default_model == "gemini-3-pro-preview"
+        assert spec.default_model == "gemini-3.1-pro-preview"
         assert spec.agent_type == "API"
 
     def test_init_with_fallback_enabled(self, mock_env_with_fallback_enabled):
@@ -93,9 +93,9 @@ class TestGeminiAgentInitialization:
         agent = GeminiAgent()
 
         assert hasattr(GeminiAgent, "OPENROUTER_MODEL_MAP")
-        assert "gemini-3-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
+        assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
         assert "gemini-2.0-flash" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-2.0-flash-001"
+        assert GeminiAgent.DEFAULT_FALLBACK_MODEL == "google/gemini-3.1-pro-preview"
 
 
 class TestGeminiWebSearchDetection:
