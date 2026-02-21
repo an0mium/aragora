@@ -1634,8 +1634,31 @@ class TestTemplateApplication:
 # =============================================================================
 
 
+@pytest.mark.timeout(15)
 class TestEndToEndOrchestration:
     """End-to-end tests for orchestration flow."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_decision_router(self):
+        """Prevent real HTTP calls via get_decision_router.
+
+        Safety net against mock pollution with randomized test ordering
+        (e.g. seed 99999) where per-test patches may silently fail.
+        """
+        mock_result = MagicMock(
+            success=True,
+            consensus_reached=False,
+            final_answer="mock fallback",
+            confidence=0.5,
+            rounds=0,
+        )
+        mock_router = MagicMock()
+        mock_router.route = AsyncMock(return_value=mock_result)
+        with patch(
+            "aragora.core.decision.get_decision_router",
+            return_value=mock_router,
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_deliberation_without_coordinator(self):
