@@ -473,13 +473,18 @@ def get_distributed_limiter() -> DistributedRateLimiter:
 
 
 def reset_distributed_limiter() -> None:
-    """Reset the global distributed limiter (for testing)."""
+    """Reset the global distributed limiter (for testing).
+
+    Only resets state (clears buckets); does NOT destroy the singleton.
+    Destroying the singleton would orphan references captured in
+    ``@rate_limit`` decorator closures at decoration time, causing those
+    closures to accumulate state across tests without ever being reset.
+    """
     global _distributed_limiter
 
     with _limiter_lock:
         if _distributed_limiter is not None:
             _distributed_limiter.reset()
-        _distributed_limiter = None
 
 
 def configure_distributed_endpoint(
