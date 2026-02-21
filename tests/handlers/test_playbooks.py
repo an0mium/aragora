@@ -63,16 +63,16 @@ def _make_handler_with_query(query: str = "") -> MagicMock:
 class TestCanHandle:
 
     def test_get_list(self, handler):
-        assert handler.can_handle("GET", "/api/v1/playbooks") is True
+        assert handler.can_handle("/api/v1/playbooks") is True
 
     def test_get_single(self, handler):
-        assert handler.can_handle("GET", "/api/v1/playbooks/test") is True
+        assert handler.can_handle("/api/v1/playbooks/test") is True
 
     def test_post_run(self, handler):
-        assert handler.can_handle("POST", "/api/v1/playbooks/test/run") is True
+        assert handler.can_handle("/api/v1/playbooks/test/run") is True
 
     def test_delete_not_handled(self, handler):
-        assert handler.can_handle("DELETE", "/api/v1/playbooks/test") is False
+        assert handler.can_handle("/api/v1/other") is False
 
 
 class TestListPlaybooks:
