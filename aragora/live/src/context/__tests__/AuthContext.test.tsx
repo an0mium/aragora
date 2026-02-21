@@ -234,6 +234,16 @@ describe('AuthContext - Additional Tests', () => {
       mockLocalStorage['aragora_tokens'] = JSON.stringify(mockTokens);
       mockLocalStorage['aragora_user'] = JSON.stringify(mockUser);
 
+      // Mock /api/auth/me validation on mount to succeed
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user: mockUser,
+          organization: mockOrganization,
+          organizations: [mockUserOrganization],
+        }),
+      });
+      // Then mock the switch call to fail with network error
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
       const { result } = renderHook(() => useAuth(), { wrapper });
@@ -337,6 +347,16 @@ describe('AuthContext - Additional Tests', () => {
           is_default: false,
         },
       ];
+
+      // Mock /api/auth/me validation on mount
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          user: mockUser,
+          organization: mockOrganization,
+          organizations: [mockUserOrganization],
+        }),
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 

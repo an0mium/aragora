@@ -32,6 +32,7 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
