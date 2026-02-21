@@ -282,23 +282,13 @@ export function useConnection(): ConnectionContextValue {
 export function useServiceConnection(service: ServiceConnection): void {
   const context = useContext(ConnectionContext);
 
-  // Register/update on mount and when service changes
-  if (context) {
-    // This is intentionally synchronous during render to ensure
-    // the context is always up to date
-    const existing = context.services.get(service.name);
-    if (
-      !existing ||
-      existing.status !== service.status ||
-      existing.error !== service.error ||
-      existing.reconnectAttempt !== service.reconnectAttempt
-    ) {
-      // Defer the update to avoid updating state during render
-      queueMicrotask(() => {
-        context.registerService(service);
-      });
+  // Register/update via useEffect to avoid state updates during render.
+  // Compare by individual properties to prevent loops from new object refs.
+  useEffect(() => {
+    if (context) {
+      context.registerService(service);
     }
-  }
+  }, [context, service.name, service.status, service.error, service.reconnectAttempt]);
 }
 
 /**

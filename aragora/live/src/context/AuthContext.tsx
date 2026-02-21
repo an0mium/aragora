@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 
@@ -158,6 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoadingOrganizations: false,
   });
 
+  // Track whether we've already attempted to fetch organizations this session
+  // to prevent infinite refetch loops when the endpoint returns 403/empty
+  const orgsFetchAttemptedRef = useRef(false);
+
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async (accessToken: string): Promise<UserOrganization[]> => {
     try {
@@ -178,8 +182,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Refresh organizations list
+  // NOTE: Uses getStoredTokens() instead of state.tokens to avoid
+  // dependency on the tokens object reference (which changes on every state update)
   const refreshOrganizations = useCallback(async () => {
-    const tokens = state.tokens || getStoredTokens();
+    const tokens = getStoredTokens();
     if (!tokens?.access_token) return;
 
     setState(prev => ({ ...prev, isLoadingOrganizations: true }));
@@ -187,19 +193,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const orgs = await fetchOrganizations(tokens.access_token);
       storeUserOrgs(orgs);
+      orgsFetchAttemptedRef.current = true;
       setState(prev => ({
         ...prev,
         organizations: orgs,
         isLoadingOrganizations: false,
       }));
     } catch {
+      orgsFetchAttemptedRef.current = true;
       setState(prev => ({ ...prev, isLoadingOrganizations: false }));
     }
-  }, [state.tokens, fetchOrganizations]);
+  }, [fetchOrganizations]);
 
   // Switch organization context
   const switchOrganization = useCallback(async (orgId: string, setAsDefault = false): Promise<{ success: boolean; error?: string }> => {
-    const tokens = state.tokens || getStoredTokens();
+    const tokens = getStoredTokens();
     if (!tokens?.access_token) {
       return { success: false, error: 'Not authenticated' };
     }
@@ -259,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return { success: false, error: 'Network error. Please try again.' };
     }
-  }, [state.tokens, state.organizations]);
+  }, []);
 
   // Get current org role
   const getCurrentOrgRole = useCallback((): 'member' | 'admin' | 'owner' | null => {
@@ -369,13 +377,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Fetch organizations when authenticated
+  // Fetch organizations when authenticated (once per session)
+  // Guard with orgsFetchAttemptedRef to prevent infinite loop when
+  // the endpoint returns 403 or empty array (organizations.length stays 0)
   useEffect(() => {
     if (
       !state.isLoading
       && state.isAuthenticated
       && state.tokens?.access_token
       && state.organizations.length === 0
+      && !orgsFetchAttemptedRef.current
     ) {
       refreshOrganizations();
     }
@@ -483,6 +494,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     clearAuth();
+    orgsFetchAttemptedRef.current = false;
     setState({
       user: null,
       organization: null,
@@ -495,7 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.tokens?.access_token]);
 
   const refreshToken = useCallback(async () => {
-    const tokens = state.tokens || getStoredTokens();
+    const tokens = getStoredTokens();
     if (!tokens?.refresh_token) return false;
 
     try {
@@ -535,7 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return false;
     }
-  }, [state.tokens, state.user]);
+  }, []);
 
   // Set tokens from OAuth callback - fetches user profile from API
   const setTokens = useCallback(async (accessToken: string, refreshTokenValue: string) => {
