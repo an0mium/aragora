@@ -357,6 +357,7 @@
     "POST /api/ap/batch-payments",
     "POST /api/ap/invoices",
     "POST /api/ap/optimize",
+    "POST /api/audience/suggestions",
     "POST /api/backups/cleanup",
     "POST /api/backups/{param}/restore-test",
     "POST /api/backups/{param}/verify",
