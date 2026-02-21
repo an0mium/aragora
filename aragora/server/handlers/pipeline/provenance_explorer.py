@@ -26,12 +26,12 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
     SAFE_ID_PATTERN,
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
     validate_path_segment,
 )
+from ..secure import SecureHandler
 from ..utils.decorators import require_permission  # noqa: F401 (RBAC enforcement test)
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
@@ -87,7 +87,7 @@ def _node_to_provenance(node: Any) -> dict[str, Any]:
     }
 
 
-class ProvenanceExplorerHandler(BaseHandler):
+class ProvenanceExplorerHandler(SecureHandler):
     """Handler for provenance explorer endpoints (singular /graph/ prefix)."""
 
     ROUTES = ["/api/v1/pipeline/graph"]

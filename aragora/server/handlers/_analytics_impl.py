@@ -66,7 +66,6 @@ class AnalyticsHandler(SecureHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
-        "/api/analytics",
         "/api/analytics/disagreements",
         "/api/analytics/role-rotation",
         "/api/analytics/early-stops",

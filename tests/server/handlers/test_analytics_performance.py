@@ -270,7 +270,7 @@ class TestDebatesSummary:
     def test_debates_summary_domain_breakdown(self, handler, mock_http_handler, mock_storage):
         """Test debates summary includes domain breakdown."""
         with patch.object(handler, "get_storage", return_value=mock_storage):
-            result = handler._get_debates_summary({}, mock_http_handler)
+            result = handler._get_debates_summary({"time_range": "all"}, mock_http_handler)
 
         assert result is not None
         body = json.loads(result["body"])
