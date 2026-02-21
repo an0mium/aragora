@@ -704,4 +704,136 @@ SYSTEM_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    # =========================================================================
+    # Readiness Check (SME Onboarding)
+    # =========================================================================
+    "/api/v1/readiness": {
+        "get": {
+            "tags": ["System"],
+            "summary": "Configuration readiness check",
+            "operationId": "getReadiness",
+            "description": """Check whether the platform is ready to run debates.
+
+**Purpose:** Critical for first-time SME onboarding. Before reading docs about
+42 agent types, call this single endpoint to see exactly what is missing.
+
+**No authentication required** -- intentionally open so brand-new users can
+call it before any credentials are set up.
+
+**Response includes:**
+- `ready_to_debate` -- boolean indicating if at least one required provider is configured
+- Per-provider availability (anthropic, openai, openrouter, mistral, gemini, xai)
+- Missing required and optional API key names
+- Storage backend type and status
+- Feature availability flags (debates, receipts, knowledge_mound, memory, etc.)""",
+            "responses": {
+                "200": _ok_response(
+                    "Readiness report",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "ready_to_debate": {
+                                "type": "boolean",
+                                "description": "True if at least one required AI provider is configured",
+                            },
+                            "providers": {
+                                "type": "object",
+                                "description": "Per-provider availability status",
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                        "available": {"type": "boolean"},
+                                        "model": {
+                                            "type": "string",
+                                            "description": "Default model when available",
+                                        },
+                                        "reason": {
+                                            "type": "string",
+                                            "nullable": True,
+                                            "description": "Why provider is unavailable",
+                                        },
+                                    },
+                                },
+                            },
+                            "missing_required": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Environment variable names for required but unconfigured providers",
+                            },
+                            "missing_optional": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Environment variable names for optional but unconfigured providers",
+                            },
+                            "storage": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["sqlite", "postgresql", "supabase"],
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["connected", "configured", "unavailable"],
+                                    },
+                                },
+                            },
+                            "features": {
+                                "type": "object",
+                                "description": "Platform feature availability flags",
+                                "additionalProperties": {"type": "boolean"},
+                            },
+                            "timestamp": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "ISO 8601 timestamp of this check",
+                            },
+                        },
+                        "required": [
+                            "ready_to_debate",
+                            "providers",
+                            "missing_required",
+                            "missing_optional",
+                            "storage",
+                            "features",
+                            "timestamp",
+                        ],
+                        "example": {
+                            "ready_to_debate": True,
+                            "providers": {
+                                "anthropic": {"available": True, "model": "claude-opus-4-5-20251101"},
+                                "openai": {"available": True, "model": "gpt-5.2"},
+                                "openrouter": {"available": False, "reason": "OPENROUTER_API_KEY not set"},
+                                "mistral": {"available": False, "reason": "MISTRAL_API_KEY not set"},
+                                "gemini": {"available": False, "reason": "GEMINI_API_KEY not set"},
+                                "xai": {"available": False, "reason": "XAI_API_KEY not set"},
+                            },
+                            "missing_required": [],
+                            "missing_optional": [
+                                "GEMINI_API_KEY",
+                                "MISTRAL_API_KEY",
+                                "OPENROUTER_API_KEY",
+                                "XAI_API_KEY",
+                            ],
+                            "storage": {"type": "sqlite", "status": "connected"},
+                            "features": {
+                                "debates": True,
+                                "receipts": True,
+                                "knowledge_mound": True,
+                                "memory": True,
+                                "pulse": True,
+                                "explainability": True,
+                                "workflows": True,
+                                "rbac": True,
+                                "compliance": True,
+                                "analytics": True,
+                            },
+                            "timestamp": "2026-02-21T12:00:00Z",
+                        },
+                    },
+                ),
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
 }

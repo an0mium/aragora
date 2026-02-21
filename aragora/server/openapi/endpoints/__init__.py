@@ -72,6 +72,7 @@ from aragora.server.openapi.endpoints.debate_hardening import DEBATE_HARDENING_E
 from aragora.server.openapi.endpoints.reconciliation import RECONCILIATION_ENDPOINTS
 from aragora.server.openapi.endpoints.response_schemas import RESPONSE_SCHEMA_ENDPOINTS
 from aragora.server.openapi.endpoints.pipeline import PIPELINE_ENDPOINTS
+from aragora.server.openapi.endpoints.playbooks import PLAYBOOK_ENDPOINTS
 
 
 import logging
@@ -162,6 +163,7 @@ ALL_ENDPOINTS = {
     **RECONCILIATION_ENDPOINTS,
     **RESPONSE_SCHEMA_ENDPOINTS,
     **PIPELINE_ENDPOINTS,
+    **PLAYBOOK_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -238,5 +240,6 @@ __all__ = [
     "RECONCILIATION_ENDPOINTS",
     "RESPONSE_SCHEMA_ENDPOINTS",
     "PIPELINE_ENDPOINTS",
+    "PLAYBOOK_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

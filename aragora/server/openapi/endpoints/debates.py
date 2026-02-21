@@ -601,6 +601,179 @@ DEBATE_ENDPOINTS = {
     # ===========================================================================
     # v1 API Endpoints (SDK Compatibility)
     # ===========================================================================
+    "/api/v1/debates": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "List debates",
+            "description": """Get a paginated list of debates for the authenticated user.
+
+**Rate Limit:** 60 requests per minute (free), 300/min (pro), 1000/min (enterprise)
+
+**Pagination:** Use `limit` and `offset` query parameters. Maximum 100 items per page.
+
+**Filtering:** Filter by `status` (running, completed, failed, paused) and
+`since` (ISO 8601 timestamp) to narrow results.""",
+            "operationId": "listDebatesV1",
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of debates to return (1-100)",
+                    "schema": {"type": "integer", "default": 20, "maximum": 100, "minimum": 1},
+                    "example": 20,
+                },
+                {
+                    "name": "offset",
+                    "in": "query",
+                    "description": "Number of debates to skip for pagination",
+                    "schema": {"type": "integer", "default": 0, "minimum": 0},
+                    "example": 0,
+                },
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by debate status",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["running", "completed", "failed", "paused"],
+                    },
+                },
+                {
+                    "name": "since",
+                    "in": "query",
+                    "description": "Return only debates created after this ISO 8601 timestamp",
+                    "schema": {"type": "string", "format": "date-time"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Paginated list of debates",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "debates": {
+                                "type": "array",
+                                "items": {"$ref": "#/components/schemas/Debate"},
+                            },
+                            "count": {
+                                "type": "integer",
+                                "description": "Total number of debates matching filters",
+                            },
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "429": STANDARD_ERRORS["429"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "post": {
+            "tags": ["Debates"],
+            "summary": "Create a new debate",
+            "description": """Start a new multi-agent debate on a given topic.
+
+**How it works:** Aragora selects the best agents for your topic (or uses your
+explicit list), runs adversarial rounds where agents propose, critique, and revise
+positions, then detects consensus and generates an audit-ready decision receipt.
+
+**Rate Limit:** 10 debates per day (free), 100/day (pro), unlimited (enterprise)
+
+**Concurrent Limit:** 1 concurrent debate (free), 5 (pro), 20 (enterprise)
+
+**WebSocket:** After creation, connect to the returned `websocket_url` to stream
+real-time debate progress (proposals, critiques, votes, consensus events).""",
+            "operationId": "createDebateV1",
+            "security": [{"bearerAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/DebateCreateRequest"},
+                        "examples": {
+                            "simple": {
+                                "summary": "Simple debate with default agents",
+                                "value": {
+                                    "task": "Should we use TypeScript for our next project?",
+                                    "rounds": 9,
+                                },
+                            },
+                            "with_agents": {
+                                "summary": "Debate with specific agents",
+                                "value": {
+                                    "task": "Is GraphQL better than REST for mobile apps?",
+                                    "agents": ["claude", "gpt-4o", "gemini"],
+                                    "rounds": 9,
+                                    "consensus": "judge",
+                                },
+                            },
+                            "with_context": {
+                                "summary": "Debate with organizational context",
+                                "value": {
+                                    "task": "Should we migrate to Kubernetes?",
+                                    "context": "We run 50 microservices with a team of 10 engineers. Current infrastructure is on AWS ECS.",
+                                    "rounds": 5,
+                                    "consensus": "weighted",
+                                },
+                            },
+                        },
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Debate created successfully", "DebateCreateResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "402": STANDARD_ERRORS["402"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/debates/{id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get debate by ID",
+            "operationId": "getDebateByIdV1",
+            "description": """Retrieve full details for a specific debate by its unique identifier.
+
+**Response includes:**
+- Debate metadata (task, status, created_at, duration)
+- Agent participation summary
+- Round-by-round proposals and critiques
+- Consensus information and confidence score
+- Receipt ID (if generated)
+- WebSocket URL for live streaming (if still running)""",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Unique debate identifier",
+                    "example": "deb_abc123xyz",
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Debate details", "Debate"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Debates"],
+            "summary": "Delete debate",
+            "operationId": "deleteDebateV1",
+            "description": "Permanently delete a debate and all associated data.",
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+            ],
+            "responses": {
+                "200": _ok_response("Delete result", {"success": {"type": "boolean"}}),
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/v1/debates/{id}/consensus": {
         "get": {
             "tags": ["Debates"],
@@ -1114,21 +1287,6 @@ DEBATE_ENDPOINTS = {
             },
         },
     },
-    "/api/v1/debates/{id}": {
-        "delete": {
-            "tags": ["Debates"],
-            "summary": "Delete debate",
-            "operationId": "deleteDebateV1",
-            "description": "Delete a debate.",
-            "parameters": [
-                {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
-            ],
-            "responses": {
-                "200": _ok_response("Delete result", {"success": {"type": "boolean"}}),
-                "404": STANDARD_ERRORS["404"],
-            },
-        },
-    },
     "/api/v1/debates/{id}/cancel": {
         "post": {
             "tags": ["Debates"],
@@ -1326,6 +1484,153 @@ DEBATE_ENDPOINTS = {
                     },
                 ),
                 "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    # =========================================================================
+    # Debate Diagnostics (SME Self-Service Debugging)
+    # =========================================================================
+    "/api/v1/debates/{id}/diagnostics": {
+        "get": {
+            "tags": ["Debates", "Diagnostics"],
+            "summary": "Get debate diagnostics",
+            "operationId": "getDebateDiagnosticsV1",
+            "description": """Get a diagnostic report for a debate.
+
+**Purpose:** SME self-service debugging. Helps users understand why a debate
+failed, timed out, or produced unexpected results without reading server logs.
+
+**Response includes:**
+- Overall debate status and wall-clock duration
+- Per-agent participation report (rounds, proposals, critiques, errors)
+- Consensus information (reached, method, confidence score)
+- Whether a decision receipt was generated
+- Actionable suggestions for resolving issues (e.g. missing API keys, too few rounds)""",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "The debate ID to diagnose",
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Diagnostic report",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "debate_id": {"type": "string"},
+                            "status": {
+                                "type": "string",
+                                "enum": ["running", "completed", "failed", "paused", "unknown"],
+                            },
+                            "duration_seconds": {
+                                "type": "number",
+                                "description": "Wall-clock duration of the debate in seconds",
+                            },
+                            "agents": {
+                                "type": "array",
+                                "description": "Per-agent diagnostic information",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "provider": {
+                                            "type": "string",
+                                            "description": "Inferred AI provider (anthropic, openai, google, etc.)",
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["active", "failed", "timeout", "inactive"],
+                                        },
+                                        "rounds_participated": {"type": "integer"},
+                                        "proposals": {"type": "integer"},
+                                        "critiques": {"type": "integer"},
+                                        "error": {
+                                            "type": "string",
+                                            "nullable": True,
+                                            "description": "Error message if agent failed",
+                                        },
+                                    },
+                                },
+                            },
+                            "consensus": {
+                                "type": "object",
+                                "properties": {
+                                    "reached": {"type": "boolean"},
+                                    "method": {
+                                        "type": "string",
+                                        "description": "Consensus method used (majority, weighted, judge, unanimous)",
+                                    },
+                                    "confidence": {
+                                        "type": "number",
+                                        "description": "Consensus confidence score (0.0 - 1.0)",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                    },
+                                },
+                            },
+                            "receipt_generated": {
+                                "type": "boolean",
+                                "description": "Whether a decision receipt was generated for this debate",
+                            },
+                            "suggestions": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Actionable suggestions for resolving issues",
+                            },
+                        },
+                        "required": [
+                            "debate_id",
+                            "status",
+                            "duration_seconds",
+                            "agents",
+                            "consensus",
+                            "receipt_generated",
+                            "suggestions",
+                        ],
+                        "example": {
+                            "debate_id": "deb_abc123",
+                            "status": "failed",
+                            "duration_seconds": 45.2,
+                            "agents": [
+                                {
+                                    "name": "claude",
+                                    "provider": "anthropic",
+                                    "status": "active",
+                                    "rounds_participated": 3,
+                                    "proposals": 3,
+                                    "critiques": 2,
+                                    "error": None,
+                                },
+                                {
+                                    "name": "gpt-4o",
+                                    "provider": "openai",
+                                    "status": "failed",
+                                    "rounds_participated": 0,
+                                    "proposals": 0,
+                                    "critiques": 0,
+                                    "error": "API key invalid or expired",
+                                },
+                            ],
+                            "consensus": {
+                                "reached": False,
+                                "method": "majority",
+                                "confidence": 0.0,
+                            },
+                            "receipt_generated": False,
+                            "suggestions": [
+                                "Agent gpt-4o did not participate - verify OPENAI_API_KEY is set and valid",
+                                "No consensus reached after 3 rounds - consider increasing round count or reducing agent count",
+                                "Consider adding OPENROUTER_API_KEY as fallback for failed providers",
+                            ],
+                        },
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
             },
         },
     },
