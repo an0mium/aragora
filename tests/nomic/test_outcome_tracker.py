@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import unittest.mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -518,7 +519,15 @@ class TestLightweightDebateRunner:
     @pytest.mark.asyncio
     async def test_falls_back_to_simulation(self):
         """When Arena/agents are unavailable, should fall back to _default_scenario_runner."""
-        result = await _lightweight_debate_runner("test topic", 2, 3)
+        with unittest.mock.patch(
+            "aragora.nomic.outcome_tracker.Arena",
+            side_effect=ImportError("no arena"),
+            create=True,
+        ), unittest.mock.patch(
+            "aragora.agents.base.create_agent",
+            side_effect=ImportError("no agents"),
+        ):
+            result = await _lightweight_debate_runner("test topic", 2, 3)
         assert "consensus_reached" in result
         assert "rounds" in result
         assert "tokens_used" in result
@@ -527,14 +536,22 @@ class TestLightweightDebateRunner:
     @pytest.mark.asyncio
     async def test_returns_correct_keys(self):
         """Result dict should always have the four standard keys."""
-        result = await _lightweight_debate_runner("analyze caching strategy", 3, 2)
+        with unittest.mock.patch(
+            "aragora.agents.base.create_agent",
+            side_effect=ImportError("no agents"),
+        ):
+            result = await _lightweight_debate_runner("analyze caching strategy", 3, 2)
         for key in ("consensus_reached", "rounds", "tokens_used", "brier_scores"):
             assert key in result, f"Missing key: {key}"
 
     @pytest.mark.asyncio
     async def test_simulation_fallback_values_match_default(self):
         """When falling back, values should match _default_scenario_runner output."""
-        lightweight = await _lightweight_debate_runner("topic", 2, 3)
+        with unittest.mock.patch(
+            "aragora.agents.base.create_agent",
+            side_effect=ImportError("no agents"),
+        ):
+            lightweight = await _lightweight_debate_runner("topic", 2, 3)
         default = await _default_scenario_runner("topic", 2, 3)
         # Both should produce valid results (may differ if Arena is available)
         assert isinstance(lightweight["consensus_reached"], bool)

@@ -406,7 +406,7 @@ class TestSuggestVertical:
 
     def test_suggest_task_too_long(self, handler, mock_registry):
         with _patch_registry(mock_registry):
-            result = handler._suggest_vertical({"task": "x" * 5001})
+            result = handler._suggest_vertical({"task": "x" * 100_001})
             assert result.status_code == 400
 
 
