@@ -22,4 +22,14 @@ export class AudienceAPI {
   async submitSuggestion(debateId: string, suggestion: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debateId)}/audience/suggestions`, { body: suggestion });
   }
+
+  async listSuggestions(debateId: string, options?: { maxClusters?: number; threshold?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/audience/suggestions', {
+      params: { debate_id: debateId, max_clusters: options?.maxClusters ?? 5, threshold: options?.threshold ?? 0.6 },
+    });
+  }
+
+  async createSuggestion(debateId: string, suggestion: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/audience/suggestions', { body: { ...suggestion, debate_id: debateId } });
+  }
 }

@@ -36,6 +36,26 @@ class AudienceAPI:
             "POST", f"/api/v1/debates/{debate_id}/audience/suggestions", json=suggestion
         )
 
+    def list_suggestions(
+        self,
+        debate_id: str,
+        *,
+        max_clusters: int = 5,
+        threshold: float = 0.6,
+    ) -> dict[str, Any]:
+        """List clustered audience suggestions."""
+        return self._client.request(
+            "GET",
+            "/api/v1/audience/suggestions",
+            params={"debate_id": debate_id, "max_clusters": max_clusters, "threshold": threshold},
+        )
+
+    def create_suggestion(self, debate_id: str, suggestion: dict[str, Any]) -> dict[str, Any]:
+        """Submit a new audience suggestion."""
+        return self._client.request(
+            "POST", "/api/v1/audience/suggestions", json={**suggestion, "debate_id": debate_id}
+        )
+
 
 class AsyncAudienceAPI:
     """
@@ -59,4 +79,24 @@ class AsyncAudienceAPI:
         """Submit an audience suggestion for a debate."""
         return await self._client.request(
             "POST", f"/api/v1/debates/{debate_id}/audience/suggestions", json=suggestion
+        )
+
+    async def list_suggestions(
+        self,
+        debate_id: str,
+        *,
+        max_clusters: int = 5,
+        threshold: float = 0.6,
+    ) -> dict[str, Any]:
+        """List clustered audience suggestions."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/audience/suggestions",
+            params={"debate_id": debate_id, "max_clusters": max_clusters, "threshold": threshold},
+        )
+
+    async def create_suggestion(self, debate_id: str, suggestion: dict[str, Any]) -> dict[str, Any]:
+        """Submit a new audience suggestion."""
+        return await self._client.request(
+            "POST", "/api/v1/audience/suggestions", json={**suggestion, "debate_id": debate_id}
         )

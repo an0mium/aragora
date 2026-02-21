@@ -34,6 +34,24 @@ class SpectateAPI:
         """
         return self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
 
+    def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
+        """Get recent buffered spectate events."""
+        params: dict[str, Any] = {"count": count}
+        if debate_id:
+            params["debate_id"] = debate_id
+        return self._client.request("GET", "/api/v1/spectate/recent", params=params)
+
+    def get_status(self) -> dict[str, Any]:
+        """Get spectate bridge status (active sessions, subscribers, buffer size)."""
+        return self._client.request("GET", "/api/v1/spectate/status")
+
+    def get_stream(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
+        """Get spectate event stream snapshot."""
+        params: dict[str, Any] = {"count": count}
+        if debate_id:
+            params["debate_id"] = debate_id
+        return self._client.request("GET", "/api/v1/spectate/stream", params=params)
+
 
 class AsyncSpectateAPI:
     """
@@ -54,3 +72,21 @@ class AsyncSpectateAPI:
         Returns connection details including the stream URL.
         """
         return await self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+
+    async def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
+        """Get recent buffered spectate events."""
+        params: dict[str, Any] = {"count": count}
+        if debate_id:
+            params["debate_id"] = debate_id
+        return await self._client.request("GET", "/api/v1/spectate/recent", params=params)
+
+    async def get_status(self) -> dict[str, Any]:
+        """Get spectate bridge status (active sessions, subscribers, buffer size)."""
+        return await self._client.request("GET", "/api/v1/spectate/status")
+
+    async def get_stream(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
+        """Get spectate event stream snapshot."""
+        params: dict[str, Any] = {"count": count}
+        if debate_id:
+            params["debate_id"] = debate_id
+        return await self._client.request("GET", "/api/v1/spectate/stream", params=params)

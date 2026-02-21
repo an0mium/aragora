@@ -24,4 +24,20 @@ export class SpectateAPI {
   async connectSSE(debateId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/spectate/${encodeURIComponent(debateId)}/stream`);
   }
+
+  async getRecent(options?: { count?: number; debateId?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spectate/recent', {
+      params: { count: options?.count ?? 50, ...(options?.debateId ? { debate_id: options.debateId } : {}) },
+    });
+  }
+
+  async getStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spectate/status');
+  }
+
+  async getStream(options?: { count?: number; debateId?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/spectate/stream', {
+      params: { count: options?.count ?? 50, ...(options?.debateId ? { debate_id: options.debateId } : {}) },
+    });
+  }
 }
