@@ -340,6 +340,7 @@ if TYPE_CHECKING:
         handle_update_step,
     )
     from .openclaw_gateway import OpenClawGatewayHandler
+    from .readiness_check import ReadinessCheckHandler
     from .orchestration import OrchestrationHandler
     from .orchestration_canvas import OrchestrationCanvasHandler
     from .organizations import OrganizationsHandler
@@ -746,6 +747,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "UnifiedMetricsHandler": Stability.EXPERIMENTAL,
     # workflows/ sub-handlers
     "WorkflowBuilderHandler": Stability.EXPERIMENTAL,
+    # Readiness check (SME onboarding)
+    "ReadinessCheckHandler": Stability.STABLE,
 }
 
 
@@ -1158,6 +1161,8 @@ __all__ = [
     "UnifiedMetricsHandler",
     # workflows/ sub-handlers
     "WorkflowBuilderHandler",
+    # Readiness check (SME onboarding)
+    "ReadinessCheckHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",

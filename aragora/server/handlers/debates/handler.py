@@ -6,6 +6,7 @@ This is the main DebatesHandler class that composes functionality from specializ
 - BatchOperationsMixin: Batch debate submission and processing
 - CreateOperationsMixin: Debate creation and cancellation
 - CrudOperationsMixin: List, get, update, delete debates
+- DiagnosticsMixin: Debate diagnostics for self-service debugging
 - EvidenceOperationsMixin: Citations, evidence, verification reports
 - ExportOperationsMixin: Export in various formats
 - ForkOperationsMixin: Counterfactual forks and follow-ups
@@ -25,6 +26,7 @@ Endpoints:
 - GET /api/debate/{id}/graph/stats - Get argument graph statistics
 - GET /api/debates/{id}/rhetorical - Get rhetorical pattern observations
 - GET /api/debates/{id}/trickster - Get trickster hollow consensus status
+- GET /api/debates/{id}/diagnostics - Get diagnostic report for debugging
 - POST /api/debates/{id}/fork - Fork debate at a branch point
 - PATCH /api/debates/{id} - Update debate metadata (title, tags, status)
 - DELETE /api/debates/{id} - Permanently delete a debate (cascades to critiques)
@@ -57,6 +59,7 @@ from .analysis import AnalysisOperationsMixin
 from .batch import BatchOperationsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
+from .diagnostics import DiagnosticsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
 from .fork import ForkOperationsMixin
@@ -82,6 +85,7 @@ class DebatesHandler(
     CreateOperationsMixin,
     CrudOperationsMixin,
     DebateControllerMixin,
+    DiagnosticsMixin,
     EvidenceOperationsMixin,
     ExportOperationsMixin,
     ForkOperationsMixin,
@@ -98,6 +102,7 @@ class DebatesHandler(
     - Batch: Batch submission and processing
     - Create: Debate creation and cancellation
     - CRUD: List, get, update, delete
+    - Diagnostics: Self-service debugging reports
     - Evidence: Citations and verification reports
     - Export: Export in various formats
     - Fork: Counterfactual forks and follow-ups

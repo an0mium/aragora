@@ -7,6 +7,7 @@ This package contains debate-related handlers split by domain:
 - batch: Batch debate operations mixin
 - create: Debate creation and cancellation mixin
 - crud: CRUD operations mixin (list, get, update, delete)
+- diagnostics: Debate diagnostics for self-service debugging
 - evidence: Citations, evidence, and verification reports mixin
 - export: Export format operations mixin
 - fork: Fork and follow-up debate operations mixin
@@ -21,6 +22,7 @@ from .analysis import AnalysisOperationsMixin
 from .batch import BatchOperationsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
+from .diagnostics import DiagnosticsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
 from .fork import ForkOperationsMixin
@@ -74,6 +76,7 @@ __all__ = [
     "BatchOperationsMixin",
     "CreateOperationsMixin",
     "CrudOperationsMixin",
+    "DiagnosticsMixin",
     "EvidenceOperationsMixin",
     "ExportOperationsMixin",
     "ForkOperationsMixin",

@@ -339,6 +339,8 @@ HANDLER_MODULES: dict[str, str] = {
     "SelfImproveHandler": "aragora.server.handlers.self_improve",
     # Spectate (real-time debate observation)
     "SpectateStreamHandler": "aragora.server.handlers.spectate_ws",
+    # Readiness check (SME onboarding)
+    "ReadinessCheckHandler": "aragora.server.handlers.readiness_check",
 }
 
 # List of all handler class names (in priority order for dispatch)
@@ -530,6 +532,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "HybridDebateHandler",
     "ERC8004Handler",
     "OnboardingHandler",
+    "ReadinessCheckHandler",
     "BackupHandler",
     "GmailLabelsHandler",
     "GmailThreadsHandler",
