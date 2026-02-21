@@ -16,6 +16,11 @@ const UnifiedPipelineCanvas = dynamic(
   { ssr: false, loading: () => <CanvasLoadingState /> },
 );
 
+const ProvenanceExplorer = dynamic(
+  () => import('@/components/ProvenanceExplorer').then((m) => m.ProvenanceExplorer),
+  { ssr: false, loading: () => <CanvasLoadingState /> },
+);
+
 function CanvasLoadingState() {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg">
@@ -67,7 +72,7 @@ function PipelinePageContent() {
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
   const [debateImportStatus, setDebateImportStatus] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'stages' | 'unified'>('stages');
+  const [viewMode, setViewMode] = useState<'stages' | 'unified' | 'provenance'>('stages');
 
   // Auto-import from debate when ?from=debate&id=xxx is present
   useEffect(() => {
@@ -232,6 +237,16 @@ function PipelinePageContent() {
             >
               Unified
             </button>
+            <button
+              onClick={() => setViewMode('provenance')}
+              className={`px-3 py-2 text-sm font-mono transition-colors ${
+                viewMode === 'provenance'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-text-muted hover:text-text'
+              }`}
+            >
+              Provenance
+            </button>
           </div>
 
           <button
@@ -352,7 +367,14 @@ function PipelinePageContent() {
       {/* Canvas or empty state */}
       <div className="flex-1 overflow-hidden">
         {pipelineData ? (
-          viewMode === 'unified' ? (
+          viewMode === 'provenance' ? (
+            <div className="h-full p-4">
+              <ProvenanceExplorer
+                key={`provenance-${key}`}
+                graphId={pipelineData.pipeline_id}
+              />
+            </div>
+          ) : viewMode === 'unified' ? (
             <UnifiedPipelineCanvas
               key={`unified-${key}`}
               pipelineId={pipelineData.pipeline_id}

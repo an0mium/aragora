@@ -90,6 +90,7 @@ export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 export { usePipeline } from './usePipeline';
 export { usePipelineCanvas } from './usePipelineCanvas';
 export { usePipelineWebSocket } from './usePipelineWebSocket';
+export { usePlaybooks } from './usePlaybooks';
 
 // =============================================================================
 // Monitoring & Analytics

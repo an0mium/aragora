@@ -407,6 +407,7 @@ def _build_initial_status(
         "slack_token_refresh_scheduler": False,
         "titans_memory_sweep": None,
         "budget_notifications": False,
+        "spectate_bridge": False,
     }
 
 
@@ -556,6 +557,22 @@ async def _init_all_components(
     status["access_review_scheduler"] = await init_access_review_scheduler()
     status["rbac_distributed_cache"] = await init_rbac_distributed_cache()
     status["approval_gate_recovery"] = await init_approval_gate_recovery()
+
+    # Spectate WebSocket bridge (lightweight, no external deps)
+    try:
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+
+        bridge = get_spectate_bridge()
+        bridge.start()
+        status["spectate_bridge"] = bridge.running
+        if bridge.running:
+            logger.info("SpectateWebSocketBridge started")
+    except ImportError:
+        logger.debug("Spectate bridge module not available")
+        status["spectate_bridge"] = False
+    except (RuntimeError, OSError, ValueError) as e:
+        logger.warning("SpectateWebSocketBridge initialization failed: %s", e)
+        status["spectate_bridge"] = False
 
     # API and deployment
     status["graphql"] = init_graphql_routes(None)

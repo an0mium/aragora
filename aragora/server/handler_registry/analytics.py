@@ -105,6 +105,11 @@ PipelineTransitionsHandler = _safe_import(
     "aragora.server.handlers.pipeline.transitions", "PipelineTransitionsHandler"
 )
 
+# Provenance Explorer (serves /api/v1/pipeline/graph/ for the React component)
+ProvenanceExplorerHandler = _safe_import(
+    "aragora.server.handlers.pipeline.provenance_explorer", "ProvenanceExplorerHandler"
+)
+
 # Outcome Tracking
 OutcomeHandler = _safe_import(
     "aragora.server.handlers.governance.outcomes", "OutcomeHandler"
@@ -153,6 +158,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_universal_graph_handler", UniversalGraphHandler),
     # Pipeline stage transitions
     ("_pipeline_transitions_handler", PipelineTransitionsHandler),
+    # Provenance explorer
+    ("_provenance_explorer_handler", ProvenanceExplorerHandler),
     # Outcome tracking
     ("_outcome_handler", OutcomeHandler),
     # Decision benchmarking
@@ -188,6 +195,7 @@ __all__ = [
     "OrchestrationCanvasHandler",
     "UniversalGraphHandler",
     "PipelineTransitionsHandler",
+    "ProvenanceExplorerHandler",
     # Outcome tracking
     "OutcomeHandler",
     # Decision benchmarking

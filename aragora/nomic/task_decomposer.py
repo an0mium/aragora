@@ -63,6 +63,10 @@ class TaskDecomposition:
     should_decompose: bool
     subtasks: list[SubTask] = field(default_factory=list)
     rationale: str = ""
+    recommend_debate: bool = False
+    """Set to True when the goal is abstract (high complexity, no file hints)
+    and would benefit from debate-based decomposition. Callers can check this
+    to decide whether to use ``analyze_with_debate()`` instead of heuristic."""
 
     def build_tree(self) -> list[SubTask]:
         """Build hierarchical tree from flat subtask list using parent_id.
@@ -123,6 +127,9 @@ class DecomposerConfig:
     trickster_sensitivity: float = 0.7
     # Convergence detection for semantic consensus
     enable_convergence: bool = True
+    # Automatically use debate mode for abstract goals scoring >= 7
+    # with no file hints, instead of heuristic decomposition
+    auto_debate_abstract: bool = True
 
 
 # Keywords that indicate different complexity areas
@@ -308,12 +315,22 @@ class TaskDecomposer:
         # Build rationale
         rationale = self._build_rationale(task_description, complexity_score, should_decompose)
 
+        # Determine if debate mode is recommended for this goal:
+        # abstract goals (high complexity, no file hints) benefit from
+        # multi-agent debate rather than heuristic decomposition.
+        recommend_debate = (
+            self.config.auto_debate_abstract
+            and complexity_score >= 7
+            and not self._has_file_hints(task_description)
+        )
+
         result = TaskDecomposition(
             original_task=task_description,
             complexity_score=complexity_score,
             complexity_level=complexity_level,
             should_decompose=should_decompose,
             rationale=rationale,
+            recommend_debate=recommend_debate,
         )
 
         # Extract subtasks if decomposition is needed
@@ -425,6 +442,120 @@ class TaskDecomposer:
                 specificity_discount = min(keyword_score * 0.3, 1.5)
                 vagueness_bonus = max(base_bonus - specificity_discount, 0.5)
 
+        # Abstract/meta goal detection: goals that are exploratory, superlative,
+        # or interrogative inherently require multi-step investigation and should
+        # score high even without file mentions or technical keywords.
+        abstract_bonus = 0.0
+
+        # Superlative / exploratory action words that signal open-ended investigation
+        _ABSTRACT_ACTION_WORDS = {
+            "find",
+            "discover",
+            "identify",
+            "investigate",
+            "analyze",
+            "analyse",
+            "evaluate",
+            "assess",
+            "diagnose",
+            "audit",
+            "review",
+            "survey",
+            "explore",
+            "determine",
+            "prioritize",
+            "rank",
+        }
+        _SUPERLATIVE_WORDS = {
+            "best",
+            "worst",
+            "highest",
+            "lowest",
+            "most",
+            "least",
+            "biggest",
+            "smallest",
+            "top",
+            "critical",
+            "impactful",
+            "important",
+            "urgent",
+            "fragile",
+            "vulnerable",
+            "risky",
+        }
+        _BROAD_SCOPE_WORDS = {
+            "codebase",
+            "system",
+            "architecture",
+            "project",
+            "entire",
+            "overall",
+            "across",
+            "everywhere",
+            "all",
+            "whole",
+            "global",
+        }
+
+        # Strip punctuation from words for matching (e.g. "system?" -> "system")
+        words_set = set(
+            re.sub(r"[^\w]", "", w) for w in task_lower.split()
+        )
+        has_abstract_action = bool(words_set & _ABSTRACT_ACTION_WORDS)
+        has_superlative = bool(words_set & _SUPERLATIVE_WORDS)
+        has_broad_scope = bool(words_set & _BROAD_SCOPE_WORDS)
+
+        # Goals with abstract action + superlative (e.g. "find the highest-impact bug")
+        if has_abstract_action and has_superlative and has_broad_scope:
+            # All three signals: truly high-level investigative task
+            abstract_bonus += 4.0
+        elif has_abstract_action and has_superlative:
+            abstract_bonus += 3.5
+        elif has_abstract_action and has_broad_scope:
+            abstract_bonus += 3.0
+        elif has_superlative and has_broad_scope:
+            abstract_bonus += 2.5
+        elif has_abstract_action or has_superlative:
+            abstract_bonus += 1.5
+
+        # Strategic improvement verbs + domain concepts but no file targets:
+        # e.g. "improve test coverage", "optimize performance", "enhance security"
+        # These are broad directives requiring codebase-wide analysis.
+        _STRATEGIC_IMPROVEMENT_VERBS = {
+            "improve",
+            "optimize",
+            "optimise",
+            "enhance",
+            "increase",
+            "reduce",
+            "boost",
+            "strengthen",
+            "maximize",
+            "minimise",
+            "minimize",
+        }
+        has_strategic_verb = bool(words_set & _STRATEGIC_IMPROVEMENT_VERBS)
+        has_concept = concept_score > 0
+        if has_strategic_verb and has_concept and file_score == 0 and not has_path_ref:
+            abstract_bonus += 2.0
+
+        # Question-form goals (contain "?" or start with interrogative words)
+        is_question = "?" in task
+        interrogative_starts = {"what", "where", "which", "how", "why", "who"}
+        first_word = task_lower.split()[0] if task_lower.split() else ""
+        if is_question or first_word in interrogative_starts:
+            abstract_bonus += 2.0
+
+        # Broad scope words without file paths: "improve performance across the codebase"
+        if has_broad_scope and file_score == 0 and not has_path_ref:
+            abstract_bonus += 1.5
+
+        # Discount the abstract bonus if the goal also has concrete file refs
+        # (e.g. "find the best way to refactor auth.py" is more concrete)
+        if file_score > 0 or has_path_ref:
+            abstract_bonus *= 0.3
+
         # Combine scores with weights
         total = (
             file_score * self.config.file_complexity_weight * 10 / 3
@@ -433,6 +564,7 @@ class TaskDecomposer:
             + concept_score * 0.8
             + clause_score * 0.5
             + vagueness_bonus
+            + abstract_bonus
         )
 
         # Add bonus for debate context if available
@@ -530,6 +662,18 @@ class TaskDecomposer:
         has_module = bool(words & {c.lower() for c in DECOMPOSITION_CONCEPTS})
         # Specific if it has an action verb + either technical term or module ref
         return has_action and (has_technical or has_module)
+
+    def _has_file_hints(self, goal: str) -> bool:
+        """Check if a goal references specific files or directories.
+
+        Used to determine if a goal is abstract (no file refs) vs concrete.
+        """
+        goal_lower = goal.lower()
+        has_file_ext = bool(re.search(r"\b\w+\.(py|ts|tsx|js|jsx|md)\b", goal_lower))
+        has_path_ref = bool(
+            re.search(r"aragora/\w+|tests/\w+|sdk/\w+|scripts/\w+|src/\w+", goal_lower)
+        )
+        return has_file_ext or has_path_ref
 
     def _score_to_level(self, score: int) -> str:
         """Convert numeric score to complexity level."""

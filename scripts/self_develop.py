@@ -216,7 +216,13 @@ async def run_debate_decomposition(goal: str) -> TaskDecomposition:
 
 
 def run_heuristic_decomposition(goal: str) -> TaskDecomposition:
-    """Run fast heuristic decomposition."""
+    """Run fast heuristic decomposition.
+
+    If the goal is abstract (high complexity, no file hints) and
+    ``auto_debate_abstract`` is enabled, this annotates the result
+    with ``recommend_debate=True`` so callers can decide to re-run
+    with debate mode.
+    """
     decomposer = TaskDecomposer()
     return decomposer.analyze(goal)
 
@@ -401,6 +407,62 @@ def create_checkpoint_handler(require_approval: bool):
     return on_checkpoint
 
 
+async def _enrich_abstract_goal(goal: str, tracks: list[str] | None) -> str:
+    """Enrich an abstract goal with real codebase signals from MetaPlanner scan.
+
+    When self_develop.py receives an abstract goal (no file mentions, broad scope),
+    this function runs MetaPlanner._scan_prioritize() to gather signals from
+    git log, pytest cache, ruff violations, and TODOs, then prepends a summary
+    to the goal string so the decomposer and orchestrator have concrete context.
+
+    Args:
+        goal: The original abstract goal string.
+        tracks: Optional track names to filter signals.
+
+    Returns:
+        Enriched goal string with codebase signal summary prepended,
+        or the original goal if scanning fails.
+    """
+    try:
+        from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig, Track
+
+        available_tracks = (
+            [Track(t) for t in tracks] if tracks else list(Track)
+        )
+
+        planner = MetaPlanner(MetaPlannerConfig(scan_mode=True))
+        scan_goals = await planner._scan_prioritize(goal, available_tracks)
+
+        if not scan_goals:
+            return goal
+
+        # Build context summary from scan signals
+        signal_lines: list[str] = []
+        for sg in scan_goals[:3]:
+            # Extract the signal summary (first line of description)
+            desc_first_line = sg.description.split("\n")[0]
+            signal_lines.append(f"- [{sg.track.value}] {desc_first_line}")
+
+        if signal_lines:
+            context_block = (
+                "CODEBASE SIGNALS (from scan):\n"
+                + "\n".join(signal_lines)
+                + "\n\nORIGINAL GOAL: "
+                + goal
+            )
+            logger.info(
+                "abstract_goal_enriched signals=%d tracks=%s",
+                len(scan_goals),
+                [sg.track.value for sg in scan_goals[:3]],
+            )
+            return context_block
+
+    except (ImportError, RuntimeError, ValueError, OSError) as e:
+        logger.debug("Abstract goal enrichment failed (non-critical): %s", e)
+
+    return goal
+
+
 async def run_orchestration(
     goal: str,
     tracks: list[str] | None,
@@ -424,7 +486,20 @@ async def run_orchestration(
     Default mode is HARDENED (mode enforcement, prompt defense, gauntlet,
     audit reconciliation). Use --standard to fall back to the base
     AutonomousOrchestrator.
+
+    For abstract goals, automatically enriches the goal context with
+    codebase signals from MetaPlanner scan mode before execution.
     """
+    # Enrich abstract goals with codebase signals before execution
+    decomposer = TaskDecomposer()
+    preliminary = decomposer.analyze(goal)
+    if preliminary.recommend_debate and not use_debate:
+        # Goal is abstract -- gather codebase signals to ground it
+        print("[*] Abstract goal detected, scanning codebase for context...")
+        goal = await _enrich_abstract_goal(goal, tracks)
+        # Also enable debate mode so the orchestrator uses debate decomposition
+        use_debate = True
+
     common_kwargs: dict[str, Any] = {
         "require_human_approval": require_approval,
         "max_parallel_tasks": max_parallel,
@@ -683,7 +758,17 @@ Examples:
 
     # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
     if args.dry_run and not args.self_improve:
-        if args.debate:
+        use_debate = args.debate
+        if not use_debate:
+            # Run heuristic first; if the goal is abstract, auto-switch to debate
+            result = run_heuristic_decomposition(args.goal)
+            if result.recommend_debate:
+                print("[*] Abstract goal detected (score={}/10, no file hints)".format(
+                    result.complexity_score))
+                print("[*] Auto-switching to debate-based decomposition...\n")
+                use_debate = True
+
+        if use_debate:
             # Use debate-based decomposition (async)
             try:
                 result = asyncio.run(run_debate_decomposition(args.goal))
@@ -694,9 +779,6 @@ Examples:
                     result = run_heuristic_decomposition(args.goal)
                 else:
                     raise
-        else:
-            # Use fast heuristic decomposition
-            result = run_heuristic_decomposition(args.goal)
 
         print_decomposition(result)
         return 0

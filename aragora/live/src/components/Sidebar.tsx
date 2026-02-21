@@ -37,6 +37,7 @@ const authenticatedAccountItems: NavItem[] = [
 const startItems: NavItem[] = [
   { label: 'Hub', href: '/hub', icon: '+' },
   { label: 'New Debate', href: '/arena', icon: '!' },
+  { label: 'Playbooks', href: '/playbooks', icon: 'P', minMode: 'standard' },
   { label: 'Stress-Test', href: '/gauntlet', icon: '%', minMode: 'standard' },
   { label: 'Code Review', href: '/reviews', icon: '<', minMode: 'standard' },
   { label: 'Document Audit', href: '/audit', icon: '|', minMode: 'standard' },

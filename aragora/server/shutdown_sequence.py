@@ -421,6 +421,26 @@ class ShutdownPhaseBuilder:
             )
         )
 
+        # Spectate WebSocket bridge
+        async def stop_spectate_bridge():
+            try:
+                from aragora.spectate.ws_bridge import get_spectate_bridge
+
+                bridge = get_spectate_bridge()
+                if bridge.running:
+                    bridge.stop()
+                    logger.info("SpectateWebSocketBridge stopped")
+            except ImportError:
+                pass
+
+        sequence.add_phase(
+            ShutdownPhase(
+                name="Stop spectate bridge",
+                execute=stop_spectate_bridge,
+                timeout=2.0,
+            )
+        )
+
     def _phase_shutdown_control_plane(self, sequence: ShutdownSequence) -> None:
         """Add phase to shutdown Control Plane coordinator.
 

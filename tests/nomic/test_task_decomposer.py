@@ -282,3 +282,114 @@ class TestDepthLimits:
         # One below max_depth -> allowed
         result = decomposer.analyze("Refactor everything in db.py", depth=max_depth - 1)
         # Should compute normally (may or may not decompose based on complexity)
+
+
+class TestAbstractGoalDetection:
+    """Tests for abstract/meta goal detection and scoring improvements."""
+
+    def test_find_highest_impact_bug_scores_high(self):
+        """'Find and fix the highest-impact bug' should score >= 7."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("Find and fix the highest-impact bug in the codebase")
+
+        assert result.complexity_score >= 7
+        assert result.complexity_level == "high"
+        assert result.should_decompose is True
+
+    def test_improve_test_coverage_scores_medium_high(self):
+        """'Improve test coverage' should score >= 6."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("Improve test coverage")
+
+        assert result.complexity_score >= 6
+        assert result.should_decompose is True
+
+    def test_question_form_scores_higher(self):
+        """Goals phrased as questions should get a complexity boost."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("What is the most fragile part of the system?")
+
+        assert result.complexity_score >= 6
+        assert result.should_decompose is True
+
+    def test_superlative_broad_scope_scores_high(self):
+        """Goals with superlatives and broad scope words score high."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze(
+            "Identify the most critical security vulnerabilities across the system"
+        )
+
+        assert result.complexity_score >= 7
+        assert result.should_decompose is True
+
+    def test_abstract_goal_triggers_debate_recommendation(self):
+        """Abstract goals (high score, no file hints) should recommend debate."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("Find and fix the highest-impact bug in the codebase")
+
+        assert result.recommend_debate is True
+
+    def test_concrete_goal_does_not_trigger_debate(self):
+        """Concrete goals with file paths should not recommend debate."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("Fix the bug in auth.py")
+
+        assert result.recommend_debate is False
+
+    def test_auto_debate_abstract_config_flag(self):
+        """auto_debate_abstract=False should suppress debate recommendation."""
+        config = DecomposerConfig(auto_debate_abstract=False)
+        decomposer = TaskDecomposer(config=config)
+        result = decomposer.analyze("Find and fix the highest-impact bug in the codebase")
+
+        # Should still score high but not recommend debate
+        assert result.complexity_score >= 7
+        assert result.recommend_debate is False
+
+    def test_simple_goals_unaffected(self):
+        """Simple concrete goals should still score low and not decompose."""
+        decomposer = TaskDecomposer()
+
+        result = decomposer.analyze("Fix typo in README")
+        assert result.complexity_score <= 3
+        assert result.should_decompose is False
+        assert result.recommend_debate is False
+
+    def test_file_paths_discount_abstract_bonus(self):
+        """Goals with file paths should have reduced abstract bonus."""
+        decomposer = TaskDecomposer()
+
+        # Abstract version (no files)
+        abstract = decomposer.analyze("Find the best way to optimize performance")
+        # Concrete version (with file)
+        concrete = decomposer.analyze("Find the best way to optimize performance in server.py")
+
+        assert abstract.complexity_score > concrete.complexity_score
+
+    def test_strategic_verb_with_concept_boosts_score(self):
+        """Strategic verbs + domain concepts without files should boost score."""
+        decomposer = TaskDecomposer()
+
+        # "optimize" + "performance" concept, no files
+        result = decomposer.analyze("Optimize the codebase for performance")
+        assert result.complexity_score >= 6
+
+    def test_has_file_hints_method(self):
+        """_has_file_hints should detect file and path references."""
+        decomposer = TaskDecomposer()
+
+        assert decomposer._has_file_hints("Fix bug in auth.py") is True
+        assert decomposer._has_file_hints("Update aragora/server/handlers") is True
+        assert decomposer._has_file_hints("Fix tests/nomic/test_decomposer.py") is True
+        assert decomposer._has_file_hints("Improve test coverage") is False
+        assert decomposer._has_file_hints("Find the highest-impact bug") is False
+
+    def test_recommend_debate_field_default(self):
+        """TaskDecomposition.recommend_debate should default to False."""
+        result = TaskDecomposition(
+            original_task="test",
+            complexity_score=5,
+            complexity_level="medium",
+            should_decompose=True,
+        )
+        assert result.recommend_debate is False
