@@ -121,6 +121,7 @@ from .utilities import (
 # Type checking imports - these are not executed at runtime
 if TYPE_CHECKING:
     from .a2a import A2AHandler
+    from .action_canvas import ActionCanvasHandler
     from .admin import (
         AdminHandler,
         BillingHandler,
@@ -129,6 +130,12 @@ if TYPE_CHECKING:
         SecurityHandler,
         SystemHandler,
     )
+    from .admin.credits import CreditsAdminHandler
+    from .admin.emergency_access import EmergencyAccessHandler
+    from .admin.feature_flags import FeatureFlagAdminHandler
+    from .admin.health.liveness import LivenessHandler
+    from .admin.health.readiness import ReadinessHandler
+    from .admin.health.storage_health import StorageHealthHandler
     from .agents import (
         AgentConfigHandler,
         AgentsHandler,
@@ -136,11 +143,14 @@ if TYPE_CHECKING:
         LeaderboardViewHandler,
         ProbesHandler,
     )
+    from .agents.feedback import FeedbackHandler
+    from .agents.recommendations import AgentRecommendationHandler
     from ._analytics_impl import AnalyticsHandler
     from .analytics_dashboard import AnalyticsDashboardHandler
     from ._analytics_metrics_impl import AnalyticsMetricsHandler
     from .ap_automation import APAutomationHandler
     from .ar_automation import ARAutomationHandler
+    from .audit_trail import AuditTrailHandler
     from .audience_suggestions import AudienceSuggestionsHandler
     from .auditing import AuditingHandler
     from .security_debate import SecurityDebateHandler
@@ -157,6 +167,7 @@ if TYPE_CHECKING:
     from .approvals_inbox import UnifiedApprovalsHandler
     from .backup_handler import BackupHandler
     from .belief import BeliefHandler
+    from .benchmarking import BenchmarkingHandler
     from .bindings import BindingsHandler
     from .bots import (
         DiscordHandler,
@@ -172,13 +183,17 @@ if TYPE_CHECKING:
     from .checkpoints import CheckpointHandler
     from .code_review import CodeReviewHandler
     from .codebase import IntelligenceHandler
+    from .compliance_reports import ComplianceReportHandler
     from .composite import CompositeHandler
+    from .connectors.management import ConnectorManagementHandler
+    from .context_budget import ContextBudgetHandler
     from .computer_use_handler import ComputerUseHandler
     from .consensus import ConsensusHandler
     from .control_plane import ControlPlaneHandler
     from .billing.cost_dashboard import CostDashboardHandler
     from .costs import CostHandler
     from .critique import CritiqueHandler
+    from .debate_stats import DebateStatsHandler
     from .cross_pollination import (
         CrossPollinationBridgeHandler,
         CrossPollinationKMCultureHandler,
@@ -191,14 +206,19 @@ if TYPE_CHECKING:
         CrossPollinationSubscribersHandler,
     )
     from .debates import DebatesHandler, GraphDebatesHandler, MatrixDebatesHandler
+    from .debates.decision_package import DecisionPackageHandler
+    from .debates.share import DebateShareHandler
     from .decision import DecisionHandler
     from .decisions import DecisionExplainHandler
     from .deliberations import DeliberationsHandler
     from .dependency_analysis import DependencyAnalysisHandler
     from .devices import DeviceHandler
     from .docs import DocsHandler
+    from .dr_handler import DRHandler
     from .email import EmailHandler
+    from .email_debate import EmailDebateHandler
     from .email_services import EmailServicesHandler
+    from .email_triage import EmailTriageHandler
     from .endpoint_analytics import EndpointAnalyticsHandler
     from .erc8004 import ERC8004Handler
     from .evaluation import EvaluationHandler
@@ -207,6 +227,7 @@ if TYPE_CHECKING:
     from .explainability import ExplainabilityHandler
     from .external_agents import ExternalAgentsHandler
     from .external_integrations import ExternalIntegrationsHandler
+    from .feature_flags import FeatureFlagsHandler
     from .features import (
         AdvertisingHandler,
         AnalyticsPlatformsHandler,
@@ -244,14 +265,20 @@ if TYPE_CHECKING:
         SupportHandler,
         UnifiedInboxHandler,
     )
+    from .features.control_plane import AgentDashboardHandler
     from .features.gmail_labels import GmailLabelsHandler
     from .features.gmail_threads import GmailThreadsHandler
+    from .features.outlook import OutlookHandler
+    from .feedback import FeedbackRoutesHandler
     from .gallery import GalleryHandler
+    from .gastown_dashboard import GasTownDashboardHandler
     from .gateway_agents_handler import GatewayAgentsHandler
+    from .gateway_config_handler import GatewayConfigHandler
     from .gateway_credentials_handler import GatewayCredentialsHandler
     from .gateway_handler import GatewayHandler
     from .gateway_health_handler import GatewayHealthHandler
     from .gauntlet import GauntletHandler
+    from .gdpr_deletion import GDPRDeletionHandler
     from .gauntlet_v1 import (
         GAUNTLET_V1_HANDLERS,
         GauntletAllSchemasHandler,
@@ -263,16 +290,25 @@ if TYPE_CHECKING:
         GauntletValidateReceiptHandler,
     )
     from .genesis import GenesisHandler
+    from .github.audit_bridge import AuditGitHubBridgeHandler
+    from .github.pr_review import PRReviewHandler
+    from .goal_canvas import GoalCanvasHandler
     from .hybrid_debate_handler import HybridDebateHandler
+    from .idea_canvas import IdeaCanvasHandler
+    from .integrations.automation import AutomationHandler
+    from .integrations.health import IntegrationHealthHandler
     from .integration_management import (
         IntegrationsHandler as IntegrationManagementHandler,
     )
     from .introspection import IntrospectionHandler
     from .invoices import InvoiceHandler
+    from .knowledge.adapters import KMAdapterStatusHandler
     from .knowledge.checkpoints import KMCheckpointHandler
+    from .knowledge.sharing_notifications import SharingNotificationsHandler
     from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
     from .knowledge_chat import KnowledgeChatHandler
     from .laboratory import LaboratoryHandler
+    from .marketplace_browse import MarketplaceBrowseHandler
     from .memory import (
         CoordinatorHandler,
         InsightsHandler,
@@ -280,10 +316,16 @@ if TYPE_CHECKING:
         MemoryAnalyticsHandler,
         MemoryHandler,
     )
+    from .memory.unified_handler import UnifiedMemoryHandler
     from .metrics import MetricsHandler
+    from .metrics_endpoint import UnifiedMetricsHandler
     from .ml import MLHandler
+    from .moderation import ModerationHandler
+    from .moderation_analytics import ModerationAnalyticsHandler
     from .moments import MomentsHandler
     from .nomic import NomicHandler
+    from .notifications.history import NotificationHistoryHandler
+    from .notifications.preferences import NotificationPreferencesHandler
     from .oauth import OAuthHandler
     from .oauth_wizard import OAuthWizardHandler
     from .onboarding import (
@@ -299,12 +341,25 @@ if TYPE_CHECKING:
     )
     from .openclaw_gateway import OpenClawGatewayHandler
     from .orchestration import OrchestrationHandler
+    from .orchestration_canvas import OrchestrationCanvasHandler
     from .organizations import OrganizationsHandler
+    from .partner import PartnerHandler
+    from .payments.handler import PaymentRoutesHandler
     from .persona import PersonaHandler
+    from .pipeline_graph import PipelineGraphHandler
+    from .pipeline.plans import PlanManagementHandler
+    from .pipeline.provenance_explorer import ProvenanceExplorerHandler
+    from .pipeline.transitions import PipelineTransitionsHandler
+    from .pipeline.universal_graph import UniversalGraphHandler
+    from .plans import PlansHandler
+    from .playbooks import PlaybookHandler
+    from .playground import PlaygroundHandler
     from .policy import PolicyHandler
     from .privacy import PrivacyHandler
     from .public import StatusPageHandler
     from .queue import QueueHandler
+    from .receipt_export import ReceiptExportHandler
+    from .receipts import ReceiptsHandler
     from .replays import ReplaysHandler
     from .repository import RepositoryHandler
     from .reviews import ReviewsHandler
@@ -312,8 +367,14 @@ if TYPE_CHECKING:
     from .routing import RoutingHandler
     from .scim_handler import SCIMHandler
     from .selection import SelectionHandler
+    from .skill_marketplace import SkillMarketplaceHandler
     from .skills import SkillsHandler
     from .slo import SLOHandler
+    from .sme.budget_controls import BudgetControlsHandler
+    from .sme.receipt_delivery import ReceiptDeliveryHandler
+    from .sme.slack_workspace import SlackWorkspaceHandler
+    from .sme.teams_workspace import TeamsWorkspaceHandler
+    from .sme_success_dashboard import SMESuccessDashboardHandler
     from .sme_usage_dashboard import SMEUsageDashboardHandler
     from .social import (
         CollaborationHandlers,
@@ -322,8 +383,19 @@ if TYPE_CHECKING:
         SocialMediaHandler,
         get_collaboration_handlers,
     )
+    from .social.channel_health import ChannelHealthHandler
+    from .social.discord_oauth import DiscordOAuthHandler
+    from .social.notifications import NotificationsHandler
+    from .social.sharing import SharingHandler
+    from .social.slack_oauth import SlackOAuthHandler
     from .social.teams import TeamsIntegrationHandler
+    from .social.teams_oauth import TeamsOAuthHandler
+    from .sso import SSOHandler
+    from .streaming.handler import StreamingConnectorHandler
+    from .tasks.execution import TaskExecutionHandler
+    from .template_discovery import TemplateDiscoveryHandler
     from .template_marketplace import TemplateMarketplaceHandler
+    from .threat_intel import ThreatIntelHandler
     from .tournaments import TournamentHandler
     from .training import TrainingHandler
     from .transcription import TranscriptionHandler
@@ -333,6 +405,7 @@ if TYPE_CHECKING:
     from .verticals import VerticalsHandler
     from .webhooks import WebhookHandler
     from .workflow_templates import (
+        SMEWorkflowsHandler,
         TemplateRecommendationsHandler,
         WorkflowCategoriesHandler,
         WorkflowPatternTemplatesHandler,
@@ -340,6 +413,8 @@ if TYPE_CHECKING:
         WorkflowTemplatesHandler,
     )
     from .workflows import WorkflowHandler
+    from .workflows.builder import WorkflowBuilderHandler
+    from .workflows.registry import TemplateRegistryHandler
     from .workspace import WorkspaceHandler
 
 
@@ -574,6 +649,103 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "AudienceSuggestionsHandler": Stability.EXPERIMENTAL,
     # Governance
     "OutcomeHandler": Stability.STABLE,
+    # --- Newly registered handlers ---
+    # admin/ sub-handlers
+    "CreditsAdminHandler": Stability.EXPERIMENTAL,
+    "EmergencyAccessHandler": Stability.EXPERIMENTAL,
+    "FeatureFlagAdminHandler": Stability.EXPERIMENTAL,
+    "LivenessHandler": Stability.STABLE,
+    "ReadinessHandler": Stability.STABLE,
+    "StorageHealthHandler": Stability.EXPERIMENTAL,
+    # agents/ sub-handlers
+    "AgentRecommendationHandler": Stability.EXPERIMENTAL,
+    "FeedbackHandler": Stability.EXPERIMENTAL,
+    # canvas pipeline stages
+    "ActionCanvasHandler": Stability.EXPERIMENTAL,
+    "GoalCanvasHandler": Stability.EXPERIMENTAL,
+    "IdeaCanvasHandler": Stability.EXPERIMENTAL,
+    "OrchestrationCanvasHandler": Stability.EXPERIMENTAL,
+    # connectors
+    "ConnectorManagementHandler": Stability.EXPERIMENTAL,
+    # debates/ sub-handlers
+    "DebateShareHandler": Stability.EXPERIMENTAL,
+    "DebateStatsHandler": Stability.STABLE,
+    "DecisionPackageHandler": Stability.EXPERIMENTAL,
+    # email-related
+    "EmailDebateHandler": Stability.EXPERIMENTAL,
+    "EmailTriageHandler": Stability.EXPERIMENTAL,
+    # features/ sub-handlers
+    "AgentDashboardHandler": Stability.EXPERIMENTAL,
+    "OutlookHandler": Stability.EXPERIMENTAL,
+    # gateway
+    "GatewayConfigHandler": Stability.EXPERIMENTAL,
+    # github
+    "AuditGitHubBridgeHandler": Stability.EXPERIMENTAL,
+    "PRReviewHandler": Stability.EXPERIMENTAL,
+    # integrations
+    "AutomationHandler": Stability.EXPERIMENTAL,
+    "IntegrationHealthHandler": Stability.EXPERIMENTAL,
+    # knowledge/ sub-handlers
+    "KMAdapterStatusHandler": Stability.EXPERIMENTAL,
+    "SharingNotificationsHandler": Stability.EXPERIMENTAL,
+    # memory/ sub-handlers
+    "UnifiedMemoryHandler": Stability.EXPERIMENTAL,
+    # notifications
+    "NotificationHistoryHandler": Stability.EXPERIMENTAL,
+    "NotificationPreferencesHandler": Stability.EXPERIMENTAL,
+    # payments
+    "PaymentRoutesHandler": Stability.EXPERIMENTAL,
+    # pipeline
+    "PipelineGraphHandler": Stability.EXPERIMENTAL,
+    "PipelineTransitionsHandler": Stability.EXPERIMENTAL,
+    "PlanManagementHandler": Stability.EXPERIMENTAL,
+    "ProvenanceExplorerHandler": Stability.EXPERIMENTAL,
+    "UniversalGraphHandler": Stability.EXPERIMENTAL,
+    # sme/ sub-handlers
+    "BudgetControlsHandler": Stability.EXPERIMENTAL,
+    "ReceiptDeliveryHandler": Stability.EXPERIMENTAL,
+    "SlackWorkspaceHandler": Stability.EXPERIMENTAL,
+    "TeamsWorkspaceHandler": Stability.EXPERIMENTAL,
+    # social/ sub-handlers
+    "ChannelHealthHandler": Stability.EXPERIMENTAL,
+    "DiscordOAuthHandler": Stability.EXPERIMENTAL,
+    "NotificationsHandler": Stability.EXPERIMENTAL,
+    "SharingHandler": Stability.EXPERIMENTAL,
+    "SlackOAuthHandler": Stability.EXPERIMENTAL,
+    "TeamsOAuthHandler": Stability.EXPERIMENTAL,
+    # streaming
+    "StreamingConnectorHandler": Stability.EXPERIMENTAL,
+    # tasks
+    "TaskExecutionHandler": Stability.EXPERIMENTAL,
+    # top-level handlers
+    "AuditTrailHandler": Stability.STABLE,
+    "BenchmarkingHandler": Stability.EXPERIMENTAL,
+    "ComplianceReportHandler": Stability.EXPERIMENTAL,
+    "ContextBudgetHandler": Stability.EXPERIMENTAL,
+    "DRHandler": Stability.EXPERIMENTAL,
+    "FeatureFlagsHandler": Stability.EXPERIMENTAL,
+    "FeedbackRoutesHandler": Stability.EXPERIMENTAL,
+    "GasTownDashboardHandler": Stability.EXPERIMENTAL,
+    "GDPRDeletionHandler": Stability.STABLE,
+    "MarketplaceBrowseHandler": Stability.EXPERIMENTAL,
+    "ModerationHandler": Stability.EXPERIMENTAL,
+    "ModerationAnalyticsHandler": Stability.EXPERIMENTAL,
+    "PartnerHandler": Stability.EXPERIMENTAL,
+    "PlansHandler": Stability.EXPERIMENTAL,
+    "PlaybookHandler": Stability.EXPERIMENTAL,
+    "PlaygroundHandler": Stability.EXPERIMENTAL,
+    "ReceiptExportHandler": Stability.STABLE,
+    "ReceiptsHandler": Stability.STABLE,
+    "SkillMarketplaceHandler": Stability.EXPERIMENTAL,
+    "SMESuccessDashboardHandler": Stability.EXPERIMENTAL,
+    "SMEWorkflowsHandler": Stability.EXPERIMENTAL,
+    "SSOHandler": Stability.STABLE,
+    "TemplateDiscoveryHandler": Stability.EXPERIMENTAL,
+    "TemplateRegistryHandler": Stability.EXPERIMENTAL,
+    "ThreatIntelHandler": Stability.EXPERIMENTAL,
+    "UnifiedMetricsHandler": Stability.EXPERIMENTAL,
+    # workflows/ sub-handlers
+    "WorkflowBuilderHandler": Stability.EXPERIMENTAL,
 }
 
 
@@ -889,6 +1061,103 @@ __all__ = [
     "AudienceSuggestionsHandler",
     # Spectate (real-time debate observation bridge)
     "SpectateStreamHandler",
+    # --- Newly registered handlers ---
+    # admin/ sub-handlers
+    "CreditsAdminHandler",
+    "EmergencyAccessHandler",
+    "FeatureFlagAdminHandler",
+    "LivenessHandler",
+    "ReadinessHandler",
+    "StorageHealthHandler",
+    # agents/ sub-handlers
+    "AgentRecommendationHandler",
+    "FeedbackHandler",
+    # canvas pipeline stages
+    "ActionCanvasHandler",
+    "GoalCanvasHandler",
+    "IdeaCanvasHandler",
+    "OrchestrationCanvasHandler",
+    # connectors
+    "ConnectorManagementHandler",
+    # debates/ sub-handlers
+    "DebateShareHandler",
+    "DebateStatsHandler",
+    "DecisionPackageHandler",
+    # email-related
+    "EmailDebateHandler",
+    "EmailTriageHandler",
+    # features/ sub-handlers
+    "AgentDashboardHandler",
+    "OutlookHandler",
+    # gateway
+    "GatewayConfigHandler",
+    # github
+    "AuditGitHubBridgeHandler",
+    "PRReviewHandler",
+    # integrations
+    "AutomationHandler",
+    "IntegrationHealthHandler",
+    # knowledge/ sub-handlers
+    "KMAdapterStatusHandler",
+    "SharingNotificationsHandler",
+    # memory/ sub-handlers
+    "UnifiedMemoryHandler",
+    # notifications
+    "NotificationHistoryHandler",
+    "NotificationPreferencesHandler",
+    # payments
+    "PaymentRoutesHandler",
+    # pipeline
+    "PipelineGraphHandler",
+    "PipelineTransitionsHandler",
+    "PlanManagementHandler",
+    "ProvenanceExplorerHandler",
+    "UniversalGraphHandler",
+    # sme/ sub-handlers
+    "BudgetControlsHandler",
+    "ReceiptDeliveryHandler",
+    "SlackWorkspaceHandler",
+    "TeamsWorkspaceHandler",
+    # social/ sub-handlers
+    "ChannelHealthHandler",
+    "DiscordOAuthHandler",
+    "NotificationsHandler",
+    "SharingHandler",
+    "SlackOAuthHandler",
+    "TeamsOAuthHandler",
+    # streaming
+    "StreamingConnectorHandler",
+    # tasks
+    "TaskExecutionHandler",
+    # top-level handlers
+    "AuditTrailHandler",
+    "BenchmarkingHandler",
+    "ComplianceReportHandler",
+    "ContextBudgetHandler",
+    "DRHandler",
+    "FeatureFlagsHandler",
+    "FeedbackRoutesHandler",
+    "GasTownDashboardHandler",
+    "GDPRDeletionHandler",
+    "MarketplaceBrowseHandler",
+    "ModerationHandler",
+    "ModerationAnalyticsHandler",
+    "PartnerHandler",
+    "PlansHandler",
+    "PlaybookHandler",
+    "PlaygroundHandler",
+    "ReceiptExportHandler",
+    "ReceiptsHandler",
+    "SkillMarketplaceHandler",
+    "SMESuccessDashboardHandler",
+    "SMEWorkflowsHandler",
+    "SSOHandler",
+    "TemplateDiscoveryHandler",
+    "TemplateRegistryHandler",
+    "ThreatIntelHandler",
+    "UnifiedMetricsHandler",
+    # workflows/ sub-handlers
+    "WorkflowBuilderHandler",
     # Stability utilities
     "HANDLER_STABILITY",
     "get_handler_stability",
