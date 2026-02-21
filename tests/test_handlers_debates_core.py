@@ -150,9 +150,9 @@ class TestCanHandle:
 class TestAuthentication:
     """Tests for authentication checks."""
 
-    def test_requires_auth_for_debates_list(self, handler):
-        """Test that /api/debates requires auth."""
-        assert handler._requires_auth("/api/debates") is True
+    def test_does_not_require_auth_for_debates_list(self, handler):
+        """Test that /api/debates listing is publicly readable."""
+        assert handler._requires_auth("/api/debates") is False
 
     def test_requires_auth_for_export(self, handler):
         """Test that export endpoints require auth."""
@@ -166,15 +166,13 @@ class TestAuthentication:
         """Test that fork endpoint requires auth."""
         assert handler._requires_auth("/api/debates/123/fork") is True
 
-    def test_impasse_path_matches_debates_pattern(self, handler):
-        """Test that impasse path matches /api/debates pattern.
+    def test_impasse_path_does_not_require_auth(self, handler):
+        """Test that impasse path is publicly readable.
 
-        Note: The _requires_auth method uses 'in' matching, so any path
-        containing '/api/debates' will match. Actual access control for
-        impasse is handled differently (via suffix routes, not auth check).
+        AUTH_REQUIRED_ENDPOINTS only covers specific endpoints like batch,
+        export, citations, fork, and followup. Impasse is not in that list.
         """
-        # The path matches because '/api/debates' is in the path
-        assert handler._requires_auth("/api/debates/123/impasse") is True
+        assert handler._requires_auth("/api/debates/123/impasse") is False
 
     @patch("aragora.server.auth.auth_config")
     def test_check_auth_disabled(self, mock_auth_config, handler, mock_handler_request):
