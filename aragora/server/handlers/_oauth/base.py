@@ -570,6 +570,23 @@ class OAuthHandler(
             # Link OAuth provider
             await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
 
+            # Verify user was persisted (catches multi-worker SQLite, pool
+            # refresh, and replication lag issues before we issue tokens).
+            verify_async = getattr(user_store, "get_user_by_id_async", None)
+            if verify_async and inspect.iscoroutinefunction(verify_async):
+                verified = await verify_async(user.id)
+            else:
+                get_by_id = getattr(user_store, "get_user_by_id", None)
+                verified = get_by_id(user.id) if callable(get_by_id) else None
+            if not verified:
+                logger.error(
+                    "OAuth user created but NOT found on re-read: "
+                    "id=%s, email=%s, store=%s",
+                    user.id,
+                    user_info.email,
+                    type(user_store).__name__,
+                )
+
             # Log auto-provisioning with default role for audit trail
             logger.info(
                 f"OAuth user auto-provisioned: email={user_info.email} "

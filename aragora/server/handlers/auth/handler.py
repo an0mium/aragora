@@ -702,15 +702,44 @@ class AuthHandler(SecureHandler):
 
         # Get full user data using async methods to avoid run_async() on a
         # running event loop (this coroutine is awaited from async handle()).
-        logger.info("[/me] Step 4: Looking up user by ID")
+        logger.info("[/me] Step 4: Looking up user by ID (store=%s)", type(user_store).__name__)
         get_by_id_async = getattr(user_store, "get_user_by_id_async", None)
         if get_by_id_async and asyncio.iscoroutinefunction(get_by_id_async):
             user = await get_by_id_async(auth_ctx.user_id)
         else:
             get_user_by_id = getattr(user_store, "get_user_by_id", None)
             user = get_user_by_id(auth_ctx.user_id) if callable(get_user_by_id) else None
+
+        # Fallback: look up by email if ID lookup fails (handles OAuth race
+        # conditions where the user was just created but not yet visible by ID,
+        # e.g. multi-worker SQLite, connection pool refresh, or replication lag).
+        if not user and auth_ctx.email:
+            logger.warning(
+                "[/me] Step 4b: User ID %s not found, trying email fallback (%s)",
+                auth_ctx.user_id,
+                auth_ctx.email,
+            )
+            get_by_email_async = getattr(user_store, "get_user_by_email_async", None)
+            if get_by_email_async and asyncio.iscoroutinefunction(get_by_email_async):
+                user = await get_by_email_async(auth_ctx.email)
+            else:
+                get_by_email = getattr(user_store, "get_user_by_email", None)
+                user = get_by_email(auth_ctx.email) if callable(get_by_email) else None
+            if user:
+                logger.info(
+                    "[/me] Step 4b: Email fallback found user %s (JWT had ID %s)",
+                    user.id,
+                    auth_ctx.user_id,
+                )
+
         logger.info("[/me] Step 5: User lookup result: %s", "found" if user else "not found")
         if not user:
+            logger.error(
+                "[/me] User not found: user_id=%s, email=%s, store=%s",
+                auth_ctx.user_id,
+                auth_ctx.email,
+                type(user_store).__name__,
+            )
             return error_response("User not found", 404, headers=self.AUTH_NO_CACHE_HEADERS)
 
         # Get organization if user belongs to one
