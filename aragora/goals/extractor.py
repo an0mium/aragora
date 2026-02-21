@@ -375,6 +375,7 @@ class GoalExtractor:
         """
         cfg = config or GoalExtractionConfig()
         nodes = cartographer_output.get("nodes", [])
+        edges = cartographer_output.get("edges", [])
 
         if not nodes:
             return GoalGraph(id=f"goals-{uuid.uuid4().hex[:8]}")
@@ -383,6 +384,23 @@ class GoalExtractor:
         centralities: dict[str, float] = {}
         if belief_result is not None:
             centralities = getattr(belief_result, "centralities", None) or {}
+
+        # Build edge topology scores: support/refute tallies per node
+        in_support: dict[str, float] = {}
+        in_refute: dict[str, float] = {}
+        node_supporters: dict[str, list[str]] = {}
+        node_refuters: dict[str, list[str]] = {}
+        for edge in edges:
+            src = edge.get("source", edge.get("source_id", ""))
+            tgt = edge.get("target", edge.get("target_id", ""))
+            rel = edge.get("type", edge.get("relation", "")).lower()
+            weight = float(edge.get("weight", edge.get("strength", 1.0)))
+            if rel in ("supports", "support"):
+                in_support[tgt] = in_support.get(tgt, 0.0) + weight
+                node_supporters.setdefault(tgt, []).append(src)
+            elif rel in ("contradicts", "refutes", "refute"):
+                in_refute[tgt] = in_refute.get(tgt, 0.0) + weight
+                node_refuters.setdefault(tgt, []).append(src)
 
         # Step 1: Find consensus/vote nodes (high-signal debate outcomes)
         candidates: list[tuple[dict[str, Any], float]] = []
@@ -406,6 +424,12 @@ class GoalExtractor:
             if centrality < cfg.min_centrality:
                 continue
             score = score * 0.6 + centrality * 0.4 if centralities else score
+
+            # Integrate edge topology: support boosts, refutation dampens
+            support_total = in_support.get(node_id, 0.0)
+            refute_total = in_refute.get(node_id, 0.0)
+            edge_score = (support_total - refute_total * 0.5) * 0.1
+            score += edge_score
 
             # Filter by confidence threshold
             if score < cfg.confidence_threshold:
@@ -457,7 +481,13 @@ class GoalExtractor:
             )
 
             # SMART scoring
-            smart_meta: dict[str, Any] = {"rank": rank, "debate_score": score}
+            smart_meta: dict[str, Any] = {
+                "rank": rank,
+                "debate_score": score,
+                "support_edges": len(node_supporters.get(node_id, [])),
+                "refute_edges": len(node_refuters.get(node_id, [])),
+                "has_refutation": node_id in node_refuters,
+            }
             measurable = ""
             if cfg.smart_scoring:
                 specificity = _score_specificity(label)
