@@ -112,9 +112,9 @@ class TestCanHandle:
         h = _make_handler_instance()
         assert h.can_handle("/api/debates") is False
 
-    def test_partial_path(self):
+    def test_root_path(self):
         h = _make_handler_instance()
-        assert h.can_handle("/api/evolution") is False
+        assert h.can_handle("/api/evolution") is True
 
 
 # ---------------------------------------------------------------------------

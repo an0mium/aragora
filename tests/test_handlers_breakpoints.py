@@ -108,7 +108,7 @@ class TestBreakpointsRouting:
 
     def test_cannot_handle_unknown_routes(self, handler):
         """Test handler rejects unknown routes."""
-        assert not handler.can_handle("/api/v1/breakpoints")
+        assert handler.can_handle("/api/v1/breakpoints")  # root is now handled
         assert not handler.can_handle("/api/v1/breakpoints/")
         assert not handler.can_handle("/api/v1/breakpoints/bp-001/unknown")
         assert not handler.can_handle("/api/v1/other")

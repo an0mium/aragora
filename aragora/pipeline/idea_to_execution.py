@@ -416,6 +416,12 @@ class IdeaToExecutionPipeline:
                 except Exception:
                     pass
 
+        # Merge goal provenance into pipeline provenance
+        if result.goal_graph:
+            if result.goal_graph.transition:
+                result.transitions.append(result.goal_graph.transition)
+            result.provenance.extend(result.goal_graph.provenance)
+
         # Goals already extracted via extract_from_raw_ideas
         result.stage_status[PipelineStage.GOALS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
