@@ -486,10 +486,12 @@ class TestPrioritizeWorkAsync:
         )
         planner = MetaPlanner(config=config)
 
-        # Import error will trigger heuristic fallback; also mock scan_code_markers
-        # to avoid scanning the entire repo filesystem (causes hangs in CI)
+        # Import error will trigger heuristic fallback.
+        # Mock scan_code_markers and _gather_codebase_hints to avoid scanning
+        # the entire repo filesystem (causes hangs in CI).
         with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
-             patch("aragora.compat.openclaw.next_steps_runner.scan_code_markers", return_value=([], 0)):
+             patch("aragora.compat.openclaw.next_steps_runner.scan_code_markers", return_value=([], 0)), \
+             patch.object(planner, "_gather_codebase_hints", return_value={}):
             goals = await planner.prioritize_work(
                 objective="Maximize SME utility",
                 available_tracks=[Track.SME, Track.QA],

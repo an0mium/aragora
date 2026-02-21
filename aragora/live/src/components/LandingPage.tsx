@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
-import { DebateResultPreview, type DebateResponse } from './DebateResultPreview';
+import { DebateResultPreview, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
 
 interface LandingPageProps {
   apiBase?: string;
@@ -101,6 +101,21 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
+
+  // Restore pending debate results from sessionStorage (e.g., after OAuth login)
+  useEffect(() => {
+    const pending = sessionStorage.getItem(PENDING_DEBATE_KEY);
+    if (pending) {
+      try {
+        const parsed = JSON.parse(pending) as DebateResponse;
+        setResult(parsed);
+        setQuestion(parsed.topic || '');
+      } catch {
+        // Ignore invalid data
+      }
+      sessionStorage.removeItem(PENDING_DEBATE_KEY);
+    }
+  }, []);
 
   async function runDebate(topic: string) {
     setIsRunning(true);
