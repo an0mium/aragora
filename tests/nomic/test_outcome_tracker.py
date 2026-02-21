@@ -584,7 +584,11 @@ class TestCreateWithRealDebates:
     async def test_captures_metrics(self):
         """Tracker from factory should be able to capture baseline metrics."""
         tracker = NomicOutcomeTracker.create_with_real_debates()
-        metrics = await tracker.capture_baseline()
+        with unittest.mock.patch(
+            "aragora.agents.base.create_agent",
+            side_effect=ImportError("no agents"),
+        ):
+            metrics = await tracker.capture_baseline()
         # Should always return valid metrics (falls back to simulation if needed)
         assert metrics.consensus_rate >= 0.0
         assert metrics.avg_rounds >= 0.0
@@ -598,16 +602,24 @@ class TestVerifyDiff:
     async def test_verify_empty_diff(self):
         """Empty diff should still return a result dict."""
         tracker = NomicOutcomeTracker()
-        result = await tracker.verify_diff("")
+        with unittest.mock.patch.dict(
+            "sys.modules",
+            {"aragora.compat.openclaw.pr_review_runner": None},
+        ):
+            result = await tracker.verify_diff("")
         assert isinstance(result, dict)
 
     @pytest.mark.asyncio
     async def test_verify_returns_passed_key(self):
         """Result should always include the 'passed' key."""
         tracker = NomicOutcomeTracker()
-        result = await tracker.verify_diff(
-            "--- a/foo.py\n+++ b/foo.py\n@@ -1 +1 @@\n-old\n+new"
-        )
+        with unittest.mock.patch.dict(
+            "sys.modules",
+            {"aragora.compat.openclaw.pr_review_runner": None},
+        ):
+            result = await tracker.verify_diff(
+                "--- a/foo.py\n+++ b/foo.py\n@@ -1 +1 @@\n-old\n+new"
+            )
         assert "passed" in result
 
     @pytest.mark.asyncio
