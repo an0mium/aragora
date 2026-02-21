@@ -265,6 +265,10 @@ export default function Oracle() {
   const [speaking, setSpeaking] = useState(false);
   const cannedCacheRef = useRef<Map<number, string>>(new Map());
   const prefetchedRef = useRef(false);
+  const usedVoiceRef = useRef(false);
+  const [fillerDisplayText, setFillerDisplayText] = useState('');
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fillerCharIndexRef = useRef(0);
 
   // Three themed filler decks — randomly selected per session for replay value
   const FILLER_DECKS = useMemo(() => ({
@@ -346,6 +350,39 @@ export default function Oracle() {
     return FILLER_DECKS[key];
   }, [FILLER_DECKS]);
 
+  // Typewriter effect — reveals text character by character (for voice input filler)
+  const startTypewriter = useCallback((text: string, msPerChar: number = 70) => {
+    if (typewriterRef.current) clearInterval(typewriterRef.current);
+    fillerCharIndexRef.current = 0;
+    setFillerDisplayText('');
+    typewriterRef.current = setInterval(() => {
+      fillerCharIndexRef.current++;
+      const idx = fillerCharIndexRef.current;
+      if (idx >= text.length) {
+        setFillerDisplayText(text);
+        if (typewriterRef.current) clearInterval(typewriterRef.current);
+        typewriterRef.current = null;
+      } else {
+        setFillerDisplayText(text.slice(0, idx));
+      }
+    }, msPerChar);
+  }, []);
+
+  const stopTypewriter = useCallback(() => {
+    if (typewriterRef.current) {
+      clearInterval(typewriterRef.current);
+      typewriterRef.current = null;
+    }
+    setFillerDisplayText('');
+  }, []);
+
+  // Cleanup typewriter on unmount
+  useEffect(() => {
+    return () => {
+      if (typewriterRef.current) clearInterval(typewriterRef.current);
+    };
+  }, []);
+
   // Prefetch canned filler audio clips on first interaction
   const prefetchFillers = useCallback(async () => {
     if (prefetchedRef.current) return;
@@ -411,7 +448,31 @@ export default function Oracle() {
 
       const audio = new Audio(url);
       fillerAudioRef.current = audio;
+
+      // Show filler text with typewriter effect if voice input was used
+      if (usedVoiceRef.current) {
+        const clipText = selectedDeck[idx];
+        audio.addEventListener('loadedmetadata', () => {
+          if (fillerStopRef.current) return;
+          const duration = audio.duration;
+          const msPerChar = duration > 0
+            ? Math.max(30, Math.min(120, (duration * 1000) / clipText.length))
+            : 70;
+          startTypewriter(clipText, msPerChar);
+        });
+        // Fallback if loadedmetadata doesn't fire quickly
+        setTimeout(() => {
+          if (fillerCharIndexRef.current === 0 && !fillerStopRef.current) {
+            startTypewriter(selectedDeck[idx], 70);
+          }
+        }, 300);
+      }
+
       audio.onended = () => {
+        // Snap any remaining typewriter text
+        if (usedVoiceRef.current && selectedDeck[idx]) {
+          setFillerDisplayText(selectedDeck[idx]);
+        }
         fillerIndexRef.current = idx + 1;
         if (!fillerStopRef.current) {
           // Brief pause between fillers
@@ -423,18 +484,36 @@ export default function Oracle() {
         if (!fillerStopRef.current) setTimeout(playNext, 500);
       };
       audio.play().catch(() => {
-        // Autoplay blocked — try next
         fillerIndexRef.current = idx + 1;
         if (!fillerStopRef.current) setTimeout(playNext, 200);
       });
     }
 
     playNext();
-  }, [apiBase, selectedDeck]);
+  }, [apiBase, selectedDeck, startTypewriter]);
 
-  // Crossfade: fade out filler over 500ms, then play real audio
+  // Crossfade: fetch real TTS while filler continues, then fade and play
   const crossfadeToReal = useCallback(async (text: string) => {
+    // Fetch TTS audio WHILE filler continues playing (no gap)
+    const ttsText = (!text || text.length < 5) ? null : (text.length > 1500 ? text.slice(0, 1500) + '...' : text);
+
+    let ttsBlob: Blob | null = null;
+    if (ttsText) {
+      try {
+        const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: ttsText }),
+        });
+        if (res.ok) {
+          ttsBlob = await res.blob();
+        }
+      } catch { /* TTS fetch failed */ }
+    }
+
+    // NOW stop filler — real audio is ready (or failed)
     fillerStopRef.current = true;
+    stopTypewriter();
 
     // Fade out current filler audio
     const filler = fillerAudioRef.current;
@@ -449,36 +528,24 @@ export default function Oracle() {
     }
     fillerAudioRef.current = null;
 
-    // Now fetch and play the real response TTS
-    if (!text || text.length < 5) { setSpeaking(false); return; }
-    const ttsText = text.length > 1500 ? text.slice(0, 1500) + '...' : text;
+    if (!ttsBlob) { setSpeaking(false); return; }
 
-    try {
-      const res = await fetch(`${apiBase}/api/v1/playground/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: ttsText }),
-      });
-      if (!res.ok) { setSpeaking(false); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        setSpeaking(false);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-      audio.onerror = () => {
-        setSpeaking(false);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-      await audio.play();
-    } catch {
+    // Play the real response TTS
+    const url = URL.createObjectURL(ttsBlob);
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => {
       setSpeaking(false);
-    }
-  }, [apiBase]);
+      URL.revokeObjectURL(url);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setSpeaking(false);
+      URL.revokeObjectURL(url);
+      audioRef.current = null;
+    };
+    await audio.play();
+  }, [apiBase, stopTypewriter]);
 
   // Direct speak (no filler, used for Phase 2 synthesis)
   const speakText = useCallback(async (text: string) => {
@@ -505,10 +572,11 @@ export default function Oracle() {
 
   const stopSpeaking = useCallback(() => {
     fillerStopRef.current = true;
+    stopTypewriter();
     if (fillerAudioRef.current) { fillerAudioRef.current.pause(); fillerAudioRef.current = null; }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setSpeaking(false);
-  }, []);
+  }, [stopTypewriter]);
 
   // ------------------------------------------------------------------
   // Speech-to-text — browser SpeechRecognition API
@@ -554,7 +622,8 @@ export default function Oracle() {
     recognition.onend = () => {
       setListening(false);
       recognitionRef.current = null;
-      // Auto-submit if we got text
+      // Mark as voice input before auto-submit
+      usedVoiceRef.current = true;
       if (finalTranscript.trim()) {
         setInput(finalTranscript.trim());
         // Trigger submit on next frame
@@ -923,7 +992,7 @@ export default function Oracle() {
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { usedVoiceRef.current = false; setInput(e.target.value); }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -1038,16 +1107,24 @@ export default function Oracle() {
                   <span className="text-[var(--text-muted)]"> &middot; channeling...</span>
                 </div>
                 <div className="border-l-2 border-[var(--acid-magenta)] pl-4">
-                  <div className="flex items-center gap-2 text-sm text-[var(--acid-cyan)]">
-                    <span className="inline-block w-2 h-2 rounded-full bg-[var(--acid-magenta)] animate-pulse" />
-                    <span className="opacity-60">
-                      {mode === 'divine'
-                        ? 'Gazing into branching timelines...'
-                        : mode === 'commune'
-                          ? 'The ancient one stirs...'
-                          : 'The Oracle forms an initial vision...'}
-                    </span>
-                  </div>
+                  {fillerDisplayText ? (
+                    <div className="text-sm text-[var(--acid-cyan)] italic leading-relaxed py-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-[var(--acid-magenta)] animate-pulse mr-2 align-middle" />
+                      {fillerDisplayText}
+                      <span className="inline-block w-[2px] h-4 bg-[var(--acid-cyan)] ml-0.5 animate-pulse align-middle" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-[var(--acid-cyan)]">
+                      <span className="inline-block w-2 h-2 rounded-full bg-[var(--acid-magenta)] animate-pulse" />
+                      <span className="opacity-60">
+                        {mode === 'divine'
+                          ? 'Gazing into branching timelines...'
+                          : mode === 'commune'
+                            ? 'The ancient one stirs...'
+                            : 'The Oracle forms an initial vision...'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
