@@ -48,6 +48,15 @@ from .sso import (
 
 logger = logging.getLogger(__name__)
 
+# lxml may raise XMLSyntaxError during SAML XML parsing; import conditionally
+# so we can catch it and wrap it in SSOAuthenticationError
+try:
+    from lxml.etree import XMLSyntaxError as _LxmlXMLSyntaxError
+
+    _LXML_XML_ERRORS: tuple[type[Exception], ...] = (_LxmlXMLSyntaxError,)
+except ImportError:
+    _LXML_XML_ERRORS = ()
+
 # Pre-declare OneLogin_Saml2_Auth for optional import fallback
 OneLogin_Saml2_Auth: Any
 
@@ -344,7 +353,7 @@ class SAMLProvider(SSOProvider):
                 return await self._authenticate_with_library(saml_response, relay_state)
             except SSOAuthenticationError:
                 raise
-            except (ValueError, RuntimeError, KeyError, AttributeError, zlib.error) as e:
+            except (ValueError, RuntimeError, KeyError, AttributeError, zlib.error, *_LXML_XML_ERRORS) as e:
                 logger.error(
                     "SAML library authentication error",
                     extra={"error": str(e), "error_type": type(e).__name__},
@@ -573,7 +582,7 @@ class SAMLProvider(SSOProvider):
 
         except SSOAuthenticationError:
             raise
-        except (ValueError, RuntimeError, KeyError, AttributeError, TypeError) as e:
+        except (ValueError, RuntimeError, KeyError, AttributeError, TypeError, *_LXML_XML_ERRORS) as e:
             # Catch XML parsing errors, validation errors, and other library exceptions
             logger.error(f"SAML library authentication error: {e}")
             raise SSOAuthenticationError("Invalid SAML response")

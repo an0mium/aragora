@@ -96,14 +96,22 @@ def arena(environment, mock_agents, protocol):
     many subsystems to be properly configured.
     """
     with (
-        patch.object(Arena, "_init_core"),
-        patch.object(Arena, "_init_trackers"),
         patch.object(Arena, "_init_user_participation"),
+        patch.object(Arena, "_init_event_bus"),
         patch.object(Arena, "_init_roles_and_stances"),
         patch.object(Arena, "_init_convergence"),
         patch.object(Arena, "_init_caches"),
+        patch.object(Arena, "_init_lifecycle_manager"),
+        patch.object(Arena, "_init_event_emitter"),
+        patch.object(Arena, "_init_checkpoint_ops"),
+        patch.object(Arena, "_init_grounded_operations"),
+        patch.object(Arena, "_init_knowledge_ops"),
+        patch.object(Arena, "_init_rlm_limiter"),
         patch.object(Arena, "_init_phases"),
+        patch.object(Arena, "_init_prompt_context_builder"),
+        patch.object(Arena, "_init_context_delegator"),
         patch.object(Arena, "_init_termination_checker"),
+        patch.object(Arena, "_init_cross_subscriber_bridge"),
     ):
         arena = Arena.__new__(Arena)
         # Set minimal required attributes
