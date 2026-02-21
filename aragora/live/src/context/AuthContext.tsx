@@ -232,23 +232,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       storeActiveOrg(newOrg);
 
       // Update organizations list if default was changed
-      if (setAsDefault && state.organizations.length > 0) {
-        const updatedOrgs = state.organizations.map(o => ({
-          ...o,
-          is_default: o.org_id === orgId,
-        }));
-        storeUserOrgs(updatedOrgs);
-        setState(prev => ({
-          ...prev,
-          organization: newOrg,
-          organizations: updatedOrgs,
-        }));
-      } else {
-        setState(prev => ({
-          ...prev,
-          organization: newOrg,
-        }));
-      }
+      setState(prev => {
+        if (setAsDefault && prev.organizations.length > 0) {
+          const updatedOrgs = prev.organizations.map(o => ({
+            ...o,
+            is_default: o.org_id === orgId,
+          }));
+          storeUserOrgs(updatedOrgs);
+          return { ...prev, organization: newOrg, organizations: updatedOrgs };
+        }
+        return { ...prev, organization: newOrg };
+      });
 
       // If a new token was issued with org context, update it
       if (data.access_token) {
@@ -533,15 +527,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
       const newTokens = data.tokens;
-      const user = state.user || getStoredUser();
 
-      if (user) {
-        storeAuth(user, newTokens);
-        setState(prev => ({
-          ...prev,
-          tokens: newTokens,
-        }));
-      }
+      setState(prev => {
+        const user = prev.user || getStoredUser();
+        if (user) {
+          storeAuth(user, newTokens);
+        }
+        return { ...prev, tokens: newTokens };
+      });
 
       return true;
     } catch {

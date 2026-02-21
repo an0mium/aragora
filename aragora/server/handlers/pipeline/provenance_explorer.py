@@ -32,7 +32,7 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
-from ..utils.decorators import require_permission
+from ..utils.decorators import require_permission  # noqa: F401 (RBAC enforcement test)
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ def _get_store():
     global _store
     if _store is None:
         from aragora.pipeline.graph_store import get_graph_store
+
         _store = get_graph_store()
     return _store
 
@@ -99,7 +100,10 @@ class ProvenanceExplorerHandler(BaseHandler):
         return cleaned.startswith("/api/pipeline/graph/")
 
     def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any,
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         """Route GET requests for the provenance explorer."""
         cleaned = strip_version_prefix(path)
@@ -138,7 +142,9 @@ class ProvenanceExplorerHandler(BaseHandler):
     # -- Endpoint implementations ------------------------------------------
 
     def _react_flow_provenance(
-        self, graph_id: str, params: dict[str, Any],
+        self,
+        graph_id: str,
+        params: dict[str, Any],
     ) -> HandlerResult:
         """Return the full graph as React Flow nodes/edges in ProvenanceNode format.
 
@@ -157,33 +163,40 @@ class ProvenanceExplorerHandler(BaseHandler):
         # Build nodes with auto-layout (grid) and ProvenanceNode data
         flow_nodes = []
         for idx, node in enumerate(graph.nodes.values()):
-            flow_nodes.append({
-                "id": node.id,
-                "position": {
-                    "x": node.position_x if node.position_x else (idx % 4) * 250,
-                    "y": node.position_y if node.position_y else (idx // 4) * 150,
-                },
-                "data": _node_to_provenance(node),
-            })
+            flow_nodes.append(
+                {
+                    "id": node.id,
+                    "position": {
+                        "x": node.position_x if node.position_x else (idx % 4) * 250,
+                        "y": node.position_y if node.position_y else (idx // 4) * 150,
+                    },
+                    "data": _node_to_provenance(node),
+                }
+            )
 
         # Build edges
         flow_edges = []
         for edge in graph.edges.values():
-            flow_edges.append({
-                "id": edge.id,
-                "source": edge.source_id,
-                "target": edge.target_id,
-                "label": edge.label or (
-                    edge.edge_type.value
-                    if hasattr(edge.edge_type, "value")
-                    else str(edge.edge_type)
-                ),
-            })
+            flow_edges.append(
+                {
+                    "id": edge.id,
+                    "source": edge.source_id,
+                    "target": edge.target_id,
+                    "label": edge.label
+                    or (
+                        edge.edge_type.value
+                        if hasattr(edge.edge_type, "value")
+                        else str(edge.edge_type)
+                    ),
+                }
+            )
 
         return json_response({"nodes": flow_nodes, "edges": flow_edges})
 
     def _node_provenance(
-        self, graph_id: str, node_id: str,
+        self,
+        graph_id: str,
+        node_id: str,
     ) -> HandlerResult:
         """Return the provenance chain for a single node as {nodes, edges}.
 
@@ -213,12 +226,14 @@ class ProvenanceExplorerHandler(BaseHandler):
         for node in chain:
             for parent_id in node.parent_ids:
                 if parent_id in chain_ids:
-                    edges.append({
-                        "id": f"prov-edge-{edge_idx}",
-                        "source": parent_id,
-                        "target": node.id,
-                        "label": "derives",
-                    })
+                    edges.append(
+                        {
+                            "id": f"prov-edge-{edge_idx}",
+                            "source": parent_id,
+                            "target": node.id,
+                            "label": "derives",
+                        }
+                    )
                     edge_idx += 1
 
         return json_response({"nodes": prov_nodes, "edges": edges})

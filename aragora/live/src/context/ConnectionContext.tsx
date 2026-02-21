@@ -288,6 +288,9 @@ export function useServiceConnection(service: ServiceConnection): void {
     if (context) {
       context.registerService(service);
     }
+    // Intentionally decomposed: service object is unstable (new ref each render),
+    // so we depend on individual properties to prevent infinite re-registration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context, service.name, service.status, service.error, service.reconnectAttempt]);
 }
 

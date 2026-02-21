@@ -69,9 +69,9 @@ class TestMomentsHandlerRouting:
         assert handler.can_handle("/api/v1/agent/claude/moments") is False
         assert handler.can_handle("/api/v1/relationships/summary") is False
 
-    def test_cannot_handle_incomplete_paths(self, handler):
-        """Should not handle incomplete paths."""
-        assert handler.can_handle("/api/v1/moments") is False
+    def test_handle_root_and_incomplete_paths(self, handler):
+        """Root path should be handled, but bare by-type should not."""
+        assert handler.can_handle("/api/v1/moments") is True
         assert handler.can_handle("/api/v1/moments/by-type") is False
 
 

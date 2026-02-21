@@ -183,8 +183,8 @@ class TestBreakpointsHandlerBasics:
     def test_cannot_handle_other_path(self, handler):
         assert handler.can_handle("/api/debates") is False
 
-    def test_cannot_handle_root(self, handler):
-        assert handler.can_handle("/api/v1/breakpoints") is False
+    def test_can_handle_root(self, handler):
+        assert handler.can_handle("/api/v1/breakpoints") is True
 
     def test_cannot_handle_invalid_action(self, handler):
         assert handler.can_handle("/api/v1/breakpoints/bp-001/delete") is False

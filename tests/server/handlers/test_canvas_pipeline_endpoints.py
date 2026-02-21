@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from aragora.server.handlers.canvas_pipeline import (
@@ -9,6 +11,13 @@ from aragora.server.handlers.canvas_pipeline import (
     _get_store,
     _pipeline_objects,
 )
+
+
+def _body(result) -> dict:
+    """Extract JSON body from a HandlerResult."""
+    if isinstance(result, dict):
+        return result
+    return json.loads(result.body)
 
 
 @pytest.fixture(autouse=True)
@@ -76,12 +85,12 @@ class TestHandleFromDebate:
     @pytest.mark.asyncio
     async def test_missing_cartographer_data(self, handler):
         result = await handler.handle_from_debate({})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_empty_cartographer_data(self, handler):
         result = await handler.handle_from_debate({"cartographer_data": {}})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_from_debate_returns_pipeline(self, handler, sample_cartographer_data):
@@ -89,17 +98,19 @@ class TestHandleFromDebate:
             "cartographer_data": sample_cartographer_data,
             "auto_advance": True,
         })
-        assert "pipeline_id" in result
-        assert result["pipeline_id"].startswith("pipe-")
-        assert "stage_status" in result
-        assert "result" in result
+        body = _body(result)
+        assert "pipeline_id" in body
+        assert body["pipeline_id"].startswith("pipe-")
+        assert "stage_status" in body
+        assert "result" in body
 
     @pytest.mark.asyncio
     async def test_from_debate_stores_result(self, handler, sample_cartographer_data):
         result = await handler.handle_from_debate({
             "cartographer_data": sample_cartographer_data,
         })
-        pid = result["pipeline_id"]
+        body = _body(result)
+        pid = body["pipeline_id"]
         assert _get_store().get(pid) is not None
         assert pid in _pipeline_objects
 
@@ -109,7 +120,7 @@ class TestHandleFromDebate:
             "cartographer_data": sample_cartographer_data,
             "auto_advance": False,
         })
-        status = result["stage_status"]
+        status = _body(result)["stage_status"]
         assert status.get("ideas") == "complete"
         assert status.get("goals") == "pending"
 
@@ -119,8 +130,9 @@ class TestHandleFromDebate:
             "cartographer_data": sample_cartographer_data,
             "auto_advance": True,
         })
-        assert "total_nodes" in result
-        assert result["total_nodes"] > 0
+        body = _body(result)
+        assert "total_nodes" in body
+        assert body["total_nodes"] > 0
 
     @pytest.mark.asyncio
     async def test_from_debate_stages_completed(self, handler, sample_cartographer_data):
@@ -128,7 +140,7 @@ class TestHandleFromDebate:
             "cartographer_data": sample_cartographer_data,
             "auto_advance": True,
         })
-        assert result["stages_completed"] == 4
+        assert _body(result)["stages_completed"] == 4
 
 
 # =========================================================================
@@ -140,29 +152,30 @@ class TestHandleFromIdeas:
     @pytest.mark.asyncio
     async def test_missing_ideas(self, handler):
         result = await handler.handle_from_ideas({})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_empty_ideas(self, handler):
         result = await handler.handle_from_ideas({"ideas": []})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_from_ideas_returns_pipeline(self, handler):
         result = await handler.handle_from_ideas({
             "ideas": ["Build a rate limiter", "Add caching"],
         })
-        assert "pipeline_id" in result
-        assert result["pipeline_id"].startswith("pipe-")
-        assert "stage_status" in result
-        assert "result" in result
+        body = _body(result)
+        assert "pipeline_id" in body
+        assert body["pipeline_id"].startswith("pipe-")
+        assert "stage_status" in body
+        assert "result" in body
 
     @pytest.mark.asyncio
     async def test_from_ideas_stores_result(self, handler):
         result = await handler.handle_from_ideas({
             "ideas": ["Idea one", "Idea two"],
         })
-        pid = result["pipeline_id"]
+        pid = _body(result)["pipeline_id"]
         assert _get_store().get(pid) is not None
         assert pid in _pipeline_objects
 
@@ -172,8 +185,9 @@ class TestHandleFromIdeas:
             "ideas": ["Build rate limiter", "Add caching layer", "Improve docs"],
             "auto_advance": True,
         })
-        assert "goals_count" in result
-        assert result["goals_count"] > 0
+        body = _body(result)
+        assert "goals_count" in body
+        assert body["goals_count"] > 0
 
     @pytest.mark.asyncio
     async def test_from_ideas_no_auto_advance(self, handler):
@@ -181,7 +195,7 @@ class TestHandleFromIdeas:
             "ideas": ["Some idea"],
             "auto_advance": False,
         })
-        status = result["stage_status"]
+        status = _body(result)["stage_status"]
         assert status.get("ideas") == "complete"
         assert status.get("goals") == "complete"
         # Actions not generated without auto_advance
@@ -197,12 +211,12 @@ class TestHandleAdvance:
     @pytest.mark.asyncio
     async def test_missing_pipeline_id(self, handler):
         result = await handler.handle_advance({})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_missing_target_stage(self, handler):
         result = await handler.handle_advance({"pipeline_id": "pipe-123"})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_pipeline_not_found(self, handler):
@@ -210,7 +224,7 @@ class TestHandleAdvance:
             "pipeline_id": "nonexistent",
             "target_stage": "goals",
         })
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_invalid_stage(self, handler):
@@ -219,13 +233,13 @@ class TestHandleAdvance:
             "ideas": ["Test idea"],
             "auto_advance": False,
         })
-        pid = ideas_result["pipeline_id"]
+        pid = _body(ideas_result)["pipeline_id"]
 
         result = await handler.handle_advance({
             "pipeline_id": pid,
             "target_stage": "invalid_stage",
         })
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_advance_to_actions(self, handler):
@@ -234,15 +248,16 @@ class TestHandleAdvance:
             "ideas": ["Build rate limiter", "Add caching"],
             "auto_advance": False,
         })
-        pid = ideas_result["pipeline_id"]
+        pid = _body(ideas_result)["pipeline_id"]
 
         result = await handler.handle_advance({
             "pipeline_id": pid,
             "target_stage": "actions",
         })
-        assert result["pipeline_id"] == pid
-        assert result["advanced_to"] == "actions"
-        assert result["stage_status"]["actions"] == "complete"
+        body = _body(result)
+        assert body["pipeline_id"] == pid
+        assert body["advanced_to"] == "actions"
+        assert body["stage_status"]["actions"] == "complete"
 
     @pytest.mark.asyncio
     async def test_advance_updates_stores(self, handler):
@@ -250,7 +265,7 @@ class TestHandleAdvance:
             "ideas": ["Test idea"],
             "auto_advance": False,
         })
-        pid = ideas_result["pipeline_id"]
+        pid = _body(ideas_result)["pipeline_id"]
 
         await handler.handle_advance({
             "pipeline_id": pid,
@@ -271,7 +286,7 @@ class TestHandleGetPipeline:
     @pytest.mark.asyncio
     async def test_not_found(self, handler):
         result = await handler.handle_get_pipeline("nonexistent")
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_get_existing_pipeline(self, handler):
@@ -279,12 +294,13 @@ class TestHandleGetPipeline:
             "ideas": ["Test idea"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_pipeline(pid)
-        assert "pipeline_id" in result
-        assert "ideas" in result
-        assert "goals" in result
+        body = _body(result)
+        assert "pipeline_id" in body
+        assert "ideas" in body
+        assert "goals" in body
 
 
 # =========================================================================
@@ -296,7 +312,7 @@ class TestHandleGetStage:
     @pytest.mark.asyncio
     async def test_pipeline_not_found(self, handler):
         result = await handler.handle_get_stage("nonexistent", "ideas")
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_invalid_stage(self, handler):
@@ -304,10 +320,10 @@ class TestHandleGetStage:
             "ideas": ["Test idea"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "nonexistent")
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_get_ideas_stage(self, handler):
@@ -315,11 +331,12 @@ class TestHandleGetStage:
             "ideas": ["Rate limiter", "Caching"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "ideas")
-        assert result["stage"] == "ideas"
-        assert "data" in result
+        body = _body(result)
+        assert body["stage"] == "ideas"
+        assert "data" in body
 
     @pytest.mark.asyncio
     async def test_get_goals_stage(self, handler):
@@ -327,11 +344,12 @@ class TestHandleGetStage:
             "ideas": ["Rate limiter", "Caching"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "goals")
-        assert result["stage"] == "goals"
-        assert "data" in result
+        body = _body(result)
+        assert body["stage"] == "goals"
+        assert "data" in body
 
     @pytest.mark.asyncio
     async def test_get_actions_stage(self, handler):
@@ -339,10 +357,10 @@ class TestHandleGetStage:
             "ideas": ["Rate limiter", "Caching"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "actions")
-        assert result["stage"] == "actions"
+        assert _body(result)["stage"] == "actions"
 
     @pytest.mark.asyncio
     async def test_get_orchestration_stage(self, handler):
@@ -350,10 +368,10 @@ class TestHandleGetStage:
             "ideas": ["Rate limiter", "Caching"],
             "auto_advance": True,
         })
-        pid = create_result["pipeline_id"]
+        pid = _body(create_result)["pipeline_id"]
 
         result = await handler.handle_get_stage(pid, "orchestration")
-        assert result["stage"] == "orchestration"
+        assert _body(result)["stage"] == "orchestration"
 
 
 # =========================================================================
@@ -365,16 +383,17 @@ class TestHandleConvertDebate:
     @pytest.mark.asyncio
     async def test_missing_data(self, handler):
         result = await handler.handle_convert_debate({})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_convert_debate_returns_react_flow(self, handler, sample_cartographer_data):
         result = await handler.handle_convert_debate({
             "cartographer_data": sample_cartographer_data,
         })
-        assert "nodes" in result
-        assert "edges" in result
-        assert len(result["nodes"]) == 3
+        body = _body(result)
+        assert "nodes" in body
+        assert "edges" in body
+        assert len(body["nodes"]) == 3
 
 
 # =========================================================================
@@ -386,7 +405,7 @@ class TestHandleConvertWorkflow:
     @pytest.mark.asyncio
     async def test_missing_data(self, handler):
         result = await handler.handle_convert_workflow({})
-        assert "error" in result
+        assert "error" in _body(result)
 
     @pytest.mark.asyncio
     async def test_convert_workflow_returns_react_flow(self, handler):
@@ -403,5 +422,6 @@ class TestHandleConvertWorkflow:
         result = await handler.handle_convert_workflow({
             "workflow_data": workflow_data,
         })
-        assert "nodes" in result
-        assert "edges" in result
+        body = _body(result)
+        assert "nodes" in body
+        assert "edges" in body
