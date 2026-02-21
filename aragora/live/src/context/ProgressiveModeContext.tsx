@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 
 /**
  * Progressive disclosure modes for the UI
@@ -67,13 +67,13 @@ export function ProgressiveModeProvider({ children }: { children: ReactNode }) {
     [mode]
   );
 
-  const value: ProgressiveModeContextType = {
+  const value = useMemo<ProgressiveModeContextType>(() => ({
     mode,
     setMode,
     isFeatureVisible,
     modeLabel: MODE_LABELS[mode],
     modeDescription: MODE_DESCRIPTIONS[mode],
-  };
+  }), [mode, setMode, isFeatureVisible]);
 
   return (
     <ProgressiveModeContext.Provider value={value}>

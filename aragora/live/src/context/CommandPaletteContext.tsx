@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { useCommandPaletteStore } from '@/store/commandPaletteStore';
 import { useUIStore } from '@/store/uiStore';
 
@@ -54,12 +54,9 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [isOpen, toggle, close, keyboardShortcutsEnabled]);
 
-  const value: CommandPaletteContextValue = {
-    isOpen,
-    open,
-    close,
-    toggle,
-  };
+  const value = useMemo<CommandPaletteContextValue>(() => ({
+    isOpen, open, close, toggle,
+  }), [isOpen, open, close, toggle]);
 
   return (
     <CommandPaletteContext.Provider value={value}>

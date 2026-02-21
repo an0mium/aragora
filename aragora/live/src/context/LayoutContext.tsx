@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 
 // Breakpoints matching Tailwind config
 const BREAKPOINTS = {
@@ -150,30 +150,35 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     };
   }, [isMobile, leftSidebarOpen]);
 
+  const value = useMemo<LayoutContextType>(() => ({
+    // Left sidebar
+    leftSidebarOpen,
+    leftSidebarCollapsed,
+    openLeftSidebar,
+    closeLeftSidebar,
+    toggleLeftSidebar,
+    setLeftSidebarCollapsed,
+    // Right sidebar
+    rightSidebarOpen,
+    openRightSidebar,
+    closeRightSidebar,
+    toggleRightSidebar,
+    // Responsive
+    isMobile,
+    isTablet,
+    isDesktop,
+    // Dimensions
+    leftSidebarWidth,
+    rightSidebarWidth,
+  }), [
+    leftSidebarOpen, leftSidebarCollapsed,
+    openLeftSidebar, closeLeftSidebar, toggleLeftSidebar, setLeftSidebarCollapsed,
+    rightSidebarOpen, openRightSidebar, closeRightSidebar, toggleRightSidebar,
+    isMobile, isTablet, isDesktop, leftSidebarWidth, rightSidebarWidth,
+  ]);
+
   return (
-    <LayoutContext.Provider
-      value={{
-        // Left sidebar
-        leftSidebarOpen,
-        leftSidebarCollapsed,
-        openLeftSidebar,
-        closeLeftSidebar,
-        toggleLeftSidebar,
-        setLeftSidebarCollapsed,
-        // Right sidebar
-        rightSidebarOpen,
-        openRightSidebar,
-        closeRightSidebar,
-        toggleRightSidebar,
-        // Responsive
-        isMobile,
-        isTablet,
-        isDesktop,
-        // Dimensions
-        leftSidebarWidth,
-        rightSidebarWidth,
-      }}
-    >
+    <LayoutContext.Provider value={value}>
       {children}
     </LayoutContext.Provider>
   );

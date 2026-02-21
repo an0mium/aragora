@@ -1,35 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/layout';
 import { TopBar } from '@/components/layout/TopBar';
 import { useAuth } from '@/context/AuthContext';
-import { useOnboardingStore, selectIsOnboardingNeeded } from '@/store/onboardingStore';
 
 const NO_SHELL_PREFIXES = ['/auth'];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
-  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const hideShell = NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  const needsOnboarding = useOnboardingStore(selectIsOnboardingNeeded);
 
-  // Redirect authenticated users who haven't completed onboarding.
-  // router is excluded from deps — it returns a new ref every render in Next.js
-  // but push() is safe to call with the captured closure reference.
-  useEffect(() => {
-    if (
-      isAuthenticated &&
-      !authLoading &&
-      needsOnboarding &&
-      !pathname.startsWith('/onboarding')
-    ) {
-      router.push('/onboarding');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, authLoading, needsOnboarding, pathname]);
+  // Onboarding is accessible at /onboarding but we don't force-redirect to it.
+  // Forced redirects were causing crash loops for OAuth users whose
+  // Zustand store defaults needsOnboarding=true before they can interact.
 
   // Unauthenticated users at root see LandingPage (which has its own nav) — skip AppShell
   if (!hideShell && pathname === '/' && !authLoading && !isAuthenticated) {

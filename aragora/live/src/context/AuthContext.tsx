@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 
@@ -686,18 +686,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timeout);
   }, [state.tokens?.expires_at, refreshToken]);
 
+  const contextValue = useMemo<AuthContextType>(() => ({
+    ...state,
+    login,
+    register,
+    logout,
+    refreshToken,
+    setTokens,
+    switchOrganization,
+    refreshOrganizations,
+    getCurrentOrgRole,
+  }), [
+    state,
+    login,
+    register,
+    logout,
+    refreshToken,
+    setTokens,
+    switchOrganization,
+    refreshOrganizations,
+    getCurrentOrgRole,
+  ]);
+
   return (
-    <AuthContext.Provider value={{
-      ...state,
-      login,
-      register,
-      logout,
-      refreshToken,
-      setTokens,
-      switchOrganization,
-      refreshOrganizations,
-      getCurrentOrgRole,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

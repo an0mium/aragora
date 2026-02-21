@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from 'react';
@@ -307,7 +308,7 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
   ]);
 
   // Context value
-  const value: KeyboardShortcutsContextValue = {
+  const value = useMemo<KeyboardShortcutsContextValue>(() => ({
     isEnabled: enabled,
     isHelpOpen,
     openHelp,
@@ -315,7 +316,7 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
     toggleEnabled,
     setContext,
     shortcuts,
-  };
+  }), [enabled, isHelpOpen, openHelp, closeHelp, toggleEnabled, setContext, shortcuts]);
 
   return (
     <KeyboardShortcutsContext.Provider value={value}>

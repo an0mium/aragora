@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 
 /**
  * Adaptive UI Mode - Simple binary toggle for user experience level
@@ -94,7 +94,7 @@ export function AdaptiveModeProvider({ children }: { children: ReactNode }) {
     [mode]
   );
 
-  const value: AdaptiveModeContextType = {
+  const value = useMemo<AdaptiveModeContextType>(() => ({
     mode,
     toggleMode,
     setMode,
@@ -103,7 +103,7 @@ export function AdaptiveModeProvider({ children }: { children: ReactNode }) {
     isFeatureEnabled,
     modeLabel: MODE_LABELS[mode],
     modeDescription: MODE_DESCRIPTIONS[mode],
-  };
+  }), [mode, toggleMode, setMode, isFeatureEnabled]);
 
   return (
     <AdaptiveModeContext.Provider value={value}>
