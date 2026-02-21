@@ -83,10 +83,19 @@ interface DebateResultPreviewProps {
   result: DebateResponse;
 }
 
+export const RETURN_URL_KEY = 'aragora_return_url';
+export const PENDING_DEBATE_KEY = 'aragora_pending_debate';
+
 export function DebateResultPreview({ result }: DebateResultPreviewProps) {
-  const handleSignup = () => {
-    sessionStorage.setItem('aragora_pending_debate', JSON.stringify(result));
+  const saveDebateAndReturnUrl = () => {
+    // Save debate results so the landing page can restore them after login
+    sessionStorage.setItem(PENDING_DEBATE_KEY, JSON.stringify(result));
+    // Save return URL so OAuth callback redirects back here
+    sessionStorage.setItem(RETURN_URL_KEY, window.location.pathname);
   };
+
+  const handleSignup = saveDebateAndReturnUrl;
+  const handleLogin = saveDebateAndReturnUrl;
 
   return (
     <div className="text-left space-y-4 mt-8">
@@ -239,6 +248,7 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
               </Link>
               <Link
                 href="/auth/login"
+                onClick={handleLogin}
                 className="font-mono text-sm px-4 py-2 border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Log In

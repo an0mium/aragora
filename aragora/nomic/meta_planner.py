@@ -1121,13 +1121,14 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
     ) -> list[PrioritizedGoal]:
         """Prioritize from codebase signals without any LLM calls.
 
-        Gathers six signal sources:
+        Gathers seven signal sources:
         1. ``git log`` — recently changed files mapped to tracks
         2. ``CodebaseIndexer`` — untested modules
         3. ``OutcomeTracker`` — past regression patterns
         4. ``.pytest_cache`` — last-run test failures
         5. ``ruff`` — lint violations
         6. ``grep`` — TODO/FIXME/HACK comments
+        7. ``FeedbackStore`` — user NPS score (low NPS boosts user-facing tracks)
 
         Each signal contributes a candidate goal. Goals are ranked by signal
         count (more signals = higher priority).
@@ -1266,6 +1267,26 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                                 f"todo: {filepath}"
                             )
         except (subprocess.TimeoutExpired, OSError):
+            pass
+
+        # Signal 7: User feedback (NPS score from FeedbackStore)
+        try:
+            from aragora.server.handlers.feedback import FeedbackStore
+
+            fb_store = FeedbackStore()
+            nps = fb_store.get_nps_summary(days=30)
+            if nps and nps.get("response_count", 0) > 0:
+                nps_score = nps.get("nps_score", 0)
+                if nps_score < 30:  # Below "good" threshold
+                    if Track.SME.value in track_signals:
+                        track_signals[Track.SME.value].append(
+                            f"low_nps: score={nps_score} ({nps.get('response_count', 0)} responses)"
+                        )
+                    if Track.DEVELOPER.value in track_signals:
+                        track_signals[Track.DEVELOPER.value].append(
+                            f"low_nps: score={nps_score} (detractors={nps.get('detractor_pct', 0):.0f}%)"
+                        )
+        except (ImportError, RuntimeError, OSError, ValueError):
             pass
 
         # Build goals from signals, ranked by signal count

@@ -76,10 +76,17 @@ function OAuthCallbackContent() {
           const storedUser = localStorage.getItem('aragora_user');
           logger.debug('[OAuth Callback] Pre-redirect check - tokens:', !!storedTokens, 'user:', !!storedUser);
 
+          // Check for a saved return URL (e.g., user was viewing a debate before login)
+          const returnUrl = sessionStorage.getItem('aragora_return_url');
+          if (returnUrl) {
+            sessionStorage.removeItem('aragora_return_url');
+          }
+          const destination = returnUrl || '/';
+
           // Slightly longer delay to ensure state is settled before navigation
           setTimeout(() => {
-            logger.debug('[OAuth Callback] Redirecting to home...');
-            router.push('/');
+            logger.debug('[OAuth Callback] Redirecting to:', destination);
+            router.push(destination);
           }, 750);
         } catch (err) {
           logger.error('[OAuth Callback] Failed to set tokens:', err);
