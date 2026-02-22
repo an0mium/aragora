@@ -101,10 +101,24 @@ function getDemoPipeline(): PipelineResultResponse {
   };
 }
 
+interface PipelineExecuteConfig {
+  /** Preview execution plan without running agents */
+  dry_run?: boolean;
+  /** Generate a DecisionReceipt on completion */
+  enable_receipts?: boolean;
+  /** Stages to include (default: all) */
+  stages?: string[];
+}
+
 interface PipelineExecuteResponse {
   pipeline_id: string;
+  execution_id: string;
   status: string;
-  results: unknown[];
+  agent_tasks: number;
+  total_orchestration_nodes: number;
+  /** Only present in dry_run mode */
+  stages_complete?: string[];
+  stages_incomplete?: string[];
 }
 
 const STAGE_ORDER: PipelineStageType[] = ['ideas', 'goals', 'actions', 'orchestration'];
@@ -213,8 +227,12 @@ export function usePipeline() {
   );
 
   const executePipeline = useCallback(
-    async (pipelineId: string) => {
-      const result = await executeApi.post(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {});
+    async (pipelineId: string, config?: PipelineExecuteConfig) => {
+      const result = await executeApi.post(`/api/v1/canvas/pipeline/${pipelineId}/execute`, {
+        dry_run: config?.dry_run ?? false,
+        enable_receipts: config?.enable_receipts ?? true,
+        ...(config?.stages ? { stages: config.stages } : {}),
+      });
       return result;
     },
     [executeApi]

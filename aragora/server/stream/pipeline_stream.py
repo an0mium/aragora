@@ -108,6 +108,13 @@ class PipelineStreamEmitter:
 
     # Convenience methods for common events
 
+    async def emit_started(
+        self, pipeline_id: str, config: dict[str, Any] | None = None,
+    ) -> None:
+        await self.emit(pipeline_id, StreamEventType.PIPELINE_STARTED, {
+            "config": config or {},
+        })
+
     async def emit_stage_started(
         self, pipeline_id: str, stage_name: str, config: dict[str, Any] | None = None,
     ) -> None:
@@ -206,6 +213,7 @@ class PipelineStreamEmitter:
         """
         def callback(event_type: str, data: dict[str, Any]) -> None:
             type_map = {
+                "started": StreamEventType.PIPELINE_STARTED,
                 "stage_started": StreamEventType.PIPELINE_STAGE_STARTED,
                 "stage_completed": StreamEventType.PIPELINE_STAGE_COMPLETED,
                 "graph_updated": StreamEventType.PIPELINE_GRAPH_UPDATED,
@@ -213,6 +221,7 @@ class PipelineStreamEmitter:
                 "workflow_generated": StreamEventType.PIPELINE_WORKFLOW_GENERATED,
                 "step_progress": StreamEventType.PIPELINE_STEP_PROGRESS,
                 "node_added": StreamEventType.PIPELINE_NODE_ADDED,
+                "pipeline_node_added": StreamEventType.PIPELINE_NODE_ADDED,
                 "transition_pending": StreamEventType.PIPELINE_TRANSITION_PENDING,
                 "completed": StreamEventType.PIPELINE_COMPLETED,
                 "failed": StreamEventType.PIPELINE_FAILED,

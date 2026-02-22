@@ -1181,6 +1181,10 @@ class TestScanMode:
             patch(
                 "aragora.nomic.codebase_indexer.CodebaseIndexer"
             ) as MockIndexer,
+            patch.dict(
+                "sys.modules",
+                {"aragora.nomic.strategic_scanner": None},
+            ),
         ):
             # Mock git log output
             mock_run.return_value = MagicMock(

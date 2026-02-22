@@ -86,6 +86,12 @@ function PipelinePageContent() {
   }, []);
 
   const wsCompleted = useCallback(() => {
+    setExecuteStatus('success');
+    setKey((k) => k + 1);
+  }, []);
+
+  const wsFailed = useCallback(() => {
+    setExecuteStatus('failed');
     setKey((k) => k + 1);
   }, []);
 
@@ -94,6 +100,7 @@ function PipelinePageContent() {
     enabled: !!pipelineData && !isDemo,
     onStageCompleted: wsStageCompleted,
     onCompleted: wsCompleted,
+    onFailed: wsFailed,
   });
 
   // Auto-import from debate when ?from=debate&id=xxx is present
@@ -199,6 +206,7 @@ function PipelinePageContent() {
 
   const handleNew = useCallback(() => {
     reset();
+    setExecuteStatus('idle');
     setKey((k) => k + 1);
   }, [reset]);
 
@@ -240,14 +248,22 @@ function PipelinePageContent() {
     [pipelineData, rejectTransition],
   );
 
+  const [executeStatus, setExecuteStatus] = useState<'idle' | 'success' | 'failed'>('idle');
+
   const handleExecute = useCallback(async () => {
     if (pipelineData?.pipeline_id) {
-      await executePipeline(pipelineData.pipeline_id);
+      setExecuteStatus('idle');
+      try {
+        await executePipeline(pipelineData.pipeline_id);
+        setExecuteStatus('success');
+      } catch {
+        setExecuteStatus('failed');
+      }
     }
   }, [pipelineData, executePipeline]);
 
-  const allStagesComplete = pipelineData?.stage_status
-    ? Object.values(pipelineData.stage_status).every((s) => s === 'complete')
+  const orchestrationReady = pipelineData?.stage_status
+    ? pipelineData.stage_status.orchestration === 'complete'
     : false;
 
   return (
@@ -337,13 +353,25 @@ function PipelinePageContent() {
             {loading ? 'Loading...' : 'Try Demo'}
           </button>
 
-          {pipelineData && allStagesComplete && (
+          {pipelineData && orchestrationReady && (
             <button
               onClick={handleExecute}
               disabled={executing}
-              className="px-4 py-2 bg-amber-600 text-white font-mono text-sm hover:bg-amber-500 disabled:opacity-50 transition-colors rounded"
+              className={`px-4 py-2 font-mono text-sm text-white disabled:opacity-50 transition-colors rounded ${
+                executeStatus === 'success'
+                  ? 'bg-emerald-600 hover:bg-emerald-500'
+                  : executeStatus === 'failed'
+                    ? 'bg-red-600 hover:bg-red-500'
+                    : 'bg-amber-600 hover:bg-amber-500'
+              }`}
             >
-              {executing ? 'Executing...' : 'Execute Pipeline'}
+              {executing
+                ? 'Executing...'
+                : executeStatus === 'success'
+                  ? 'Executed'
+                  : executeStatus === 'failed'
+                    ? 'Failed — Retry'
+                    : 'Execute Pipeline'}
             </button>
           )}
         </div>
