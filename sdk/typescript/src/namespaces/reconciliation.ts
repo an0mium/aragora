@@ -117,4 +117,67 @@ export class ReconciliationNamespace {
   async getStatus(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/reconciliation/status', { params }) as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * Run a new reconciliation between bank and book transactions.
+   */
+  async run(options?: {
+    bank_account_id?: string;
+    start_date?: string;
+    end_date?: string;
+    match_threshold?: number;
+  }): Promise<ReconciliationJob> {
+    return this.client.request<ReconciliationJob>(
+      'POST',
+      '/api/v1/reconciliation/run',
+      { body: options }
+    );
+  }
+
+  /**
+   * Bulk resolve multiple discrepancies across reconciliations.
+   */
+  async bulkResolveDiscrepancies(options: {
+    discrepancy_ids: string[];
+    resolution: string;
+    notes?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/reconciliation/discrepancies/bulk-resolve',
+      { body: options }
+    );
+  }
+
+  /**
+   * Approve a completed reconciliation.
+   */
+  async approve(
+    jobId: string,
+    options?: { notes?: string }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/reconciliation/${encodeURIComponent(jobId)}/approve`,
+      { body: options }
+    );
+  }
+
+  /**
+   * Resolve discrepancies within a reconciliation job.
+   */
+  async resolve(
+    jobId: string,
+    options?: {
+      discrepancy_id?: string;
+      resolution?: string;
+      notes?: string;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/reconciliation/${encodeURIComponent(jobId)}/resolve`,
+      { body: options }
+    );
+  }
 }

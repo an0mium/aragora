@@ -532,8 +532,11 @@ class TestInternalMethods:
     @pytest.mark.asyncio
     async def test_execute_single_returns_placeholder(self):
         """_execute_single returns a fallback dict when ExecutionBridge is unavailable."""
-        pipeline = SelfImprovePipeline()
-        result = await pipeline._execute_single("Do something", "cycle_test")
+        pipeline = SelfImprovePipeline(
+            config=SelfImproveConfig(require_approval=False, run_tests=False)
+        )
+        with patch("shutil.which", return_value=None):
+            result = await pipeline._execute_single("Do something", "cycle_test")
 
         assert result["success"] is False
         assert "subtask" in result
@@ -1144,7 +1147,9 @@ class TestWorktreePathFlow:
         from pathlib import Path
 
         pipeline = SelfImprovePipeline(
-            config=SelfImproveConfig(enable_debug_loop=False)
+            config=SelfImproveConfig(
+                enable_debug_loop=False, require_approval=False, run_tests=False
+            )
         )
 
         # Create a TrackAssignment-like object with worktree_path
@@ -1153,7 +1158,8 @@ class TestWorktreePathFlow:
         subtask.goal.description = "Test worktree flow"
         subtask.worktree_path = Path("/tmp/test-worktree")
 
-        result = await pipeline._execute_single(subtask, "cycle_wt")
+        with patch("shutil.which", return_value=None):
+            result = await pipeline._execute_single(subtask, "cycle_wt")
 
         # Falls back to placeholder when ExecutionBridge is unavailable
         assert result["success"] is False
@@ -2393,6 +2399,8 @@ class TestAutoMode:
     @pytest.mark.asyncio
     async def test_auto_mode_defers_high_risk(self):
         """Auto mode returns deferred dict for high-risk instructions."""
+        from aragora.nomic.approval import ApprovalDecision
+
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(require_approval=True, autonomous=False, auto_mode=True)
         )
@@ -2400,7 +2408,10 @@ class TestAutoMode:
         mock_instr.subtask_id = "t_high"
         mock_instr.file_hints = ["CLAUDE.md"]
 
-        result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
+        mock_gate = MagicMock()
+        mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.DEFER)
+        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate):
+            result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
         assert result is not None
         assert result["deferred"] is True
         assert result["risk_level"] == "high"
@@ -2409,6 +2420,8 @@ class TestAutoMode:
     @pytest.mark.asyncio
     async def test_auto_mode_proceeds_for_low_risk(self):
         """Auto mode proceeds to execution for low-risk instructions."""
+        from aragora.nomic.approval import ApprovalDecision
+
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(
                 require_approval=True, autonomous=False,
@@ -2420,8 +2433,11 @@ class TestAutoMode:
         mock_instr.file_hints = ["tests/test_foo.py"]
         mock_instr.to_agent_prompt.return_value = "# Task"
 
+        mock_gate = MagicMock()
+        mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.APPROVE)
         # CLI not found → returns None past the risk gate (not blocked by approval)
-        with patch("shutil.which", return_value=None):
+        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate), \
+             patch("shutil.which", return_value=None):
             result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
         # Returns None because CLI not found, but it got PAST the approval gate
         assert result is None
