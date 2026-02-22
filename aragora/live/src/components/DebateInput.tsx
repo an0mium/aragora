@@ -390,11 +390,8 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       return;
     }
 
-    if (!isAuthenticated || !tokens?.access_token) {
-      logger.debug('[DebateInput] Not authenticated, redirecting to login');
-      onError?.('Please log in to start a debate');
-      return;
-    }
+    // In demo/playground mode, skip auth and use playground endpoint
+    const usePlayground = !isAuthenticated || !tokens?.access_token;
 
     setIsSubmitting(true);
     setLocalError(null);
@@ -409,48 +406,68 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         .split(',')
         .map(a => a.trim())
         .filter(Boolean);
-      const availability = await preflightAgents(requestedAgents);
-      if (availability?.available?.length) {
-        const missingAgents = requestedAgents.filter(
-          agent => !availability.available?.includes(agent)
-        );
-        if (missingAgents.length > 0) {
-          const message = `Missing credentials for: ${missingAgents.join(', ')}`;
-          setLocalError(message);
-          onError?.(message);
-          setIsSubmitting(false);
-          return;
+
+      // In playground mode, skip agent preflight (mock agents always available)
+      if (!usePlayground) {
+        const availability = await preflightAgents(requestedAgents);
+        if (availability?.available?.length) {
+          const missingAgents = requestedAgents.filter(
+            agent => !availability.available?.includes(agent)
+          );
+          if (missingAgents.length > 0) {
+            const message = `Missing credentials for: ${missingAgents.join(', ')}`;
+            setLocalError(message);
+            onError?.(message);
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokens.access_token}`,
       };
+      if (!usePlayground && tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
+
+      // Use playground endpoint for unauthenticated users (demo mode / no API keys)
+      const endpoint = usePlayground
+        ? '/api/v1/playground/debate'
+        : modeConfig.endpoint;
 
       // Debug: Log request details
-      const requestUrl = `${apiBase}${modeConfig.endpoint}`;
+      const requestUrl = `${apiBase}${endpoint}`;
       logger.debug('[DebateInput] Starting debate request:', {
         endpoint: requestUrl,
         hasAuth: !!tokens?.access_token,
-        mode: debateMode,
+        mode: usePlayground ? 'playground' : debateMode,
         questionPreview: trimmedQuestion.substring(0, 50) + (trimmedQuestion.length > 50 ? '...' : ''),
       });
+
+      // Playground endpoint uses "topic" + "agents" (count); standard uses "question" + "agents" (list)
+      const requestBody = usePlayground
+        ? {
+            topic: trimmedQuestion,
+            rounds,
+            agents: requestedAgents.length || 3,
+          }
+        : {
+            question: trimmedQuestion,
+            agents: requestedAgents,
+            rounds,
+            debate_format: debateFormat,
+            vertical: selectedVertical !== 'general' ? selectedVertical : undefined,
+            ...(debateMode === 'graph' && { branch_on_disagreement: true }),
+            ...(debateMode === 'matrix' && { scenarios: 3 }),
+            ...(budgetLimit && parseFloat(budgetLimit) > 0 && { budget_limit_usd: parseFloat(budgetLimit) }),
+          };
 
       const response = await fetch(requestUrl, {
         method: 'POST',
         headers,
         signal: controller.signal,
-        body: JSON.stringify({
-          question: trimmedQuestion,
-          agents: requestedAgents,
-          rounds,
-          debate_format: debateFormat,
-          vertical: selectedVertical !== 'general' ? selectedVertical : undefined,
-          // Graph/Matrix specific options
-          ...(debateMode === 'graph' && { branch_on_disagreement: true }),
-          ...(debateMode === 'matrix' && { scenarios: 3 }),
-          ...(budgetLimit && parseFloat(budgetLimit) > 0 && { budget_limit_usd: parseFloat(budgetLimit) }),
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       clearTimeout(timeoutId);
@@ -511,14 +528,17 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       // Now safe to parse JSON
       const data = await response.json();
 
-      if (data.success && (data.debate_id || data.matrix_id)) {
-        const debateId = data.debate_id || data.matrix_id;
-        logger.debug('[DebateInput] Debate started successfully:', { debateId, mode: debateMode });
+      // Standard endpoint returns {success, debate_id}; playground returns {id, topic, status, ...}
+      const debateId = data.debate_id || data.matrix_id || data.id;
+      const isSuccess = data.success || (usePlayground && debateId);
+
+      if (isSuccess && debateId) {
+        logger.debug('[DebateInput] Debate started successfully:', { debateId, mode: usePlayground ? 'playground' : debateMode });
 
         // Navigate to visualization page for Graph/Matrix modes
-        if (debateMode === 'graph') {
+        if (!usePlayground && debateMode === 'graph') {
           router.push(`/debates/graph?id=${debateId}`);
-        } else if (debateMode === 'matrix') {
+        } else if (!usePlayground && debateMode === 'matrix') {
           router.push(`/debates/matrix?id=${data.matrix_id || debateId}`);
         }
 
@@ -559,9 +579,19 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
   }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router, tokens, authLoading, isAuthenticated]);
 
   const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking' || authLoading;
+  const isPlaygroundMode = apiStatus === 'online' && (!isAuthenticated || !tokens?.access_token);
 
   return (
     <div className="w-full max-w-3xl mx-auto">
+      {/* Playground mode indicator */}
+      {isPlaygroundMode && (
+        <div className="mb-4 p-3 bg-acid-green/10 border border-acid-green/30 font-mono text-sm">
+          <div className="flex items-center gap-2 text-acid-green">
+            <span className="w-2 h-2 rounded-full bg-acid-green" />
+            <span>Demo mode — using mock agents (no API keys required)</span>
+          </div>
+        </div>
+      )}
       {/* API Status Banner */}
       {apiStatus === 'offline' && (
         <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-mono text-sm">
