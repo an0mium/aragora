@@ -24,12 +24,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.gauntlet.config import GauntletConfig
-from aragora.gauntlet.result import GauntletResult, SeverityLevel
+from aragora.gauntlet.result import AttackSummary, GauntletResult, ProbeSummary, SeverityLevel
 from aragora.gauntlet.runner import GauntletRunner
 
 # These tests use fully mocked agents (no real API calls) but exercise
 # concurrent/load paths, so they are tagged as slow for CI filtering.
 pytestmark = pytest.mark.slow
+
+
+def _patch_runner_phases(runner: GauntletRunner) -> GauntletRunner:
+    """Patch internal pipeline phases to avoid deep imports (RedTeamMode, ML models, etc.)."""
+
+    async def _mock_red_team(input_content, context, result, report_progress):
+        return AttackSummary()
+
+    async def _mock_probes(input_content, context, result, report_progress):
+        return ProbeSummary()
+
+    runner._run_red_team = _mock_red_team
+    runner._run_probes = _mock_probes
+    return runner
 
 
 class TestGauntletStress:
@@ -55,10 +69,11 @@ class TestGauntletStress:
             max_parallel_scenarios=2,
             attack_rounds=1,
         )
-        return GauntletRunner(
+        runner = GauntletRunner(
             config=config,
             agent_factory=mock_agent_factory,
         )
+        return _patch_runner_phases(runner)
 
     @pytest.mark.asyncio
     async def test_concurrent_runs(self, runner: GauntletRunner):
@@ -200,10 +215,11 @@ class TestGauntletResourceLimits:
     @pytest.fixture
     def runner_with_limits(self, limited_config, slow_agent) -> GauntletRunner:
         """Create runner with resource limits."""
-        return GauntletRunner(
+        runner = GauntletRunner(
             config=limited_config,
             agent_factory=lambda name: slow_agent,
         )
+        return _patch_runner_phases(runner)
 
     @pytest.mark.asyncio
     async def test_respects_max_parallel(self, runner_with_limits: GauntletRunner):
@@ -372,6 +388,7 @@ class TestGauntletRecovery:
             config=config,
             agent_factory=lambda name: error_agent,
         )
+        _patch_runner_phases(runner)
 
         # Should not crash, should return result with error info
         result = await runner.run("Test", "error recovery test")
@@ -399,6 +416,7 @@ class TestGauntletRecovery:
             config=config,
             agent_factory=lambda name: agent,
         )
+        _patch_runner_phases(runner)
 
         result = await runner.run("Test", "partial completion test")
 
