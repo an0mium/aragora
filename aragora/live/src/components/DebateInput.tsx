@@ -282,9 +282,11 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       // Only fetch recommendations for non-general domains
       if (domain !== 'general') {
         try {
+          const recHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (tokens?.access_token) recHeaders['Authorization'] = `Bearer ${tokens.access_token}`;
           const response = await fetch(`${apiBase}/api/routing/recommendations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: recHeaders,
             body: JSON.stringify({
               primary_domain: domain,
               limit: 4,
@@ -324,7 +326,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
           num_rounds: String(rounds),
           model_types: agentList.join(','),
         });
-        const res = await fetch(`${apiBase}/api/v1/debates/estimate-cost?${params}`);
+        const costHeaders: Record<string, string> = {};
+        if (tokens?.access_token) costHeaders['Authorization'] = `Bearer ${tokens.access_token}`;
+        const res = await fetch(`${apiBase}/api/v1/debates/estimate-cost?${params}`, { headers: costHeaders });
         if (res.ok) {
           const data = await res.json();
           setCostEstimate({
@@ -357,7 +361,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
 
   const preflightAgents = useCallback(async (_agentList: string[]) => {
     try {
-      const response = await fetch(`${apiBase}/api/introspection/agents/availability`);
+      const availHeaders: Record<string, string> = {};
+      if (tokens?.access_token) availHeaders['Authorization'] = `Bearer ${tokens.access_token}`;
+      const response = await fetch(`${apiBase}/api/introspection/agents/availability`, { headers: availHeaders });
       if (!response.ok) {
         logger.warn('[DebateInput] Agent availability check failed', response.status);
         return null;

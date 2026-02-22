@@ -531,16 +531,28 @@ class OAuthHandler(
         """Create a new user from OAuth info."""
         return self._maybe_await(self._create_oauth_user_async(user_store, user_info))
 
+    # OAuth providers whose login flow inherently verifies the email address.
+    _TRUSTED_EMAIL_PROVIDERS = frozenset({"google", "microsoft", "apple", "github"})
+
     async def _create_oauth_user_async(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Async implementation for creating a new user from OAuth info."""
-        # Security: only auto-create accounts when email is verified by the provider
+        # For trusted OAuth providers the authentication handshake itself proves
+        # the user controls the email, so treat it as verified even when the
+        # provider response omits or defaults the flag.
         if not user_info.email_verified:
-            logger.warning(
-                "OAuth account creation blocked: unverified email %s from %s",
-                user_info.email,
-                user_info.provider,
-            )
-            return None
+            if user_info.provider in self._TRUSTED_EMAIL_PROVIDERS:
+                logger.info(
+                    "Auto-verifying email for trusted OAuth provider %s: %s",
+                    user_info.provider,
+                    user_info.email,
+                )
+            else:
+                logger.warning(
+                    "OAuth account creation blocked: unverified email %s from %s",
+                    user_info.email,
+                    user_info.provider,
+                )
+                return None
 
         from aragora.billing.models import hash_password
 

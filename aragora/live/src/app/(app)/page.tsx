@@ -112,7 +112,7 @@ export default function Home() {
   const router = useRouter();
 
   // Auth state - used to skip API-heavy panels for unauthenticated users
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
 
   // Progressive disclosure mode (simple/standard/advanced/expert)
   const { mode: progressiveMode, isFeatureVisible } = useProgressiveMode();
@@ -175,9 +175,13 @@ export default function Home() {
   // Handle starting a debate from a trending topic
   const handleStartDebateFromTrend = useCallback(async (topic: string, source: string) => {
     try {
+      const trendHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (tokens?.access_token) {
+        trendHeaders['Authorization'] = `Bearer ${tokens.access_token}`;
+      }
       const response = await fetch(`${apiBase}/api/debate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: trendHeaders,
         body: JSON.stringify({
           question: topic,
           agents: DEFAULT_AGENTS,

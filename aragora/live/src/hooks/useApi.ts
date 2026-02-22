@@ -4,6 +4,19 @@ import { useState, useCallback, useRef } from 'react';
 import { fetchWithRetry, type RetryConfig } from '@/lib/retry';
 import { API_BASE_URL } from '@/config';
 
+const TOKENS_KEY = 'aragora_tokens';
+
+function getStoredAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    return (JSON.parse(stored) as { access_token?: string }).access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 interface ApiState<T> {
   data: T | null;
   loading: boolean;
@@ -76,10 +89,14 @@ export function useApi<T = unknown>(
         ...customRetryConfig,
       };
 
-      const headers: HeadersInit = {
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...init.headers,
+        ...(init.headers as Record<string, string>),
       };
+      const storedToken = getStoredAccessToken();
+      if (storedToken && !headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
 
       const fetchPromise = (async (): Promise<T> => {
         try {
