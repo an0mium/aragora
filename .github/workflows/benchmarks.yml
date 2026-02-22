@@ -1,0 +1,216 @@
+name: Performance Regression
+# --------------------------------------------------------------------------
+# Benchmark regression testing for pull requests.
+#
+# Required Status Checks (Settings > Branches > main):
+#   - "Regression Gate"  -- fails PR if any benchmark regresses >20%
+#
+# Design:
+#   - Runs ONLY on PRs (not every push) to save CI time
+#   - Compares PR benchmarks against main branch baseline
+#   - Posts regression report as a PR comment
+#   - Writes summary to GITHUB_STEP_SUMMARY for Actions UI
+#   - Uploads JSON artifacts for offline analysis
+#
+# For full benchmark tracking (trends, nightly, latency distribution),
+# see the companion workflow: benchmark.yml
+# --------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/benchmarks/**'
+      - 'tests/memory/test_benchmark.py'
+      - 'tests/rlm/test_benchmark.py'
+      - 'scripts/check_benchmark_regression.py'
+      - 'pyproject.toml'
+      - '.github/workflows/benchmarks.yml'
+
+concurrency:
+  group: perf-regression-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  regression-gate:
+    name: Regression Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Checkout main for baseline
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-branch
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-benchmark-
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install pytest-benchmark
+
+      # ── Run PR benchmarks ───────────────────────────────────────────
+      - name: Run PR benchmarks
+        run: |
+          pytest tests/benchmarks/test_performance.py \
+            --benchmark-only \
+            --benchmark-json=pr-benchmark.json \
+            --benchmark-warmup=on \
+            --benchmark-disable-gc \
+            --benchmark-columns=min,max,mean,stddev,rounds \
+            -x
+        env:
+          PYTHONPATH: .
+
+      # ── Run main benchmarks in isolated venv ────────────────────────
+      # Use a separate virtualenv so main-branch deps don't clobber
+      # the PR environment or vice versa.
+      - name: Run main branch benchmarks
+        run: |
+          python -m venv /tmp/main-venv
+          source /tmp/main-venv/bin/activate
+          pip install --upgrade pip
+          pip install -e "main-branch/[test]"
+          pip install pytest-benchmark
+          cd main-branch
+          pytest tests/benchmarks/test_performance.py \
+            --benchmark-only \
+            --benchmark-json=../main-benchmark.json \
+            --benchmark-warmup=on \
+            --benchmark-disable-gc \
+            --benchmark-columns=min,max,mean,stddev,rounds \
+            -x || true
+          deactivate
+        env:
+          PYTHONPATH: main-branch
+
+      # ── Compare and detect regressions ──────────────────────────────
+      - name: Check for regressions (>20% threshold)
+        id: regression-check
+        run: |
+          set +e
+          OUTPUT=$(python scripts/check_benchmark_regression.py compare \
+            --current  pr-benchmark.json \
+            --baseline main-benchmark.json \
+            --threshold 20 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+
+          # Store output for PR comment and step summary
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          exit $EXIT_CODE
+
+      # ── Orchestration speed smoke test ──────────────────────────────
+      - name: Fast-first routing smoke test
+        run: |
+          pytest -q tests/benchmarks/test_orchestration_speed_policy.py -x
+        env:
+          PYTHONPATH: .
+
+      # ── Post results to PR ──────────────────────────────────────────
+      - name: Post regression report on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = `${{ steps.regression-check.outputs.report }}`;
+            const exitCode = '${{ steps.regression-check.outputs.exit_code }}';
+            const passed = exitCode === '0';
+            const icon = passed ? ':white_check_mark:' : ':x:';
+            const status = passed ? 'No regressions detected' : 'Regressions detected';
+
+            const body = [
+              `### ${icon} Performance Regression Check: ${status}`,
+              '',
+              '<details>',
+              '<summary>Benchmark comparison (PR vs main, 20% threshold)</summary>',
+              '',
+              '```',
+              report || 'No benchmark output available.',
+              '```',
+              '',
+              '</details>',
+              '',
+              `_Threshold: 20% -- [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})_`,
+            ].join('\n');
+
+            // Update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const marker = 'Performance Regression Check:';
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      # ── Step summary for Actions UI ─────────────────────────────────
+      - name: Write step summary
+        if: always()
+        run: |
+          EXIT_CODE="${{ steps.regression-check.outputs.exit_code }}"
+          if [ "$EXIT_CODE" = "0" ]; then
+            echo "## :white_check_mark: Performance Regression Check Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## :x: Performance Regression Detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.regression-check.outputs.report }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # ── Upload artifacts ────────────────────────────────────────────
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-regression-report
+          path: |
+            pr-benchmark.json
+            main-benchmark.json
+          retention-days: 14
