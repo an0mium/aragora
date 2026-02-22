@@ -82,8 +82,13 @@ class HardenedConfig:
     enable_prompt_defense: bool = True
     enable_audit_reconciliation: bool = True
     enable_auto_commit: bool = True
-    enable_meta_planning: bool = False
+    enable_meta_planning: bool = True
     use_hierarchical: bool = False
+    # ExecutionBridge: structured instruction generation + KM result ingestion
+    enable_execution_bridge: bool = True
+    # DebugLoop: test-failure-retry cycle for agent execution
+    enable_debug_loop: bool = True
+    debug_loop_max_retries: int = 3
     budget_limit_usd: float | None = None
     budget_enforcement: BudgetEnforcementConfig | None = None
     generate_receipts: bool = True
@@ -131,8 +136,11 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         enable_prompt_defense: bool = True,
         enable_audit_reconciliation: bool = True,
         enable_auto_commit: bool = True,
-        enable_meta_planning: bool = False,
+        enable_meta_planning: bool = True,
         use_hierarchical: bool = False,
+        enable_execution_bridge: bool = True,
+        enable_debug_loop: bool = True,
+        debug_loop_max_retries: int = 3,
         budget_limit_usd: float | None = None,
         budget_enforcement: BudgetEnforcementConfig | None = None,
         generate_receipts: bool = True,
@@ -162,6 +170,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             enable_auto_commit=enable_auto_commit,
             enable_meta_planning=enable_meta_planning,
             use_hierarchical=use_hierarchical,
+            enable_execution_bridge=enable_execution_bridge,
+            enable_debug_loop=enable_debug_loop,
+            debug_loop_max_retries=debug_loop_max_retries,
             budget_limit_usd=budget_limit_usd,
             budget_enforcement=budget_enforcement,
             generate_receipts=generate_receipts,
@@ -194,6 +205,12 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # MetaPlanner (created lazily when needed)
         self._meta_planner: Any | None = None
+
+        # ExecutionBridge (created lazily when enabled)
+        self._execution_bridge: Any | None = None
+
+        # DebugLoop (created lazily when enabled)
+        self._debug_loop: Any | None = None
 
         # Spectate event log
         self._spectate_events: list[dict[str, Any]] = []
@@ -260,6 +277,35 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 base_branch="main",
             )
         return self._worktree_manager
+
+    def _get_execution_bridge(self) -> Any:
+        """Lazily create ExecutionBridge."""
+        if self._execution_bridge is None:
+            try:
+                from aragora.nomic.execution_bridge import ExecutionBridge
+
+                self._execution_bridge = ExecutionBridge(
+                    enable_km_ingestion=True,
+                    enable_verification=True,
+                )
+            except ImportError:
+                logger.debug("ExecutionBridge unavailable")
+        return self._execution_bridge
+
+    def _get_debug_loop(self) -> Any:
+        """Lazily create DebugLoop."""
+        if self._debug_loop is None:
+            try:
+                from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
+
+                self._debug_loop = DebugLoop(
+                    config=DebugLoopConfig(
+                        max_retries=self.hardened_config.debug_loop_max_retries,
+                    ),
+                )
+            except ImportError:
+                logger.debug("DebugLoop unavailable")
+        return self._debug_loop
 
     def _emit_event(self, event_type: str, **data: Any) -> None:
         """Emit a spectate event if streaming is enabled."""
@@ -358,7 +404,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         if not prioritized_goals:
             logger.warning("No goals from MetaPlanner, falling back to direct execution")
-            return await self.execute_goal(goal, tracks, max_cycles, context)
+            return await super().execute_goal(goal, tracks, max_cycles, context)
 
         # Step 2: Build track assignments from prioritized goals
         from aragora.nomic.branch_coordinator import (
@@ -395,6 +441,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     tracks=[ta.goal.track.value],
                     max_cycles=max_cycles,
                 )
+
+                # ExecutionBridge: ingest result into Knowledge Mound
+                if self.hardened_config.enable_execution_bridge:
+                    self._bridge_ingest_coordinated_result(ta, result)
 
                 if self.hardened_config.generate_receipts and result.success:
                     self._generate_coordinated_receipt(ta, result)
@@ -510,6 +560,29 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         except (ImportError, Exception) as e:
             logger.debug("Receipt generation failed: %s", e)
 
+    def _bridge_ingest_coordinated_result(
+        self, assignment: Any, result: OrchestrationResult,
+    ) -> None:
+        """Use ExecutionBridge to ingest coordinated execution results into KM."""
+        bridge = self._get_execution_bridge()
+        if bridge is None:
+            return
+        try:
+            from aragora.nomic.execution_bridge import ExecutionResult
+
+            exec_result = ExecutionResult(
+                subtask_id=f"coord_{assignment.goal.track.value}_{id(assignment)}",
+                success=result.success,
+                files_changed=[],
+                tests_passed=result.completed_subtasks,
+                tests_failed=result.failed_subtasks,
+                duration_seconds=result.duration_seconds,
+                agent_observations=[result.summary or ""],
+            )
+            bridge.ingest_result(exec_result)
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.debug("Bridge ingestion failed: %s", e)
+
     # =========================================================================
     # A. Prompt Injection Defense
     # =========================================================================
@@ -532,9 +605,13 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         if self.hardened_config.enable_prompt_defense:
             self._scan_for_injection(goal, context)
 
-        # MetaPlanner: refine the goal via debate-driven prioritization
+        # Auto-route to coordinated pipeline when meta-planning is enabled.
+        # This uses BranchCoordinator for parallel worktree execution and
+        # merges results with a test gate — the full end-to-end pipeline.
         if self.hardened_config.enable_meta_planning:
-            goal = await self._meta_plan_goal(goal, tracks)
+            return await self.execute_goal_coordinated(
+                goal, tracks, max_cycles, context,
+            )
 
         # Reset budget tracking for this run
         self._budget_spent_usd = 0.0

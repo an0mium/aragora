@@ -155,6 +155,7 @@ def default_merge_params() -> dict[str, Any]:
         "supermemory_enable_resilience": True,
         "supermemory_enable_km_adapter": False,
         "enable_belief_guidance": True,
+        "enable_outcome_context": True,
         "enable_auto_revalidation": False,
         "revalidation_staleness_threshold": 0.7,
         "revalidation_check_interval_seconds": 3600,

@@ -13,6 +13,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Module paths for patching
+_KB_HANDLER = "aragora.server.handlers.knowledge_base.handler"
+_MOUND_HANDLER = "aragora.server.handlers.knowledge_base.mound.handler"
+
 
 @dataclass
 class MockFact:
@@ -128,12 +132,22 @@ def make_handler_with_body(body: dict, method: str = "POST") -> MockHandler:
     )
 
 
+def _mock_user():
+    """Create a mock authenticated user."""
+    user = MagicMock()
+    user.user_id = "test-user"
+    user.is_authenticated = True
+    user.roles = ["admin"]
+    user.permissions = ["knowledge.read", "knowledge.write", "knowledge.delete"]
+    return user
+
+
 class TestKnowledgeHandlerInit:
     """Tests for KnowledgeHandler initialization."""
 
     def test_init_with_server_context(self):
         """Should initialize with server context."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         context = {"some": "context"}
         handler = KnowledgeHandler(context)
@@ -144,12 +158,12 @@ class TestKnowledgeHandlerInit:
 
     def test_routes_defined(self):
         """Should have expected routes defined."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
-        assert "/api/knowledge/query" in KnowledgeHandler.ROUTES
-        assert "/api/knowledge/facts" in KnowledgeHandler.ROUTES
-        assert "/api/knowledge/search" in KnowledgeHandler.ROUTES
-        assert "/api/knowledge/stats" in KnowledgeHandler.ROUTES
+        assert "/api/v1/knowledge/query" in KnowledgeHandler.ROUTES
+        assert "/api/v1/knowledge/facts" in KnowledgeHandler.ROUTES
+        assert "/api/v1/knowledge/search" in KnowledgeHandler.ROUTES
+        assert "/api/v1/knowledge/stats" in KnowledgeHandler.ROUTES
 
 
 class TestKnowledgeHandlerCanHandle:
@@ -157,7 +171,7 @@ class TestKnowledgeHandlerCanHandle:
 
     def test_matches_static_routes(self):
         """Should match static routes."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -168,7 +182,7 @@ class TestKnowledgeHandlerCanHandle:
 
     def test_matches_dynamic_fact_routes(self):
         """Should match dynamic fact routes."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -179,7 +193,7 @@ class TestKnowledgeHandlerCanHandle:
 
     def test_rejects_non_matching_paths(self):
         """Should reject non-matching paths."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -193,12 +207,12 @@ class TestKnowledgeHandlerGetStores:
 
     def test_creates_fact_store_on_demand(self):
         """Should create fact store on first access."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
         # Mock FactStore to avoid actual initialization
-        with patch("aragora.server.handlers.knowledge.FactStore") as mock_fs:
+        with patch(f"{_KB_HANDLER}.FactStore") as mock_fs:
             mock_fs.return_value = MagicMock()
             store = handler._get_fact_store()
 
@@ -207,13 +221,13 @@ class TestKnowledgeHandlerGetStores:
 
     def test_falls_back_to_in_memory_store(self):
         """Should fall back to in-memory store on error."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        # Mock FactStore to raise error
-        with patch("aragora.server.handlers.knowledge.FactStore") as mock_fs:
-            mock_fs.side_effect = Exception("Database error")
+        # Mock FactStore to raise error (must be a type the handler catches)
+        with patch(f"{_KB_HANDLER}.FactStore") as mock_fs:
+            mock_fs.side_effect = RuntimeError("Database error")
             store = handler._get_fact_store()
 
             # Should be InMemoryFactStore
@@ -221,7 +235,7 @@ class TestKnowledgeHandlerGetStores:
 
     def test_creates_query_engine_on_demand(self):
         """Should create query engine on first access."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
@@ -233,26 +247,26 @@ class TestKnowledgeHandlerGetStores:
 
 
 class TestKnowledgeHandlerListFacts:
-    """Tests for GET /api/knowledge/facts endpoint."""
+    """Tests for GET /api/v1/knowledge/facts endpoint."""
 
     def test_list_facts_returns_facts(self):
         """Should return list of facts."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.list_facts.return_value = [MockFact(), MockFact(id="fact-456")]
         handler._fact_store = mock_store
 
-        # Clear rate limiter
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -262,21 +276,22 @@ class TestKnowledgeHandlerListFacts:
 
     def test_list_facts_with_filters(self):
         """Should pass filters to fact store."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.list_facts.return_value = []
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            handler.handle(
-                "/api/knowledge/facts",
-                {"topic": "security", "min_confidence": "0.7", "limit": "10"},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                handler.handle(
+                    "/api/v1/knowledge/facts",
+                    {"topic": "security", "min_confidence": "0.7", "limit": "10"},
+                    MockHandler(),
+                )
 
         # Verify filters were passed
         call_args = mock_store.list_facts.call_args
@@ -287,25 +302,26 @@ class TestKnowledgeHandlerListFacts:
 
 
 class TestKnowledgeHandlerGetFact:
-    """Tests for GET /api/knowledge/facts/:id endpoint."""
+    """Tests for GET /api/v1/knowledge/facts/:id endpoint."""
 
     def test_get_fact_returns_fact(self):
         """Should return specific fact."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.get_fact.return_value = MockFact(id="fact-123", statement="Test")
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/fact-123",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/fact-123",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -315,43 +331,44 @@ class TestKnowledgeHandlerGetFact:
 
     def test_get_fact_not_found(self):
         """Should return 404 for non-existent fact."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.get_fact.return_value = None
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/nonexistent",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/nonexistent",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 404
 
 
 class TestKnowledgeHandlerCreateFact:
-    """Tests for POST /api/knowledge/facts endpoint."""
+    """Tests for POST /api/v1/knowledge/facts endpoint."""
 
     def test_create_fact_requires_auth(self):
         """Should require authentication for fact creation."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (None, MagicMock(status_code=401))
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
+            with patch.object(handler, "_check_permission") as mock_perm:
+                mock_perm.return_value = MagicMock(status_code=401)
 
                 result = handler.handle(
-                    "/api/knowledge/facts",
+                    "/api/v1/knowledge/facts",
                     {},
                     make_handler_with_body({"statement": "Test"}, "POST"),
                 )
@@ -361,18 +378,16 @@ class TestKnowledgeHandlerCreateFact:
 
     def test_create_fact_requires_statement(self):
         """Should require statement in request body."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_permission", return_value=None):
                 result = handler.handle(
-                    "/api/knowledge/facts",
+                    "/api/v1/knowledge/facts",
                     {},
                     make_handler_with_body({}, "POST"),
                 )
@@ -383,21 +398,19 @@ class TestKnowledgeHandlerCreateFact:
 
     def test_create_fact_success(self):
         """Should create fact and return 201."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.add_fact.return_value = MockFact(id="new-fact", statement="New statement")
         handler._fact_store = mock_store
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_permission", return_value=None):
                 result = handler.handle(
-                    "/api/knowledge/facts",
+                    "/api/v1/knowledge/facts",
                     {},
                     make_handler_with_body(
                         {"statement": "New statement", "confidence": 0.9}, "POST"
@@ -411,22 +424,22 @@ class TestKnowledgeHandlerCreateFact:
 
 
 class TestKnowledgeHandlerUpdateFact:
-    """Tests for PUT /api/knowledge/facts/:id endpoint."""
+    """Tests for PUT /api/v1/knowledge/facts/:id endpoint."""
 
     def test_update_fact_requires_auth(self):
         """Should require authentication for fact update."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (None, MagicMock(status_code=401))
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
+            with patch.object(handler, "_check_permission") as mock_perm:
+                mock_perm.return_value = MagicMock(status_code=401)
 
                 result = handler.handle(
-                    "/api/knowledge/facts/fact-123",
+                    "/api/v1/knowledge/facts/fact-123",
                     {},
                     make_handler_with_body({"confidence": 0.9}, "PUT"),
                 )
@@ -436,21 +449,19 @@ class TestKnowledgeHandlerUpdateFact:
 
     def test_update_fact_not_found(self):
         """Should return 404 for non-existent fact."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.update_fact.return_value = None
         handler._fact_store = mock_store
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_permission", return_value=None):
                 result = handler.handle(
-                    "/api/knowledge/facts/nonexistent",
+                    "/api/v1/knowledge/facts/nonexistent",
                     {},
                     make_handler_with_body({"confidence": 0.9}, "PUT"),
                 )
@@ -460,23 +471,23 @@ class TestKnowledgeHandlerUpdateFact:
 
 
 class TestKnowledgeHandlerDeleteFact:
-    """Tests for DELETE /api/knowledge/facts/:id endpoint."""
+    """Tests for DELETE /api/v1/knowledge/facts/:id endpoint."""
 
     def test_delete_fact_requires_auth(self):
         """Should require authentication for fact deletion."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (None, MagicMock(status_code=401))
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
+            with patch.object(handler, "_check_permission") as mock_perm:
+                mock_perm.return_value = MagicMock(status_code=401)
 
                 mock_handler = MockHandler(command="DELETE")
                 result = handler.handle(
-                    "/api/knowledge/facts/fact-123",
+                    "/api/v1/knowledge/facts/fact-123",
                     {},
                     mock_handler,
                 )
@@ -486,22 +497,20 @@ class TestKnowledgeHandlerDeleteFact:
 
     def test_delete_fact_success(self):
         """Should delete fact and return success."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
         mock_store.delete_fact.return_value = True
         handler._fact_store = mock_store
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_permission", return_value=None):
                 mock_handler = MockHandler(command="DELETE")
                 result = handler.handle(
-                    "/api/knowledge/facts/fact-123",
+                    "/api/v1/knowledge/facts/fact-123",
                     {},
                     mock_handler,
                 )
@@ -513,22 +522,23 @@ class TestKnowledgeHandlerDeleteFact:
 
 
 class TestKnowledgeHandlerQuery:
-    """Tests for POST /api/knowledge/query endpoint."""
+    """Tests for POST /api/v1/knowledge/query endpoint."""
 
     def test_query_requires_question(self):
         """Should require question in request body."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/query",
-                {},
-                make_handler_with_body({}, "POST"),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/query",
+                    {},
+                    make_handler_with_body({}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -536,21 +546,22 @@ class TestKnowledgeHandlerQuery:
 
     def test_query_success(self):
         """Should execute query and return results."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_engine = MagicMock()
         mock_engine.query = AsyncMock(return_value=MockQueryResult())
         handler._query_engine = mock_engine
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/query",
-                {},
-                make_handler_with_body({"question": "What is the answer?"}, "POST"),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/query",
+                    {},
+                    make_handler_with_body({"question": "What is the answer?"}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -559,22 +570,23 @@ class TestKnowledgeHandlerQuery:
 
 
 class TestKnowledgeHandlerSearch:
-    """Tests for GET /api/knowledge/search endpoint."""
+    """Tests for GET /api/v1/knowledge/search endpoint."""
 
     def test_search_requires_query(self):
         """Should require 'q' parameter."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/search",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/search",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -582,7 +594,7 @@ class TestKnowledgeHandlerSearch:
 
     def test_search_success(self):
         """Should search and return results."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_engine = MagicMock()
@@ -591,14 +603,15 @@ class TestKnowledgeHandlerSearch:
         )
         handler._query_engine = mock_engine
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/search",
-                {"q": "test query"},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/search",
+                    {"q": "test query"},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -612,7 +625,7 @@ class TestKnowledgeHandlerRelations:
 
     def test_get_relations(self):
         """Should return fact relations."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
@@ -620,14 +633,15 @@ class TestKnowledgeHandlerRelations:
         mock_store.get_relations.return_value = [MockRelation()]
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/fact-123/relations",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/fact-123/relations",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -636,7 +650,7 @@ class TestKnowledgeHandlerRelations:
 
     def test_add_relation(self):
         """Should add relation between facts."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
@@ -644,38 +658,40 @@ class TestKnowledgeHandlerRelations:
         mock_store.add_relation.return_value = MockRelation()
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/fact-1/relations",
-                {},
-                make_handler_with_body(
-                    {
-                        "target_fact_id": "fact-2",
-                        "relation_type": "supports",
-                    },
-                    "POST",
-                ),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/fact-1/relations",
+                    {},
+                    make_handler_with_body(
+                        {
+                            "target_fact_id": "fact-2",
+                            "relation_type": "supports",
+                        },
+                        "POST",
+                    ),
+                )
 
         assert result is not None
         assert result.status_code == 201
 
     def test_add_relation_missing_target(self):
         """Should require target_fact_id."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/fact-1/relations",
-                {},
-                make_handler_with_body({"relation_type": "supports"}, "POST"),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/fact-1/relations",
+                    {},
+                    make_handler_with_body({"relation_type": "supports"}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -687,7 +703,7 @@ class TestKnowledgeHandlerContradictions:
 
     def test_get_contradictions(self):
         """Should return contradicting facts."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
@@ -697,14 +713,15 @@ class TestKnowledgeHandlerContradictions:
         ]
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/facts/fact-123/contradictions",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/facts/fact-123/contradictions",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -717,7 +734,7 @@ class TestKnowledgeHandlerStats:
 
     def test_get_stats(self):
         """Should return knowledge base statistics."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
         mock_store = MagicMock()
@@ -727,14 +744,15 @@ class TestKnowledgeHandlerStats:
         }
         handler._fact_store = mock_store
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
 
-            result = handler.handle(
-                "/api/knowledge/stats",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_permission", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/stats",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -747,15 +765,15 @@ class TestKnowledgeHandlerRateLimit:
 
     def test_rate_limit_exceeded(self):
         """Should return 429 when rate limit exceeded."""
-        from aragora.server.handlers.knowledge import KnowledgeHandler
+        from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
 
         handler = KnowledgeHandler({})
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_KB_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
 
             result = handler.handle(
-                "/api/knowledge/facts",
+                "/api/v1/knowledge/facts",
                 {},
                 MockHandler(),
             )
@@ -856,7 +874,7 @@ class TestKnowledgeMoundHandlerInit:
 
     def test_init_with_server_context(self):
         """Should initialize with server context."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         context = {"some": "context"}
         handler = KnowledgeMoundHandler(context)
@@ -871,7 +889,7 @@ class TestKnowledgeMoundHandlerCanHandle:
 
     def test_matches_mound_paths(self):
         """Should match mound API paths."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
 
@@ -884,7 +902,7 @@ class TestKnowledgeMoundHandlerCanHandle:
 
     def test_rejects_non_mound_paths(self):
         """Should reject non-mound paths."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
 
@@ -897,20 +915,22 @@ class TestKnowledgeMoundHandlerQuery:
 
     def test_query_requires_query_field(self):
         """Should require query in request body."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/query",
-                {},
-                make_handler_with_body({}, "POST"),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/query",
+                    {},
+                    make_handler_with_body({}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -918,7 +938,7 @@ class TestKnowledgeMoundHandlerQuery:
 
     def test_query_success(self):
         """Should execute semantic query."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -931,14 +951,16 @@ class TestKnowledgeMoundHandlerQuery:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/query",
-                {},
-                make_handler_with_body({"query": "test query"}, "POST"),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/query",
+                    {},
+                    make_handler_with_body({"query": "test query"}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -951,7 +973,7 @@ class TestKnowledgeMoundHandlerNodes:
 
     def test_list_nodes(self):
         """Should list knowledge nodes."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -960,14 +982,16 @@ class TestKnowledgeMoundHandlerNodes:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/nodes",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/nodes",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -976,7 +1000,7 @@ class TestKnowledgeMoundHandlerNodes:
 
     def test_get_node(self):
         """Should get specific node."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -985,14 +1009,16 @@ class TestKnowledgeMoundHandlerNodes:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/nodes/node-123",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/nodes/node-123",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1001,39 +1027,42 @@ class TestKnowledgeMoundHandlerNodes:
 
     def test_get_node_not_found(self):
         """Should return 404 for non-existent node."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         mock_mound.get_node = AsyncMock(return_value=None)
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/nodes/nonexistent",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/nodes/nonexistent",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 404
 
     def test_create_node_requires_auth(self):
         """Should require authentication for node creation."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (None, MagicMock(status_code=401))
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
+            with patch.object(handler, "_check_authentication") as mock_auth:
+                mock_auth.return_value = MagicMock(status_code=401)
 
                 result = handler.handle(
-                    "/api/knowledge/mound/nodes",
+                    "/api/v1/knowledge/mound/nodes",
                     {},
                     make_handler_with_body({"content": "Test"}, "POST"),
                 )
@@ -1043,20 +1072,19 @@ class TestKnowledgeMoundHandlerNodes:
 
     def test_create_node_requires_content(self):
         """Should require content in request body."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         handler._mound = mock_mound
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_authentication", return_value=None):
                 result = handler.handle(
-                    "/api/knowledge/mound/nodes",
+                    "/api/v1/knowledge/mound/nodes",
                     {},
                     make_handler_with_body({}, "POST"),
                 )
@@ -1071,7 +1099,7 @@ class TestKnowledgeMoundHandlerRelationships:
 
     def test_get_node_relationships(self):
         """Should return node relationships."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1079,14 +1107,16 @@ class TestKnowledgeMoundHandlerRelationships:
         mock_mound.get_relationships = AsyncMock(return_value=[MockRelationship()])
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/nodes/node-123/relationships",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/nodes/node-123/relationships",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1095,18 +1125,19 @@ class TestKnowledgeMoundHandlerRelationships:
 
     def test_create_relationship_requires_auth(self):
         """Should require authentication for relationship creation."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (None, MagicMock(status_code=401))
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
+            with patch.object(handler, "_check_authentication") as mock_auth:
+                mock_auth.return_value = MagicMock(status_code=401)
 
                 result = handler.handle(
-                    "/api/knowledge/mound/relationships",
+                    "/api/v1/knowledge/mound/relationships",
                     {},
                     make_handler_with_body(
                         {
@@ -1123,20 +1154,19 @@ class TestKnowledgeMoundHandlerRelationships:
 
     def test_create_relationship_validates_type(self):
         """Should validate relationship type."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         handler._mound = mock_mound
 
-        with patch.object(handler, "require_auth_or_error") as mock_auth:
-            mock_auth.return_value = (MagicMock(), None)
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
+            mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
-                mock_limiter.is_allowed.return_value = True
-
+            with patch.object(handler, "_check_authentication", return_value=None):
                 result = handler.handle(
-                    "/api/knowledge/mound/relationships",
+                    "/api/v1/knowledge/mound/relationships",
                     {},
                     make_handler_with_body(
                         {
@@ -1158,7 +1188,7 @@ class TestKnowledgeMoundHandlerGraph:
 
     def test_graph_traversal(self):
         """Should traverse graph from node."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1167,14 +1197,16 @@ class TestKnowledgeMoundHandlerGraph:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/graph/node-123",
-                {"depth": "2"},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/graph/node-123",
+                    {"depth": "2"},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1183,20 +1215,22 @@ class TestKnowledgeMoundHandlerGraph:
 
     def test_graph_traversal_validates_direction(self):
         """Should validate direction parameter."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/graph/node-123",
-                {"direction": "invalid"},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/graph/node-123",
+                    {"direction": "invalid"},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -1208,7 +1242,7 @@ class TestKnowledgeMoundHandlerStats:
 
     def test_get_mound_stats(self):
         """Should return mound statistics."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1220,14 +1254,16 @@ class TestKnowledgeMoundHandlerStats:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/stats",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/stats",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1240,7 +1276,7 @@ class TestKnowledgeMoundHandlerCulture:
 
     def test_get_culture_profile(self):
         """Should return culture profile."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1252,14 +1288,16 @@ class TestKnowledgeMoundHandlerCulture:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/culture",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/culture",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1268,20 +1306,22 @@ class TestKnowledgeMoundHandlerCulture:
 
     def test_add_culture_document_requires_content(self):
         """Should require content for culture document."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/culture/documents",
-                {},
-                make_handler_with_body({}, "POST"),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/culture/documents",
+                    {},
+                    make_handler_with_body({}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 400
@@ -1293,7 +1333,7 @@ class TestKnowledgeMoundHandlerStaleness:
 
     def test_get_stale_knowledge(self):
         """Should return stale knowledge items."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1302,14 +1342,16 @@ class TestKnowledgeMoundHandlerStaleness:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/stale",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/stale",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1318,21 +1360,23 @@ class TestKnowledgeMoundHandlerStaleness:
 
     def test_revalidate_node(self):
         """Should revalidate a node."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         mock_mound.mark_validated = AsyncMock()
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/revalidate/node-123",
-                {},
-                make_handler_with_body({"validator": "api"}, "POST"),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/revalidate/node-123",
+                    {},
+                    make_handler_with_body({"validator": "api"}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1345,21 +1389,23 @@ class TestKnowledgeMoundHandlerSync:
 
     def test_sync_continuum_not_implemented(self):
         """Should handle unimplemented sync gracefully."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
         mock_mound.sync_from_continuum = AsyncMock(side_effect=AttributeError())
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/sync/continuum",
-                {},
-                make_handler_with_body({}, "POST"),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/sync/continuum",
+                    {},
+                    make_handler_with_body({}, "POST"),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1372,7 +1418,7 @@ class TestKnowledgeMoundHandlerExport:
 
     def test_export_d3(self):
         """Should export graph as D3 JSON."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1384,14 +1430,16 @@ class TestKnowledgeMoundHandlerExport:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/export/d3",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/export/d3",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1401,7 +1449,7 @@ class TestKnowledgeMoundHandlerExport:
 
     def test_export_graphml(self):
         """Should export graph as GraphML."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         mock_mound = MagicMock()
@@ -1410,14 +1458,16 @@ class TestKnowledgeMoundHandlerExport:
         )
         handler._mound = mock_mound
 
-        with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+        with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
+            mock_limiter.get_remaining.return_value = 99
 
-            result = handler.handle(
-                "/api/knowledge/mound/export/graphml",
-                {},
-                MockHandler(),
-            )
+            with patch.object(handler, "_check_authentication", return_value=None):
+                result = handler.handle(
+                    "/api/v1/knowledge/mound/export/graphml",
+                    {},
+                    MockHandler(),
+                )
 
         assert result is not None
         assert result.status_code == 200
@@ -1430,21 +1480,23 @@ class TestKnowledgeMoundHandlerMoundUnavailable:
 
     def test_query_mound_unavailable(self):
         """Should return 503 when mound is unavailable."""
-        from aragora.server.handlers.knowledge import KnowledgeMoundHandler
+        from aragora.server.handlers.knowledge_base.mound.handler import KnowledgeMoundHandler
 
         handler = KnowledgeMoundHandler({})
         handler._mound = None
 
         # Mock _get_mound to return None
         with patch.object(handler, "_get_mound", return_value=None):
-            with patch("aragora.server.handlers.knowledge._knowledge_limiter") as mock_limiter:
+            with patch(f"{_MOUND_HANDLER}._knowledge_limiter") as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
+                mock_limiter.get_remaining.return_value = 99
 
-                result = handler.handle(
-                    "/api/knowledge/mound/query",
-                    {},
-                    make_handler_with_body({"query": "test"}, "POST"),
-                )
+                with patch.object(handler, "_check_authentication", return_value=None):
+                    result = handler.handle(
+                        "/api/v1/knowledge/mound/query",
+                        {},
+                        make_handler_with_body({"query": "test"}, "POST"),
+                    )
 
         assert result is not None
         assert result.status_code == 503

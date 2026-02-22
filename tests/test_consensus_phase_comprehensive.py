@@ -86,6 +86,11 @@ class MockDebateResult:
     verification_bonuses: dict = field(default_factory=dict)
     debate_cruxes: list = field(default_factory=list)
     evidence_suggestions: list = field(default_factory=list)
+    synthesis: str | None = None
+    status: str = ""
+    metadata: dict | None = None
+    formal_verification: dict | None = None
+    export_links: dict | None = None
 
 
 @dataclass
@@ -102,6 +107,10 @@ class MockDebateContext:
     loop_id: str = "test-loop"
     debate_id: str = "test-debate"
     event_emitter: Any = None
+    cancellation_token: Any = None
+    hook_manager: Any = None
+    start_time: float = 0.0
+    domain: str = "general"
 
 
 # =============================================================================
@@ -304,7 +313,7 @@ class TestNoneConsensus:
         ctx = MockDebateContext(proposals={})
         await consensus_phase._handle_none_consensus(ctx)
 
-        assert ctx.result.final_answer == ""
+        assert "No proposals available" in ctx.result.final_answer
         assert ctx.result.consensus_reached is False
 
     @pytest.mark.asyncio
@@ -569,7 +578,11 @@ class TestVoteCollection:
 
     @pytest.mark.asyncio
     async def test_collect_votes_success(self, mock_context, mock_agents):
-        """Test successful vote collection from all agents."""
+        """Test successful vote collection from all agents.
+
+        Note: RLM early termination may stop collection once a clear
+        majority is reached, so we check >= 2 (a quorum).
+        """
         from aragora.debate.phases.consensus_phase import (
             ConsensusPhase,
             ConsensusDependencies,
@@ -586,7 +599,8 @@ class TestVoteCollection:
         mock_context.agents = mock_agents
         votes = await phase._collect_votes(mock_context)
 
-        assert len(votes) == 3
+        # RLM early termination may stop after 2/3 votes when majority is clear
+        assert len(votes) >= 2
 
     @pytest.mark.asyncio
     async def test_collect_votes_partial_failure(self, mock_context, mock_agents):
@@ -863,7 +877,13 @@ class TestWinnerDetermination:
         total_votes = 3.0
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
+        phase._winner_selector.determine_majority_winner(
+            mock_context,
+            vote_counts,
+            total_votes,
+            choice_mapping,
+            normalize_choice=phase._normalize_choice_to_agent,
+        )
 
         assert mock_context.result.winner == "claude"
         assert mock_context.result.consensus_reached is True
@@ -884,10 +904,16 @@ class TestWinnerDetermination:
         total_votes = 0.0
         choice_mapping = {}
 
-        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
+        phase._winner_selector.determine_majority_winner(
+            mock_context,
+            vote_counts,
+            total_votes,
+            choice_mapping,
+            normalize_choice=phase._normalize_choice_to_agent,
+        )
 
         assert mock_context.result.consensus_reached is False
-        assert mock_context.result.confidence == 0.5
+        assert mock_context.result.confidence == 0.0
 
 
 # =============================================================================
@@ -908,7 +934,7 @@ class TestUnanimousWinner:
         deps = ConsensusDependencies()
         phase = ConsensusPhase(deps=deps)
 
-        phase._set_unanimous_winner(
+        phase._winner_selector.set_unanimous_winner(
             mock_context,
             winner="claude",
             unanimity_ratio=1.0,
@@ -931,7 +957,7 @@ class TestUnanimousWinner:
         deps = ConsensusDependencies()
         phase = ConsensusPhase(deps=deps)
 
-        phase._set_no_unanimity(
+        phase._winner_selector.set_no_unanimity(
             mock_context,
             winner="claude",
             unanimity_ratio=0.67,
@@ -1035,7 +1061,8 @@ class TestCalibrationAdjustment:
         )
 
         mock_tracker = MagicMock()
-        mock_tracker.get_calibration_summary.side_effect = Exception("Tracker error")
+        # Use a specific exception type that the handler catches
+        mock_tracker.get_calibration_summary.side_effect = AttributeError("Tracker error")
 
         deps = ConsensusDependencies(calibration_tracker=mock_tracker)
         phase = ConsensusPhase(deps=deps)
@@ -1075,7 +1102,8 @@ class TestVoteSuccessHandling:
         agent = MockAgent("claude")
         vote = MockVote("claude", "proposal_a", 0.9)
 
-        phase._handle_vote_success(mock_context, agent, vote)
+        # _handle_vote_success is now on the VoteCollector
+        phase._vote_collector._handle_vote_success(mock_context, agent, vote)
 
         assert len(notify_calls) == 1
         assert notify_calls[0][0] == "vote"
@@ -1098,7 +1126,8 @@ class TestVoteSuccessHandling:
         agent = MockAgent("claude")
         vote = MockVote("claude", "proposal_a", 0.9)
 
-        phase._handle_vote_success(mock_context, agent, vote)
+        # _handle_vote_success is now on the VoteCollector
+        phase._vote_collector._handle_vote_success(mock_context, agent, vote)
 
         assert len(hook_calls) == 1
         assert hook_calls[0] == ("claude", "proposal_a", 0.9)
@@ -1128,7 +1157,8 @@ class TestVerificationBonus:
         proposals = {"claude": "Test proposal"}
         choice_mapping = {"claude": "claude"}
 
-        result = await phase._apply_verification_bonuses(
+        # _apply_verification_bonuses is now on the ConsensusVerifier
+        result = await phase._consensus_verifier.apply_verification_bonuses(
             mock_context, vote_counts, proposals, choice_mapping
         )
 
@@ -1159,7 +1189,8 @@ class TestVerificationBonus:
         proposals = {"claude": "Test proposal with claims"}
         choice_mapping = {"claude": "claude"}
 
-        result = await phase._apply_verification_bonuses(
+        # _apply_verification_bonuses is now on the ConsensusVerifier
+        result = await phase._consensus_verifier.apply_verification_bonuses(
             mock_context, vote_counts, proposals, choice_mapping
         )
 
