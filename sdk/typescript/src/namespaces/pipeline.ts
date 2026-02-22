@@ -241,15 +241,104 @@ export class PipelineNamespace {
    */
   async approveTransition(
     pipelineId: string,
-    options?: { approved?: boolean; notes?: string },
+    fromStage: string,
+    toStage: string,
+    options?: { approved?: boolean; comment?: string },
   ): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>(
       'POST',
       `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/approve-transition`,
       {
         body: {
+          from_stage: fromStage,
+          to_stage: toStage,
           approved: options?.approved ?? true,
-          ...(options?.notes ? { notes: options.notes } : {}),
+          ...(options?.comment ? { comment: options.comment } : {}),
+        },
+      }
+    );
+  }
+
+  /**
+   * Run pipeline from a raw text braindump.
+   */
+  async fromBraindump(
+    text: string,
+    options?: { context?: string; autoAdvance?: boolean },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-braindump',
+      {
+        body: {
+          text,
+          auto_advance: options?.autoAdvance ?? true,
+          ...(options?.context ? { context: options.context } : {}),
+        },
+      }
+    );
+  }
+
+  /**
+   * Run pipeline from a named template.
+   */
+  async fromTemplate(
+    templateName: string,
+    options?: { autoAdvance?: boolean },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-template',
+      {
+        body: {
+          template_name: templateName,
+          auto_advance: options?.autoAdvance ?? true,
+        },
+      }
+    );
+  }
+
+  /**
+   * Execute a pipeline's orchestration stage.
+   */
+  async execute(
+    pipelineId: string,
+    options?: { dryRun?: boolean },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/execute`,
+      {
+        body: { dry_run: options?.dryRun ?? false },
+      }
+    );
+  }
+
+  /**
+   * List available pipeline templates.
+   */
+  async listTemplates(options?: { category?: string }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/canvas/pipeline/templates',
+      { params: options }
+    );
+  }
+
+  /**
+   * Convert an existing debate into a pipeline.
+   */
+  async debateToPipeline(
+    debateId: string,
+    options?: { useUniversal?: boolean; autoAdvance?: boolean },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/debates/${encodeURIComponent(debateId)}/to-pipeline`,
+      {
+        body: {
+          use_universal: options?.useUniversal ?? false,
+          auto_advance: options?.autoAdvance ?? true,
         },
       }
     );

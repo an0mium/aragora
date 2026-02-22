@@ -23,6 +23,7 @@ export {
   type GraphBranch,
   type MatrixComparison,
 } from './debates';
+export { AgentDashboardAPI } from './agent-dashboard';
 export { AgentsAPI } from './agents';
 export { WorkflowsAPI } from './workflows';
 export { SMEAPI } from './sme';
@@ -785,6 +786,9 @@ export {
   type PurchaseOrder,
   type CreatePORequest,
 } from './invoice-processing';
+
+// Playground
+export { PlaygroundAPI } from './playground';
 
 // Skills
 export {

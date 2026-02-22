@@ -174,6 +174,163 @@ class CanvasAPI:
             json={"workflow_data": workflow_data},
         )
 
+    def run_from_braindump(
+        self,
+        text: str,
+        *,
+        context: str | None = None,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from raw unstructured text.
+
+        Parses text into ideas, then runs through the full pipeline.
+
+        Args:
+            text: Raw text to parse into ideas
+            context: Optional context for idea extraction
+            auto_advance: If True, advance through all stages
+
+        Returns:
+            PipelineResult with parsed ideas and stage canvases
+        """
+        payload: dict[str, Any] = {
+            "text": text,
+            "auto_advance": auto_advance,
+        }
+        if context:
+            payload["context"] = context
+        return self._client.request(
+            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+        )
+
+    def run_from_template(
+        self,
+        template_name: str,
+        *,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a named template.
+
+        Args:
+            template_name: Name of the pipeline template
+            auto_advance: If True, advance through all stages
+
+        Returns:
+            PipelineResult from template execution
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-template",
+            json={
+                "template_name": template_name,
+                "auto_advance": auto_advance,
+            },
+        )
+
+    def execute_pipeline(
+        self,
+        pipeline_id: str,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Execute a pipeline's orchestration stage.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            dry_run: If True, return execution plan without running
+
+        Returns:
+            Execution status with agent task assignments
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/execute",
+            json={"dry_run": dry_run},
+        )
+
+    def list_templates(self, *, category: str | None = None) -> dict[str, Any]:
+        """List available pipeline templates.
+
+        Args:
+            category: Optional category filter
+
+        Returns:
+            Template list with count
+        """
+        params = {"category": category} if category else {}
+        return self._client.request(
+            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+        )
+
+    def get_receipt(self, pipeline_id: str) -> dict[str, Any]:
+        """Get DecisionReceipt for a completed pipeline.
+
+        Args:
+            pipeline_id: Pipeline identifier
+
+        Returns:
+            Decision receipt with audit trail
+        """
+        return self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
+        )
+
+    def get_graph(
+        self, pipeline_id: str, *, stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Get React Flow graph for pipeline stages.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            stage: Optional specific stage to retrieve
+
+        Returns:
+            Graph data with nodes and edges
+        """
+        params = {"stage": stage} if stage else {}
+        return self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+        )
+
+    def get_status(self, pipeline_id: str) -> dict[str, Any]:
+        """Get pipeline per-stage status.
+
+        Args:
+            pipeline_id: Pipeline identifier
+
+        Returns:
+            Status for each stage including duration
+        """
+        return self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/status",
+        )
+
+    def debate_to_pipeline(
+        self,
+        debate_id: str,
+        *,
+        use_universal: bool = False,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Convert an existing debate into a pipeline.
+
+        Args:
+            debate_id: ID of the debate to convert
+            use_universal: If True, build universal execution graph
+            auto_advance: If True, advance through all stages
+
+        Returns:
+            PipelineResult with source debate reference
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/to-pipeline",
+            json={
+                "use_universal": use_universal,
+                "auto_advance": auto_advance,
+            },
+        )
+
 
 class AsyncCanvasAPI:
     """Asynchronous Canvas Pipeline API."""
@@ -264,4 +421,96 @@ class AsyncCanvasAPI:
             "POST",
             "/api/v1/canvas/convert/workflow",
             json={"workflow_data": workflow_data},
+        )
+
+    async def run_from_braindump(
+        self,
+        text: str,
+        *,
+        context: str | None = None,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from raw unstructured text."""
+        payload: dict[str, Any] = {
+            "text": text,
+            "auto_advance": auto_advance,
+        }
+        if context:
+            payload["context"] = context
+        return await self._client.request(
+            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+        )
+
+    async def run_from_template(
+        self,
+        template_name: str,
+        *,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a named template."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-template",
+            json={
+                "template_name": template_name,
+                "auto_advance": auto_advance,
+            },
+        )
+
+    async def execute_pipeline(
+        self,
+        pipeline_id: str,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Execute a pipeline's orchestration stage."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/execute",
+            json={"dry_run": dry_run},
+        )
+
+    async def list_templates(self, *, category: str | None = None) -> dict[str, Any]:
+        """List available pipeline templates."""
+        params = {"category": category} if category else {}
+        return await self._client.request(
+            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+        )
+
+    async def get_receipt(self, pipeline_id: str) -> dict[str, Any]:
+        """Get DecisionReceipt for a completed pipeline."""
+        return await self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
+        )
+
+    async def get_graph(
+        self, pipeline_id: str, *, stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Get React Flow graph for pipeline stages."""
+        params = {"stage": stage} if stage else {}
+        return await self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+        )
+
+    async def get_status(self, pipeline_id: str) -> dict[str, Any]:
+        """Get pipeline per-stage status."""
+        return await self._client.request(
+            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/status",
+        )
+
+    async def debate_to_pipeline(
+        self,
+        debate_id: str,
+        *,
+        use_universal: bool = False,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Convert an existing debate into a pipeline."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/to-pipeline",
+            json={
+                "use_universal": use_universal,
+                "auto_advance": auto_advance,
+            },
         )

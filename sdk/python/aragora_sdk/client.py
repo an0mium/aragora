@@ -161,6 +161,7 @@ class AragoraClient:
         from .namespaces.actions import ActionsAPI
         from .namespaces.admin import AdminAPI
         from .namespaces.advertising import AdvertisingAPI
+        from .namespaces.agent_dashboard import AgentDashboardAPI
         from .namespaces.agent_selection import AgentSelectionAPI
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
@@ -251,6 +252,7 @@ class AragoraClient:
         from .namespaces.payments import PaymentsAPI
         from .namespaces.pipeline import PipelineAPI
         from .namespaces.pipeline_transitions import PipelineTransitionsAPI
+        from .namespaces.playground import PlaygroundAPI
         from .namespaces.plugins import PluginsAPI
         from .namespaces.podcast import PodcastAPI
         from .namespaces.policies import PoliciesAPI
@@ -300,6 +302,7 @@ class AragoraClient:
         self.actions = ActionsAPI(self)
         self.admin = AdminAPI(self)
         self.advertising = AdvertisingAPI(self)
+        self.agent_dashboard = AgentDashboardAPI(self)
         self.agent_selection = AgentSelectionAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
@@ -324,6 +327,7 @@ class AragoraClient:
         self.chat = ChatAPI(self)
         self.pipeline = PipelineAPI(self)
         self.pipeline_transitions = PipelineTransitionsAPI(self)
+        self.playground = PlaygroundAPI(self)
         self.checkpoints = CheckpointsAPI(self)
         self.classify = ClassifyAPI(self)
         self.code_review = CodeReviewAPI(self)
@@ -721,6 +725,7 @@ class AragoraAsyncClient:
         from .namespaces.actions import AsyncActionsAPI
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.advertising import AsyncAdvertisingAPI
+        from .namespaces.agent_dashboard import AsyncAgentDashboardAPI
         from .namespaces.agent_selection import AsyncAgentSelectionAPI
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
@@ -811,6 +816,7 @@ class AragoraAsyncClient:
         from .namespaces.payments import AsyncPaymentsAPI
         from .namespaces.pipeline import AsyncPipelineAPI
         from .namespaces.pipeline_transitions import AsyncPipelineTransitionsAPI
+        from .namespaces.playground import AsyncPlaygroundAPI
         from .namespaces.plugins import AsyncPluginsAPI
         from .namespaces.podcast import AsyncPodcastAPI
         from .namespaces.policies import AsyncPoliciesAPI
@@ -860,6 +866,7 @@ class AragoraAsyncClient:
         self.actions = AsyncActionsAPI(self)
         self.admin = AsyncAdminAPI(self)
         self.advertising = AsyncAdvertisingAPI(self)
+        self.agent_dashboard = AsyncAgentDashboardAPI(self)
         self.agent_selection = AsyncAgentSelectionAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
@@ -884,6 +891,7 @@ class AragoraAsyncClient:
         self.chat = AsyncChatAPI(self)
         self.pipeline = AsyncPipelineAPI(self)
         self.pipeline_transitions = AsyncPipelineTransitionsAPI(self)
+        self.playground = AsyncPlaygroundAPI(self)
         self.checkpoints = AsyncCheckpointsAPI(self)
         self.classify = AsyncClassifyAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)

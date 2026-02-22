@@ -79,6 +79,7 @@ def default_params() -> dict[str, Any]:
         "enable_knowledge_extraction": False,
         "extraction_min_confidence": 0.3,
         "enable_belief_guidance": False,
+        "enable_outcome_context": True,
         "enable_auto_revalidation": False,
         "revalidation_staleness_threshold": 0.8,
         "revalidation_check_interval_seconds": 3600,

@@ -278,13 +278,25 @@ class TestSelfImproveE2E:
     @pytest.mark.timeout(30)
     async def test_self_directing_mode(self, e2e_config):
         """Running with objective=None triggers scan-based goal synthesis."""
-        e2e_config.use_meta_planner = False
         pipeline = SelfImprovePipeline(e2e_config)
+
+        # Mock _plan to avoid full codebase scan while testing self-directing flow
+        mock_goal = MagicMock()
+        mock_goal.description = "Fix test coverage gaps"
+        mock_goal.track = MagicMock()
+        mock_goal.track.value = "qa"
+        mock_goal.id = "scan-goal-1"
+
+        pipeline._plan = AsyncMock(return_value=[mock_goal])
+
         result = await pipeline.run(None)
 
         assert isinstance(result, SelfImproveResult)
-        # Objective should be synthesized from scan
+        # Objective should be synthesized from the scan goal
         assert result.objective != ""
+        assert "Fix test coverage" in result.objective
+        # _plan was called with None objective
+        pipeline._plan.assert_called_once_with(None)
 
     @pytest.mark.asyncio
     @pytest.mark.timeout(30)

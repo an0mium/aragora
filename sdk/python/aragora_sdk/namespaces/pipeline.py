@@ -406,16 +406,97 @@ class AsyncPipelineAPI:
         )
 
     async def approve_transition(
-        self, pipeline_id: str, *, approved: bool = True, notes: str | None = None,
+        self,
+        pipeline_id: str,
+        from_stage: str,
+        to_stage: str,
+        *,
+        approved: bool = True,
+        comment: str | None = None,
     ) -> dict[str, Any]:
         """Approve or reject a pending stage transition."""
-        payload: dict[str, Any] = {"approved": approved}
-        if notes:
-            payload["notes"] = notes
+        payload: dict[str, Any] = {
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "approved": approved,
+        }
+        if comment:
+            payload["comment"] = comment
         return await self._client.request(
             "POST",
             f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
             json=payload,
+        )
+
+    async def from_braindump(
+        self,
+        text: str,
+        *,
+        context: str | None = None,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a raw text braindump."""
+        payload: dict[str, Any] = {
+            "text": text,
+            "auto_advance": auto_advance,
+        }
+        if context:
+            payload["context"] = context
+        return await self._client.request(
+            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+        )
+
+    async def from_template(
+        self,
+        template_name: str,
+        *,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a named template."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-template",
+            json={
+                "template_name": template_name,
+                "auto_advance": auto_advance,
+            },
+        )
+
+    async def execute(
+        self,
+        pipeline_id: str,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Execute a pipeline's orchestration stage."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/execute",
+            json={"dry_run": dry_run},
+        )
+
+    async def list_templates(self, *, category: str | None = None) -> dict[str, Any]:
+        """List available pipeline templates."""
+        params = {"category": category} if category else {}
+        return await self._client.request(
+            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+        )
+
+    async def debate_to_pipeline(
+        self,
+        debate_id: str,
+        *,
+        use_universal: bool = False,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Convert an existing debate into a pipeline."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/to-pipeline",
+            json={
+                "use_universal": use_universal,
+                "auto_advance": auto_advance,
+            },
         )
 
     async def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:

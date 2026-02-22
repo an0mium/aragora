@@ -11,13 +11,14 @@ Provides two complementary mode systems:
 2. **Debate Modes**
    - Adversarial red-teaming
    - Specialized debate protocols
+
+Heavy submodules (deep_audit, redteam, prober) are lazily imported to avoid
+pulling in scipy/numpy on every CLI invocation (~13s savings).
 """
 
-# Operational Mode System
+# Lightweight imports — these are fast and commonly needed
 from aragora.modes import custom  # Expose submodule for patching
 from aragora.modes.base import Mode, ModeRegistry
-
-# Built-in operational modes (auto-registered on import)
 from aragora.modes.builtin import (
     ArchitectMode,
     CoderMode,
@@ -27,48 +28,60 @@ from aragora.modes.builtin import (
     register_all_builtins,
 )
 from aragora.modes.custom import CustomMode, CustomModeLoader
-
-# Deep Audit Mode (Heavy3-inspired intensive debate protocol)
-from aragora.modes.deep_audit import (
-    CODE_ARCHITECTURE_AUDIT,
-    CONTRACT_AUDIT,
-    # Pre-configured protocols
-    STRATEGY_AUDIT,
-    AuditFinding,
-    DeepAuditConfig,
-    DeepAuditOrchestrator,
-    DeepAuditVerdict,
-    run_deep_audit,
-)
 from aragora.modes.handoff import HandoffContext, ModeHandoff
-from aragora.modes.prober import (
-    CapabilityProber,
-    ContradictionTrap,
-    HallucinationBait,
-    PersistenceChallenge,
-    ProbeBeforePromote,
-    ProbeResult,
-    ProbeStrategy,
-    ProbeType,
-    SycophancyTest,
-    VulnerabilityReport,
-    VulnerabilitySeverity,
-    generate_probe_report_markdown,
-)
-
-# Debate Modes (existing)
-from aragora.modes.redteam import (
-    Attack,
-    AttackType,
-    Defense,
-    RedTeamMode,
-    RedTeamProtocol,
-    RedTeamResult,
-    RedTeamRound,
-    redteam_code_review,
-    redteam_policy,
-)
 from aragora.modes.tool_groups import ToolGroup, can_use_tool, get_required_group
+
+# --- Lazy imports for heavy submodules ---
+# deep_audit, redteam, and prober import aragora.debate.orchestrator which
+# transitively loads scipy/numpy (~13s). Defer until actually accessed.
+
+_LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    # Deep Audit Mode
+    "CODE_ARCHITECTURE_AUDIT": ("aragora.modes.deep_audit", "CODE_ARCHITECTURE_AUDIT"),
+    "CONTRACT_AUDIT": ("aragora.modes.deep_audit", "CONTRACT_AUDIT"),
+    "STRATEGY_AUDIT": ("aragora.modes.deep_audit", "STRATEGY_AUDIT"),
+    "AuditFinding": ("aragora.modes.deep_audit", "AuditFinding"),
+    "DeepAuditConfig": ("aragora.modes.deep_audit", "DeepAuditConfig"),
+    "DeepAuditOrchestrator": ("aragora.modes.deep_audit", "DeepAuditOrchestrator"),
+    "DeepAuditVerdict": ("aragora.modes.deep_audit", "DeepAuditVerdict"),
+    "run_deep_audit": ("aragora.modes.deep_audit", "run_deep_audit"),
+    # Capability Probing
+    "CapabilityProber": ("aragora.modes.prober", "CapabilityProber"),
+    "ContradictionTrap": ("aragora.modes.prober", "ContradictionTrap"),
+    "HallucinationBait": ("aragora.modes.prober", "HallucinationBait"),
+    "PersistenceChallenge": ("aragora.modes.prober", "PersistenceChallenge"),
+    "ProbeBeforePromote": ("aragora.modes.prober", "ProbeBeforePromote"),
+    "ProbeResult": ("aragora.modes.prober", "ProbeResult"),
+    "ProbeStrategy": ("aragora.modes.prober", "ProbeStrategy"),
+    "ProbeType": ("aragora.modes.prober", "ProbeType"),
+    "SycophancyTest": ("aragora.modes.prober", "SycophancyTest"),
+    "VulnerabilityReport": ("aragora.modes.prober", "VulnerabilityReport"),
+    "VulnerabilitySeverity": ("aragora.modes.prober", "VulnerabilitySeverity"),
+    "generate_probe_report_markdown": ("aragora.modes.prober", "generate_probe_report_markdown"),
+    # Red Team Mode
+    "Attack": ("aragora.modes.redteam", "Attack"),
+    "AttackType": ("aragora.modes.redteam", "AttackType"),
+    "Defense": ("aragora.modes.redteam", "Defense"),
+    "RedTeamMode": ("aragora.modes.redteam", "RedTeamMode"),
+    "RedTeamProtocol": ("aragora.modes.redteam", "RedTeamProtocol"),
+    "RedTeamResult": ("aragora.modes.redteam", "RedTeamResult"),
+    "RedTeamRound": ("aragora.modes.redteam", "RedTeamRound"),
+    "redteam_code_review": ("aragora.modes.redteam", "redteam_code_review"),
+    "redteam_policy": ("aragora.modes.redteam", "redteam_policy"),
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        module_path, attr_name = _LAZY_IMPORTS[name]
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        val = getattr(mod, attr_name)
+        # Cache on the module so __getattr__ isn't called again
+        globals()[name] = val
+        return val
+    raise AttributeError(f"module 'aragora.modes' has no attribute {name!r}")
 
 
 def load_builtins() -> None:
@@ -103,7 +116,7 @@ __all__ = [
     "DebuggerMode",
     "OrchestratorMode",
     "register_all_builtins",
-    # Debate Modes
+    # Debate Modes (lazy)
     "RedTeamMode",
     "RedTeamProtocol",
     "RedTeamResult",
@@ -113,7 +126,7 @@ __all__ = [
     "AttackType",
     "redteam_code_review",
     "redteam_policy",
-    # Capability Probing
+    # Capability Probing (lazy)
     "CapabilityProber",
     "VulnerabilityReport",
     "ProbeResult",
@@ -126,7 +139,7 @@ __all__ = [
     "VulnerabilitySeverity",
     "ProbeBeforePromote",
     "generate_probe_report_markdown",
-    # Deep Audit Mode
+    # Deep Audit Mode (lazy)
     "DeepAuditOrchestrator",
     "DeepAuditConfig",
     "DeepAuditVerdict",

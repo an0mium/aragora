@@ -236,4 +236,109 @@ export class CanvasNamespace {
       { body: { workflow_data: workflowData } }
     );
   }
+
+  /**
+   * Run pipeline from raw unstructured text.
+   *
+   * Parses text into ideas, then runs through the full pipeline.
+   */
+  async runFromBraindump(
+    text: string,
+    options?: { context?: string; autoAdvance?: boolean },
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-braindump',
+      {
+        body: {
+          text,
+          auto_advance: options?.autoAdvance ?? true,
+          ...(options?.context ? { context: options.context } : {}),
+        },
+      }
+    );
+  }
+
+  /** Run pipeline from a named template. */
+  async runFromTemplate(
+    templateName: string,
+    autoAdvance: boolean = true,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-template',
+      {
+        body: {
+          template_name: templateName,
+          auto_advance: autoAdvance,
+        },
+      }
+    );
+  }
+
+  /** Execute a pipeline's orchestration stage. */
+  async executePipeline(
+    pipelineId: string,
+    options?: { dryRun?: boolean },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/execute`,
+      { body: { dry_run: options?.dryRun ?? false } }
+    );
+  }
+
+  /** List available pipeline templates. */
+  async listTemplates(options?: { category?: string }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/canvas/pipeline/templates',
+      { params: options }
+    );
+  }
+
+  /** Get DecisionReceipt for a completed pipeline. */
+  async getReceipt(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/receipt`
+    );
+  }
+
+  /** Get React Flow graph for pipeline stages. */
+  async getGraph(
+    pipelineId: string,
+    options?: { stage?: string },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/graph`,
+      { params: options }
+    );
+  }
+
+  /** Get pipeline per-stage status. */
+  async getStatus(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/status`
+    );
+  }
+
+  /** Convert an existing debate into a pipeline. */
+  async debateToPipeline(
+    debateId: string,
+    options?: { useUniversal?: boolean; autoAdvance?: boolean },
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      `/api/v1/debates/${encodeURIComponent(debateId)}/to-pipeline`,
+      {
+        body: {
+          use_universal: options?.useUniversal ?? false,
+          auto_advance: options?.autoAdvance ?? true,
+        },
+      }
+    );
+  }
 }
