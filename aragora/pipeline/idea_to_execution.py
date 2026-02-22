@@ -810,11 +810,12 @@ class IdeaToExecutionPipeline:
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "ideation"})
 
+        # Pre-initialize locals to survive exception paths
+        canvas = None
+        debate_data: dict[str, Any] = {}
+        explanation_summary = None
+
         try:
-            # Try to run a debate for richer ideation
-            canvas = None
-            debate_data: dict[str, Any] = {}
-            explanation_summary = None
             try:
                 from aragora.debate.orchestrator import Arena
                 from aragora.debate.models import DebateProtocol, Environment
