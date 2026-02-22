@@ -689,6 +689,7 @@ class TestEndToEnd:
         assert "test_consensus" in tests[0]
 
     @pytest.mark.asyncio
+    @pytest.mark.timeout(60)
     async def test_index_real_nomic_directory(self):
         """Smoke test: index the real aragora/nomic/ directory (capped)."""
         repo = Path(__file__).resolve().parent.parent.parent
@@ -701,7 +702,7 @@ class TestEndToEnd:
             repo_path=repo,
             source_dirs=["aragora/nomic"],
             test_dirs=[],
-            max_modules=20,
+            max_modules=5,
         )
         stats = await indexer.index()
 

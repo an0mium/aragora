@@ -725,19 +725,18 @@ class IdeaToExecutionPipeline:
                             result = self._advance_to_orchestration(result)
                         result.stage_status[PipelineStage.ORCHESTRATION.value] = "complete"
 
-            # Verify provenance chain integrity
-            if provenance_chain:
-                try:
-                    chain_valid = provenance_chain.verify_chain()
-                    if result.receipt is None:
-                        result.receipt = {}
-                    result.receipt["provenance_chain_valid"] = chain_valid
-                except (AttributeError, TypeError, ValueError):
-                    pass
-
-            # Generate receipt
+            # Generate receipt (skip in dry_run mode)
             if cfg.enable_receipts and not cfg.dry_run:
                 result.receipt = self._generate_receipt(result)
+                # Verify provenance chain integrity
+                if provenance_chain:
+                    try:
+                        chain_valid = provenance_chain.verify_chain()
+                        if result.receipt is None:
+                            result.receipt = {}
+                        result.receipt["provenance_chain_valid"] = chain_valid
+                    except (AttributeError, TypeError, ValueError):
+                        pass
 
             # Feed pipeline metrics back to MetaLearner
             if cfg.enable_meta_tuning:
@@ -815,6 +814,7 @@ class IdeaToExecutionPipeline:
             # Try to run a debate for richer ideation
             canvas = None
             debate_data: dict[str, Any] = {}
+            explanation_summary = None
             try:
                 from aragora.debate.orchestrator import Arena
                 from aragora.debate.models import DebateProtocol, Environment
