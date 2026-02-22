@@ -1176,6 +1176,37 @@ class EloSystem(KMAdapterMixin):
         """Categorize learning efficiency based on metrics."""
         return _categorize_learning_fn(gain_rate, consistency)
 
+    def record_quality_score(
+        self,
+        agent_name: str,
+        debate_id: str,
+        score: float,
+        dimension_scores: dict[str, float] | None = None,
+    ) -> None:
+        """Record an LLM judge quality score for an agent's debate contribution.
+
+        Stores the quality assessment in ELO history for tracking quality trends.
+        Does not directly modify ELO ratings — quality data is informational.
+
+        Args:
+            agent_name: Name of the agent
+            debate_id: ID of the debate evaluated
+            score: Overall quality score (1-5 scale)
+            dimension_scores: Optional per-dimension scores
+        """
+        _validate_agent_name(agent_name)
+        self._record_elo_history(
+            agent_name,
+            self.get_rating(agent_name).elo,
+            debate_id=f"quality:{debate_id}:score={score:.2f}",
+        )
+        logger.info(
+            "quality_score_recorded agent=%s debate=%s score=%.2f",
+            agent_name,
+            debate_id,
+            score,
+        )
+
     def apply_learning_bonus(
         self,
         agent_name: str,

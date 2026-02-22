@@ -573,3 +573,201 @@ def is_protected_file(file_path: str, policy: ApprovalPolicy | None = None) -> b
     """Check if a file requires critical approval."""
     p = policy or ApprovalPolicy()
     return p.get_approval_level(file_path) == ApprovalLevel.CRITICAL
+
+
+# =============================================================================
+# Self-Improvement Approval Gate
+# =============================================================================
+
+# Patterns indicating safety-critical operations in prompts
+_SAFETY_KEYWORDS = frozenset({
+    "security", "auth", "encryption", "key_rotation",
+    "secrets", "password", "token", "credential",
+})
+
+_DANGEROUS_OPERATIONS = frozenset({
+    "force push", "reset --hard", "drop table", "rm -rf",
+    "delete database", "truncate",
+})
+
+
+class ApprovalDecision(str, Enum):
+    """Decision from the self-improvement approval gate."""
+
+    APPROVE = "approve"
+    REJECT = "reject"
+    DEFER = "defer"
+    SKIP = "skip"
+
+
+class ApprovalGate:
+    """Lightweight approval gate for self-improvement subtask execution.
+
+    Three modes:
+        cli:  Interactive terminal prompt for human-in-the-loop.
+        api:  POST instruction to a callback URL and await response.
+        auto: Risk-based auto-approve (low/medium → approve, high → defer).
+
+    Usage::
+
+        gate = ApprovalGate(mode="auto")
+        decision = await gate.request_approval(instruction)
+        if decision == ApprovalDecision.APPROVE:
+            ...execute...
+    """
+
+    def __init__(
+        self,
+        mode: str = "auto",
+        callback_url: str | None = None,
+    ) -> None:
+        if mode not in ("cli", "api", "auto"):
+            raise ValueError(f"Invalid approval mode: {mode!r}")
+        self.mode = mode
+        self.callback_url = callback_url
+        self._policy = ApprovalPolicy()
+
+    async def request_approval(self, instruction: Any) -> ApprovalDecision:
+        """Request approval for executing an instruction.
+
+        Args:
+            instruction: Object with ``to_agent_prompt()``, ``subtask_id``,
+                and optionally ``files`` attributes.
+
+        Returns:
+            ApprovalDecision indicating whether to proceed.
+        """
+        if self.mode == "cli":
+            return self._cli_prompt(instruction)
+        elif self.mode == "api":
+            return await self._api_callback(instruction)
+        return self._auto_approve(instruction)
+
+    # -- Mode implementations -------------------------------------------------
+
+    def _cli_prompt(self, instruction: Any) -> ApprovalDecision:
+        """Interactive CLI approval prompt."""
+        subtask_id = getattr(instruction, "subtask_id", "unknown")[:30]
+        prompt_text = self._get_prompt_text(instruction)
+        risk = self._assess_risk(instruction)
+        files = getattr(instruction, "files", [])
+
+        print(f"\n{'=' * 60}")
+        print(f"APPROVAL REQUIRED — subtask: {subtask_id}")
+        print(f"Risk level: {risk}")
+        if files:
+            print(f"Files affected: {', '.join(str(f) for f in files[:10])}")
+        print(f"\nInstruction preview:\n{prompt_text[:500]}")
+        print(f"{'=' * 60}")
+
+        try:
+            response = input("[A]pprove / [R]eject / [S]kip / [D]efer? ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return ApprovalDecision.REJECT
+
+        _map = {
+            "a": ApprovalDecision.APPROVE, "approve": ApprovalDecision.APPROVE,
+            "y": ApprovalDecision.APPROVE, "yes": ApprovalDecision.APPROVE,
+            "r": ApprovalDecision.REJECT, "reject": ApprovalDecision.REJECT,
+            "n": ApprovalDecision.REJECT, "no": ApprovalDecision.REJECT,
+            "s": ApprovalDecision.SKIP, "skip": ApprovalDecision.SKIP,
+            "d": ApprovalDecision.DEFER, "defer": ApprovalDecision.DEFER,
+        }
+        return _map.get(response, ApprovalDecision.REJECT)
+
+    async def _api_callback(self, instruction: Any) -> ApprovalDecision:
+        """POST instruction to a callback URL for external approval."""
+        if not self.callback_url:
+            logger.warning("API approval mode but no callback_url configured")
+            return ApprovalDecision.DEFER
+
+        try:
+            import aiohttp
+        except ImportError:
+            logger.warning("aiohttp not available for API approval callback")
+            return ApprovalDecision.DEFER
+
+        subtask_id = getattr(instruction, "subtask_id", "unknown")
+        payload = {
+            "subtask_id": subtask_id,
+            "prompt": self._get_prompt_text(instruction)[:2000],
+            "risk_level": self._assess_risk(instruction),
+            "files": [str(f) for f in getattr(instruction, "files", [])][:20],
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.callback_url,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=300),
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        decision_str = data.get("decision", "reject")
+                        try:
+                            return ApprovalDecision(decision_str)
+                        except ValueError:
+                            return ApprovalDecision.REJECT
+                    logger.warning("Approval API returned status %d", resp.status)
+                    return ApprovalDecision.DEFER
+        except (OSError, ValueError) as exc:
+            logger.warning("Approval API callback failed: %s", exc)
+            return ApprovalDecision.DEFER
+
+    def _auto_approve(self, instruction: Any) -> ApprovalDecision:
+        """Risk-based auto-approval for autonomous mode."""
+        risk = self._assess_risk(instruction)
+        subtask_id = getattr(instruction, "subtask_id", "unknown")[:20]
+
+        if risk == "high":
+            logger.info("auto_deferred subtask=%s risk=high", subtask_id)
+            return ApprovalDecision.DEFER
+
+        logger.info("auto_approved subtask=%s risk=%s", subtask_id, risk)
+        return ApprovalDecision.APPROVE
+
+    # -- Helpers --------------------------------------------------------------
+
+    def _assess_risk(self, instruction: Any) -> str:
+        """Assess the risk level of an instruction.
+
+        Returns ``'low'``, ``'medium'``, or ``'high'``.
+        """
+        files = [str(f) for f in getattr(instruction, "files", [])]
+        prompt = self._get_prompt_text(instruction).lower()
+
+        # Use the existing ApprovalPolicy for file-level risk
+        for f in files:
+            level = self._policy.get_approval_level(f)
+            if level == ApprovalLevel.CRITICAL:
+                return "high"
+            if level == ApprovalLevel.REVIEW:
+                # Only escalate if combined with dangerous operations
+                if any(op in prompt for op in _DANGEROUS_OPERATIONS):
+                    return "high"
+
+        # Check for dangerous operations even without file context
+        if any(op in prompt for op in _DANGEROUS_OPERATIONS):
+            return "high"
+
+        # Safety-critical keywords combined with destructive verbs
+        if any(kw in prompt for kw in _SAFETY_KEYWORDS) and any(
+            word in prompt for word in ("delete", "remove", "drop", "reset")
+        ):
+            return "high"
+
+        # Medium risk: modifying tests or CI config
+        for f in files:
+            if "test" in f or ".github" in f or "ci" in f.lower():
+                return "medium"
+
+        return "low"
+
+    @staticmethod
+    def _get_prompt_text(instruction: Any) -> str:
+        """Extract prompt text from an instruction object."""
+        try:
+            return instruction.to_agent_prompt()
+        except (AttributeError, TypeError):
+            return str(instruction)

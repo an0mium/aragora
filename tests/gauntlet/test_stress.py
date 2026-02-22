@@ -24,7 +24,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.gauntlet.config import GauntletConfig
-from aragora.gauntlet.result import AttackSummary, GauntletResult, ProbeSummary, SeverityLevel
+from aragora.gauntlet.result import (
+    AttackSummary,
+    GauntletResult,
+    ProbeSummary,
+    ScenarioSummary,
+    SeverityLevel,
+)
 from aragora.gauntlet.runner import GauntletRunner
 
 # These tests use fully mocked agents (no real API calls) but exercise
@@ -41,8 +47,12 @@ def _patch_runner_phases(runner: GauntletRunner) -> GauntletRunner:
     async def _mock_probes(input_content, context, result, report_progress):
         return ProbeSummary()
 
+    async def _mock_scenarios(input_content, context, result, report_progress):
+        return ScenarioSummary()
+
     runner._run_red_team = _mock_red_team
     runner._run_probes = _mock_probes
+    runner._run_scenarios = _mock_scenarios
     return runner
 
 
@@ -247,6 +257,7 @@ class TestGauntletResourceLimits:
             high_threshold=2,
         )
         runner = GauntletRunner(config=config)
+        _patch_runner_phases(runner)
 
         result = await runner.run("Test", "threshold test")
 
@@ -257,10 +268,15 @@ class TestGauntletResourceLimits:
 class TestGauntletEdgeCases:
     """Edge case tests for Gauntlet."""
 
+    def _make_runner(self) -> GauntletRunner:
+        """Create a runner with pipeline phases mocked out."""
+        runner = GauntletRunner(config=GauntletConfig(agents=["test"]))
+        return _patch_runner_phases(runner)
+
     @pytest.mark.asyncio
     async def test_unicode_content(self):
         """Test handling of various unicode content."""
-        runner = GauntletRunner(config=GauntletConfig(agents=["test"]))
+        runner = self._make_runner()
 
         unicode_inputs = [
             "Hello 世界 🌍",
@@ -277,7 +293,7 @@ class TestGauntletEdgeCases:
     @pytest.mark.asyncio
     async def test_newlines_and_whitespace(self):
         """Test handling of various whitespace."""
-        runner = GauntletRunner(config=GauntletConfig(agents=["test"]))
+        runner = self._make_runner()
 
         whitespace_inputs = [
             "\n" * 1000,
@@ -294,7 +310,7 @@ class TestGauntletEdgeCases:
     @pytest.mark.asyncio
     async def test_json_like_content(self):
         """Test handling of JSON-like content."""
-        runner = GauntletRunner(config=GauntletConfig(agents=["test"]))
+        runner = self._make_runner()
 
         json_content = '{"key": "value", "nested": {"array": [1, 2, 3]}}'
         result = await runner.run(json_content, "json test")
@@ -304,7 +320,7 @@ class TestGauntletEdgeCases:
     @pytest.mark.asyncio
     async def test_code_like_content(self):
         """Test handling of code-like content."""
-        runner = GauntletRunner(config=GauntletConfig(agents=["test"]))
+        runner = self._make_runner()
 
         code_content = """
 def vulnerable_function(user_input):
@@ -388,7 +404,7 @@ class TestGauntletRecovery:
             config=config,
             agent_factory=lambda name: error_agent,
         )
-        _patch_runner_phases(runner)
+        runner = _patch_runner_phases(runner)
 
         # Should not crash, should return result with error info
         result = await runner.run("Test", "error recovery test")
@@ -416,7 +432,7 @@ class TestGauntletRecovery:
             config=config,
             agent_factory=lambda name: agent,
         )
-        _patch_runner_phases(runner)
+        runner = _patch_runner_phases(runner)
 
         result = await runner.run("Test", "partial completion test")
 

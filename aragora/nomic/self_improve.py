@@ -27,6 +27,10 @@ from typing import Any, Callable
 logger = logging.getLogger(__name__)
 
 
+class BudgetExceededError(RuntimeError):
+    """Raised when the self-improvement pipeline exceeds its budget."""
+
+
 @dataclass
 class SelfImproveConfig:
     """Configuration for the self-improvement pipeline."""
@@ -44,6 +48,7 @@ class SelfImproveConfig:
     require_approval: bool = True  # Human approval at checkpoints
     autonomous: bool = False  # Skip approval gates for fully autonomous runs
     auto_mode: bool = False  # Risk-based auto-execution (low=execute, high=defer)
+    approval_callback_url: str | None = None  # URL for API approval mode
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None
 
     # Verification
@@ -88,6 +93,10 @@ class SelfImproveResult:
     # Codebase metrics delta (from MetricsCollector)
     metrics_delta: dict[str, Any] = field(default_factory=dict)
     improvement_score: float = 0.0
+    # Budget tracking
+    total_cost_usd: float = 0.0
+    # KnowledgeMound persistence
+    km_persisted: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize result to a plain dictionary."""
@@ -106,6 +115,8 @@ class SelfImproveResult:
             "duration_seconds": self.duration_seconds,
             "metrics_delta": self.metrics_delta,
             "improvement_score": self.improvement_score,
+            "total_cost_usd": self.total_cost_usd,
+            "km_persisted": self.km_persisted,
         }
 
 
@@ -163,6 +174,7 @@ class SelfImprovePipeline:
 
     def __init__(self, config: SelfImproveConfig | None = None):
         self.config = config or SelfImproveConfig()
+        self._total_spend_usd: float = 0.0
 
     def _emit_progress(self, event: str, data: dict[str, Any]) -> None:
         """Emit a progress event via the configured callback."""
@@ -296,13 +308,16 @@ class SelfImprovePipeline:
         self._publish_to_pipeline_graph(cycle_id, result)
 
         result.duration_seconds = time.time() - start_time
+        result.total_cost_usd = self._total_spend_usd
         logger.info(
-            "self_improve_completed cycle=%s goals=%d subtasks=%d/%d duration=%.1fs",
+            "self_improve_completed cycle=%s goals=%d subtasks=%d/%d "
+            "duration=%.1fs cost=$%.4f",
             cycle_id,
             result.goals_planned,
             result.subtasks_completed,
             result.subtasks_total,
             result.duration_seconds,
+            result.total_cost_usd,
         )
         self._emit_progress("cycle_complete", {
             "completed": result.subtasks_completed,
@@ -902,12 +917,62 @@ class SelfImprovePipeline:
                 "Worktree execution failed, falling back to sequential: %s", exc
             )
 
-        # Fallback: sequential execution
-        results = []
-        for subtask in subtasks:
-            result = await self._execute_single(subtask, cycle_id)
-            results.append(result)
+        # Fallback: wave-based parallel execution
+        results: list[dict[str, Any]] = []
+        waves = self._dependency_waves(subtasks)
+        for wave in waves:
+            wave_results = await asyncio.gather(
+                *[self._execute_single(st, cycle_id) for st in wave],
+                return_exceptions=True,
+            )
+            for r in wave_results:
+                if isinstance(r, BaseException):
+                    logger.warning("Subtask in wave failed: %s", r)
+                    results.append({
+                        "success": False,
+                        "files_changed": [],
+                        "tests_passed": 0,
+                        "tests_failed": 0,
+                    })
+                else:
+                    results.append(r)
+
+            # Check budget after each wave
+            wave_cost = sum(
+                r.get("cost_usd", 0.0) for r in results
+                if isinstance(r, dict)
+            )
+            self._total_spend_usd += wave_cost
+            if self._total_spend_usd > self.config.budget_limit_usd:
+                logger.warning(
+                    "budget_exceeded spend=%.2f limit=%.2f",
+                    self._total_spend_usd,
+                    self.config.budget_limit_usd,
+                )
+                break
         return results
+
+    def _dependency_waves(self, subtasks: list[Any]) -> list[list[Any]]:
+        """Group subtasks into dependency waves for parallel execution.
+
+        Subtasks without explicit dependencies go in wave 0, etc.
+        Currently all subtasks are treated as independent and batched
+        by ``max_parallel``.
+
+        Returns:
+            List of waves, each wave is a list of subtasks to run concurrently.
+        """
+        max_p = max(self.config.max_parallel, 1)
+        waves: list[list[Any]] = []
+        batch: list[Any] = []
+        for st in subtasks:
+            batch.append(st)
+            if len(batch) >= max_p:
+                waves.append(batch)
+                batch = []
+        if batch:
+            waves.append(batch)
+        return waves
 
     async def _execute_single(
         self,
@@ -1257,27 +1322,44 @@ class SelfImprovePipeline:
         Returns:
             Dict with execution results, or None if dispatch was skipped.
         """
-        if self.config.require_approval and not self.config.autonomous:
-            if not getattr(self.config, "auto_mode", False):
-                logger.info(
-                    "dispatch_skipped reason=require_approval subtask=%s",
-                    instruction.subtask_id[:20],
+        if self.config.require_approval:
+            try:
+                from aragora.nomic.approval import ApprovalGate, ApprovalDecision
+
+                mode = "auto" if self.config.autonomous else "cli"
+                gate = ApprovalGate(
+                    mode=mode,
+                    callback_url=getattr(self.config, "approval_callback_url", None),
                 )
-                return None
-            # Auto mode: risk-based dispatch
-            risk_level = self._assess_execution_risk(instruction)
-            if risk_level == "high":
-                logger.info(
-                    "dispatch_deferred reason=high_risk subtask=%s risk=%s",
-                    instruction.subtask_id[:20],
-                    risk_level,
-                )
-                return {"deferred": True, "risk_level": risk_level, "files_changed": []}
-            logger.info(
-                "dispatch_auto_approved reason=low_risk subtask=%s risk=%s",
-                instruction.subtask_id[:20],
-                risk_level,
-            )
+                decision = await gate.request_approval(instruction)
+
+                if decision == ApprovalDecision.REJECT:
+                    logger.info(
+                        "dispatch_rejected subtask=%s",
+                        instruction.subtask_id[:20],
+                    )
+                    return None
+                if decision == ApprovalDecision.DEFER:
+                    logger.info(
+                        "dispatch_deferred subtask=%s",
+                        instruction.subtask_id[:20],
+                    )
+                    return {"deferred": True, "risk_level": "high", "files_changed": []}
+                if decision == ApprovalDecision.SKIP:
+                    logger.info(
+                        "dispatch_skipped subtask=%s",
+                        instruction.subtask_id[:20],
+                    )
+                    return {"skipped": True, "files_changed": []}
+                # APPROVE: fall through to execution
+            except ImportError:
+                # Fallback to legacy gate if approval module unavailable
+                if not self.config.autonomous:
+                    logger.info(
+                        "dispatch_skipped reason=require_approval subtask=%s",
+                        instruction.subtask_id[:20],
+                    )
+                    return None
 
         try:
             import shutil
@@ -1330,27 +1412,74 @@ class SelfImprovePipeline:
                 tests_passed = test_result.get("passed", 0)
                 tests_failed = test_result.get("failed", 0)
 
+            # Parse cost from Claude Code output
+            cost_usd = self._parse_cost_from_output(stdout)
+            self._total_spend_usd += cost_usd
+
             logger.info(
-                "dispatch_completed subtask=%s files=%d tests=%d/%d",
+                "dispatch_completed subtask=%s files=%d tests=%d/%d cost=$%.4f",
                 instruction.subtask_id[:20],
                 len(files_changed),
                 tests_passed,
                 tests_passed + tests_failed,
+                cost_usd,
             )
+
+            # Check budget
+            if self._total_spend_usd > self.config.budget_limit_usd:
+                logger.warning(
+                    "budget_exceeded spend=%.2f limit=%.2f",
+                    self._total_spend_usd,
+                    self.config.budget_limit_usd,
+                )
+                raise BudgetExceededError(
+                    f"Spent ${self._total_spend_usd:.2f} of "
+                    f"${self.config.budget_limit_usd:.2f} budget"
+                )
 
             return {
                 "files_changed": files_changed,
                 "tests_passed": tests_passed,
                 "tests_failed": tests_failed,
                 "stdout_len": len(stdout),
+                "cost_usd": cost_usd,
             }
 
+        except BudgetExceededError:
+            raise  # Let budget errors propagate
         except ImportError as exc:
             logger.debug("ClaudeCodeHarness not available: %s", exc)
             return None
         except (RuntimeError, OSError, asyncio.TimeoutError) as exc:
             logger.warning("Claude Code dispatch failed: %s", exc)
             return None
+
+    @staticmethod
+    def _parse_cost_from_output(output: str) -> float:
+        """Parse cost from Claude Code CLI output.
+
+        Looks for patterns like ``Total cost: $0.42`` or token counts
+        to estimate cost.
+        """
+        import re
+
+        # Direct cost reporting: "Total cost: $X.XX"
+        m = re.search(r"(?:Total cost|Cost):\s*\$?([\d.]+)", output)
+        if m:
+            try:
+                return float(m.group(1))
+            except ValueError:
+                pass
+
+        # Estimate from token counts: "input=1234, output=5678"
+        m = re.search(r"input[=:]\s*(\d+).*?output[=:]\s*(\d+)", output)
+        if m:
+            input_tokens = int(m.group(1))
+            output_tokens = int(m.group(2))
+            # Rough estimate: $3/M input, $15/M output (Claude pricing)
+            return (input_tokens * 3 + output_tokens * 15) / 1_000_000
+
+        return 0.0
 
     async def _run_tests_in_worktree(
         self,
@@ -1577,6 +1706,33 @@ class SelfImprovePipeline:
                     )
             except (ImportError, RuntimeError, ValueError, TypeError) as exc:
                 logger.debug("MetaPlanner outcome recording skipped: %s", exc)
+
+            # Persist to KnowledgeMound for cross-cycle learning
+            try:
+                from aragora.pipeline.km_bridge import PipelineKMBridge
+
+                bridge = PipelineKMBridge()
+                if bridge.available:
+                    stored = bridge.store_pipeline_result({
+                        "cycle_id": cycle_id,
+                        "objective": result.objective,
+                        "success": (
+                            result.subtasks_completed > 0
+                            and result.subtasks_failed == 0
+                        ),
+                        "subtasks_completed": result.subtasks_completed,
+                        "subtasks_failed": result.subtasks_failed,
+                        "files_changed": result.files_changed,
+                        "improvement_score": result.improvement_score,
+                        "metrics_delta": result.metrics_delta,
+                        "duration_seconds": result.duration_seconds,
+                        "total_cost_usd": result.total_cost_usd,
+                    })
+                    if stored:
+                        result.km_persisted = True
+                        logger.info("km_bridge_persisted cycle=%s", cycle_id)
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
+                logger.debug("KM bridge persistence skipped: %s", exc)
 
         except ImportError as exc:
             logger.debug("Failed to persist cycle outcome (import): %s", exc)
