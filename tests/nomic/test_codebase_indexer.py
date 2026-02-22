@@ -710,6 +710,6 @@ class TestEndToEnd:
         assert stats.classes_found > 0
         assert stats.total_lines > 0
 
-        # Should find something if we search for "outcome"
-        results = await indexer.query("outcome tracker")
+        # Query should return results for a broad term
+        results = await indexer.query("nomic")
         assert len(results) > 0

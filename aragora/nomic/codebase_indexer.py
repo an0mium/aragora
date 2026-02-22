@@ -334,11 +334,16 @@ def _build_index_outcome(
             self._stats = stats
             self._modules = modules
             self._test_map = test_map
+            # Attributes required by NomicCycleAdapter._generate_cycle_id
+            self.objective = "Codebase structure indexing"
+            self.started_at = __import__("datetime").datetime.now(
+                tz=__import__("datetime").timezone.utc
+            )
 
         def to_dict(self) -> dict[str, Any]:
             return {
                 "cycle_id": "codebase_index",
-                "objective": "Codebase structure indexing",
+                "objective": self.objective,
                 "status": "success",
                 "stats": self._stats.to_dict(),
                 "modules": [m.to_km_entry() for m in self._modules[:100]],
