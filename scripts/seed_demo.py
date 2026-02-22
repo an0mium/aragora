@@ -63,6 +63,90 @@ RISKS = [
 TOURN_AGENTS = ["claude-opus", "gpt-4o", "gemini-pro", "mistral-large"]
 _DEMO_LIKE = "demo_%"
 
+PIPELINES = [
+    {
+        "id": "demo_pipeline_001",
+        "ideas": ["Implement rate limiting for API endpoints", "Add circuit breaker pattern"],
+        "goals": ["Reduce API abuse by 90%", "Improve system resilience under load"],
+        "status": "complete",
+        "duration": 127.3,
+    },
+    {
+        "id": "demo_pipeline_002",
+        "ideas": ["Migrate authentication to OIDC", "Add MFA support"],
+        "goals": ["Enterprise SSO compliance", "SOC 2 Type II alignment"],
+        "status": "complete",
+        "duration": 243.8,
+    },
+    {
+        "id": "demo_pipeline_003",
+        "ideas": ["Build customer health dashboard", "Add churn prediction"],
+        "goals": ["Reduce churn by 15%", "Proactive customer outreach"],
+        "status": "in_progress",
+        "duration": 89.1,
+    },
+    {
+        "id": "demo_pipeline_004",
+        "ideas": ["Evaluate GraphQL migration", "Schema federation design"],
+        "goals": ["Unified API gateway", "Reduce frontend API calls by 40%"],
+        "status": "complete",
+        "duration": 312.5,
+    },
+]
+
+RECEIPTS = [
+    {
+        "id": "demo_receipt_001",
+        "gauntlet_id": "demo_gauntlet_001",
+        "debate_id": "demo_debate_000",
+        "verdict": "APPROVED",
+        "confidence": 0.94,
+        "risk_level": "LOW",
+        "risk_score": 0.08,
+        "summary": "Microservices adoption approved with phased rollout plan",
+    },
+    {
+        "id": "demo_receipt_002",
+        "gauntlet_id": "demo_gauntlet_002",
+        "debate_id": "demo_debate_002",
+        "verdict": "APPROVED",
+        "confidence": 0.97,
+        "risk_level": "LOW",
+        "risk_score": 0.04,
+        "summary": "AI-generated code review requirement unanimously endorsed",
+    },
+    {
+        "id": "demo_receipt_003",
+        "gauntlet_id": "demo_gauntlet_003",
+        "debate_id": "demo_debate_003",
+        "verdict": "NEEDS_REVIEW",
+        "confidence": 0.52,
+        "risk_level": "MEDIUM",
+        "risk_score": 0.41,
+        "summary": "Build vs buy decision split — need cost analysis from finance",
+    },
+    {
+        "id": "demo_receipt_004",
+        "gauntlet_id": "demo_gauntlet_004",
+        "debate_id": "demo_debate_006",
+        "verdict": "APPROVED",
+        "confidence": 0.88,
+        "risk_level": "LOW",
+        "risk_score": 0.12,
+        "summary": "SDK open-sourcing approved with IP review completed",
+    },
+    {
+        "id": "demo_receipt_005",
+        "gauntlet_id": "demo_gauntlet_005",
+        "debate_id": "demo_debate_008",
+        "verdict": "REJECTED",
+        "confidence": 0.71,
+        "risk_level": "HIGH",
+        "risk_score": 0.67,
+        "summary": "90% coverage mandate rejected — diminishing returns analysis showed 80% optimal",
+    },
+]
+
 
 def _data_dir() -> Path:
     try:
@@ -356,6 +440,108 @@ def seed_tournament(clear: bool) -> int:
     return len(mgr.get_matches(tournament_id=tourn.tournament_id))
 
 
+# -- Seed pipelines --------------------------------------------------------
+def seed_pipelines(clear: bool) -> int:
+    try:
+        from aragora.storage.pipeline_store import get_pipeline_store
+    except ImportError:
+        logger.warning("PipelineResultStore not importable, skipping")
+        return 0
+    store = get_pipeline_store()
+    count = 0
+    for p in PIPELINES:
+        pid = p["id"]
+        existing = store.get(pid)
+        if existing and not clear:
+            continue
+        stages = ["ideas", "goals", "actions", "orchestration"]
+        if p["status"] == "complete":
+            stage_status = {s: "complete" for s in stages}
+        else:
+            stage_status = {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "in_progress",
+                "orchestration": "pending",
+            }
+        agents_used = random.sample([a[0] for a in AGENTS], random.randint(3, 5))
+        result_dict = {
+            "pipeline_id": pid,
+            "status": p["status"],
+            "stage_status": stage_status,
+            "ideas": [
+                {"id": f"{pid}_idea_{i}", "text": idea, "source": "demo", "confidence": round(random.uniform(0.7, 0.95), 2)}
+                for i, idea in enumerate(p["ideas"])
+            ],
+            "goals": [
+                {"id": f"{pid}_goal_{i}", "title": goal, "priority": i + 1, "confidence": round(random.uniform(0.75, 0.98), 2)}
+                for i, goal in enumerate(p["goals"])
+            ],
+            "actions": [
+                {"id": f"{pid}_action_{i}", "description": f"Implement: {goal}", "agent": agents_used[i % len(agents_used)], "status": "complete" if p["status"] == "complete" else "pending"}
+                for i, goal in enumerate(p["goals"])
+            ],
+            "orchestration": {
+                "agents": agents_used,
+                "parallel_tracks": min(len(agents_used), 3),
+                "completed": p["status"] == "complete",
+            },
+            "duration": p["duration"],
+            "created_at": _past(days=random.randint(1, 14)),
+            "metadata": {"demo": True},
+        }
+        store.save(pid, result_dict)
+        count += 1
+    return count
+
+
+# -- Seed decision receipts ------------------------------------------------
+def seed_receipts(clear: bool) -> int:
+    try:
+        from aragora.storage.receipt_store import get_receipt_store
+    except ImportError:
+        logger.warning("ReceiptStore not importable, skipping")
+        return 0
+    store = get_receipt_store()
+    count = 0
+    import hashlib
+
+    for r in RECEIPTS:
+        existing = store.get(r["id"])
+        if existing and not clear:
+            continue
+        agents_used = random.sample([a[0] for a in AGENTS], random.randint(3, 5))
+        created = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 21))
+        data = {
+            "receipt_id": r["id"],
+            "gauntlet_id": r["gauntlet_id"],
+            "debate_id": r["debate_id"],
+            "verdict": r["verdict"],
+            "confidence": r["confidence"],
+            "risk_level": r["risk_level"],
+            "risk_score": r["risk_score"],
+            "summary": r["summary"],
+            "agents_used": agents_used,
+            "findings_count": random.randint(2, 12),
+            "critical_findings": 0 if r["risk_level"] == "LOW" else random.randint(0, 2),
+            "created_at": created.isoformat(),
+            "expires_at": (created + timedelta(days=365)).isoformat(),
+            "provenance": {
+                "debate_rounds": 3,
+                "consensus_method": "supermajority",
+                "dissenting_agents": [] if r["confidence"] > 0.8 else [agents_used[-1]],
+            },
+        }
+        checksum = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+        data["checksum"] = checksum
+        try:
+            store.save(data)
+            count += 1
+        except Exception as exc:
+            logger.debug("Receipt save failed: %s", exc)
+    return count
+
+
 # -- Check ------------------------------------------------------------------
 def _safe_count(fn):
     try:
@@ -393,11 +579,24 @@ def check_data() -> dict[str, int]:
             [t for t in TournamentManager().list_tournaments(50) if t.name.startswith("Demo")]
         )
 
+    def _pipelines():
+        from aragora.storage.pipeline_store import get_pipeline_store
+
+        store = get_pipeline_store()
+        return len(store.list_pipelines(limit=50))
+
+    def _receipts():
+        from aragora.storage.receipt_store import get_receipt_store
+
+        return get_receipt_store().count()
+
     return {
         "agents": _safe_count(_agents),
         "debates": _safe_count(_debates),
         "trending": _safe_count(_trending),
         "tournaments": _safe_count(_tourn),
+        "pipelines": _safe_count(_pipelines),
+        "receipts": _safe_count(_receipts),
     }
 
 
@@ -422,6 +621,8 @@ def main() -> int:
         ("critique_debates", seed_critique_debates),
         ("trending_and_risks", seed_trending),
         ("tournament_matches", seed_tournament),
+        ("pipelines", seed_pipelines),
+        ("receipts", seed_receipts),
     ]
     r = {}
     for name, fn in steps:
