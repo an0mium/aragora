@@ -186,6 +186,57 @@ class SkillsAPI:
         return self._client.request("POST", f"/api/skills/{name}/invoke", json=data)
 
 
+    # =========================================================================
+    # Skills Marketplace
+    # =========================================================================
+
+    def marketplace_search(self, query: str, limit: int = 20) -> dict[str, Any]:
+        """
+        Search the skills marketplace.
+
+        Args:
+            query: Search query string.
+            limit: Maximum results.
+
+        Returns:
+            Dict with matching marketplace skills.
+        """
+        return self._client.request(
+            "GET", "/api/skills/marketplace/search",
+            params={"query": query, "limit": limit},
+        )
+
+    def marketplace_installed(self) -> dict[str, Any]:
+        """
+        List skills installed from the marketplace.
+
+        Returns:
+            Dict with list of installed marketplace skills.
+        """
+        return self._client.request("GET", "/api/skills/marketplace/installed")
+
+    def marketplace_publish(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Publish a skill to the marketplace.
+
+        Args:
+            **kwargs: Skill metadata (name, version, description, manifest, etc.)
+
+        Returns:
+            Dict with published skill details and marketplace ID.
+        """
+        return self._client.request("POST", "/api/skills/marketplace/publish", json=kwargs)
+
+    def marketplace_stats(self) -> dict[str, Any]:
+        """
+        Get skills marketplace statistics.
+
+        Returns:
+            Dict with total skills, downloads, categories, etc.
+        """
+        return self._client.request("GET", "/api/skills/marketplace/stats")
+
+
 class AsyncSkillsAPI:
     """
     Asynchronous Skills API.
@@ -261,3 +312,26 @@ class AsyncSkillsAPI:
         if timeout:
             data["timeout"] = timeout
         return await self._client.request("POST", f"/api/skills/{name}/invoke", json=data)
+
+    # =========================================================================
+    # Skills Marketplace
+    # =========================================================================
+
+    async def marketplace_search(self, query: str, limit: int = 20) -> dict[str, Any]:
+        """Search the skills marketplace."""
+        return await self._client.request(
+            "GET", "/api/skills/marketplace/search",
+            params={"query": query, "limit": limit},
+        )
+
+    async def marketplace_installed(self) -> dict[str, Any]:
+        """List skills installed from the marketplace."""
+        return await self._client.request("GET", "/api/skills/marketplace/installed")
+
+    async def marketplace_publish(self, **kwargs: Any) -> dict[str, Any]:
+        """Publish a skill to the marketplace."""
+        return await self._client.request("POST", "/api/skills/marketplace/publish", json=kwargs)
+
+    async def marketplace_stats(self) -> dict[str, Any]:
+        """Get skills marketplace statistics."""
+        return await self._client.request("GET", "/api/skills/marketplace/stats")

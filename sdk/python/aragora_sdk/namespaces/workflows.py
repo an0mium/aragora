@@ -287,6 +287,79 @@ class WorkflowsAPI:
         """Run a workflow template."""
         return self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")
 
+    # =========================================================================
+    # Generation & Validation
+    # =========================================================================
+
+    def auto_layout(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Auto-layout a workflow graph for visualization.
+
+        Args:
+            **kwargs: Workflow nodes and edges to layout.
+
+        Returns:
+            Dict with positioned nodes and edges.
+        """
+        return self._client.request("POST", "/api/workflows/auto-layout", json=kwargs)
+
+    def from_pattern(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Generate a workflow from a named pattern.
+
+        Args:
+            **kwargs: Pattern parameters (pattern_name, config, etc.)
+
+        Returns:
+            Dict with generated workflow definition.
+        """
+        return self._client.request("POST", "/api/workflows/from-pattern", json=kwargs)
+
+    def generate(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Generate a workflow from a natural-language description.
+
+        Args:
+            **kwargs: Generation parameters (description, constraints, etc.)
+
+        Returns:
+            Dict with AI-generated workflow definition.
+        """
+        return self._client.request("POST", "/api/workflows/generate", json=kwargs)
+
+    def list_step_types(self) -> dict[str, Any]:
+        """
+        List available workflow step types.
+
+        Returns:
+            Dict with step type definitions and their schemas.
+        """
+        return self._client.request("GET", "/api/workflows/step-types")
+
+    def validate(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Validate a workflow definition before execution.
+
+        Args:
+            **kwargs: Workflow definition to validate.
+
+        Returns:
+            Dict with validation result (valid, errors, warnings).
+        """
+        return self._client.request("POST", "/api/workflows/validate", json=kwargs)
+
+    def replay(self, workflow_id: str) -> dict[str, Any]:
+        """
+        Replay a completed workflow execution.
+
+        Args:
+            workflow_id: The workflow ID to replay.
+
+        Returns:
+            Dict with new execution details.
+        """
+        return self._client.request("POST", f"/api/workflows/{workflow_id}/replay")
+
 
 class AsyncWorkflowsAPI:
     """
@@ -458,3 +531,31 @@ class AsyncWorkflowsAPI:
     async def run_template(self, template_id: str) -> dict[str, Any]:
         """Run a workflow template."""
         return await self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")
+
+    # =========================================================================
+    # Generation & Validation
+    # =========================================================================
+
+    async def auto_layout(self, **kwargs: Any) -> dict[str, Any]:
+        """Auto-layout a workflow graph for visualization."""
+        return await self._client.request("POST", "/api/workflows/auto-layout", json=kwargs)
+
+    async def from_pattern(self, **kwargs: Any) -> dict[str, Any]:
+        """Generate a workflow from a named pattern."""
+        return await self._client.request("POST", "/api/workflows/from-pattern", json=kwargs)
+
+    async def generate(self, **kwargs: Any) -> dict[str, Any]:
+        """Generate a workflow from a natural-language description."""
+        return await self._client.request("POST", "/api/workflows/generate", json=kwargs)
+
+    async def list_step_types(self) -> dict[str, Any]:
+        """List available workflow step types."""
+        return await self._client.request("GET", "/api/workflows/step-types")
+
+    async def validate(self, **kwargs: Any) -> dict[str, Any]:
+        """Validate a workflow definition before execution."""
+        return await self._client.request("POST", "/api/workflows/validate", json=kwargs)
+
+    async def replay(self, workflow_id: str) -> dict[str, Any]:
+        """Replay a completed workflow execution."""
+        return await self._client.request("POST", f"/api/workflows/{workflow_id}/replay")

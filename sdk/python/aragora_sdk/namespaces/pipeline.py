@@ -137,16 +137,134 @@ class PipelineAPI:
         )
 
     def approve_transition(
-        self, pipeline_id: str, *, approved: bool = True, notes: str | None = None,
+        self,
+        pipeline_id: str,
+        from_stage: str,
+        to_stage: str,
+        *,
+        approved: bool = True,
+        comment: str | None = None,
     ) -> dict[str, Any]:
-        """Approve or reject a pending stage transition."""
-        payload: dict[str, Any] = {"approved": approved}
-        if notes:
-            payload["notes"] = notes
+        """Approve or reject a pending stage transition.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            from_stage: Source stage of the transition
+            to_stage: Target stage of the transition
+            approved: If True, approve; if False, reject
+            comment: Optional comment explaining the decision
+        """
+        payload: dict[str, Any] = {
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "approved": approved,
+        }
+        if comment:
+            payload["comment"] = comment
         return self._client.request(
             "POST",
             f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
             json=payload,
+        )
+
+    def from_braindump(
+        self,
+        text: str,
+        *,
+        context: str | None = None,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a raw text braindump.
+
+        Parses unstructured text into ideas, then processes through
+        the full pipeline.
+
+        Args:
+            text: Raw text to parse into ideas
+            context: Optional context for idea extraction
+            auto_advance: If True, advance through all stages
+        """
+        payload: dict[str, Any] = {
+            "text": text,
+            "auto_advance": auto_advance,
+        }
+        if context:
+            payload["context"] = context
+        return self._client.request(
+            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+        )
+
+    def from_template(
+        self,
+        template_name: str,
+        *,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Run pipeline from a named template.
+
+        Args:
+            template_name: Name of the pipeline template
+            auto_advance: If True, advance through all stages
+        """
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-template",
+            json={
+                "template_name": template_name,
+                "auto_advance": auto_advance,
+            },
+        )
+
+    def execute(
+        self,
+        pipeline_id: str,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Execute a pipeline's orchestration stage.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            dry_run: If True, return execution plan without running
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/execute",
+            json={"dry_run": dry_run},
+        )
+
+    def list_templates(self, *, category: str | None = None) -> dict[str, Any]:
+        """List available pipeline templates.
+
+        Args:
+            category: Optional category filter
+        """
+        params = {"category": category} if category else {}
+        return self._client.request(
+            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+        )
+
+    def debate_to_pipeline(
+        self,
+        debate_id: str,
+        *,
+        use_universal: bool = False,
+        auto_advance: bool = True,
+    ) -> dict[str, Any]:
+        """Convert an existing debate into a pipeline.
+
+        Args:
+            debate_id: ID of the debate to convert
+            use_universal: If True, build universal execution graph
+            auto_advance: If True, advance through all stages
+        """
+        return self._client.request(
+            "POST",
+            f"/api/v1/debates/{debate_id}/to-pipeline",
+            json={
+                "use_universal": use_universal,
+                "auto_advance": auto_advance,
+            },
         )
 
     def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:

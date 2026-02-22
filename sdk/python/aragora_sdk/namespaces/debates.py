@@ -520,6 +520,91 @@ class DebatesAPI:
         """Get streaming info for a debate."""
         return self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
 
+    # ========== Stats & Diagnostics ==========
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get debate stats (active, completed, consensus rate, etc.)."""
+        return self._client.request("GET", "/api/debates/stats")
+
+    def get_agent_stats(self) -> dict[str, Any]:
+        """Get per-agent debate statistics."""
+        return self._client.request("GET", "/api/debates/stats/agents")
+
+    def get_diagnostics(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get diagnostics for a debate (timing, token usage, errors).
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with diagnostic data for debugging.
+        """
+        return self._client.request("GET", f"/api/debates/{debate_id}/diagnostics")
+
+    # ========== Package & Share ==========
+
+    def get_package(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get a portable debate package (receipt + transcript + evidence).
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with full debate package.
+        """
+        return self._client.request("GET", f"/api/debates/{debate_id}/package")
+
+    def get_package_markdown(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get a debate package in Markdown format.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with markdown-formatted debate package.
+        """
+        return self._client.request("GET", f"/api/debates/{debate_id}/package/markdown")
+
+    def share(self, debate_id: str, **kwargs: Any) -> dict[str, Any]:
+        """
+        Create a shareable link for a debate.
+
+        Args:
+            debate_id: The debate ID.
+            **kwargs: Share options (expiry, permissions, etc.)
+
+        Returns:
+            Dict with share URL and token.
+        """
+        return self._client.request("POST", f"/api/debates/{debate_id}/share", json=kwargs)
+
+    def revoke_share(self, debate_id: str) -> dict[str, Any]:
+        """
+        Revoke a shared debate link.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with revocation confirmation.
+        """
+        return self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
+
+    def get_public_spectate(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get the public spectate view for a debate.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with public spectate data (no auth required).
+        """
+        return self._client.request("GET", f"/api/debates/{debate_id}/spectate/public")
+
     # ========== One-Click Debate ==========
 
     def debate_this(
@@ -1042,6 +1127,41 @@ class AsyncDebatesAPI:
     async def stream_debate(self, debate_id: str) -> dict[str, Any]:
         """Get streaming info for a debate."""
         return await self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
+
+    # ========== Stats & Diagnostics ==========
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get debate stats."""
+        return await self._client.request("GET", "/api/debates/stats")
+
+    async def get_agent_stats(self) -> dict[str, Any]:
+        """Get per-agent debate statistics."""
+        return await self._client.request("GET", "/api/debates/stats/agents")
+
+    async def get_diagnostics(self, debate_id: str) -> dict[str, Any]:
+        """Get diagnostics for a debate."""
+        return await self._client.request("GET", f"/api/debates/{debate_id}/diagnostics")
+
+    # Package & Share
+    async def get_package(self, debate_id: str) -> dict[str, Any]:
+        """Get a portable debate package."""
+        return await self._client.request("GET", f"/api/debates/{debate_id}/package")
+
+    async def get_package_markdown(self, debate_id: str) -> dict[str, Any]:
+        """Get a debate package in Markdown format."""
+        return await self._client.request("GET", f"/api/debates/{debate_id}/package/markdown")
+
+    async def share(self, debate_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Create a shareable link for a debate."""
+        return await self._client.request("POST", f"/api/debates/{debate_id}/share", json=kwargs)
+
+    async def revoke_share(self, debate_id: str) -> dict[str, Any]:
+        """Revoke a shared debate link."""
+        return await self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
+
+    async def get_public_spectate(self, debate_id: str) -> dict[str, Any]:
+        """Get the public spectate view for a debate."""
+        return await self._client.request("GET", f"/api/debates/{debate_id}/spectate/public")
 
     # ========== One-Click Debate ==========
 

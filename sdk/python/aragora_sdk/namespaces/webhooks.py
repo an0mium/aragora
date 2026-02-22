@@ -119,6 +119,27 @@ class WebhooksAPI:
         """Resume all webhooks."""
         return self._client.request("POST", "/api/v1/webhooks/resume-all")
 
+    def dispatch(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Manually dispatch a webhook event.
+
+        Args:
+            **kwargs: Event parameters (event_type, payload, webhook_id, etc.)
+
+        Returns:
+            Dict with dispatch result and delivery status.
+        """
+        return self._client.request("POST", "/api/webhooks/dispatch", json=kwargs)
+
+    def list_platforms(self) -> dict[str, Any]:
+        """
+        List supported webhook platform integrations.
+
+        Returns:
+            Dict with supported platforms and their capabilities.
+        """
+        return self._client.request("GET", "/api/webhooks/platforms")
+
 
 class AsyncWebhooksAPI:
     """
@@ -194,3 +215,11 @@ class AsyncWebhooksAPI:
     async def resume_all(self) -> dict[str, Any]:
         """Resume all webhooks."""
         return await self._client.request("POST", "/api/v1/webhooks/resume-all")
+
+    async def dispatch(self, **kwargs: Any) -> dict[str, Any]:
+        """Manually dispatch a webhook event."""
+        return await self._client.request("POST", "/api/webhooks/dispatch", json=kwargs)
+
+    async def list_platforms(self) -> dict[str, Any]:
+        """List supported webhook platform integrations."""
+        return await self._client.request("GET", "/api/webhooks/platforms")

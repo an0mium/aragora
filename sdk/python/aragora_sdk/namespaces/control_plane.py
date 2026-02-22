@@ -187,6 +187,101 @@ class ControlPlaneAPI:
         """Get notification statistics."""
         return self._client.request("GET", "/api/control-plane/notifications/stats")
 
+    # =========================================================================
+    # Agent Metrics / Pause / Resume
+    # =========================================================================
+
+    def get_agent_metrics(self, agent_id: str) -> dict[str, Any]:
+        """Get metrics for a specific agent."""
+        return self._client.request("GET", f"/api/control-plane/agents/{agent_id}/metrics")
+
+    def pause_agent(self, agent_id: str) -> dict[str, Any]:
+        """Pause an agent."""
+        return self._client.request("POST", f"/api/control-plane/agents/{agent_id}/pause")
+
+    def resume_agent(self, agent_id: str) -> dict[str, Any]:
+        """Resume a paused agent."""
+        return self._client.request("POST", f"/api/control-plane/agents/{agent_id}/resume")
+
+    # =========================================================================
+    # Audit Logs
+    # =========================================================================
+
+    def get_audit_logs(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get control plane audit logs."""
+        return self._client.request(
+            "GET", "/api/control-plane/audit-logs",
+            params={"limit": limit, "offset": offset},
+        )
+
+    # =========================================================================
+    # Deliberation Transcript
+    # =========================================================================
+
+    def get_deliberation_transcript(self, request_id: str) -> dict[str, Any]:
+        """
+        Get the full transcript of a deliberation.
+
+        Args:
+            request_id: Deliberation request identifier.
+
+        Returns:
+            Dict with full deliberation transcript including all rounds.
+        """
+        return self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/transcript")
+
+    # =========================================================================
+    # System & Task Metrics
+    # =========================================================================
+
+    def get_system_metrics(self) -> dict[str, Any]:
+        """Get system-wide metrics (CPU, memory, throughput)."""
+        return self._client.request("GET", "/api/control-plane/metrics/system")
+
+    def get_task_metrics(self) -> dict[str, Any]:
+        """Get task-level metrics (completion rate, avg duration)."""
+        return self._client.request("GET", "/api/control-plane/metrics/tasks")
+
+    # =========================================================================
+    # Policies
+    # =========================================================================
+
+    def list_policies(self) -> dict[str, Any]:
+        """List control plane policies."""
+        return self._client.request("GET", "/api/control-plane/policies")
+
+    def create_policy(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a control plane policy."""
+        return self._client.request("POST", "/api/control-plane/policies", json=kwargs)
+
+    # =========================================================================
+    # Queue Prioritization
+    # =========================================================================
+
+    def prioritize_queue(self, **kwargs: Any) -> dict[str, Any]:
+        """Reprioritize tasks in the control plane queue."""
+        return self._client.request("POST", "/api/control-plane/queue/prioritize", json=kwargs)
+
+    # =========================================================================
+    # Schedules
+    # =========================================================================
+
+    def list_schedules(self) -> dict[str, Any]:
+        """List control plane task schedules."""
+        return self._client.request("GET", "/api/control-plane/schedules")
+
+    def create_schedule(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a control plane task schedule."""
+        return self._client.request("POST", "/api/control-plane/schedules", json=kwargs)
+
+    # =========================================================================
+    # Stream
+    # =========================================================================
+
+    def get_stream_info(self) -> dict[str, Any]:
+        """Get SSE/WebSocket stream info for control plane events."""
+        return self._client.request("GET", "/api/control-plane/stream")
+
 
 class AsyncControlPlaneAPI:
     """Asynchronous Control Plane API."""
@@ -321,3 +416,66 @@ class AsyncControlPlaneAPI:
     async def get_notification_stats(self) -> dict[str, Any]:
         """Get notification statistics."""
         return await self._client.request("GET", "/api/control-plane/notifications/stats")
+
+    # Agent Metrics / Pause / Resume
+    async def get_agent_metrics(self, agent_id: str) -> dict[str, Any]:
+        """Get metrics for a specific agent."""
+        return await self._client.request("GET", f"/api/control-plane/agents/{agent_id}/metrics")
+
+    async def pause_agent(self, agent_id: str) -> dict[str, Any]:
+        """Pause an agent."""
+        return await self._client.request("POST", f"/api/control-plane/agents/{agent_id}/pause")
+
+    async def resume_agent(self, agent_id: str) -> dict[str, Any]:
+        """Resume a paused agent."""
+        return await self._client.request("POST", f"/api/control-plane/agents/{agent_id}/resume")
+
+    # Audit Logs
+    async def get_audit_logs(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get control plane audit logs."""
+        return await self._client.request(
+            "GET", "/api/control-plane/audit-logs",
+            params={"limit": limit, "offset": offset},
+        )
+
+    # Deliberation Transcript
+    async def get_deliberation_transcript(self, request_id: str) -> dict[str, Any]:
+        """Get the full transcript of a deliberation."""
+        return await self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/transcript")
+
+    # System & Task Metrics
+    async def get_system_metrics(self) -> dict[str, Any]:
+        """Get system-wide metrics."""
+        return await self._client.request("GET", "/api/control-plane/metrics/system")
+
+    async def get_task_metrics(self) -> dict[str, Any]:
+        """Get task-level metrics."""
+        return await self._client.request("GET", "/api/control-plane/metrics/tasks")
+
+    # Policies
+    async def list_policies(self) -> dict[str, Any]:
+        """List control plane policies."""
+        return await self._client.request("GET", "/api/control-plane/policies")
+
+    async def create_policy(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a control plane policy."""
+        return await self._client.request("POST", "/api/control-plane/policies", json=kwargs)
+
+    # Queue Prioritization
+    async def prioritize_queue(self, **kwargs: Any) -> dict[str, Any]:
+        """Reprioritize tasks in the control plane queue."""
+        return await self._client.request("POST", "/api/control-plane/queue/prioritize", json=kwargs)
+
+    # Schedules
+    async def list_schedules(self) -> dict[str, Any]:
+        """List control plane task schedules."""
+        return await self._client.request("GET", "/api/control-plane/schedules")
+
+    async def create_schedule(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a control plane task schedule."""
+        return await self._client.request("POST", "/api/control-plane/schedules", json=kwargs)
+
+    # Stream
+    async def get_stream_info(self) -> dict[str, Any]:
+        """Get SSE/WebSocket stream info for control plane events."""
+        return await self._client.request("GET", "/api/control-plane/stream")

@@ -34,10 +34,7 @@ logger = logging.getLogger(__name__)
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from aragora.modes import register_all_builtins
-
-# Ensure built-in modes are registered
-register_all_builtins()
+# Built-in modes registered lazily inside main() to avoid import-time hang
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -107,6 +104,11 @@ from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS  # 
 
 
 def main() -> None:
+    # Register built-in modes here (not at module level) to avoid import-time hang
+    from aragora.modes import register_all_builtins
+
+    register_all_builtins()
+
     parser = build_parser()
     args = parser.parse_args()
 

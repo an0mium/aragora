@@ -54,6 +54,26 @@ class NotificationsAPI:
         """Send a test notification."""
         return self._client.request("POST", "/api/v1/notifications/test", json=kwargs)
 
+    def get_delivery_stats(self) -> dict[str, Any]:
+        """Get notification delivery statistics (success rate, latency, failures)."""
+        return self._client.request("GET", "/api/notifications/delivery-stats")
+
+    def get_preferences(self) -> dict[str, Any]:
+        """Get notification preferences for the current user."""
+        return self._client.request("GET", "/api/notifications/preferences")
+
+    def update_preferences(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Update notification preferences.
+
+        Args:
+            **kwargs: Preferences (channels, frequency, quiet_hours, etc.)
+
+        Returns:
+            Dict with updated preferences.
+        """
+        return self._client.request("PUT", "/api/notifications/preferences", json=kwargs)
+
 
 class AsyncNotificationsAPI:
     """Asynchronous Notifications API."""
@@ -96,3 +116,15 @@ class AsyncNotificationsAPI:
     async def test(self, **kwargs: Any) -> dict[str, Any]:
         """Send a test notification."""
         return await self._client.request("POST", "/api/v1/notifications/test", json=kwargs)
+
+    async def get_delivery_stats(self) -> dict[str, Any]:
+        """Get notification delivery statistics."""
+        return await self._client.request("GET", "/api/notifications/delivery-stats")
+
+    async def get_preferences(self) -> dict[str, Any]:
+        """Get notification preferences for the current user."""
+        return await self._client.request("GET", "/api/notifications/preferences")
+
+    async def update_preferences(self, **kwargs: Any) -> dict[str, Any]:
+        """Update notification preferences."""
+        return await self._client.request("PUT", "/api/notifications/preferences", json=kwargs)

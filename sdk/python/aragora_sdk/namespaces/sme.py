@@ -121,6 +121,141 @@ class SMEAPI:
         return self._client.request("POST", f"/api/v1/sme/slack/workspaces/{workspace_id}/test")
 
     # ===========================================================================
+    # Budget Check
+    # ===========================================================================
+
+    def check_budget(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Check if an action is within budget.
+
+        Args:
+            **kwargs: Check parameters (amount, category, etc.)
+
+        Returns:
+            Dict with allowed status, remaining budget, and warnings.
+        """
+        return self._client.request("POST", "/api/sme/budgets/check", json=kwargs)
+
+    # ===========================================================================
+    # Receipt Delivery
+    # ===========================================================================
+
+    def get_delivery_config(self) -> dict[str, Any]:
+        """Get receipt delivery configuration."""
+        return self._client.request("GET", "/api/sme/receipts/delivery/config")
+
+    def update_delivery_config(self, **kwargs: Any) -> dict[str, Any]:
+        """Update receipt delivery configuration."""
+        return self._client.request("PUT", "/api/sme/receipts/delivery/config", json=kwargs)
+
+    def get_delivery_history(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """Get receipt delivery history."""
+        return self._client.request(
+            "GET", "/api/sme/receipts/delivery/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_delivery_stats(self) -> dict[str, Any]:
+        """Get receipt delivery statistics."""
+        return self._client.request("GET", "/api/sme/receipts/delivery/stats")
+
+    def test_delivery(self, **kwargs: Any) -> dict[str, Any]:
+        """Send a test receipt delivery."""
+        return self._client.request("POST", "/api/sme/receipts/delivery/test", json=kwargs)
+
+    # ===========================================================================
+    # Slack Channels (non-versioned)
+    # ===========================================================================
+
+    def list_slack_channels_unversioned(self) -> dict[str, Any]:
+        """List available Slack channels (non-versioned path)."""
+        return self._client.request("GET", "/api/sme/slack/channels")
+
+    # ===========================================================================
+    # Success Metrics
+    # ===========================================================================
+
+    def get_success_overview(self) -> dict[str, Any]:
+        """Get overall SME success metrics."""
+        return self._client.request("GET", "/api/sme/success")
+
+    def get_success_cfo(self) -> dict[str, Any]:
+        """Get CFO-oriented success metrics (cost savings, ROI)."""
+        return self._client.request("GET", "/api/sme/success/cfo")
+
+    def get_success_hr(self) -> dict[str, Any]:
+        """Get HR-oriented success metrics (time saved, adoption)."""
+        return self._client.request("GET", "/api/sme/success/hr")
+
+    def get_success_insights(self) -> dict[str, Any]:
+        """Get AI-generated success insights and recommendations."""
+        return self._client.request("GET", "/api/sme/success/insights")
+
+    def get_success_milestones(self) -> dict[str, Any]:
+        """Get achieved and upcoming success milestones."""
+        return self._client.request("GET", "/api/sme/success/milestones")
+
+    def get_success_pm(self) -> dict[str, Any]:
+        """Get PM-oriented success metrics (decisions made, velocity)."""
+        return self._client.request("GET", "/api/sme/success/pm")
+
+    # ===========================================================================
+    # Teams Integration
+    # ===========================================================================
+
+    def list_teams_channels(self) -> dict[str, Any]:
+        """List Microsoft Teams channels."""
+        return self._client.request("GET", "/api/sme/teams/channels")
+
+    def teams_oauth_callback(self, **kwargs: Any) -> dict[str, Any]:
+        """Handle Microsoft Teams OAuth callback."""
+        return self._client.request("POST", "/api/sme/teams/oauth/callback", json=kwargs)
+
+    def teams_oauth_start(self) -> dict[str, Any]:
+        """Start Microsoft Teams OAuth flow."""
+        return self._client.request("GET", "/api/sme/teams/oauth/start")
+
+    def teams_subscribe(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a Microsoft Teams subscription for notifications."""
+        return self._client.request("POST", "/api/sme/teams/subscribe", json=kwargs)
+
+    def list_teams_subscriptions(self) -> dict[str, Any]:
+        """List Microsoft Teams subscriptions."""
+        return self._client.request("GET", "/api/sme/teams/subscriptions")
+
+    def list_teams_tenants(self) -> dict[str, Any]:
+        """List connected Microsoft Teams tenants."""
+        return self._client.request("GET", "/api/sme/teams/tenants")
+
+    def list_teams_workspaces(self) -> dict[str, Any]:
+        """List Microsoft Teams workspaces."""
+        return self._client.request("GET", "/api/sme/teams/workspaces")
+
+    # ===========================================================================
+    # Workflows
+    # ===========================================================================
+
+    def list_workflows(self) -> dict[str, Any]:
+        """List SME-specific pre-built workflows."""
+        return self._client.request("GET", "/api/sme/workflows")
+
+    def execute_workflow(self, workflow_name: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+        """
+        Execute an SME workflow by name.
+
+        Args:
+            workflow_name: Name of the workflow to execute.
+            inputs: Input parameters for the workflow.
+
+        Returns:
+            Execution result.
+        """
+        data: dict[str, Any] = {"workflow": workflow_name}
+        if inputs:
+            data["inputs"] = inputs
+        return self._client.request("POST", "/api/sme/workflows", json=data)
+
+    # ===========================================================================
     # Quick Helpers
     # ===========================================================================
 
@@ -295,6 +430,121 @@ class AsyncSMEAPI:
     async def test_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Test a Slack workspace connection."""
         return await self._client.request("POST", f"/api/v1/sme/slack/workspaces/{workspace_id}/test")
+
+    # ===========================================================================
+    # Budget Check
+    # ===========================================================================
+
+    async def check_budget(self, **kwargs: Any) -> dict[str, Any]:
+        """Check if an action is within budget."""
+        return await self._client.request("POST", "/api/sme/budgets/check", json=kwargs)
+
+    # ===========================================================================
+    # Receipt Delivery
+    # ===========================================================================
+
+    async def get_delivery_config(self) -> dict[str, Any]:
+        """Get receipt delivery configuration."""
+        return await self._client.request("GET", "/api/sme/receipts/delivery/config")
+
+    async def update_delivery_config(self, **kwargs: Any) -> dict[str, Any]:
+        """Update receipt delivery configuration."""
+        return await self._client.request("PUT", "/api/sme/receipts/delivery/config", json=kwargs)
+
+    async def get_delivery_history(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """Get receipt delivery history."""
+        return await self._client.request(
+            "GET", "/api/sme/receipts/delivery/history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_delivery_stats(self) -> dict[str, Any]:
+        """Get receipt delivery statistics."""
+        return await self._client.request("GET", "/api/sme/receipts/delivery/stats")
+
+    async def test_delivery(self, **kwargs: Any) -> dict[str, Any]:
+        """Send a test receipt delivery."""
+        return await self._client.request("POST", "/api/sme/receipts/delivery/test", json=kwargs)
+
+    # Slack Channels (non-versioned)
+    async def list_slack_channels_unversioned(self) -> dict[str, Any]:
+        """List available Slack channels (non-versioned path)."""
+        return await self._client.request("GET", "/api/sme/slack/channels")
+
+    # ===========================================================================
+    # Success Metrics
+    # ===========================================================================
+
+    async def get_success_overview(self) -> dict[str, Any]:
+        """Get overall SME success metrics."""
+        return await self._client.request("GET", "/api/sme/success")
+
+    async def get_success_cfo(self) -> dict[str, Any]:
+        """Get CFO-oriented success metrics."""
+        return await self._client.request("GET", "/api/sme/success/cfo")
+
+    async def get_success_hr(self) -> dict[str, Any]:
+        """Get HR-oriented success metrics."""
+        return await self._client.request("GET", "/api/sme/success/hr")
+
+    async def get_success_insights(self) -> dict[str, Any]:
+        """Get AI-generated success insights."""
+        return await self._client.request("GET", "/api/sme/success/insights")
+
+    async def get_success_milestones(self) -> dict[str, Any]:
+        """Get achieved and upcoming success milestones."""
+        return await self._client.request("GET", "/api/sme/success/milestones")
+
+    async def get_success_pm(self) -> dict[str, Any]:
+        """Get PM-oriented success metrics."""
+        return await self._client.request("GET", "/api/sme/success/pm")
+
+    # ===========================================================================
+    # Teams Integration
+    # ===========================================================================
+
+    async def list_teams_channels(self) -> dict[str, Any]:
+        """List Microsoft Teams channels."""
+        return await self._client.request("GET", "/api/sme/teams/channels")
+
+    async def teams_oauth_callback(self, **kwargs: Any) -> dict[str, Any]:
+        """Handle Microsoft Teams OAuth callback."""
+        return await self._client.request("POST", "/api/sme/teams/oauth/callback", json=kwargs)
+
+    async def teams_oauth_start(self) -> dict[str, Any]:
+        """Start Microsoft Teams OAuth flow."""
+        return await self._client.request("GET", "/api/sme/teams/oauth/start")
+
+    async def teams_subscribe(self, **kwargs: Any) -> dict[str, Any]:
+        """Create a Microsoft Teams subscription."""
+        return await self._client.request("POST", "/api/sme/teams/subscribe", json=kwargs)
+
+    async def list_teams_subscriptions(self) -> dict[str, Any]:
+        """List Microsoft Teams subscriptions."""
+        return await self._client.request("GET", "/api/sme/teams/subscriptions")
+
+    async def list_teams_tenants(self) -> dict[str, Any]:
+        """List connected Microsoft Teams tenants."""
+        return await self._client.request("GET", "/api/sme/teams/tenants")
+
+    async def list_teams_workspaces(self) -> dict[str, Any]:
+        """List Microsoft Teams workspaces."""
+        return await self._client.request("GET", "/api/sme/teams/workspaces")
+
+    # ===========================================================================
+    # Workflows
+    # ===========================================================================
+
+    async def list_workflows(self) -> dict[str, Any]:
+        """List SME-specific pre-built workflows."""
+        return await self._client.request("GET", "/api/sme/workflows")
+
+    async def execute_workflow(self, workflow_name: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Execute an SME workflow by name."""
+        data: dict[str, Any] = {"workflow": workflow_name}
+        if inputs:
+            data["inputs"] = inputs
+        return await self._client.request("POST", "/api/sme/workflows", json=data)
 
     # ===========================================================================
     # Quick Helpers

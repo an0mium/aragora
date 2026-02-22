@@ -114,6 +114,43 @@ class ReceiptsAPI:
         )
 
     # =========================================================================
+    # Receipt Search & Stats
+    # =========================================================================
+
+    def search(
+        self,
+        query: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Search receipts.
+
+        Args:
+            query: Search query string.
+            limit: Maximum results.
+            offset: Pagination offset.
+            **kwargs: Additional filters (date_from, date_to, verdict, etc.)
+
+        Returns:
+            Dict with matching receipts and pagination info.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
+        if query:
+            params["query"] = query
+        return self._client.request("GET", "/api/receipts/search", params=params)
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get receipt statistics (totals, verdicts, trends).
+
+        Returns:
+            Dict with receipt stats and breakdowns.
+        """
+        return self._client.request("GET", "/api/receipts/stats")
+
+    # =========================================================================
     # Helper Methods
     # =========================================================================
 
@@ -195,6 +232,24 @@ class AsyncReceiptsAPI:
             "POST",
             f"/api/v2/gauntlet/{receipt_id}/receipt/verify",
         )
+
+    # Receipt Search & Stats
+    async def search(
+        self,
+        query: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Search receipts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
+        if query:
+            params["query"] = query
+        return await self._client.request("GET", "/api/receipts/search", params=params)
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get receipt statistics."""
+        return await self._client.request("GET", "/api/receipts/stats")
 
     async def export_gauntlet(
         self,

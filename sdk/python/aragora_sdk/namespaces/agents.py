@@ -317,6 +317,46 @@ class AgentsAPI:
         """Get biggest movers on the leaderboard."""
         return self._client.request("GET", "/api/v1/leaderboard/movers", params={"period": period})
 
+    # =========================================================================
+    # Feedback & Recommendations
+    # =========================================================================
+
+    def get_feedback_metrics(self) -> dict[str, Any]:
+        """Get aggregate feedback metrics across all agents."""
+        return self._client.request("GET", "/api/agents/feedback/metrics")
+
+    def get_feedback_states(self) -> dict[str, Any]:
+        """Get current feedback loop states for all agents."""
+        return self._client.request("GET", "/api/agents/feedback/states")
+
+    def get_agent_leaderboard(self) -> dict[str, Any]:
+        """Get the agents leaderboard (non-versioned path)."""
+        return self._client.request("GET", "/api/agents/leaderboard")
+
+    def recommend_agents(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Get agent recommendations for a given task.
+
+        Args:
+            **kwargs: Recommendation parameters (task, domain, num_agents, etc.)
+
+        Returns:
+            Dict with recommended agents and reasoning.
+        """
+        return self._client.request("POST", "/api/agents/recommend", json=kwargs)
+
+    def get_feedback_domains(self, agent_id: str) -> dict[str, Any]:
+        """
+        Get feedback domain breakdown for a specific agent.
+
+        Args:
+            agent_id: The agent identifier.
+
+        Returns:
+            Dict with per-domain feedback scores and counts.
+        """
+        return self._client.request("GET", f"/api/agents/{agent_id}/feedback/domains")
+
 
 class AsyncAgentsAPI:
     """
@@ -563,3 +603,27 @@ class AsyncAgentsAPI:
     async def get_leaderboard_movers(self, period: str = "7d") -> dict[str, Any]:
         """Get biggest movers on the leaderboard."""
         return await self._client.request("GET", "/api/v1/leaderboard/movers", params={"period": period})
+
+    # =========================================================================
+    # Feedback & Recommendations
+    # =========================================================================
+
+    async def get_feedback_metrics(self) -> dict[str, Any]:
+        """Get aggregate feedback metrics across all agents."""
+        return await self._client.request("GET", "/api/agents/feedback/metrics")
+
+    async def get_feedback_states(self) -> dict[str, Any]:
+        """Get current feedback loop states for all agents."""
+        return await self._client.request("GET", "/api/agents/feedback/states")
+
+    async def get_agent_leaderboard(self) -> dict[str, Any]:
+        """Get the agents leaderboard (non-versioned path)."""
+        return await self._client.request("GET", "/api/agents/leaderboard")
+
+    async def recommend_agents(self, **kwargs: Any) -> dict[str, Any]:
+        """Get agent recommendations for a given task."""
+        return await self._client.request("POST", "/api/agents/recommend", json=kwargs)
+
+    async def get_feedback_domains(self, agent_id: str) -> dict[str, Any]:
+        """Get feedback domain breakdown for a specific agent."""
+        return await self._client.request("GET", f"/api/agents/{agent_id}/feedback/domains")
