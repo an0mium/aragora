@@ -768,7 +768,9 @@ class GauntletRunner:
 
     async def _default_run_agent(self, agent, prompt: str) -> str:
         """Default agent runner (placeholder)."""
-        if hasattr(agent, "run"):
+        if hasattr(agent, "generate") and callable(agent.generate):
+            return await agent.generate(prompt, [])
+        if hasattr(agent, "run") and callable(agent.run):
             return await agent.run(prompt)
         return f"[No response - agent {agent} not callable]"
 
