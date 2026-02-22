@@ -1578,10 +1578,6 @@ class IdeaToExecutionPipeline:
 
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
 
-        # Inject strategic hints as metadata for downstream consumers
-        if strategic_hints:
-            result.goal_graph.metadata["strategic_hints"] = strategic_hints[:6]
-
         # Detect conflicts between goals
         try:
             conflicts = self._goal_extractor.detect_goal_conflicts(result.goal_graph)

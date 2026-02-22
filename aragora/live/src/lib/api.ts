@@ -8,6 +8,20 @@ import { API_BASE_URL } from '@/config';
 // Default API base URL - resolved from config (handles production vs development)
 const DEFAULT_API_BASE = API_BASE_URL;
 
+const TOKENS_KEY = 'aragora_tokens';
+
+/** Read the access token from localStorage (same key used by AuthContext). */
+function getAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(TOKENS_KEY);
+  if (!stored) return null;
+  try {
+    return (JSON.parse(stored) as { access_token?: string }).access_token || null;
+  } catch {
+    return null;
+  }
+}
+
 interface ApiFetchOptions extends RequestInit {
   baseUrl?: string;
 }
@@ -46,11 +60,15 @@ export async function apiFetch<T = unknown>(
     url = `${baseUrl}/${path}`;
   }
 
-  // Set default headers
-  const headers: HeadersInit = {
+  // Set default headers and inject auth token when available
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string>),
   };
+  const token = getAccessToken();
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     ...fetchOptions,
