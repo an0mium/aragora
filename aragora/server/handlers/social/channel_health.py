@@ -34,8 +34,8 @@ class ChannelHealthHandler:
     """
 
     ROUTES = [
-        ("GET", "/api/v1/channels/health", "get_all_channels_health"),
-        ("GET", "/api/v1/channels/{channel}/health", "get_channel_health"),
+        "/api/v1/channels/health",
+        "/api/v1/channels/{channel}/health",
     ]
 
     def __init__(self, ctx: dict | None = None) -> None:

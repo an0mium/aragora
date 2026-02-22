@@ -415,6 +415,10 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         # Demo/example handlers (non-production, no auth required)
         "demo/__init__",
         "demo/adversarial_demo",
+        # Readiness probe (public health endpoint, no auth by design)
+        "readiness_check",
+        # Debate diagnostics mixin (read-only debug info, mixed into RBAC-protected handler)
+        "debates/diagnostics",
     }
 )
 

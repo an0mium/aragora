@@ -53,7 +53,7 @@ export default function PipelinePage() {
 function PipelinePageContent() {
   const {
     pipelineData,
-    setPipelineData,
+    setPipelineData: _setPipelineData,
     isDemo,
     createFromIdeas,
     createFromDebate,

@@ -30,7 +30,7 @@ EXPLAINABILITY_ENDPOINTS = {
             },
         }
     },
-    "/api/v1/debates/{debate_id}/evidence": {
+    "/api/v1/debates/{id}/evidence": {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get evidence chain",
@@ -38,7 +38,7 @@ EXPLAINABILITY_ENDPOINTS = {
             "description": "Get evidence chain for a debate.",
             "parameters": [
                 {
-                    "name": "debate_id",
+                    "name": "id",
                     "in": "path",
                     "required": True,
                     "schema": {"type": "string"},
