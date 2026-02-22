@@ -53,9 +53,9 @@ export default function PipelinePage() {
 function PipelinePageContent() {
   const {
     pipelineData,
-    setPipelineData: _setPipelineData,
     isDemo,
     createFromIdeas,
+    createFromBrainDump,
     createFromDebate,
     advanceStage,
     executePipeline,
@@ -72,7 +72,9 @@ function PipelinePageContent() {
 
   const [showIdeaInput, setShowIdeaInput] = useState(false);
   const [showDebateInput, setShowDebateInput] = useState(false);
+  const [showBrainDump, setShowBrainDump] = useState(false);
   const [ideaText, setIdeaText] = useState('');
+  const [brainDumpText, setBrainDumpText] = useState('');
   const [debateJson, setDebateJson] = useState('');
   const [debateError, setDebateError] = useState('');
   const [key, setKey] = useState(0);
@@ -163,6 +165,32 @@ function PipelinePageContent() {
       setDebateError('Invalid JSON — paste ArgumentCartographer export');
     }
   }, [debateJson, createFromDebate]);
+
+  const handleBrainDump = useCallback(async () => {
+    if (brainDumpText.trim()) {
+      await createFromBrainDump(brainDumpText);
+      setShowBrainDump(false);
+      setBrainDumpText('');
+      setKey((k) => k + 1);
+    }
+  }, [brainDumpText, createFromBrainDump]);
+
+  // Estimate idea count from brain dump text (client-side heuristic)
+  const estimatedIdeaCount = (() => {
+    const text = brainDumpText.trim();
+    if (!text) return 0;
+    // Count bullet points, numbered items, or sentences
+    const bullets = (text.match(/^[\s]*[-*>•]\s+/gm) || []).length;
+    const numbered = (text.match(/^[\s]*\d+[.)]\s+/gm) || []).length;
+    if (bullets > 1) return bullets;
+    if (numbered > 1) return numbered;
+    // Paragraph mode
+    const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 20);
+    if (paragraphs.length > 1) return paragraphs.length;
+    // Sentence mode
+    const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 15);
+    return Math.max(sentences.length, 1);
+  })();
 
   const handleDemo = useCallback(() => {
     loadDemo();
@@ -428,40 +456,79 @@ function PipelinePageContent() {
           )
         ) : (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center max-w-md">
-              <h2 className="text-2xl font-mono font-bold text-text mb-4">
-                No Pipeline Active
-              </h2>
-              <p className="text-text-muted mb-6">
-                Start by entering ideas, importing a debate, or trying the demo to see the
-                four-stage pipeline in action.
-              </p>
-              <div className="flex flex-wrap gap-3 justify-center">
-                <button
-                  onClick={() => setShowIdeaInput(true)}
-                  className="px-6 py-3 bg-indigo-600 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors"
-                >
-                  Enter Ideas
-                </button>
-                <button
-                  onClick={() => setShowDebateInput(true)}
-                  className="px-6 py-3 bg-violet-600 text-white font-mono text-sm rounded hover:bg-violet-500 transition-colors"
-                >
-                  From Debate
-                </button>
-                <button
-                  onClick={() => { setViewMode('unified'); setShowIdeaInput(true); }}
-                  className="px-6 py-3 bg-indigo-600/70 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors border border-indigo-400/30"
-                >
-                  Unified Canvas
-                </button>
-                <button
-                  onClick={handleDemo}
-                  className="px-6 py-3 bg-emerald-600 text-white font-mono text-sm rounded hover:bg-emerald-500 transition-colors"
-                >
-                  Try Demo
-                </button>
-              </div>
+            <div className="w-full max-w-2xl px-6">
+              {showBrainDump ? (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-mono font-bold text-text">
+                    What&apos;s on your mind?
+                  </h2>
+                  <p className="text-text-muted text-sm font-mono">
+                    Paste your thoughts, meeting notes, or brainstorm &mdash; we&apos;ll organize
+                    them into ideas, goals, actions, and an execution plan.
+                  </p>
+                  <textarea
+                    className="w-full min-h-[200px] bg-bg border border-border rounded-lg p-4 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder={"I've been thinking about... We need to... The problem is... What if we..."}
+                    value={brainDumpText}
+                    onChange={(e) => setBrainDumpText(e.target.value)}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-muted font-mono">
+                      ~{estimatedIdeaCount} idea{estimatedIdeaCount !== 1 ? 's' : ''} detected
+                    </span>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setShowBrainDump(false); setShowIdeaInput(true); }}
+                        className="text-sm font-mono text-text-muted hover:text-text underline"
+                      >
+                        I have structured ideas
+                      </button>
+                      <button
+                        onClick={handleBrainDump}
+                        disabled={!brainDumpText.trim() || loading}
+                        className="px-6 py-2 bg-indigo-600 text-white font-mono text-sm rounded-lg hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+                      >
+                        {loading ? 'Organizing...' : 'Organize My Thoughts'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <h2 className="text-2xl font-mono font-bold text-text mb-2">
+                    Idea-to-Execution Pipeline
+                  </h2>
+                  <p className="text-text-muted mb-8 font-mono text-sm">
+                    Turn scattered thoughts into organized execution plans
+                  </p>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    <button
+                      onClick={() => setShowBrainDump(true)}
+                      className="px-6 py-3 bg-indigo-600 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors"
+                    >
+                      Brain Dump
+                    </button>
+                    <button
+                      onClick={() => setShowIdeaInput(true)}
+                      className="px-6 py-3 bg-surface border border-border text-text font-mono text-sm rounded hover:border-text transition-colors"
+                    >
+                      Structured Ideas
+                    </button>
+                    <button
+                      onClick={() => setShowDebateInput(true)}
+                      className="px-6 py-3 bg-violet-600 text-white font-mono text-sm rounded hover:bg-violet-500 transition-colors"
+                    >
+                      From Debate
+                    </button>
+                    <button
+                      onClick={handleDemo}
+                      className="px-6 py-3 bg-emerald-600 text-white font-mono text-sm rounded hover:bg-emerald-500 transition-colors"
+                    >
+                      Try Demo
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

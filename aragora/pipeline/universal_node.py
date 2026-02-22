@@ -62,6 +62,7 @@ class UniversalNode:
     source_stage: PipelineStage | None = None
     # Status
     status: str = "active"  # active, completed, archived, rejected
+    execution_status: str | None = None  # pending, in_progress, succeeded, failed, partial
     confidence: float = 0.0
     # Data
     data: dict[str, Any] = field(default_factory=dict)

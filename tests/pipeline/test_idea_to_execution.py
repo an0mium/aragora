@@ -7,7 +7,7 @@ Including provenance chain integrity, stage transitions, and demo mode.
 """
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from aragora.pipeline.idea_to_execution import (
     IdeaToExecutionPipeline,
@@ -649,3 +649,123 @@ class TestELOAssignment:
         assert cfg.enable_smart_goals is False
         assert cfg.enable_elo_assignment is False
         assert cfg.enable_km_precedents is False
+
+
+# =============================================================================
+# Pipeline feedback loop tests
+# =============================================================================
+
+
+class TestPipelineFeedbackLoop:
+    """Test cross-session learning feedback in the pipeline."""
+
+    def test_record_pipeline_outcome_calls_meta_planner(self, pipeline, sample_ideas):
+        """Test that _record_pipeline_outcome calls MetaPlanner.record_outcome."""
+        result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        mock_planner = MagicMock()
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            return_value=mock_planner,
+        ):
+            pipeline._record_pipeline_outcome(result)
+        mock_planner.record_outcome.assert_called_once()
+        call_kwargs = mock_planner.record_outcome.call_args
+        assert "goal_outcomes" in call_kwargs.kwargs or len(call_kwargs.args) > 0
+        assert "objective" in call_kwargs.kwargs or len(call_kwargs.args) > 1
+
+    def test_record_pipeline_outcome_includes_all_stages(self, pipeline, sample_ideas):
+        """Test that outcome recording covers all 4 pipeline stages."""
+        result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        mock_planner = MagicMock()
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            return_value=mock_planner,
+        ):
+            pipeline._record_pipeline_outcome(result)
+        call_kwargs = mock_planner.record_outcome.call_args
+        outcomes = call_kwargs.kwargs.get("goal_outcomes", call_kwargs.args[0] if call_kwargs.args else [])
+        descriptions = [o["description"] for o in outcomes]
+        assert "pipeline_stage_ideas" in descriptions
+        assert "pipeline_stage_goals" in descriptions
+        assert "pipeline_stage_actions" in descriptions
+        assert "pipeline_stage_orchestration" in descriptions
+
+    def test_record_pipeline_outcome_graceful_on_import_error(self, pipeline, sample_ideas):
+        """Test that outcome recording silently fails when MetaPlanner unavailable."""
+        result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            side_effect=ImportError("no module"),
+        ):
+            # Should not raise
+            pipeline._record_pipeline_outcome(result)
+
+    def test_strategic_hints_injected_in_advance_to_goals(self, pipeline, sample_ideas):
+        """Test that strategic memory hints are injected into goal graph metadata."""
+        from aragora.nomic.strategic_scanner import StrategicAssessment, StrategicFinding
+
+        finding = StrategicFinding(
+            category="untested",
+            severity="high",
+            file_path="aragora/foo.py",
+            description="Module foo has no tests",
+            evidence="0 test files match",
+            suggested_action="Add tests",
+            track="qa",
+        )
+        assessment = StrategicAssessment(
+            findings=[finding],
+            metrics={},
+            focus_areas=["testing"],
+            objective="improve coverage",
+            timestamp=0.0,
+        )
+        mock_store = MagicMock()
+        mock_store.get_latest.return_value = [assessment]
+        with patch(
+            "aragora.nomic.strategic_memory.StrategicMemoryStore",
+            return_value=mock_store,
+        ):
+            result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        assert "strategic_hints" in result.goal_graph.metadata
+        assert "Module foo has no tests" in result.goal_graph.metadata["strategic_hints"]
+
+    def test_strategic_hints_graceful_on_import_error(self, pipeline, sample_ideas):
+        """Test that strategic memory enrichment silently fails when unavailable."""
+        with patch(
+            "aragora.nomic.strategic_memory.StrategicMemoryStore",
+            side_effect=ImportError("no module"),
+        ):
+            result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        # Should still produce a valid result
+        assert result.goal_graph is not None
+        assert len(result.goal_graph.goals) > 0
+
+    def test_strategic_hints_empty_store(self, pipeline, sample_ideas):
+        """Test that empty strategic memory doesn't inject hints."""
+        mock_store = MagicMock()
+        mock_store.get_latest.return_value = []
+        with patch(
+            "aragora.nomic.strategic_memory.StrategicMemoryStore",
+            return_value=mock_store,
+        ):
+            result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        # No strategic_hints key when store is empty
+        assert "strategic_hints" not in result.goal_graph.metadata
+
+    def test_record_outcome_marks_completed_stages_as_success(self, pipeline, sample_ideas):
+        """Test that completed stages are recorded as successful."""
+        result = pipeline.from_ideas(sample_ideas, auto_advance=True)
+        mock_planner = MagicMock()
+        with patch(
+            "aragora.nomic.meta_planner.MetaPlanner",
+            return_value=mock_planner,
+        ):
+            pipeline._record_pipeline_outcome(result)
+        call_kwargs = mock_planner.record_outcome.call_args
+        outcomes = call_kwargs.kwargs.get("goal_outcomes", call_kwargs.args[0] if call_kwargs.args else [])
+        # ideas and goals should be marked complete
+        ideas_outcome = next(o for o in outcomes if o["description"] == "pipeline_stage_ideas")
+        goals_outcome = next(o for o in outcomes if o["description"] == "pipeline_stage_goals")
+        assert ideas_outcome["success"] is True
+        assert goals_outcome["success"] is True

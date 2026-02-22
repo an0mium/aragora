@@ -104,6 +104,8 @@ export { useWorkflowWebSocket } from './useWorkflowWebSocket';
 export { usePipeline } from './usePipeline';
 export { usePipelineCanvas } from './usePipelineCanvas';
 export { usePipelineWebSocket } from './usePipelineWebSocket';
+export { useFractalNavigation } from './useFractalNavigation';
+export type { NavigationLevel, FractalNavigationResult } from './useFractalNavigation';
 export { usePlaybooks } from './usePlaybooks';
 
 // =============================================================================

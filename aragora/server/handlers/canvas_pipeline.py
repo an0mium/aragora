@@ -5,6 +5,7 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 
 - POST /api/v1/canvas/pipeline/from-debate              → Full pipeline from debate
 - POST /api/v1/canvas/pipeline/from-ideas               → Full pipeline from raw ideas
+- POST /api/v1/canvas/pipeline/from-braindump           → Full pipeline from brain dump text
 - POST /api/v1/canvas/pipeline/advance                  → Advance to next stage
 - POST /api/v1/canvas/pipeline/run                      → Start async pipeline
 - POST /api/v1/canvas/pipeline/{id}/approve-transition  → Approve/reject stage transition
@@ -20,6 +21,7 @@ Exposes the idea-to-execution pipeline via REST endpoints:
 - GET  /api/v1/canvas/pipeline/templates                → List pipeline templates
 - POST /api/v1/canvas/pipeline/{id}/execute              → Execute completed pipeline
 - POST /api/v1/canvas/pipeline/from-template            → Create pipeline from template
+- POST /api/v1/debates/{id}/to-pipeline                 → Convert debate to pipeline
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ _PIPELINE_STAGE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/stage/(
 _PIPELINE_GRAPH = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/graph$")
 _PIPELINE_RECEIPT = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/receipt$")
 _PIPELINE_EXECUTE = re.compile(r"^/api/v1/canvas/pipeline/([a-zA-Z0-9_-]+)/execute$")
+_DEBATE_TO_PIPELINE = re.compile(r"^/api/v1/debates/([a-zA-Z0-9_-]+)/to-pipeline$")
 
 # Live PipelineResult objects for advance_stage() (cannot be persisted)
 _pipeline_objects: dict[str, Any] = {}
@@ -96,6 +99,7 @@ class CanvasPipelineHandler:
     ROUTES = [
         "POST /api/v1/canvas/pipeline/from-debate",
         "POST /api/v1/canvas/pipeline/from-ideas",
+        "POST /api/v1/canvas/pipeline/from-braindump",
         "POST /api/v1/canvas/pipeline/from-template",
         "POST /api/v1/canvas/pipeline/advance",
         "POST /api/v1/canvas/pipeline/run",
@@ -111,6 +115,7 @@ class CanvasPipelineHandler:
         "POST /api/v1/canvas/pipeline/extract-goals",
         "POST /api/v1/canvas/convert/debate",
         "POST /api/v1/canvas/convert/workflow",
+        "POST /api/v1/debates/{id}/to-pipeline",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
@@ -118,7 +123,11 @@ class CanvasPipelineHandler:
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/canvas/") or path.startswith("/api/canvas/")
+        if path.startswith("/api/v1/canvas/") or path.startswith("/api/canvas/"):
+            return True
+        if _DEBATE_TO_PIPELINE.match(path):
+            return True
+        return False
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:
         """Dispatch GET requests to the appropriate handler method."""
@@ -191,6 +200,7 @@ class CanvasPipelineHandler:
         route_map = {
             "/from-debate": self.handle_from_debate,
             "/from-ideas": self.handle_from_ideas,
+            "/from-braindump": self.handle_from_braindump,
             "/from-template": self.handle_from_template,
             "/pipeline/advance": self.handle_advance,
             "/pipeline/run": self.handle_run,
@@ -198,6 +208,15 @@ class CanvasPipelineHandler:
             "/convert/debate": self.handle_convert_debate,
             "/convert/workflow": self.handle_convert_workflow,
         }
+
+        # Check for debate-to-pipeline: /api/v1/debates/{id}/to-pipeline
+        m = _DEBATE_TO_PIPELINE.match(path)
+        if m:
+            auth_error = self._check_permission(handler, "pipeline:write")
+            if auth_error:
+                return auth_error
+            body = self._get_request_body(handler)
+            return self.handle_debate_to_pipeline(m.group(1), body)
 
         # Check for execute: /api/v1/canvas/pipeline/{id}/execute
         m = _PIPELINE_EXECUTE.match(path)
@@ -288,13 +307,16 @@ class CanvasPipelineHandler:
                 agent=agent, use_universal=use_universal,
             )
 
+            # Generate a real pipeline ID up front so the emitter routes
+            # events to the correct ID from the start.
+            import uuid as _uuid
+            pipeline_id = f"pipe-{_uuid.uuid4().hex[:8]}"
+
             # Wire stream emitter for real-time progress
             event_cb = None
             try:
                 from aragora.server.stream.pipeline_stream import get_pipeline_emitter
-                event_cb = get_pipeline_emitter().as_event_callback(
-                    f"pipe-from-debate"  # placeholder until pipeline_id is known
-                )
+                event_cb = get_pipeline_emitter().as_event_callback(pipeline_id)
             except ImportError:
                 pass
 
@@ -302,6 +324,7 @@ class CanvasPipelineHandler:
                 cartographer_data,
                 auto_advance=auto_advance,
                 event_callback=event_cb,
+                pipeline_id=pipeline_id,
             )
 
             # Persist result and keep live object in memory
@@ -359,18 +382,22 @@ class CanvasPipelineHandler:
                 agent=agent, use_universal=use_universal,
             )
 
+            # Generate a real pipeline ID up front so the emitter routes
+            # events to the correct ID from the start.
+            import uuid as _uuid
+            pipeline_id = f"pipe-{_uuid.uuid4().hex[:8]}"
+
             # Wire stream emitter for real-time progress
             event_cb = None
             try:
                 from aragora.server.stream.pipeline_stream import get_pipeline_emitter
-                event_cb = get_pipeline_emitter().as_event_callback(
-                    f"pipe-from-ideas"  # placeholder until pipeline_id is known
-                )
+                event_cb = get_pipeline_emitter().as_event_callback(pipeline_id)
             except ImportError:
                 pass
 
             result = pipeline.from_ideas(
                 ideas, auto_advance=auto_advance, event_callback=event_cb,
+                pipeline_id=pipeline_id,
             )
 
             result_dict = result.to_dict()
@@ -388,6 +415,64 @@ class CanvasPipelineHandler:
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Pipeline from-ideas failed: %s", e)
             return error_response("Pipeline execution failed", 500)
+
+    @handle_errors("brain dump parsing")
+    async def handle_from_braindump(self, request_data: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/canvas/pipeline/from-braindump
+
+        Parse unstructured brain dump text into ideas, then run the pipeline.
+
+        Body:
+            text: str — Raw brain dump text
+            context: str (optional) — Topic hint for context
+            auto_advance: bool (default True)
+        """
+        from aragora.pipeline.brain_dump_parser import BrainDumpParser
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        text = request_data.get("text", "")
+        if not text or not text.strip():
+            return error_response("Missing required field: text", 400)
+
+        context = request_data.get("context", "")
+        auto_advance = request_data.get("auto_advance", True)
+
+        parser = BrainDumpParser()
+        ideas = parser.parse(text)
+
+        if not ideas:
+            return error_response("Could not extract any ideas from the provided text", 400)
+
+        # If context hint provided, prepend it to first idea for downstream enrichment
+        if context:
+            ideas[0] = f"[{context}] {ideas[0]}"
+
+        pipeline = IdeaToExecutionPipeline()
+
+        # Wire stream emitter for real-time progress
+        event_cb = None
+        try:
+            from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+            event_cb = get_pipeline_emitter().as_event_callback("pipe-from-braindump")
+        except ImportError:
+            pass
+
+        result = pipeline.from_ideas(
+            ideas, auto_advance=auto_advance, event_callback=event_cb,
+        )
+
+        result_dict = result.to_dict()
+        _get_store().save(result.pipeline_id, result_dict)
+        _pipeline_objects[result.pipeline_id] = result
+
+        return json_response({
+            "pipeline_id": result.pipeline_id,
+            "ideas_parsed": len(ideas),
+            "ideas": ideas,
+            "stage_status": result.stage_status,
+            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+            "result": result_dict,
+        }, 201)
 
     async def handle_advance(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/advance
@@ -412,7 +497,28 @@ class CanvasPipelineHandler:
 
             result_obj = _pipeline_objects.get(pipeline_id)
             if not result_obj:
-                return error_response(f"Pipeline {pipeline_id} not found", 404)
+                # Try to reconstruct from persistent store
+                stored = _get_store().get(pipeline_id)
+                if not stored:
+                    return error_response(f"Pipeline {pipeline_id} not found", 404)
+                try:
+                    from aragora.pipeline.idea_to_execution import PipelineResult
+
+                    result_obj = PipelineResult(
+                        pipeline_id=pipeline_id,
+                        stage_status=stored.get("stage_status", {}),
+                    )
+                    # Restore orchestration result if present
+                    if stored.get("orchestration_result"):
+                        result_obj.orchestration_result = stored["orchestration_result"]
+                    if stored.get("final_workflow"):
+                        result_obj.final_workflow = stored["final_workflow"]
+                    if stored.get("receipt"):
+                        result_obj.receipt = stored["receipt"]
+                    _pipeline_objects[pipeline_id] = result_obj
+                except (ImportError, TypeError, ValueError) as exc:
+                    logger.warning("Pipeline reconstruction failed: %s", exc)
+                    return error_response(f"Pipeline {pipeline_id} not found", 404)
 
             try:
                 stage = PipelineStage(target_stage)
@@ -1094,3 +1200,56 @@ class CanvasPipelineHandler:
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }, 202)
+
+    @handle_errors("debate to pipeline conversion")
+    async def handle_debate_to_pipeline(
+        self, debate_id: str, request_data: dict[str, Any],
+    ) -> HandlerResult:
+        """POST /api/v1/debates/{id}/to-pipeline
+
+        Convert a completed debate into a pipeline by loading its argument graph
+        and feeding it into from_debate().
+        """
+        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+        # Load debate's argument graph from store
+        cartographer_data = None
+        try:
+            from aragora.server.handlers.utils.stores import get_debate_store
+            debate = get_debate_store().get(debate_id)
+            if debate:
+                cartographer_data = debate.get("argument_graph", {})
+        except (ImportError, RuntimeError, TypeError):
+            pass
+
+        if not cartographer_data:
+            # Fallback: try loading from argument cartographer
+            try:
+                from aragora.visualization.argument_cartographer import ArgumentCartographer
+                carto = ArgumentCartographer()
+                cartographer_data = carto.get_graph(debate_id)
+            except (ImportError, RuntimeError, TypeError, AttributeError):
+                pass
+
+        if not cartographer_data:
+            return error_response(f"Debate {debate_id} argument graph not found", 404)
+
+        use_universal = request_data.get("use_universal", False)
+        auto_advance = request_data.get("auto_advance", True)
+
+        pipeline = IdeaToExecutionPipeline(use_universal=use_universal)
+        result = pipeline.from_debate(
+            cartographer_data,
+            auto_advance=auto_advance,
+        )
+
+        result_dict = result.to_dict()
+        _get_store().save(result.pipeline_id, result_dict)
+        _pipeline_objects[result.pipeline_id] = result
+
+        return json_response({
+            "pipeline_id": result.pipeline_id,
+            "source_debate_id": debate_id,
+            "stage_status": result.stage_status,
+            "result": result_dict,
+        }, 201)

@@ -146,6 +146,20 @@ export function usePipeline() {
     [api]
   );
 
+  const createFromBrainDump = useCallback(
+    async (text: string, context?: string) => {
+      const result = await api.post('/api/v1/canvas/pipeline/from-braindump', {
+        text,
+        context: context ?? '',
+      });
+      if (result?.result) {
+        setPipelineData(result.result);
+      }
+      return result;
+    },
+    [api]
+  );
+
   const advanceStage = useCallback(
     async (pipelineId: string, targetStage: PipelineStageType) => {
       // Demo mode: advance stages client-side without backend call
@@ -254,6 +268,7 @@ export function usePipeline() {
     isDemo,
     createFromDebate,
     createFromIdeas,
+    createFromBrainDump,
     advanceStage,
     getPipeline,
     getStage,

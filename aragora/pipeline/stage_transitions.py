@@ -578,9 +578,131 @@ def _assign_agent_type(action_node: UniversalNode) -> str:
     return "analyst"
 
 
+def suggest_transitions(
+    graph: UniversalGraph,
+    stage: PipelineStage,
+) -> list[dict[str, Any]]:
+    """Suggest candidate transitions from the given stage to the next.
+
+    Analyzes nodes at *stage* and returns a list of suggestions with
+    confidence scores indicating how ready each node is for promotion.
+
+    Returns a list of dicts::
+
+        {
+            "node_id": str,
+            "node_label": str,
+            "from_stage": str,        # e.g. "ideas"
+            "to_stage": str,           # e.g. "goals"
+            "confidence": float,       # 0.0 – 1.0
+            "reason": str,
+        }
+    """
+    next_stage = _next_stage(stage)
+    if next_stage is None:
+        return []
+
+    nodes = graph.get_stage(stage)
+    if not nodes:
+        return []
+
+    # Check which nodes already have children in the next stage
+    promoted_ids: set[str] = set()
+    for node in graph.get_stage(next_stage):
+        promoted_ids.update(node.parent_ids)
+
+    suggestions: list[dict[str, Any]] = []
+    for node in nodes:
+        # Skip nodes that were already promoted
+        if node.id in promoted_ids:
+            continue
+
+        confidence = _transition_confidence(node, stage, graph)
+        if confidence < 0.1:
+            continue
+
+        suggestions.append({
+            "node_id": node.id,
+            "node_label": node.label,
+            "from_stage": stage.value,
+            "to_stage": next_stage.value,
+            "confidence": round(confidence, 2),
+            "reason": _transition_reason(node, stage, confidence),
+        })
+
+    suggestions.sort(key=lambda s: s["confidence"], reverse=True)
+    return suggestions
+
+
+def _next_stage(stage: PipelineStage) -> PipelineStage | None:
+    """Return the next stage in the pipeline, or None for orchestration."""
+    order = [
+        PipelineStage.IDEAS,
+        PipelineStage.GOALS,
+        PipelineStage.ACTIONS,
+        PipelineStage.ORCHESTRATION,
+    ]
+    try:
+        idx = order.index(stage)
+    except ValueError:
+        return None
+    return order[idx + 1] if idx + 1 < len(order) else None
+
+
+def _transition_confidence(
+    node: UniversalNode,
+    stage: PipelineStage,
+    graph: UniversalGraph,
+) -> float:
+    """Heuristic confidence score for promoting a node."""
+    score = 0.3  # Base score for any active node
+
+    # Nodes with descriptions are more ready
+    if node.description and len(node.description) > 10:
+        score += 0.2
+
+    # Higher-confidence nodes are more ready
+    if node.confidence > 0.5:
+        score += 0.15
+    elif node.confidence > 0.3:
+        score += 0.1
+
+    # Nodes with inbound edges (i.e. connected to other nodes) are more mature
+    inbound = sum(
+        1 for e in graph.edges.values() if e.target_id == node.id
+    )
+    if inbound > 0:
+        score += min(0.15, inbound * 0.05)
+
+    # Active nodes are promotable; archived/rejected are not
+    if node.status in ("archived", "rejected"):
+        return 0.0
+    if node.status == "completed":
+        score += 0.2
+
+    return min(1.0, score)
+
+
+def _transition_reason(
+    node: UniversalNode,
+    stage: PipelineStage,
+    confidence: float,
+) -> str:
+    """Generate a human-readable reason for the transition suggestion."""
+    next_s = _next_stage(stage)
+    next_label = next_s.value.title() if next_s else "next stage"
+
+    if confidence >= 0.7:
+        return f"Strong candidate for {next_label} — well-defined with supporting context"
+    if confidence >= 0.5:
+        return f"Ready for promotion to {next_label}"
+    return f"May benefit from further refinement before promoting to {next_label}"
+
+
 __all__ = [
     "promote_node",
     "ideas_to_goals",
     "goals_to_actions",
     "actions_to_orchestration",
+    "suggest_transitions",
 ]

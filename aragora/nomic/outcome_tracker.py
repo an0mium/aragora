@@ -128,12 +128,32 @@ async def _default_scenario_runner(
     agent_count: int,
     expected_rounds: int,
 ) -> dict[str, Any]:
-    """Default no-op scenario runner that returns plausible simulated metrics.
+    """Scenario runner that uses recent debate data when available.
 
-    In production, this would be replaced with actual Arena.run() calls
-    or a dedicated lightweight debate runner. For testing and offline use,
-    it returns deterministic values based on the scenario parameters.
+    Queries ContinuumMemory or ConsensusStore for recent real debate metrics.
+    Falls back to plausible simulated values for testing and offline use.
     """
+    # Try to source real metrics from recent debates
+    try:
+        from aragora.memory.consensus import ConsensusStore
+
+        store = ConsensusStore()
+        recent = store.get_recent(limit=10)
+        if recent and len(recent) >= 3:
+            consensus_count = sum(1 for d in recent if d.get("consensus_reached"))
+            avg_rounds = sum(d.get("rounds", expected_rounds) for d in recent) / len(recent)
+            avg_tokens = sum(d.get("tokens_used", 0) for d in recent) / len(recent)
+            brier = [d.get("calibration_score", 0.25) for d in recent[:agent_count]]
+            return {
+                "consensus_reached": consensus_count > len(recent) // 2,
+                "rounds": int(avg_rounds),
+                "tokens_used": int(avg_tokens) or expected_rounds * agent_count * 500,
+                "brier_scores": brier or [0.25] * agent_count,
+            }
+    except (ImportError, AttributeError, TypeError, RuntimeError):
+        pass
+
+    # Fallback: deterministic simulated values for offline/testing
     return {
         "consensus_reached": True,
         "rounds": expected_rounds,

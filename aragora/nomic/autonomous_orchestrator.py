@@ -197,6 +197,7 @@ class AgentAssignment:
     result: dict[str, Any] | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    retry_hints: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -1295,16 +1296,22 @@ class AutonomousOrchestrator:
             # Build workflow for this subtask
             workflow = self._build_subtask_workflow(assignment)
 
-            # Execute workflow
-            result = await self.workflow_engine.execute(
-                workflow,
-                inputs={
-                    "subtask": subtask.description,
-                    "files": subtask.file_scope,
-                    "complexity": subtask.estimated_complexity,
-                    "max_cycles": max_cycles,
-                },
-            )
+            # Execute workflow — include retry hints from prior failures
+            inputs: dict[str, Any] = {
+                "subtask": subtask.description,
+                "files": subtask.file_scope,
+                "complexity": subtask.estimated_complexity,
+                "max_cycles": max_cycles,
+            }
+            if assignment.retry_hints:
+                hint_block = "\n".join(f"- {h}" for h in assignment.retry_hints)
+                inputs["subtask"] = (
+                    f"{subtask.description}\n\n"
+                    f"RETRY CONTEXT (attempt {assignment.attempt_count + 1}, "
+                    f"prior attempt failed):\n{hint_block}"
+                )
+
+            result = await self.workflow_engine.execute(workflow, inputs=inputs)
 
             if result.success:
                 # Final review gate (blocking)
@@ -1387,6 +1394,8 @@ class AutonomousOrchestrator:
                             to_agent=alt_agent,
                         )
                         assignment.agent_type = alt_agent
+                    # Propagate failure reason to next attempt
+                    assignment.retry_hints = self._extract_hints(feedback)
                     assignment.attempt_count += 1
                     if assignment.attempt_count < assignment.max_attempts:
                         await self._execute_single_assignment(assignment, max_cycles)
@@ -1394,7 +1403,8 @@ class AutonomousOrchestrator:
                         assignment.status = "failed"
                         await self._update_bead_status(subtask.id, "failed")
                 else:
-                    # Retry based on feedback
+                    # Retry based on feedback — pass hints to next attempt
+                    assignment.retry_hints = self._extract_hints(feedback)
                     assignment.attempt_count += 1
                     if assignment.attempt_count < assignment.max_attempts:
                         await self._execute_single_assignment(assignment, max_cycles)
@@ -1581,6 +1591,37 @@ class AutonomousOrchestrator:
         if assignment.agent_type != "claude":
             return "claude"
         return None
+
+    @staticmethod
+    def _extract_hints(feedback: dict[str, Any]) -> list[str]:
+        """Extract actionable hints from a FeedbackLoop analysis result.
+
+        Normalizes hints into a flat list of strings so they can be injected
+        into the next retry's workflow inputs.
+        """
+        hints: list[str] = []
+        raw = feedback.get("hints", [])
+        if isinstance(raw, str):
+            hints.append(raw)
+        elif isinstance(raw, list):
+            for h in raw:
+                if isinstance(h, str):
+                    hints.append(h)
+                elif isinstance(h, dict):
+                    # Rich hint from testfixer (has file, line, error, suggestion)
+                    parts = []
+                    if h.get("file"):
+                        parts.append(h["file"])
+                    if h.get("line"):
+                        parts.append(f"line {h['line']}")
+                    if h.get("error"):
+                        parts.append(h["error"])
+                    if h.get("suggestion"):
+                        parts.append(f"Fix: {h['suggestion']}")
+                    hints.append(": ".join(parts) if parts else str(h))
+        if feedback.get("reason"):
+            hints.insert(0, feedback["reason"])
+        return hints
 
     def _build_subtask_workflow(self, assignment: AgentAssignment) -> WorkflowDefinition:
         """Build a workflow definition for a subtask.

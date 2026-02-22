@@ -531,11 +531,11 @@ class TestInternalMethods:
 
     @pytest.mark.asyncio
     async def test_execute_single_returns_placeholder(self):
-        """_execute_single returns a success dict with placeholder note."""
+        """_execute_single returns a fallback dict when ExecutionBridge is unavailable."""
         pipeline = SelfImprovePipeline()
         result = await pipeline._execute_single("Do something", "cycle_test")
 
-        assert result["success"] is True
+        assert result["success"] is False
         assert "subtask" in result
         assert "files_changed" in result
         assert isinstance(result["files_changed"], list)
@@ -1143,7 +1143,8 @@ class TestWorktreePathFlow:
 
         result = await pipeline._execute_single(subtask, "cycle_wt")
 
-        assert result["success"] is True
+        # Falls back to placeholder when ExecutionBridge is unavailable
+        assert result["success"] is False
         assert result["subtask"] == "Test worktree flow"
 
 

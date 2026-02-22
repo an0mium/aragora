@@ -1,0 +1,284 @@
+/**
+ * useOracleWebSocket — React hook for real-time Oracle streaming.
+ *
+ * Connects to /ws/oracle and manages the full lifecycle:
+ *   - JSON text frames → token/phase/tentacle state updates
+ *   - Binary frames → useStreamingAudio hook for progressive playback
+ *   - Auto-reconnect with exponential backoff (3 attempts)
+ *   - Fallback flag when WebSocket is unavailable
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { WS_URL } from '@/config';
+import { useStreamingAudio } from './useStreamingAudio';
+
+export type OraclePhase = 'idle' | 'reflex' | 'deep' | 'tentacles' | 'synthesis';
+
+interface TentacleState {
+  text: string;
+  done: boolean;
+}
+
+export interface UseOracleWebSocket {
+  /** Whether the WebSocket is connected. */
+  connected: boolean;
+  /** Send a question to the Oracle. */
+  ask: (question: string, mode: string) => void;
+  /** Stop the current Oracle response. */
+  stop: () => void;
+  /** Send an interim speech transcript for think-while-listening. */
+  sendInterim: (text: string) => void;
+  /** Accumulated text tokens (reflex + deep combined). */
+  tokens: string;
+  /** Current Oracle phase. */
+  phase: OraclePhase;
+  /** Per-agent tentacle text. */
+  tentacles: Map<string, TentacleState>;
+  /** Final synthesis text. */
+  synthesis: string;
+  /** True if WebSocket failed and component should use fetch fallback. */
+  fallbackMode: boolean;
+  /** Streaming audio controls. */
+  audio: ReturnType<typeof useStreamingAudio>;
+}
+
+const MAX_RECONNECT_ATTEMPTS = 3;
+const BASE_RECONNECT_DELAY_MS = 1000;
+
+function resolveOracleWsUrl(): string {
+  // Derive from WS_URL: replace /ws suffix with /ws/oracle
+  const base = WS_URL.replace(/\/ws\/?$/, '');
+  return `${base}/ws/oracle`;
+}
+
+export function useOracleWebSocket(): UseOracleWebSocket {
+  const [connected, setConnected] = useState(false);
+  const [tokens, setTokens] = useState('');
+  const [phase, setPhase] = useState<OraclePhase>('idle');
+  const [tentacles, setTentacles] = useState<Map<string, TentacleState>>(new Map());
+  const [synthesis, setSynthesis] = useState('');
+  const [fallbackMode, setFallbackMode] = useState(false);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectAttempts = useRef(0);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const audio = useStreamingAudio();
+
+  const cleanup = useCallback(() => {
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onopen = null;
+      if (wsRef.current.readyState === WebSocket.OPEN ||
+          wsRef.current.readyState === WebSocket.CONNECTING) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
+    }
+  }, []);
+
+  const connect = useCallback(() => {
+    cleanup();
+
+    const url = resolveOracleWsUrl();
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(url);
+    } catch {
+      // WebSocket constructor failed
+      if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts.current++;
+        const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current - 1);
+        reconnectTimer.current = setTimeout(() => {
+          if (mountedRef.current) connect();
+        }, delay);
+      } else {
+        setFallbackMode(true);
+      }
+      return;
+    }
+
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (!mountedRef.current) return;
+      setConnected(true);
+      reconnectAttempts.current = 0;
+    };
+
+    ws.onclose = () => {
+      if (!mountedRef.current) return;
+      setConnected(false);
+
+      // Auto-reconnect with backoff
+      if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts.current++;
+        const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current - 1);
+        reconnectTimer.current = setTimeout(() => {
+          if (mountedRef.current) connect();
+        }, delay);
+      } else {
+        setFallbackMode(true);
+      }
+    };
+
+    ws.onerror = () => {
+      // onclose will fire after this
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      if (!mountedRef.current) return;
+
+      // Binary frame → audio chunk
+      if (event.data instanceof ArrayBuffer) {
+        audio.appendChunk(event.data);
+        return;
+      }
+
+      // Text frame → JSON event
+      try {
+        const data = JSON.parse(event.data as string);
+        const type = data.type as string;
+
+        switch (type) {
+          case 'connected':
+            // Server acknowledged connection
+            break;
+
+          case 'reflex_start':
+            setPhase('reflex');
+            setTokens('');
+            setTentacles(new Map());
+            setSynthesis('');
+            break;
+
+          case 'token':
+            setTokens(prev => prev + (data.text || ''));
+            if (data.phase === 'deep' && phase !== 'deep') {
+              setPhase('deep');
+            }
+            break;
+
+          case 'sentence_ready':
+            // Sentence boundary — useful for display, audio already streaming
+            break;
+
+          case 'phase_done':
+            if (data.phase === 'deep') {
+              setPhase('tentacles');
+            }
+            audio.endSegment();
+            break;
+
+          case 'tentacle_start':
+            setPhase('tentacles');
+            setTentacles(prev => {
+              const next = new Map(prev);
+              next.set(data.agent, { text: '', done: false });
+              return next;
+            });
+            break;
+
+          case 'tentacle_token':
+            setTentacles(prev => {
+              const next = new Map(prev);
+              const existing = next.get(data.agent);
+              if (existing) {
+                next.set(data.agent, { text: existing.text + (data.text || ''), done: false });
+              } else {
+                next.set(data.agent, { text: data.text || '', done: false });
+              }
+              return next;
+            });
+            break;
+
+          case 'tentacle_done':
+            setTentacles(prev => {
+              const next = new Map(prev);
+              next.set(data.agent, { text: data.full_text || '', done: true });
+              return next;
+            });
+            break;
+
+          case 'synthesis':
+            setPhase('synthesis');
+            setSynthesis(data.text || '');
+            break;
+
+          case 'error':
+            // Surface error but don't crash — let the component handle it
+            console.error('[Oracle WS] Server error:', data.message);
+            break;
+
+          case 'pong':
+            // Heartbeat response
+            break;
+        }
+      } catch {
+        // Non-JSON text frame — ignore
+      }
+    };
+  }, [cleanup, audio, phase]);
+
+  // Connect on mount
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      cleanup();
+      audio.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const ask = useCallback((question: string, mode: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    // Reset state for new question
+    setTokens('');
+    setPhase('idle');
+    setTentacles(new Map());
+    setSynthesis('');
+    audio.stop();
+
+    wsRef.current.send(JSON.stringify({ type: 'ask', question, mode }));
+  }, [audio]);
+
+  const stop = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'stop' }));
+    }
+    setPhase('idle');
+    audio.stop();
+  }, [audio]);
+
+  const sendInterim = useCallback((text: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'interim', text }));
+    }
+  }, []);
+
+  return {
+    connected,
+    ask,
+    stop,
+    sendInterim,
+    tokens,
+    phase,
+    tentacles,
+    synthesis,
+    fallbackMode,
+    audio,
+  };
+}
+
+export default useOracleWebSocket;

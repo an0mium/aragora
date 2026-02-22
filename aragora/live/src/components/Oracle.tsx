@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
+import { useOracleWebSocket, type OraclePhase } from '@/hooks/useOracleWebSocket';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -213,6 +214,9 @@ export default function Oracle() {
   const avatarRef = useRef<HTMLIFrameElement>(null);
 
   const apiBase = API_BASE_URL;
+
+  // WebSocket streaming hook — real-time token/audio streaming
+  const oracle = useOracleWebSocket();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -617,6 +621,10 @@ export default function Oracle() {
         }
       }
       setInput(finalTranscript || interim);
+      // Think-while-listening: send interim transcript for prompt pre-building
+      if (interim && oracle.connected) {
+        oracle.sendInterim(interim);
+      }
     };
 
     recognition.onend = () => {
@@ -667,11 +675,22 @@ export default function Oracle() {
       timestamp: Date.now(),
     }]);
 
-    const rounds = mode === 'divine' ? 1 : 2;
-    const agents = mode === 'divine' ? 3 : 5;  // Each tentacle = a different AI model
-
     // Trigger 3D summoning animation
     avatarRef.current?.contentWindow?.postMessage({ type: 'oracle-summon' }, '*');
+
+    // ---- WebSocket streaming path (real-time tokens + audio) ----
+    if (oracle.connected && !oracle.fallbackMode) {
+      setLoading(true);
+      oracle.ask(question, mode);
+      // The WebSocket hook manages phase/token/tentacle state reactively.
+      // We'll display streaming content via the oracle.* state below.
+      // Loading state will be cleared when phase transitions past reflex/deep.
+      return;
+    }
+
+    // ---- Fetch fallback path (original batch flow) ----
+    const rounds = mode === 'divine' ? 1 : 2;
+    const agents = mode === 'divine' ? 3 : 5;  // Each tentacle = a different AI model
 
     // Ensure filler audio is prefetched
     prefetchFillers();
@@ -739,6 +758,70 @@ export default function Oracle() {
 
     setDebating(false);
   }
+
+  // Track WebSocket phase transitions to manage loading/debating state
+  useEffect(() => {
+    if (oracle.fallbackMode) return;
+    if (oracle.phase === 'reflex' || oracle.phase === 'deep') {
+      setLoading(true);
+      setDebating(false);
+    } else if (oracle.phase === 'tentacles') {
+      setLoading(false);
+      setDebating(true);
+    } else if (oracle.phase === 'synthesis') {
+      setLoading(false);
+      setDebating(false);
+    } else if (oracle.phase === 'idle' && loading) {
+      // Reset if we go back to idle unexpectedly
+      setLoading(false);
+      setDebating(false);
+    }
+  }, [oracle.phase, oracle.fallbackMode, loading]);
+
+  // When streaming completes (synthesis received), commit tokens to messages
+  useEffect(() => {
+    if (oracle.phase === 'synthesis' && oracle.tokens) {
+      // Add the streamed Oracle response as a message
+      setMessages((prev) => {
+        // Avoid duplicates — check if last oracle message matches
+        const last = prev[prev.length - 1];
+        if (last?.role === 'oracle' && last?.content === oracle.tokens) return prev;
+        return [...prev, {
+          role: 'oracle',
+          content: oracle.tokens,
+          mode,
+          timestamp: Date.now(),
+          isLive: false,
+        }];
+      });
+
+      // Add tentacle messages
+      oracle.tentacles.forEach((state, agent) => {
+        if (state.done && state.text) {
+          setMessages((prev) => [...prev, {
+            role: 'tentacle',
+            content: state.text,
+            mode,
+            timestamp: Date.now(),
+            agentName: agent,
+            isLive: true,
+          }]);
+        }
+      });
+
+      // Add synthesis
+      if (oracle.synthesis) {
+        setMessages((prev) => [...prev, {
+          role: 'oracle',
+          content: oracle.synthesis,
+          mode,
+          timestamp: Date.now(),
+          isLive: true,
+        }]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oracle.phase]);
 
   // ------------------------------------------------------------------
   // Format helpers
@@ -1094,8 +1177,80 @@ export default function Oracle() {
               </div>
             ))}
 
-            {/* Phase 1 loading */}
-            {loading && (
+            {/* WebSocket streaming display — real-time token flow */}
+            {oracle.connected && !oracle.fallbackMode && oracle.phase !== 'idle' && (
+              <>
+                {/* Streaming Oracle response (reflex + deep tokens) */}
+                {oracle.tokens && (
+                  <div className="prophecy-reveal max-w-[95%]">
+                    <div className="text-xs mb-1">
+                      <span
+                        className="text-[var(--acid-magenta)]"
+                        style={{ filter: 'drop-shadow(0 0 5px var(--acid-magenta))' }}
+                      >
+                        ORACLE
+                      </span>
+                      <span className="text-[var(--text-muted)]">
+                        {' '}&middot; {oracle.phase === 'reflex' ? 'sensing...' : oracle.phase === 'deep' ? 'channeling...' : mode}
+                      </span>
+                    </div>
+                    <div
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
+                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                    >
+                      {oracle.tokens}
+                      {(oracle.phase === 'reflex' || oracle.phase === 'deep') && (
+                        <span className="inline-block w-[2px] h-4 bg-[var(--acid-magenta)] ml-0.5 animate-pulse align-middle" />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Streaming tentacle messages */}
+                {oracle.phase === 'tentacles' && Array.from(oracle.tentacles.entries()).map(([agent, state], i) => (
+                  <div key={agent} className={`prophecy-reveal ${i % 2 === 0 ? 'tentacle-left' : 'tentacle-right'}`} style={{ animationDelay: `${i * 0.3}s` }}>
+                    <div className="text-xs mb-1 flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getTentacleColor(agent) }} />
+                      <span style={{ color: getTentacleColor(agent) }} className="font-bold">
+                        TENTACLE: {agent.toUpperCase()}
+                      </span>
+                      {!state.done && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+                      )}
+                    </div>
+                    <div
+                      className="border-l-2 pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
+                      style={{ borderColor: getTentacleColor(agent), color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                    >
+                      {state.text}
+                      {!state.done && (
+                        <span className="inline-block w-[2px] h-4 bg-[var(--acid-cyan)] ml-0.5 animate-pulse align-middle" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Synthesis */}
+                {oracle.synthesis && (
+                  <div className="prophecy-reveal max-w-[95%]">
+                    <div className="text-xs mb-1">
+                      <span className="text-[var(--acid-magenta)]" style={{ filter: 'drop-shadow(0 0 5px var(--acid-magenta))' }}>
+                        ORACLE (synthesis)
+                      </span>
+                    </div>
+                    <div
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
+                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                    >
+                      {oracle.synthesis}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Phase 1 loading (fetch fallback or pre-stream) */}
+            {loading && (oracle.fallbackMode || !oracle.connected || !oracle.tokens) && (
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
                   <span
@@ -1129,8 +1284,8 @@ export default function Oracle() {
               </div>
             )}
 
-            {/* Phase 2 loading */}
-            {debating && (
+            {/* Phase 2 loading (fetch fallback) */}
+            {debating && (oracle.fallbackMode || !oracle.connected) && (
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
                   <span className="text-[var(--acid-cyan)]" style={{ filter: 'drop-shadow(0 0 5px var(--acid-cyan))' }}>

@@ -110,6 +110,9 @@ class HardenedConfig:
     enable_sandbox_validation: bool = True
     sandbox_timeout: int = 60
     sandbox_memory_mb: int = 512
+    # Gauntlet retry: re-execute with feedback when Gauntlet finds issues
+    gauntlet_retry_enabled: bool = True
+    gauntlet_max_retries: int = 1
 
 
 class HardenedOrchestrator(AutonomousOrchestrator):
@@ -2067,15 +2070,65 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             # Record budget spend (cost incurred regardless of merge outcome)
             self._record_budget_spend(assignment)
 
-            # Run gauntlet on completed work
+            # Run gauntlet on completed work (with optional retry)
             if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
-                self._emit_event("gauntlet_started", subtask=assignment.subtask.id)
-                await self._run_gauntlet_validation(assignment)
-                self._emit_event(
-                    "gauntlet_result",
-                    subtask=assignment.subtask.id,
-                    status=assignment.status,
+                gauntlet_attempt = 0
+                gauntlet_max = (
+                    self.hardened_config.gauntlet_max_retries + 1
+                    if self.hardened_config.gauntlet_retry_enabled
+                    else 1
                 )
+                while gauntlet_attempt < gauntlet_max and assignment.status == "completed":
+                    self._emit_event(
+                        "gauntlet_started",
+                        subtask=assignment.subtask.id,
+                        attempt=gauntlet_attempt + 1,
+                    )
+                    await self._run_gauntlet_validation(assignment)
+                    self._emit_event(
+                        "gauntlet_result",
+                        subtask=assignment.subtask.id,
+                        status=assignment.status,
+                    )
+                    gauntlet_attempt += 1
+
+                    # If gauntlet failed and retries remain, re-execute with
+                    # gauntlet findings injected as additional context
+                    if (
+                        assignment.status == "failed"
+                        and gauntlet_attempt < gauntlet_max
+                    ):
+                        findings = (assignment.result or {}).get("gauntlet_findings", [])
+                        logger.info(
+                            "gauntlet_retry subtask=%s attempt=%d findings=%d",
+                            assignment.subtask.id,
+                            gauntlet_attempt + 1,
+                            len(findings),
+                        )
+                        self._emit_event(
+                            "gauntlet_retry",
+                            subtask=assignment.subtask.id,
+                            attempt=gauntlet_attempt + 1,
+                        )
+                        # Reset status and re-execute with findings in context
+                        assignment.status = "in_progress"
+                        original_desc = assignment.subtask.description
+                        if findings:
+                            assignment.subtask.description = (
+                                f"{original_desc}\n\n"
+                                f"IMPORTANT: A previous attempt had these issues "
+                                f"that MUST be fixed:\n"
+                                + "\n".join(f"- {f}" for f in findings)
+                            )
+                        try:
+                            original_path = self.aragora_path
+                            self.aragora_path = ctx.worktree_path
+                            try:
+                                await super()._execute_single_assignment(assignment, max_cycles)
+                            finally:
+                                self.aragora_path = original_path
+                        finally:
+                            assignment.subtask.description = original_desc
 
             # Output validation: scan diff for dangerous patterns
             if assignment.status == "completed":

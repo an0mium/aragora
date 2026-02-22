@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import subprocess
+import sys
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -120,30 +122,41 @@ class SelfImprovePipeline:
     def __init__(self, config: SelfImproveConfig | None = None):
         self.config = config or SelfImproveConfig()
 
-    async def run(self, objective: str) -> SelfImproveResult:
+    async def run(self, objective: str | None = None) -> SelfImproveResult:
         """Run a full self-improvement cycle.
 
         Args:
-            objective: High-level objective like "Improve test coverage"
+            objective: High-level objective like "Improve test coverage".
+                       None for self-directing mode (scan generates goals).
 
         Returns:
             SelfImproveResult with cycle outcomes
         """
         cycle_id = f"cycle_{uuid.uuid4().hex[:12]}"
         start_time = time.time()
-        result = SelfImproveResult(cycle_id=cycle_id, objective=objective)
+        effective_objective = objective or "self-directed codebase improvement"
+        result = SelfImproveResult(cycle_id=cycle_id, objective=effective_objective)
 
         logger.info(
-            "self_improve_started cycle=%s objective=%s", cycle_id, objective[:100]
+            "self_improve_started cycle=%s objective=%s self_directing=%s",
+            cycle_id,
+            effective_objective[:100],
+            objective is None,
         )
 
         # Step 0: Index codebase for richer planning context
         if self.config.enable_codebase_indexing:
             await self._index_codebase()
 
-        # Step 1: Plan
+        # Step 1: Plan (None objective triggers scan-based goal synthesis)
         goals = await self._plan(objective)
         result.goals_planned = len(goals)
+
+        # In self-directing mode, synthesize objective from top goal
+        if objective is None and goals:
+            top_desc = getattr(goals[0], "description", str(goals[0]))
+            effective_objective = f"[scan] {top_desc[:100]}"
+            result.objective = effective_objective
 
         if not goals:
             logger.warning("self_improve_no_goals cycle=%s", cycle_id)
@@ -201,7 +214,7 @@ class SelfImprovePipeline:
 
         # Step 5b: Semantic goal evaluation
         goal_eval = self._evaluate_goal(
-            objective, subtasks, result, baseline, after
+            effective_objective, subtasks, result, baseline, after
         )
         if goal_eval is not None:
             result.metrics_delta["goal_achievement"] = goal_eval.achievement_score
@@ -218,6 +231,9 @@ class SelfImprovePipeline:
         if self.config.persist_outcomes:
             self._persist_outcome(cycle_id, result, outcome_comparison)
 
+        # Step 7: Run feedback orchestrator (6-step audit→active bridge)
+        self._run_feedback_orchestrator(cycle_id, execution_results)
+
         result.duration_seconds = time.time() - start_time
         logger.info(
             "self_improve_completed cycle=%s goals=%d subtasks=%d/%d duration=%.1fs",
@@ -230,7 +246,7 @@ class SelfImprovePipeline:
 
         return result
 
-    async def dry_run(self, objective: str) -> dict[str, Any]:
+    async def dry_run(self, objective: str | None = None) -> dict[str, Any]:
         """Preview what the pipeline would do without executing.
 
         Returns the plan (goals + subtasks) without making any changes.
@@ -238,8 +254,16 @@ class SelfImprovePipeline:
         goals = await self._plan(objective)
         subtasks = await self._decompose(goals)
 
+        # Synthesize objective label from top goal in self-directing mode
+        effective_objective = objective
+        if effective_objective is None and goals:
+            top_desc = getattr(goals[0], "description", str(goals[0]))
+            effective_objective = f"[scan] {top_desc[:100]}"
+        elif effective_objective is None:
+            effective_objective = "self-directed codebase improvement"
+
         return {
-            "objective": objective,
+            "objective": effective_objective,
             "goals": [
                 {
                     "description": getattr(g, "description", str(g)),
@@ -303,26 +327,36 @@ class SelfImprovePipeline:
         except (RuntimeError, ValueError, OSError) as exc:
             logger.debug("Codebase indexing failed: %s", exc)
 
-    async def _plan(self, objective: str) -> list[Any]:
-        """Step 1: Use MetaPlanner to prioritize goals."""
-        if not self.config.use_meta_planner:
-            # Return a single goal: the objective itself
-            try:
-                from aragora.nomic.meta_planner import PrioritizedGoal, Track
+    async def _plan(self, objective: str | None) -> list[Any]:
+        """Step 1: Use MetaPlanner to prioritize goals.
 
-                return [
-                    PrioritizedGoal(
-                        id="direct",
-                        track=Track.CORE,
-                        description=objective,
-                        rationale="Direct objective (no meta-planning)",
-                        estimated_impact="high",
-                        priority=1,
-                    )
-                ]
-            except ImportError:
-                logger.warning("PrioritizedGoal not importable, returning raw goal")
-                return [objective]
+        When objective is None (self-directing mode), MetaPlanner uses
+        scan_mode to derive goals purely from codebase signals.
+        """
+        if not self.config.use_meta_planner:
+            if objective is None:
+                # Can't do direct objective mode without an objective
+                logger.warning("self_directing requires use_meta_planner=True, enabling scan")
+                self.config.use_meta_planner = True
+                self.config.scan_mode = True
+            else:
+                # Return a single goal: the objective itself
+                try:
+                    from aragora.nomic.meta_planner import PrioritizedGoal, Track
+
+                    return [
+                        PrioritizedGoal(
+                            id="direct",
+                            track=Track.CORE,
+                            description=objective,
+                            rationale="Direct objective (no meta-planning)",
+                            estimated_impact="high",
+                            priority=1,
+                        )
+                    ]
+                except ImportError:
+                    logger.warning("PrioritizedGoal not importable, returning raw goal")
+                    return [objective]
 
         try:
             from aragora.nomic.meta_planner import MetaPlanner, MetaPlannerConfig
@@ -333,6 +367,7 @@ class SelfImprovePipeline:
                 max_goals=self.config.max_goals,
             )
             planner = MetaPlanner(config)
+            # objective=None triggers self-directing scan in MetaPlanner
             goals = await planner.prioritize_work(objective=objective)
             return goals
         except ImportError as exc:
@@ -812,6 +847,7 @@ class SelfImprovePipeline:
         self,
         subtask: Any,
         cycle_id: str,
+        goal: Any | None = None,
     ) -> dict[str, Any]:
         """Execute a single subtask.
 
@@ -822,6 +858,7 @@ class SelfImprovePipeline:
         Args:
             subtask: A SubTask, TaskDecomposition, TrackAssignment, or raw string
             cycle_id: The cycle identifier for logging
+            goal: Optional PrioritizedGoal for richer instruction context
 
         Returns:
             Dict with execution outcome
@@ -847,13 +884,20 @@ class SelfImprovePipeline:
         # Read file contents for richer prompts
         file_contents = self._read_file_contents(subtask)
 
+        # Extract worktree_path hint early so create_instruction can embed it
+        wt_hint = getattr(subtask, "worktree_path", None)
+        worktree_path = str(wt_hint) if wt_hint is not None else None
+
         # Attempt to use ExecutionBridge to generate + dispatch instruction
         try:
             from aragora.nomic.execution_bridge import ExecutionBridge
 
             bridge = ExecutionBridge()
             instruction = bridge.create_instruction(
-                subtask, file_contents=file_contents
+                subtask,
+                file_contents=file_contents,
+                goal=goal,
+                worktree_path=worktree_path,
             )
 
             logger.info(
@@ -864,12 +908,9 @@ class SelfImprovePipeline:
             # Write instruction to worktree for agent pickup
             dispatched = False
             executed = False
-            # Extract worktree_path: prefer instruction, then TrackAssignment
-            worktree_path = instruction.worktree_path
-            if not worktree_path:
-                wt_hint = getattr(subtask, "worktree_path", None)
-                if wt_hint is not None:
-                    worktree_path = str(wt_hint)
+            # Prefer worktree_path from instruction (may have been enriched)
+            if instruction.worktree_path:
+                worktree_path = instruction.worktree_path
             files_changed: list[str] = []
             tests_passed = 0
             tests_failed = 0
@@ -898,9 +939,68 @@ class SelfImprovePipeline:
                         files_changed = exec_result.get("files_changed", [])
                         tests_passed = exec_result.get("tests_passed", 0)
                         tests_failed = exec_result.get("tests_failed", 0)
+                    else:
+                        logger.warning(
+                            "execute_subtask dispatch returned None for %s",
+                            desc[:80],
+                        )
+
+            # Verify changes via PRReviewRunner if available
+            if files_changed and worktree_path:
+                try:
+                    from aragora.nomic.execution_bridge import ExecutionResult
+
+                    exec_result_obj = ExecutionResult(
+                        subtask_id=getattr(instruction, "subtask_id", "unknown"),
+                        success=True,
+                        files_changed=files_changed,
+                        diff_summary="\n".join(files_changed),
+                    )
+                    verification = await bridge.verify_changes(exec_result_obj)
+                    logger.info(
+                        "Verification result for %s: %s",
+                        desc[:40],
+                        verification.get("verified", "unknown"),
+                    )
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("Verification skipped: %s", exc)
+
+            # Auto-commit changes in worktree for downstream merge
+            if files_changed and worktree_path:
+                try:
+                    commit_result = subprocess.run(
+                        ["git", "add", "-A"],
+                        capture_output=True,
+                        text=True,
+                        cwd=worktree_path,
+                        timeout=10,
+                    )
+                    if commit_result.returncode == 0:
+                        subprocess.run(
+                            [
+                                "git", "commit", "-m",
+                                f"self-improve: {getattr(instruction, 'subtask_id', 'unknown')[:40]}",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            cwd=worktree_path,
+                            timeout=10,
+                            check=False,
+                        )
+                except (subprocess.TimeoutExpired, OSError):
+                    pass
+
+            # Generate per-subtask execution receipt
+            receipt_hash = self._generate_subtask_receipt(
+                subtask_id=getattr(instruction, "subtask_id", "unknown"),
+                cycle_id=cycle_id,
+                desc=desc,
+                files_changed=files_changed,
+                success=executed and tests_failed == 0,
+            )
 
             return {
-                "success": True,
+                "success": executed and len(files_changed) > 0,
                 "subtask": desc[:100],
                 "instruction_generated": True,
                 "instruction_dispatched": dispatched,
@@ -909,6 +1009,7 @@ class SelfImprovePipeline:
                 "files_changed": files_changed,
                 "tests_passed": tests_passed,
                 "tests_failed": tests_failed,
+                "receipt_hash": receipt_hash,
             }
         except ImportError:
             pass
@@ -916,7 +1017,7 @@ class SelfImprovePipeline:
             logger.debug("ExecutionBridge failed: %s", exc)
 
         return {
-            "success": True,
+            "success": False,
             "subtask": desc[:100],
             "instruction_generated": False,
             "instruction_dispatched": False,
@@ -1148,7 +1249,7 @@ class SelfImprovePipeline:
 
             result = await asyncio.to_thread(
                 subprocess.run,
-                ["python", "-m", "pytest", "--tb=no", "-q", "--timeout=30"],
+                [sys.executable, "-m", "pytest", "--tb=no", "-q", "--timeout=30"],
                 capture_output=True,
                 text=True,
                 cwd=worktree_path,
@@ -1215,6 +1316,68 @@ class SelfImprovePipeline:
         )
         return True
 
+    @staticmethod
+    def _generate_subtask_receipt(
+        subtask_id: str,
+        cycle_id: str,
+        desc: str,
+        files_changed: list[str],
+        success: bool,
+    ) -> str | None:
+        """Generate a DecisionReceipt for a completed subtask.
+
+        Returns the receipt hash string, or None if receipt generation fails.
+        """
+        try:
+            import hashlib
+
+            # Build a deterministic receipt content hash
+            content = f"{cycle_id}:{subtask_id}:{desc}:{','.join(sorted(files_changed))}:{success}"
+            receipt_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+
+            try:
+                from aragora.export.decision_receipt import DecisionReceipt
+
+                receipt = DecisionReceipt(
+                    receipt_id=f"si_{subtask_id}_{receipt_hash}",
+                    verdict="approved" if success else "rejected",
+                    summary=desc[:200],
+                    evidence=[f"files: {', '.join(files_changed[:5])}"],
+                    metadata={
+                        "cycle_id": cycle_id,
+                        "subtask_id": subtask_id,
+                        "type": "self_improve_subtask",
+                    },
+                )
+
+                # Persist receipt to KM
+                from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
+                import asyncio
+
+                adapter = ReceiptAdapter()
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(adapter.ingest_receipt(
+                        receipt,
+                        tags=["self_improve", "subtask", cycle_id],
+                    ))
+                except RuntimeError:
+                    pass
+            except ImportError:
+                pass
+
+            logger.info(
+                "subtask_receipt generated=%s subtask=%s success=%s",
+                receipt_hash,
+                subtask_id[:20],
+                success,
+            )
+            return receipt_hash
+
+        except (RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Subtask receipt generation failed: %s", exc)
+            return None
+
     def _persist_outcome(
         self,
         cycle_id: str,
@@ -1279,6 +1442,35 @@ class SelfImprovePipeline:
             logger.debug("Failed to persist cycle outcome (import): %s", exc)
         except (RuntimeError, ValueError, OSError) as exc:
             logger.debug("Failed to persist cycle outcome: %s", exc)
+
+    def _run_feedback_orchestrator(
+        self,
+        cycle_id: str,
+        execution_results: list[dict[str, Any]],
+    ) -> None:
+        """Step 7: Run the 6-step feedback orchestrator.
+
+        Bridges Gauntlet, Introspection, Genesis, Learning, Workspace,
+        and Pulse into active feedback goals persisted to ImprovementQueue.
+        Next cycle's scan mode reads these as Signal 8.
+        """
+        try:
+            from aragora.nomic.feedback_orchestrator import SelfImproveFeedbackOrchestrator
+
+            orchestrator = SelfImproveFeedbackOrchestrator()
+            feedback = orchestrator.run(cycle_id, execution_results)
+
+            logger.info(
+                "feedback_orchestrator_result cycle=%s goals=%d steps=%d/%d",
+                cycle_id,
+                feedback.goals_generated,
+                feedback.steps_completed,
+                feedback.steps_completed + feedback.steps_failed,
+            )
+        except ImportError:
+            logger.debug("FeedbackOrchestrator not available")
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.warning("Feedback orchestrator failed (non-critical): %s", exc)
 
 
 __all__ = [

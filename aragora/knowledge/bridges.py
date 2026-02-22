@@ -63,6 +63,7 @@ __all__ = [
     "PatternBridge",
     "ToolAuditBridge",
     "KnowledgeBridgeHub",
+    "PipelineBridge",
 ]
 
 
@@ -781,3 +782,99 @@ class KnowledgeBridgeHub:
         except (ImportError, KeyError, AttributeError, TypeError) as e:
             logger.debug("Could not get adapter %s: %s", adapter_name, e)
             return None
+
+
+class PipelineBridge:
+    """Bridge between IdeaToExecutionPipeline and KnowledgeMound.
+
+    Stores completed pipeline runs as KM nodes and queries for
+    precedent runs on similar topics. This enables cross-run learning
+    where future pipelines benefit from past outcomes.
+    """
+
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
+        self.mound = mound
+
+    async def store_pipeline_run(
+        self,
+        pipeline_id: str,
+        topic: str,
+        stages_completed: int,
+        duration: float,
+        goal_count: int = 0,
+        task_count: int = 0,
+        receipt: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Persist a completed pipeline run as a KM node.
+
+        Returns:
+            Node ID if stored, None on failure.
+        """
+        content_parts = [
+            f"Pipeline run: {pipeline_id}",
+            f"Topic: {topic}",
+            f"Stages completed: {stages_completed}/4",
+            f"Duration: {duration:.1f}s",
+            f"Goals: {goal_count}, Tasks: {task_count}",
+        ]
+        content = "\n".join(content_parts)
+
+        try:
+            from aragora.knowledge.mound import KnowledgeNode, ProvenanceChain, ProvenanceType
+            from aragora.memory.tier_manager import MemoryTier
+
+            provenance = ProvenanceChain(
+                source_type=ProvenanceType.AGENT,
+                source_id=f"pipeline_{pipeline_id}",
+            )
+
+            node = KnowledgeNode(
+                node_type="fact",
+                content=content,
+                confidence=min(1.0, stages_completed / 4.0),
+                provenance=provenance,
+                tier=MemoryTier.SLOW,
+                workspace_id=self.mound.workspace_id,
+                metadata={
+                    "pipeline_id": pipeline_id,
+                    "topic": topic,
+                    "stages_completed": stages_completed,
+                    "duration": duration,
+                    "goal_count": goal_count,
+                    "task_count": task_count,
+                    **({"receipt_hash": receipt.get("hash", "")} if receipt else {}),
+                },
+            )
+
+            node_id = await self.mound.add_node(node)
+            logger.info("Stored pipeline run %s as KM node: %s", pipeline_id, node_id)
+            return str(node_id)
+        except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Failed to store pipeline run: %s", exc)
+            return None
+
+    async def query_precedents(
+        self,
+        topic: str,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Search KM for past pipeline runs on similar topics.
+
+        Returns:
+            List of precedent dicts with pipeline_id, topic, stages_completed, etc.
+        """
+        try:
+            results = await self.mound.search(
+                query=topic,
+                node_type="fact",
+                limit=limit,
+            )
+            precedents = []
+            for node in results:
+                meta = getattr(node, "metadata", {}) or {}
+                if meta.get("pipeline_id"):
+                    precedents.append(meta)
+            return precedents
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            logger.debug("Precedent query failed: %s", exc)
+            return []

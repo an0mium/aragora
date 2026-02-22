@@ -579,12 +579,71 @@ class BranchCoordinator:
                     conflicts.append(parts[1].strip())
         return conflicts
 
+    @staticmethod
+    def _compute_waves(assignments: list[TrackAssignment]) -> list[list[TrackAssignment]]:
+        """Topologically sort assignments into dependency waves.
+
+        Wave 0: assignments with no dependencies (or no depends_on field on goal).
+        Wave N: assignments whose dependencies are all in waves 0..N-1.
+
+        Falls back to a single wave (all parallel) if no dependency data exists.
+        """
+        # Build id -> assignment map using goal.id
+        by_id: dict[str, TrackAssignment] = {}
+        for a in assignments:
+            goal_id = getattr(a.goal, "id", None)
+            if goal_id:
+                by_id[goal_id] = a
+
+        # Check if any assignment has dependencies (via goal.focus_areas used as dep hints)
+        has_deps = any(
+            getattr(a.goal, "dependencies", None) or getattr(a.goal, "depends_on", None)
+            for a in assignments
+        )
+        if not has_deps:
+            return [assignments]
+
+        assigned: set[str] = set()
+        waves: list[list[TrackAssignment]] = []
+        remaining = list(assignments)
+
+        for _ in range(len(assignments) + 1):
+            if not remaining:
+                break
+
+            wave: list[TrackAssignment] = []
+            still_remaining: list[TrackAssignment] = []
+
+            for a in remaining:
+                deps = getattr(a.goal, "dependencies", None) or getattr(a.goal, "depends_on", None) or []
+                unmet = [d for d in deps if d in by_id and d not in assigned]
+                if not unmet:
+                    wave.append(a)
+                else:
+                    still_remaining.append(a)
+
+            if not wave:
+                wave = still_remaining
+                still_remaining = []
+
+            waves.append(wave)
+            for a in wave:
+                goal_id = getattr(a.goal, "id", None)
+                if goal_id:
+                    assigned.add(goal_id)
+            remaining = still_remaining
+
+        return waves
+
     async def coordinate_parallel_work(
         self,
         assignments: list[TrackAssignment],
         run_nomic_fn: Callable[[TrackAssignment], Any] | None = None,
     ) -> CoordinationResult:
         """Run nomic loops in parallel on separate branches.
+
+        Assignments are grouped into dependency waves. Tasks within a wave
+        execute in parallel; waves execute sequentially.
 
         Args:
             assignments: Track assignments with goals
@@ -629,20 +688,36 @@ class BranchCoordinator:
             except (RuntimeError, ValueError, OSError) as e:
                 logger.debug("Semantic conflict detection failed: %s", e)
 
-        # Run nomic loops in parallel
+        # Group into dependency waves and execute wave-by-wave
         if run_nomic_fn:
-            tasks = []
-            for assignment in assignments:
-                if assignment.branch_name:
-                    task = asyncio.create_task(self._run_assignment(assignment, run_nomic_fn))
-                    tasks.append(task)
+            waves = self._compute_waves(assignments)
+            logger.info(
+                "coordinate_waves total=%d waves=%d",
+                len(assignments),
+                len(waves),
+            )
 
-            try:
-                await asyncio.gather(*tasks, return_exceptions=True)
-            except BaseException:
-                # Clean up worktrees to prevent orphans on unexpected failure
-                self.cleanup_all_worktrees()
-                raise
+            for wave_idx, wave in enumerate(waves):
+                tasks = []
+                for assignment in wave:
+                    if assignment.branch_name:
+                        task = asyncio.create_task(
+                            self._run_assignment(assignment, run_nomic_fn)
+                        )
+                        tasks.append(task)
+
+                try:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                except BaseException:
+                    self.cleanup_all_worktrees()
+                    raise
+
+                logger.info(
+                    "wave_completed wave=%d/%d tasks=%d",
+                    wave_idx + 1,
+                    len(waves),
+                    len(wave),
+                )
 
         # Attempt to merge completed branches
         merged_count = 0

@@ -22,6 +22,15 @@ export type OrchType = 'agent_task' | 'debate' | 'human_gate' | 'parallel_fan' |
 
 export type ActionStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
 export type OrchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'awaiting_human';
+export type ExecutionStatus = 'pending' | 'in_progress' | 'succeeded' | 'failed' | 'partial';
+
+export const EXECUTION_STATUS_COLORS: Record<ExecutionStatus, { bg: string; text: string; ring: string }> = {
+  pending: { bg: 'bg-gray-500/20', text: 'text-gray-300', ring: 'ring-gray-500/50' },
+  in_progress: { bg: 'bg-blue-500/20', text: 'text-blue-300', ring: 'ring-blue-500/50' },
+  succeeded: { bg: 'bg-green-500/20', text: 'text-green-300', ring: 'ring-green-500/50' },
+  failed: { bg: 'bg-red-500/20', text: 'text-red-300', ring: 'ring-red-500/50' },
+  partial: { bg: 'bg-amber-500/20', text: 'text-amber-300', ring: 'ring-amber-500/50' },
+};
 
 export const ACTION_STATUS_COLORS: Record<ActionStatus, string> = {
   pending: 'bg-gray-500/30 text-gray-200',

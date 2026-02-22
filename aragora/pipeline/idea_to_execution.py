@@ -77,6 +77,11 @@ class PipelineConfig:
     enable_km_persistence: bool = False  # Auto-persist results to KnowledgeMound
     use_arena_orchestration: bool = False  # Use Arena mini-debate in Stage 4
     use_hardened_orchestrator: bool = False  # Use HardenedOrchestrator in Stage 4
+    template: Any | None = None  # DeliberationTemplate for Arena defaults
+    spectator: Any | None = None  # SpectatorStream for real-time observation
+    enable_beads: bool = False  # Map Stage 4 tasks to Bead lifecycle objects
+    enable_fractal: bool = False  # Use FractalOrchestrator for recursive ideation
+    enable_meta_tuning: bool = False  # MetaLearner self-tuning
 
 
 @dataclass
@@ -376,6 +381,17 @@ class IdeaToExecutionPipeline:
                 })
 
         self._build_universal_graph(result)
+
+        # Persist pipeline result to KM for future precedent queries
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+
+            bridge = PipelineKMBridge()
+            if bridge.available:
+                bridge.store_pipeline_result(result)
+        except (ImportError, RuntimeError, TypeError) as exc:
+            logger.debug("KM pipeline result storage unavailable: %s", exc)
+
         return result
 
     def from_ideas(
@@ -462,6 +478,20 @@ class IdeaToExecutionPipeline:
                 except (TypeError, ValueError, KeyError):
                     logger.debug("SMART scoring skipped for goal %s", goal.id)
 
+        # Enrich goal graph with past strategic findings
+        try:
+            from aragora.nomic.strategic_memory import StrategicMemoryStore
+
+            sm_store = StrategicMemoryStore()
+            past = sm_store.get_latest(limit=2)
+            if past:
+                hints = [f.description for a in past for f in a.findings[:3]]
+                if hints and result.goal_graph:
+                    result.goal_graph.metadata["strategic_hints"] = hints[:6]
+                    logger.debug("Pipeline enriched with %d strategic hints", len(hints))
+        except Exception:
+            pass
+
         # Merge goal provenance into pipeline provenance
         if result.goal_graph:
             if result.goal_graph.transition:
@@ -513,6 +543,19 @@ class IdeaToExecutionPipeline:
                 })
 
         self._build_universal_graph(result)
+
+        # Close the feedback loop: persist pipeline result to KM for future
+        # precedent queries. This means the next pipeline run can learn from
+        # past goal/action patterns via query_similar_goals/actions.
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+
+            bridge = PipelineKMBridge()
+            if bridge.available:
+                bridge.store_pipeline_result(result)
+        except (ImportError, RuntimeError, TypeError) as exc:
+            logger.debug("KM pipeline result storage unavailable: %s", exc)
+
         return result
 
     def advance_stage(
@@ -566,6 +609,30 @@ class IdeaToExecutionPipeline:
             stage_status={s.value: "pending" for s in PipelineStage},
         )
 
+        # Create ProvenanceChain for cryptographic audit trail
+        provenance_chain = None
+        try:
+            from aragora.reasoning.provenance import ProvenanceChain as ReasoningProvenanceChain, SourceType
+
+            provenance_chain = ReasoningProvenanceChain()
+        except ImportError:
+            pass
+
+        # MetaLearner self-tuning: adjust debate rounds based on past performance
+        if cfg.enable_meta_tuning:
+            try:
+                from aragora.knowledge.bridges import KnowledgeBridgeHub
+
+                hub = KnowledgeBridgeHub()
+                meta_bridge = hub.get_meta_learner_bridge()
+                if meta_bridge:
+                    tuning = await meta_bridge.get_debate_tuning()
+                    if tuning and "debate_rounds" in tuning:
+                        cfg.debate_rounds = tuning["debate_rounds"]
+                        logger.info("MetaLearner tuned debate_rounds to %d", cfg.debate_rounds)
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.debug("MetaLearner tuning unavailable: %s", exc)
+
         self._emit(cfg, "started", {"pipeline_id": pipeline_id, "stages": cfg.stages_to_run})
 
         try:
@@ -576,8 +643,29 @@ class IdeaToExecutionPipeline:
                 if sr.status == "completed" and sr.output:
                     result.ideas_canvas = sr.output.get("canvas")
                     result.stage_status[PipelineStage.IDEAS.value] = "complete"
+                    # Capture introspection data for Stage 4 agent ranking
+                    debate_result = sr.output.get("debate_result")
+                    if debate_result:
+                        tracker = getattr(debate_result, "introspection_tracker", None)
+                        if tracker:
+                            try:
+                                introspection_data = tracker.get_all_summaries()
+                                cfg._introspection_data = introspection_data
+                            except (AttributeError, TypeError):
+                                pass
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.IDEAS.value] = "failed"
+
+            # Record provenance after ideation
+            if provenance_chain and result.provenance:
+                try:
+                    for link in result.provenance:
+                        provenance_chain.add_record(
+                            content=getattr(link, "content_hash", ""),
+                            source_type=SourceType.DERIVED,
+                        )
+                except (AttributeError, TypeError, ValueError):
+                    pass
 
             # Stage 2: Goal extraction
             if "goals" in cfg.stages_to_run:
@@ -596,6 +684,17 @@ class IdeaToExecutionPipeline:
                     result.stage_status[PipelineStage.GOALS.value] = "complete"
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.GOALS.value] = "failed"
+
+            # Record provenance after goals
+            if provenance_chain and result.provenance:
+                try:
+                    for link in result.provenance:
+                        provenance_chain.add_record(
+                            content=getattr(link, "content_hash", ""),
+                            source_type=SourceType.DERIVED,
+                        )
+                except (AttributeError, TypeError, ValueError):
+                    pass
 
             # Stage 3: Workflow generation
             if "workflow" in cfg.stages_to_run:
@@ -626,9 +725,37 @@ class IdeaToExecutionPipeline:
                             result = self._advance_to_orchestration(result)
                         result.stage_status[PipelineStage.ORCHESTRATION.value] = "complete"
 
+            # Verify provenance chain integrity
+            if provenance_chain:
+                try:
+                    chain_valid = provenance_chain.verify_chain()
+                    if result.receipt is None:
+                        result.receipt = {}
+                    result.receipt["provenance_chain_valid"] = chain_valid
+                except (AttributeError, TypeError, ValueError):
+                    pass
+
             # Generate receipt
             if cfg.enable_receipts and not cfg.dry_run:
                 result.receipt = self._generate_receipt(result)
+
+            # Feed pipeline metrics back to MetaLearner
+            if cfg.enable_meta_tuning:
+                try:
+                    from aragora.knowledge.bridges import KnowledgeBridgeHub
+
+                    hub = KnowledgeBridgeHub()
+                    meta_bridge = hub.get_meta_learner_bridge()
+                    if meta_bridge:
+                        await meta_bridge.evaluate_learning_efficiency({
+                            "pipeline_id": pipeline_id,
+                            "duration": result.duration,
+                            "stages_completed": sum(
+                                1 for s in result.stage_status.values() if s == "complete"
+                            ),
+                        })
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("MetaLearner feedback failed: %s", exc)
 
             # Auto-persist to KnowledgeMound
             if cfg.enable_km_persistence and not cfg.dry_run:
@@ -652,6 +779,9 @@ class IdeaToExecutionPipeline:
                     logger.debug("KM persistence skipped: PipelineKMBridge not available")
                 except (RuntimeError, ValueError, OSError) as exc:
                     logger.warning("Pipeline %s: KM persistence failed: %s", pipeline_id, exc)
+
+            # Record outcome for cross-session learning
+            self._record_pipeline_outcome(result)
 
             result.duration = time.monotonic() - start_time
             self._emit(cfg, "completed", {
@@ -691,8 +821,33 @@ class IdeaToExecutionPipeline:
 
                 env = Environment(task=input_text)
                 protocol = DebateProtocol(rounds=cfg.debate_rounds)
+                # Apply DeliberationTemplate defaults if provided
+                if cfg.template:
+                    template_agents = getattr(cfg.template, "default_agents", None)
+                    consensus = getattr(cfg.template, "consensus_threshold", None)
+                    max_rounds = getattr(cfg.template, "max_rounds", None)
+                    if consensus is not None:
+                        protocol = DebateProtocol(
+                            rounds=max_rounds or cfg.debate_rounds,
+                            min_consensus=consensus,
+                        )
                 arena = Arena(env, [], protocol)
                 debate_result = await arena.run()
+                # Generate explanation from debate result
+                explanation_summary = None
+                try:
+                    from aragora.explainability.builder import ExplanationBuilder
+
+                    explanation = ExplanationBuilder().build(debate_result)
+                    explanation_summary = {
+                        "conclusion": getattr(explanation, "conclusion", ""),
+                        "confidence": getattr(explanation, "confidence", 0.0),
+                        "evidence_count": len(getattr(explanation, "evidence", [])),
+                        "vote_pivots": getattr(explanation, "vote_pivots", []),
+                        "counterfactuals": getattr(explanation, "counterfactuals", []),
+                    }
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("ExplanationBuilder unavailable: %s", exc)
                 debate_data = {
                     "debate_result": debate_result,
                     "nodes": getattr(debate_result, "argument_graph", {}).get("nodes", []),
@@ -716,7 +871,25 @@ class IdeaToExecutionPipeline:
                     metadata={"stage": PipelineStage.IDEAS.value, "source": "text"},
                 )
 
-            sr.output = {"canvas": canvas, **debate_data}
+            # Optional: use FractalOrchestrator for recursive sub-debates
+            if cfg.enable_fractal:
+                try:
+                    from aragora.genesis.fractal import FractalOrchestrator
+
+                    fractal = FractalOrchestrator(max_depth=2)
+                    fractal_result = await fractal.run(input_text)
+                    # Map sub-debates to additional canvas nodes
+                    sub_debates = getattr(fractal_result, "sub_debates", [])
+                    for i, sub in enumerate(sub_debates):
+                        debate_data.setdefault("fractal_nodes", []).append({
+                            "id": f"fractal-{i}",
+                            "content": getattr(sub, "summary", str(sub)[:200]),
+                            "depth": getattr(sub, "depth", 1),
+                        })
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("FractalOrchestrator unavailable: %s", exc)
+
+            sr.output = {"canvas": canvas, "explanation": explanation_summary, **debate_data}
             sr.status = "completed"
             sr.duration = time.monotonic() - start
             self._emit(cfg, "stage_completed", {
@@ -1008,6 +1181,30 @@ class IdeaToExecutionPipeline:
                 sr.duration = time.monotonic() - start
                 return sr
 
+            # Create Bead objects for task lifecycle tracking if enabled
+            bead_manager = None
+            if cfg.enable_beads:
+                try:
+                    from aragora.workspace.manager import WorkspaceManager
+
+                    ws_mgr = WorkspaceManager()
+                    rig = ws_mgr.create_rig(f"pipeline-{pipeline_id}")
+                    bead_specs = [
+                        {"name": t["name"], "description": t.get("description", "")}
+                        for t in execution_plan["tasks"]
+                        if t["type"] != "human_gate"
+                    ]
+                    convoy = ws_mgr.create_convoy(rig, bead_specs=bead_specs)
+                    bead_manager = {"convoy": convoy, "rig": rig, "ws_mgr": ws_mgr}
+
+                    # Use topological order from bead dependencies
+                    ready = ws_mgr.get_ready_beads(convoy)
+                    if ready:
+                        logger.info("Bead order: %d ready of %d total", len(ready), len(bead_specs))
+                except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                    logger.debug("Bead lifecycle unavailable: %s", exc)
+                    bead_manager = None
+
             results: list[dict[str, Any]] = []
             for task in execution_plan["tasks"]:
                 if task["type"] == "human_gate":
@@ -1031,6 +1228,17 @@ class IdeaToExecutionPipeline:
 
                 task_result = await self._execute_task(task, cfg)
                 results.append(task_result)
+
+                # Update bead lifecycle
+                if bead_manager:
+                    try:
+                        ws_mgr = bead_manager["ws_mgr"]
+                        if task_result["status"] == "completed":
+                            ws_mgr.complete_bead(task["id"])
+                        else:
+                            ws_mgr.fail_bead(task["id"])
+                    except (AttributeError, KeyError, TypeError, RuntimeError):
+                        pass
 
                 self._emit(cfg, "pipeline_agent_completed", {
                     "task_id": task["id"],
@@ -1117,6 +1325,21 @@ class IdeaToExecutionPipeline:
         4. Falls back to ``planned`` status when no engine is available.
         """
         instruction = f"Implement: {task['name']}\n\n{task.get('description', '')}"
+
+        # Append preferred agents from introspection data
+        preferred = getattr(cfg, '_introspection_data', None)
+        if preferred:
+            try:
+                ranked = sorted(
+                    preferred.items(),
+                    key=lambda x: x[1].get("average_influence", 0),
+                    reverse=True,
+                )
+                top_agents = [name for name, _ in ranked[:3]]
+                if top_agents:
+                    instruction += f"\n\nPreferred agents: {', '.join(top_agents)}"
+            except (AttributeError, TypeError, ValueError):
+                pass
 
         # Backend 1: HardenedOrchestrator (worktree isolation + gauntlet)
         if cfg.use_hardened_orchestrator:
@@ -1220,6 +1443,13 @@ class IdeaToExecutionPipeline:
             except (TypeError, ValueError, RuntimeError, OSError):
                 pass  # Event callbacks must not crash the pipeline
 
+        # Also emit to SpectatorStream if configured
+        if cfg.spectator:
+            try:
+                cfg.spectator.emit(event_type, details=str(data))
+            except (TypeError, ValueError, RuntimeError, OSError, AttributeError):
+                pass  # SpectatorStream must not crash the pipeline
+
     @staticmethod
     def _emit_sync(
         callback: Any | None, event_type: str, data: dict[str, Any],
@@ -1284,6 +1514,32 @@ class IdeaToExecutionPipeline:
                 "evidence": evidence,
             }
 
+    def _record_pipeline_outcome(self, result: PipelineResult) -> None:
+        """Record pipeline outcome for cross-session learning.
+
+        Feeds stage completion data back through the MetaPlanner so future
+        planning cycles can learn which kinds of pipeline runs succeed.
+        """
+        try:
+            from aragora.nomic.meta_planner import MetaPlanner
+
+            planner = MetaPlanner()
+            stages = ["ideas", "goals", "actions", "orchestration"]
+            goal_outcomes = []
+            for stage in stages:
+                status = result.stage_status.get(stage, "pending")
+                goal_outcomes.append({
+                    "track": "core",
+                    "success": status == "complete",
+                    "description": f"pipeline_stage_{stage}",
+                })
+            planner.record_outcome(
+                goal_outcomes=goal_outcomes,
+                objective=f"pipeline:{result.pipeline_id}",
+            )
+        except Exception:
+            logger.debug("Pipeline outcome recording skipped (non-critical)")
+
     # =========================================================================
     # Stage transition methods (sync, for from_debate/from_ideas)
     # =========================================================================
@@ -1302,7 +1558,27 @@ class IdeaToExecutionPipeline:
         except (TypeError, ValueError, KeyError):
             logger.debug("Semantic clustering skipped, continuing with unclustered data")
 
+        # Enrich goal extraction with past strategic findings
+        strategic_hints: list[str] = []
+        try:
+            from aragora.nomic.strategic_memory import StrategicMemoryStore
+
+            store = StrategicMemoryStore()
+            past = store.get_latest(limit=2)
+            if past:
+                strategic_hints = [f.description for a in past for f in a.findings[:3]]
+                if strategic_hints:
+                    logger.debug(
+                        "Pipeline enriched with %d strategic hints", len(strategic_hints)
+                    )
+        except Exception:
+            pass
+
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
+
+        # Inject strategic hints as metadata for downstream consumers
+        if strategic_hints:
+            result.goal_graph.metadata["strategic_hints"] = strategic_hints[:6]
 
         # Detect conflicts between goals
         try:
@@ -1379,6 +1655,19 @@ class IdeaToExecutionPipeline:
             canvas_name="Action Plan",
         )
         result.provenance.extend(provenance)
+
+        # Enrich action nodes with KM precedents (similar actions from past runs)
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+
+            bridge = PipelineKMBridge()
+            if bridge.available and result.actions_canvas:
+                action_precedents = bridge.query_similar_actions(result.actions_canvas)
+                for node_id, precs in action_precedents.items():
+                    if precs and node_id in result.actions_canvas.nodes:
+                        result.actions_canvas.nodes[node_id].data["precedents"] = precs
+        except (ImportError, RuntimeError, TypeError) as exc:
+            logger.debug("KM action precedent query unavailable: %s", exc)
 
         transition = StageTransition(
             id=f"trans-goals-actions-{uuid.uuid4().hex[:8]}",

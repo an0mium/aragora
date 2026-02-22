@@ -135,7 +135,7 @@ class MetaPlanner:
 
     async def prioritize_work(
         self,
-        objective: str,
+        objective: str | None = None,
         available_tracks: list[Track] | None = None,
         constraints: list[str] | None = None,
         context: PlanningContext | None = None,
@@ -143,7 +143,8 @@ class MetaPlanner:
         """Use multi-agent debate to prioritize work.
 
         Args:
-            objective: High-level business objective
+            objective: High-level business objective. None for self-directing
+                       scan mode where goals are derived from codebase signals.
             available_tracks: Which tracks can be worked on
             constraints: Constraints like "no breaking changes"
             context: Additional context (issues, feedback, etc.)
@@ -154,6 +155,16 @@ class MetaPlanner:
         available_tracks = available_tracks or list(Track)
         constraints = constraints or []
         context = context or PlanningContext()
+
+        # Self-directing mode: when objective is None, force scan mode
+        if objective is None:
+            if not self.config.scan_mode:
+                self.config.scan_mode = True
+            logger.info(
+                "meta_planner_self_directing tracks=%s",
+                [t.value for t in available_tracks],
+            )
+            return await self._scan_prioritize(None, available_tracks)
 
         logger.info(
             f"meta_planner_started objective={objective[:100]} tracks={[t.value for t in available_tracks]}"
@@ -562,6 +573,37 @@ class MetaPlanner:
             logger.debug("Calibration subsystems not available")
         except (RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.warning(f"Failed to enrich with calibration data: {e}")
+
+        # Strategic memory: query past strategic assessments for this objective
+        try:
+            from aragora.nomic.strategic_memory import StrategicMemoryStore
+
+            sm_store = StrategicMemoryStore()
+            past_assessments = sm_store.get_for_objective(objective, limit=3)
+            if past_assessments:
+                for assessment in past_assessments:
+                    for finding in assessment.findings[:3]:
+                        context.recent_issues.append(
+                            f"[strategic:{finding.category}] {finding.description[:100]}"
+                        )
+                logger.info(
+                    "strategic_memory_enrichment assessments=%d for objective=%s",
+                    len(past_assessments),
+                    objective[:50],
+                )
+
+            # Boost recurring findings
+            recurring = sm_store.get_recurring_findings(min_occurrences=2)
+            for finding in recurring[:5]:
+                context.recent_issues.append(
+                    f"[recurring:{finding.category}] {finding.description[:100]}"
+                )
+            if recurring:
+                logger.info("strategic_memory_recurring count=%d", len(recurring))
+        except ImportError:
+            logger.debug("Strategic memory not available")
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Strategic memory query failed: %s", exc)
 
         return context
 
@@ -1116,12 +1158,13 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
 
     async def _scan_prioritize(
         self,
-        objective: str,
+        objective: str | None,
         available_tracks: list[Track],
+        enrich_goals: bool = False,
     ) -> list[PrioritizedGoal]:
         """Prioritize from codebase signals without any LLM calls.
 
-        Gathers seven signal sources:
+        Gathers eight signal sources:
         1. ``git log`` — recently changed files mapped to tracks
         2. ``CodebaseIndexer`` — untested modules
         3. ``OutcomeTracker`` — past regression patterns
@@ -1129,18 +1172,26 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
         5. ``ruff`` — lint violations
         6. ``grep`` — TODO/FIXME/HACK comments
         7. ``FeedbackStore`` — user NPS score (low NPS boosts user-facing tracks)
+        8. ``ImprovementQueue`` — feedback goals from prior cycles
 
         Each signal contributes a candidate goal. Goals are ranked by signal
         count (more signals = higher priority).
 
+        When *objective* is None (self-directing mode), the scan produces
+        goals purely from codebase signals without any human-supplied context.
+
         Args:
             objective: High-level objective (used to seed descriptions).
+                       None for fully self-directing mode.
             available_tracks: Tracks that can receive work.
 
         Returns:
             List of PrioritizedGoal sorted by priority.
         """
         import subprocess
+
+        # Default objective label for self-directing mode
+        effective_objective = objective or "self-directed codebase improvement"
 
         track_signals: dict[str, list[str]] = {t.value: [] for t in available_tracks}
 
@@ -1289,6 +1340,63 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
         except (ImportError, RuntimeError, OSError, ValueError):
             pass
 
+        # Signal 8: ImprovementQueue (feedback goals from prior cycles)
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue
+
+            queue = ImprovementQueue.load()
+            for queued_goal in queue.goals[:10]:
+                track_name = getattr(queued_goal, "track", None)
+                if isinstance(track_name, Track):
+                    track_name = track_name.value
+                elif hasattr(track_name, "value"):
+                    track_name = track_name.value
+                else:
+                    track_name = str(track_name) if track_name else None
+
+                if track_name and track_name in track_signals:
+                    source = getattr(queued_goal, "source", "feedback")
+                    desc = getattr(queued_goal, "description", "")[:100]
+                    track_signals[track_name].append(
+                        f"feedback_queue[{source}]: {desc}"
+                    )
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, OSError):
+            pass
+
+        # Signal 9: StrategicScanner deep codebase analysis
+        strategic_assessment = None
+        try:
+            from aragora.nomic.strategic_scanner import StrategicScanner
+
+            scanner = StrategicScanner()
+            strategic_assessment = scanner.scan(objective=objective)
+            for finding in strategic_assessment.findings[:15]:
+                track_name = finding.track
+                if track_name in track_signals:
+                    track_signals[track_name].append(
+                        f"strategic[{finding.category}]: {finding.description[:100]}"
+                    )
+            logger.info(
+                "scan_mode_strategic_findings count=%d",
+                len(strategic_assessment.findings),
+            )
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.debug("StrategicScanner skipped: %s", exc)
+
+        # Persist strategic assessment for cross-session learning
+        if strategic_assessment is not None:
+            try:
+                from aragora.nomic.strategic_memory import StrategicMemoryStore
+
+                mem_store = StrategicMemoryStore()
+                mem_store.save(strategic_assessment)
+            except (ImportError, RuntimeError, OSError) as exc:
+                logger.debug("Strategic memory persistence skipped: %s", exc)
+
         # Build goals from signals, ranked by signal count
         ranked = sorted(
             track_signals.items(),
@@ -1310,7 +1418,7 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
             top_signals = signals[:3]
             signal_summary = "; ".join(top_signals)
             description = (
-                f"[{objective[:40]}] {track_name}: "
+                f"[{effective_objective[:40]}] {track_name}: "
                 f"{len(signals)} signals ({signal_summary})"
             )
 
@@ -1321,6 +1429,19 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
                     f"--- {p} ---\n{s[:500]}" for p, s in excerpts.items()
                 )
                 description += f"\n\nRelevant source:\n{excerpt_text}"
+
+            # Opt-in: single cheap LLM call to enrich signal-based description
+            if enrich_goals and getattr(self, "_agent", None):
+                try:
+                    enriched = await self._agent.generate(
+                        f"Expand this into a concrete task description "
+                        f"(1-2 sentences):\n{description[:500]}",
+                        max_tokens=100,
+                    )
+                    if enriched and len(enriched.strip()) > 20:
+                        description = enriched.strip()
+                except (RuntimeError, ValueError, TypeError, AttributeError):
+                    pass  # Keep original description on any failure
 
             goals.append(
                 PrioritizedGoal(

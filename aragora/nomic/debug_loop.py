@@ -23,6 +23,7 @@ import asyncio
 import logging
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -147,6 +148,31 @@ class DebugLoop:
                 result.final_tests_failed = attempt.tests_failed
                 result.final_files_changed = self._get_changed_files(worktree_path)
 
+                # Auto-commit changes in worktree for downstream merge
+                if result.final_files_changed:
+                    try:
+                        commit_result = subprocess.run(
+                            ["git", "add", "-A"],
+                            capture_output=True,
+                            text=True,
+                            cwd=worktree_path,
+                            timeout=10,
+                        )
+                        if commit_result.returncode == 0:
+                            subprocess.run(
+                                [
+                                    "git", "commit", "-m",
+                                    f"debug-loop: {subtask_id[:40]}",
+                                ],
+                                capture_output=True,
+                                text=True,
+                                cwd=worktree_path,
+                                timeout=10,
+                                check=False,
+                            )
+                    except (subprocess.TimeoutExpired, OSError):
+                        pass
+
                 logger.info(
                     "debug_loop_succeeded attempt=%d tests_passed=%d subtask=%s",
                     attempt_num,
@@ -260,7 +286,7 @@ class DebugLoop:
 
         Returns dict with keys: passed, failed, output
         """
-        cmd = ["python", "-m", "pytest", "-x", "-q", "--tb=short"]
+        cmd = [sys.executable, "-m", "pytest", "-x", "-q", "--tb=short"]
 
         if test_scope:
             cmd.extend(test_scope)

@@ -595,8 +595,10 @@ Examples:
 
     parser.add_argument(
         "--goal",
-        required=True,
-        help="High-level goal to achieve (e.g., 'Improve error handling')",
+        required=False,
+        default=None,
+        help="High-level goal to achieve (e.g., 'Improve error handling'). "
+        "Optional when --scan is used (MetaPlanner generates goals from codebase signals).",
     )
     parser.add_argument(
         "--repo",
@@ -705,7 +707,14 @@ Examples:
     parser.add_argument(
         "--feedback",
         action="store_true",
-        help="Run outcome feedback cycle after execution to detect systematic errors and queue improvements",
+        default=True,
+        help="Run outcome feedback cycle after execution (on by default; use --no-feedback to disable)",
+    )
+    parser.add_argument(
+        "--no-feedback",
+        action="store_true",
+        default=False,
+        help="Disable the post-execution outcome feedback cycle",
     )
     parser.add_argument(
         "--self-improve",
@@ -723,6 +732,12 @@ Examples:
         action="store_true",
         help="Use scan mode: prioritize from codebase signals (git log, untested modules, "
         "past regressions) without LLM calls (requires --self-improve or --meta-plan)",
+    )
+    parser.add_argument(
+        "--visual-pipeline",
+        action="store_true",
+        help="Generate a visual Idea-to-Execution pipeline from MetaPlanner goals "
+        "(viewable at /pipeline in the web UI). Works with --meta-plan or --self-improve.",
     )
     parser.add_argument(
         "--validate-pipeline",
@@ -752,12 +767,22 @@ Examples:
     for noisy in ("botocore", "boto3", "urllib3", "asyncio", "websockets"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
+    # Validate: --goal is required unless --scan is set
+    if args.goal is None and not args.scan:
+        parser.error(
+            "--goal is required unless --scan is used. "
+            "Use --scan to let MetaPlanner generate goals from codebase signals, "
+            "or provide --goal 'your objective'."
+        )
+
     # Validate pipeline: probe all components without execution
     if args.validate_pipeline:
-        return _validate_pipeline(args.goal)
+        return _validate_pipeline(args.goal or "validate pipeline components")
 
     # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
     if args.dry_run and not args.self_improve:
+        # goal is guaranteed non-None here (validated above: --scan requires --self-improve for None goal)
+        assert args.goal is not None, "--goal is required for dry-run without --self-improve"
         use_debate = args.debate
         if not use_debate:
             # Run heuristic first; if the goal is abstract, auto-switch to debate
@@ -822,8 +847,11 @@ Examples:
             )
             pipeline = SelfImprovePipeline(config)
 
+            # objective may be None when --scan is used (self-directing mode)
+            objective = args.goal
+
             if args.dry_run:
-                plan = asyncio.run(pipeline.dry_run(args.goal))
+                plan = asyncio.run(pipeline.dry_run(objective))
                 print_header("SELF-IMPROVE DRY RUN")
                 print(f"Objective: {plan['objective']}")
                 print(f"\nGoals ({len(plan['goals'])}):")
@@ -837,9 +865,21 @@ Examples:
                     if s.get("file_hints"):
                         print(f"      Files: {', '.join(s['file_hints'][:3])}")
                 print(f"\nConfig: worktrees={config.use_worktrees} parallel={config.max_parallel} budget=${config.budget_limit_usd}")
+
+                # Generate visual pipeline from dry-run goals
+                if args.visual_pipeline and plan.get("goals"):
+                    try:
+                        from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+                        ideas = [g["description"][:200] for g in plan["goals"]]
+                        pipe = IdeaToExecutionPipeline()
+                        pipe_result = pipe.from_ideas(ideas, auto_advance=True)
+                        print(f"\n  Visual Pipeline: /pipeline?id={pipe_result.pipeline_id}")
+                    except (ImportError, RuntimeError, ValueError) as exc:
+                        logger.debug("Visual pipeline generation failed: %s", exc)
+
                 return 0
 
-            result = asyncio.run(pipeline.run(args.goal))
+            result = asyncio.run(pipeline.run(objective))
             print_header("SELF-IMPROVE RESULT")
             print(f"Cycle: {result.cycle_id}")
             print(f"Objective: {result.objective}")
@@ -916,8 +956,39 @@ Examples:
         )
         print_result(result)
 
+        # Generate visual pipeline from orchestration goals if requested
+        if args.visual_pipeline:
+            try:
+                from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+                # Convert orchestration results into ideas for pipeline
+                ideas: list[str] = []
+                if hasattr(result, "subtask_results"):
+                    for sr in result.subtask_results:
+                        title = getattr(sr, "title", getattr(sr, "subtask_id", "task"))
+                        status = "completed" if getattr(sr, "success", False) else "failed"
+                        ideas.append(f"[{status}] {title}")
+                elif hasattr(result, "goals"):
+                    for g in result.goals:
+                        desc = getattr(g, "description", str(g))
+                        ideas.append(desc)
+
+                if ideas:
+                    pipeline = IdeaToExecutionPipeline()
+                    pipe_result = pipeline.from_ideas(ideas, auto_advance=True)
+                    print(f"\n  Visual Pipeline: /pipeline?id={pipe_result.pipeline_id}")
+                    stages = [
+                        s for s, v in pipe_result.stage_status.items()
+                        if v == "complete"
+                    ]
+                    print(f"  Stages: {' -> '.join(stages)}")
+                else:
+                    print("\n  Visual pipeline: no goals available to visualize")
+            except (ImportError, RuntimeError, ValueError) as exc:
+                logger.debug("Visual pipeline generation failed: %s", exc)
+
         # Run outcome feedback if requested
-        if args.feedback:
+        if args.feedback and not args.no_feedback:
             try:
                 from aragora.nomic.outcome_feedback import OutcomeFeedbackBridge
 

@@ -221,6 +221,48 @@ _EXPORTS = {
         "aragora.server.stream.pipeline_stream",
         "register_pipeline_stream_routes",
     ),
+    # Workflow stream (WorkflowEngine execution)
+    "WorkflowStreamEmitter": (
+        "aragora.server.stream.workflow_stream",
+        "WorkflowStreamEmitter",
+    ),
+    "WorkflowStreamClient": (
+        "aragora.server.stream.workflow_stream",
+        "WorkflowStreamClient",
+    ),
+    "get_workflow_emitter": (
+        "aragora.server.stream.workflow_stream",
+        "get_workflow_emitter",
+    ),
+    "set_workflow_emitter": (
+        "aragora.server.stream.workflow_stream",
+        "set_workflow_emitter",
+    ),
+    "workflow_websocket_handler": (
+        "aragora.server.stream.workflow_stream",
+        "workflow_websocket_handler",
+    ),
+    "register_workflow_stream_routes": (
+        "aragora.server.stream.workflow_stream",
+        "register_workflow_stream_routes",
+    ),
+    # Oracle real-time stream
+    "oracle_websocket_handler": (
+        "aragora.server.stream.oracle_stream",
+        "oracle_websocket_handler",
+    ),
+    "register_oracle_stream_routes": (
+        "aragora.server.stream.oracle_stream",
+        "register_oracle_stream_routes",
+    ),
+    "OracleSession": (
+        "aragora.server.stream.oracle_stream",
+        "OracleSession",
+    ),
+    "SentenceAccumulator": (
+        "aragora.server.stream.oracle_stream",
+        "SentenceAccumulator",
+    ),
     # Backward compatibility
     "_cleanup_stale_debates_stream": (
         "aragora.server.stream.servers",
@@ -320,6 +362,18 @@ __all__ = [
     "set_pipeline_emitter",
     "pipeline_websocket_handler",
     "register_pipeline_stream_routes",
+    # Workflow stream (WorkflowEngine execution)
+    "WorkflowStreamEmitter",
+    "WorkflowStreamClient",
+    "get_workflow_emitter",
+    "set_workflow_emitter",
+    "workflow_websocket_handler",
+    "register_workflow_stream_routes",
+    # Oracle real-time stream
+    "oracle_websocket_handler",
+    "register_oracle_stream_routes",
+    "OracleSession",
+    "SentenceAccumulator",
     # Backward compatibility
     "_cleanup_stale_debates_stream",
     "_wrap_agent_for_streaming",

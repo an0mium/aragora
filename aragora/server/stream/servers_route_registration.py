@@ -113,6 +113,13 @@ try:
 except ImportError:
     PIPELINE_STREAM_AVAILABLE = False
 
+try:
+    from aragora.server.stream.workflow_stream import register_workflow_stream_routes
+
+    WORKFLOW_STREAM_AVAILABLE = True
+except ImportError:
+    WORKFLOW_STREAM_AVAILABLE = False
+
 
 def _register_optional_routes(app: Any) -> None:
     """Register optional handler routes on the aiohttp application.
@@ -320,6 +327,9 @@ class RouteRegistrationMixin:
         if PIPELINE_STREAM_AVAILABLE:
             register_pipeline_stream_routes(app)
             logger.info("Registered pipeline stream WebSocket route at /ws/pipeline")
+        if WORKFLOW_STREAM_AVAILABLE:
+            register_workflow_stream_routes(app)
+            logger.info("Registered workflow stream WebSocket route at /ws/workflow")
 
         # Prometheus metrics endpoint (not under /api/)
         app.router.add_get("/metrics", self._handle_metrics)
