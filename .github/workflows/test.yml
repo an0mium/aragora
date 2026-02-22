@@ -608,21 +608,32 @@ jobs:
           fi
           test -s /tmp/aragora_gauntlet_demo.json
 
+      - name: Smoke - seed demo data
+        run: |
+          python scripts/seed_demo.py
+          python scripts/seed_demo.py --check
+
       - name: Smoke - boot server
         run: |
           set -e
-          aragora serve --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
+          aragora serve --offline --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
-          trap "kill $SERVER_PID" EXIT
-          for i in {1..10}; do
-            # Use /healthz (K8s liveness probe) - public, no auth required
-            if curl -fsS http://127.0.0.1:8090/healthz >/dev/null; then
-              echo "Server is healthy."
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          # Wait for server to be ready (handler init can take ~30s in CI)
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8090/healthz >/dev/null 2>&1; then
+              echo "Server is healthy after ${i}s."
               break
             fi
             sleep 1
           done
           curl -fsS http://127.0.0.1:8090/healthz >/dev/null
+          # Verify key API endpoints return data
+          echo "Checking /api/v1/health..."
+          curl -fsS http://127.0.0.1:8090/api/v1/health | python -c "import sys,json; d=json.load(sys.stdin); assert d.get('status')=='ok', f'bad health: {d}'"
+          echo "Checking leaderboard..."
+          curl -fsS http://127.0.0.1:8090/api/leaderboard-view | python -c "import sys,json; d=json.load(sys.stdin); print(f'Agents: {len(d.get(\"agents\",d.get(\"rankings\",[])))}'); assert len(d.get('agents',d.get('rankings',[]))) > 0, 'no agents'"
+          echo "All smoke checks passed."
 
   nightly-slow:
     name: Nightly Slow Tier
