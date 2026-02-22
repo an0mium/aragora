@@ -2,4 +2,19 @@
 # See https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/#by-trivyignore
 #
 # Format: One rule per line. Lines starting with # are comments.
-# Rules can be AVD IDs (AVD-DS-XXXX) or Trivy check IDs (DS0XX).
+# Rules can be CVE IDs, AVD IDs (AVD-DS-XXXX), or Trivy check IDs (DS0XX).
+#
+# OS-level CVEs in base images (python:3.11-slim, node:20-alpine):
+# These are upstream vulnerabilities in the base OS packages that cannot be
+# fixed by Aragora. They are tracked upstream and will be resolved when the
+# base images publish patched releases. Findings are still uploaded to the
+# GitHub Security tab via SARIF for visibility.
+#
+# To add a CVE to this list, verify:
+#   1. The CVE is in an OS-level package (not an application dependency)
+#   2. ignore-unfixed is already set (only fixable vulns are flagged)
+#   3. The fix is not available in the current base image version
+#
+# Trivy image scans use exit-code 0 (non-blocking) and upload results to
+# the GitHub Security tab for review. This file is referenced by the
+# docker.yml workflow via the trivyignores parameter.
