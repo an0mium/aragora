@@ -2,7 +2,7 @@
 Gauntlet Shared Types.
 
 Canonical type definitions shared between:
-- aragora.modes.gauntlet (GauntletOrchestrator)
+- aragora.gauntlet.orchestrator (GauntletOrchestrator)
 - aragora.gauntlet.runner (GauntletRunner)
 - aragora.server.handlers.gauntlet (HTTP endpoints)
 

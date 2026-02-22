@@ -380,42 +380,6 @@ class ConnectorRegistry:
             ["email", "templates"],
         )
 
-        # Additional ecommerce connectors
-        self._try_register(
-            "bigcommerce",
-            "ecommerce",
-            "aragora.connectors.ecommerce.bigcommerce",
-            ["orders", "products"],
-        )
-
-        # Additional database connectors
-        self._try_register(
-            "supabase",
-            "database",
-            "aragora.connectors.enterprise.database.supabase_connector",
-            ["database", "auth", "storage"],
-        )
-        self._try_register(
-            "firebase",
-            "database",
-            "aragora.connectors.enterprise.database.firebase",
-            ["firestore", "auth"],
-        )
-
-        # DevOps connectors
-        self._try_register(
-            "gitlab",
-            "devops",
-            "aragora.connectors.devops.gitlab",
-            ["repos", "pipelines", "issues"],
-        )
-        self._try_register(
-            "bitbucket",
-            "devops",
-            "aragora.connectors.devops.bitbucket",
-            ["repos", "pipelines"],
-        )
-
         # Productivity connectors
         self._try_register(
             "trello",

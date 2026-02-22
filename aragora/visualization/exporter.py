@@ -275,12 +275,6 @@ def _get_cache_backend() -> ExportCacheBackend:
     return _cache_backend
 
 
-# Legacy compatibility - module-level variables (deprecated)
-_export_cache: dict[tuple[str, str, str], tuple[str, float]] = {}
-_export_cache_lock = threading.Lock()
-_last_cleanup_time = 0.0
-
-
 def _get_graph_hash(cartographer: ArgumentCartographer) -> str:
     """Get a hash of the current graph state for caching."""
     stats = cartographer.get_statistics()

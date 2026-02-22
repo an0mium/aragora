@@ -494,10 +494,10 @@ class TestGauntletIntegration:
     async def test_run_gauntlet_minimal(self, mock_agent):
         """Test minimal gauntlet run."""
         with (
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_redteam") as mock_redteam,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_probing") as mock_probe,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_deep_audit") as mock_audit,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_verification") as mock_verify,
         ):
             # Mock returns
             mock_redteam.return_value = None
@@ -525,10 +525,10 @@ class TestGauntletIntegration:
     async def test_full_gauntlet_workflow(self, mock_agent, tmp_path):
         """Test complete gauntlet workflow with receipt generation."""
         with (
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_redteam") as mock_redteam,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_probing") as mock_probe,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_deep_audit") as mock_audit,
-            patch("aragora.modes.gauntlet.GauntletOrchestrator._run_verification") as mock_verify,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_redteam") as mock_redteam,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_probing") as mock_probe,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_deep_audit") as mock_audit,
+            patch("aragora.gauntlet.orchestrator.GauntletOrchestrator._run_verification") as mock_verify,
         ):
             # Mock returns
             mock_redteam.return_value = None

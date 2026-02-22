@@ -506,9 +506,11 @@ class TestMultipleBackends:
 
     def test_backend_selection_explicit_jaccard(self):
         """Test explicit Jaccard backend selection."""
+        from aragora.debate.similarity.backends import JaccardBackend as _JB
+
         backend = get_similarity_backend("jaccard")
 
-        assert isinstance(backend, JaccardBackend)
+        assert isinstance(backend, _JB)
 
     def test_backend_compute_similarity_interface(self):
         """Test that all backends implement the same interface."""

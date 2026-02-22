@@ -418,19 +418,18 @@ class TestPeriodicCleanup:
     def setup_method(self):
         """Clear cache and reset cleanup time."""
         clear_export_cache()
-        import aragora.visualization.exporter as exp
-
-        exp._last_cleanup_time = 0.0
+        backend = _get_cache_backend()
+        backend._last_cleanup = 0.0
 
     def test_cache_triggers_cleanup_after_interval(self):
         """Caching should trigger cleanup after interval passes."""
-        import aragora.visualization.exporter as exp
+        backend = _get_cache_backend()
 
         # Add old entry
         _cache_export("old", "json", "hash", "old content")
 
         # Set last cleanup to past the interval
-        exp._last_cleanup_time = time.time() - _CLEANUP_INTERVAL - 10
+        backend._last_cleanup = time.time() - _CLEANUP_INTERVAL - 10
 
         # Mock time for cleanup check and expiration
         future_time = time.time() + _EXPORT_CACHE_TTL + 100

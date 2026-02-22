@@ -1,26 +1,23 @@
-"""Tests for GauntletOrchestrator and related dataclasses from aragora.modes.gauntlet."""
+"""Tests for GauntletOrchestrator and related dataclasses from aragora.gauntlet."""
 
 import hashlib
-import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
-    from aragora.modes.gauntlet import (
-        CODE_REVIEW_GAUNTLET,
-        Finding,
-        GauntletConfig,
-        GauntletOrchestrator,
-        GauntletProgress,
-        GauntletResult,
-        POLICY_GAUNTLET,
-        QUICK_GAUNTLET,
-        THOROUGH_GAUNTLET,
-        VerifiedClaim,
-    )
+from aragora.gauntlet.orchestrator import (
+    CODE_REVIEW_GAUNTLET,
+    Finding,
+    GauntletConfig,
+    GauntletOrchestrator,
+    GauntletProgress,
+    GauntletResult,
+    POLICY_GAUNTLET,
+    QUICK_GAUNTLET,
+    THOROUGH_GAUNTLET,
+    VerifiedClaim,
+)
 
 from aragora.gauntlet.types import InputType, Verdict
 from aragora.modes.redteam import AttackType
@@ -1008,26 +1005,3 @@ class TestGauntletOrchestrator:
         assert score == 0.0
 
 
-# ===========================================================================
-# Module import deprecation warning test
-# ===========================================================================
-
-
-class TestDeprecationWarning:
-    """Test that importing the module triggers a DeprecationWarning."""
-
-    def test_import_emits_deprecation_warning(self):
-        """Importing aragora.modes.gauntlet emits a DeprecationWarning."""
-        import importlib
-        import sys
-
-        # Remove from cache to force re-import
-        mod_name = "aragora.modes.gauntlet"
-        saved = sys.modules.pop(mod_name, None)
-        try:
-            with pytest.warns(DeprecationWarning, match="aragora.modes.gauntlet is deprecated"):
-                importlib.import_module(mod_name)
-        finally:
-            # Restore the original module to avoid side effects
-            if saved is not None:
-                sys.modules[mod_name] = saved

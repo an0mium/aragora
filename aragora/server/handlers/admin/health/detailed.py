@@ -408,13 +408,12 @@ def detailed_health_check(handler) -> HandlerResult:
 
     # Add export cache status
     try:
-        from aragora.visualization.exporter import _export_cache, _export_cache_lock
+        from aragora.visualization.exporter import get_export_cache_stats
 
-        with _export_cache_lock:
-            cache_size = len(_export_cache)
+        stats = get_export_cache_stats()
         health["export_cache"] = {
             "status": "healthy",
-            "entries": cache_size,
+            "entries": stats.get("total_entries", 0),
         }
     except ImportError:
         health["export_cache"] = {"status": "unavailable"}
