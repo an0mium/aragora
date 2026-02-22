@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop
 
 # Default target
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "  make test-parallel Run tests in parallel (-n auto)"
 	@echo "  make test-cov     Run tests with coverage"
 	@echo "  make test-watch   Run tests in watch mode"
+	@echo "  make test-e2e     Run end-to-end tests"
 	@echo "  make test-smoke   Quick import smoke test"
 	@echo ""
 	@echo "Code Quality:"
@@ -94,6 +95,9 @@ test-cov:
 
 test-watch:
 	pytest tests/ -v --timeout=60 -f
+
+test-e2e:
+	pytest tests/e2e/ -v --timeout=120 -m "not slow and not load"
 
 test-smoke:
 	@echo "Running smoke tests..."

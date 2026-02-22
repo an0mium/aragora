@@ -702,15 +702,21 @@ class TestWriteInstructionToWorktree:
 class TestDispatchToClaudeCode:
     @pytest.mark.asyncio
     async def test_skips_when_require_approval(self):
-        """Should return None when require_approval is True."""
+        """Should return None when require_approval is True and gate rejects."""
+        from aragora.nomic.approval import ApprovalDecision
+
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(require_approval=True)
         )
         mock_instruction = MagicMock()
         mock_instruction.subtask_id = "t1"
-        result = await pipeline._dispatch_to_claude_code(
-            mock_instruction, "/tmp/fake"
-        )
+
+        mock_gate = MagicMock()
+        mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.REJECT)
+        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate):
+            result = await pipeline._dispatch_to_claude_code(
+                mock_instruction, "/tmp/fake"
+            )
         assert result is None
 
     @pytest.mark.asyncio
@@ -952,12 +958,18 @@ class TestAutonomousMode:
     @pytest.mark.asyncio
     async def test_dispatch_skips_when_require_approval_and_not_autonomous(self):
         """Dispatch is skipped when require_approval=True and autonomous=False."""
+        from aragora.nomic.approval import ApprovalDecision
+
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(require_approval=True, autonomous=False)
         )
         mock_instr = MagicMock()
         mock_instr.subtask_id = "t1"
-        result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/fake")
+
+        mock_gate = MagicMock()
+        mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.REJECT)
+        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate):
+            result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/fake")
         assert result is None
 
     @pytest.mark.asyncio
@@ -2417,12 +2429,18 @@ class TestAutoMode:
     @pytest.mark.asyncio
     async def test_default_mode_returns_none(self):
         """Default mode (no auto_mode) returns None when require_approval is True."""
+        from aragora.nomic.approval import ApprovalDecision
+
         pipeline = SelfImprovePipeline(
             SelfImproveConfig(require_approval=True, autonomous=False, auto_mode=False)
         )
         mock_instr = MagicMock()
         mock_instr.subtask_id = "t_default"
-        result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
+
+        mock_gate = MagicMock()
+        mock_gate.request_approval = AsyncMock(return_value=ApprovalDecision.REJECT)
+        with patch("aragora.nomic.approval.ApprovalGate", return_value=mock_gate):
+            result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
         assert result is None
 
 
