@@ -175,8 +175,12 @@ class GoalExtractor:
                 result = self._extract_with_ai(idea_canvas_data)
                 if result and result.goals:
                     return result
-            except Exception:
-                logger.warning("AI goal synthesis failed, falling back to structural")
+            except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.warning(
+                    "AI goal synthesis failed, falling back to structural: %s",
+                    exc,
+                    exc_info=True,
+                )
 
         nodes = idea_canvas_data.get("nodes", [])
         edges = idea_canvas_data.get("edges", [])

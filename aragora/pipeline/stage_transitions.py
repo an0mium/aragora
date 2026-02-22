@@ -221,9 +221,10 @@ def goals_to_actions(
     if meta_planner is not None:
         try:
             return _goals_to_actions_with_planner(graph, goal_node_ids, meta_planner)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
             logger.warning(
-                "MetaPlanner enrichment failed, falling back to structural decomposition",
+                "MetaPlanner enrichment failed, falling back to structural decomposition: %s",
+                exc,
                 exc_info=True,
             )
 

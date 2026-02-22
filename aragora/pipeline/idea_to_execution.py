@@ -447,8 +447,8 @@ class IdeaToExecutionPipeline:
                 conflicts = self._goal_extractor.detect_goal_conflicts(result.goal_graph)
                 if conflicts:
                     result.goal_graph.metadata["conflicts"] = conflicts
-            except Exception:
-                pass
+            except (TypeError, ValueError, KeyError):
+                logger.debug("Conflict detection skipped for goal graph")
 
             for goal in result.goal_graph.goals:
                 try:
@@ -459,8 +459,8 @@ class IdeaToExecutionPipeline:
                         goal.priority = "high"
                     elif overall < 0.4:
                         goal.priority = "low"
-                except Exception:
-                    pass
+                except (TypeError, ValueError, KeyError):
+                    logger.debug("SMART scoring skipped for goal %s", goal.id)
 
         # Merge goal provenance into pipeline provenance
         if result.goal_graph:
@@ -700,7 +700,8 @@ class IdeaToExecutionPipeline:
                 canvas = debate_to_ideas_canvas(
                     debate_data, canvas_name="Ideas from Debate",
                 )
-            except (ImportError, Exception):
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.debug("Debate ideation unavailable, using text extraction: %s", exc)
                 # Fallback: extract ideas from raw text
                 ideas = [s.strip() for s in input_text.split(".") if s.strip()]
                 if not ideas:
@@ -817,8 +818,8 @@ class IdeaToExecutionPipeline:
                     conflicts = self._goal_extractor.detect_goal_conflicts(goal_graph)
                     if conflicts:
                         goal_graph.metadata["conflicts"] = conflicts
-                except Exception:
-                    pass
+                except (TypeError, ValueError, KeyError):
+                    logger.debug("Conflict detection skipped during goal extraction")
 
                 # SMART score each goal
                 for goal in goal_graph.goals:
@@ -830,8 +831,8 @@ class IdeaToExecutionPipeline:
                             goal.priority = "high"
                         elif overall < 0.4:
                             goal.priority = "low"
-                    except Exception:
-                        pass
+                    except (TypeError, ValueError, KeyError):
+                        logger.debug("SMART scoring skipped for goal %s", goal.id)
 
                 # Query KM for precedents
                 try:
@@ -841,8 +842,8 @@ class IdeaToExecutionPipeline:
                     if bridge.available:
                         precedents = bridge.query_similar_goals(goal_graph)
                         bridge.enrich_with_precedents(goal_graph, precedents)
-                except (ImportError, Exception):
-                    pass
+                except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+                    logger.debug("KM precedent query unavailable: %s", exc)
 
                 # Cross-cycle learning: query past Nomic cycles for similar objectives
                 try:
@@ -957,7 +958,8 @@ class IdeaToExecutionPipeline:
                         if hasattr(nl_result, "to_dict")
                         else {"steps": [], "name": "generated"}
                     )
-                except (ImportError, Exception):
+                except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+                    logger.debug("NLWorkflowBuilder unavailable, using fallback: %s", exc)
                     # Fallback: use internal goal-to-workflow conversion
                     workflow = self._goals_to_workflow(goal_graph)
 
@@ -1199,9 +1201,10 @@ class IdeaToExecutionPipeline:
                 "status": "failed",
                 "output": {"error": "Task execution failed"},
             }
-        except Exception:
+        except Exception as exc:
             # Catch-all: harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
+            logger.warning("Task %s failed unexpectedly: %s", task["id"], exc)
             return {
                 "task_id": task["id"],
                 "name": task["name"],
@@ -1214,8 +1217,8 @@ class IdeaToExecutionPipeline:
         if cfg.event_callback:
             try:
                 cfg.event_callback(event_type, data)
-            except Exception:
-                pass
+            except (TypeError, ValueError, RuntimeError, OSError):
+                pass  # Event callbacks must not crash the pipeline
 
     @staticmethod
     def _emit_sync(
@@ -1225,8 +1228,8 @@ class IdeaToExecutionPipeline:
         if callback:
             try:
                 callback(event_type, data)
-            except Exception:
-                pass
+            except (TypeError, ValueError, RuntimeError, OSError):
+                pass  # Event callbacks must not crash the pipeline
 
     def _generate_receipt(self, result: PipelineResult) -> dict[str, Any] | None:
         """Generate a decision receipt for the completed pipeline.
@@ -1270,7 +1273,8 @@ class IdeaToExecutionPipeline:
                 evidence=evidence,
             )
             return receipt.to_dict()
-        except (ImportError, Exception):
+        except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Receipt generation fell back to dict: %s", exc)
             return {
                 "pipeline_id": result.pipeline_id,
                 "integrity_hash": result._compute_integrity_hash(),
@@ -1295,8 +1299,8 @@ class IdeaToExecutionPipeline:
         # Pre-cluster related ideas semantically
         try:
             canvas_data = self._goal_extractor.cluster_ideas_semantically(canvas_data)
-        except Exception:
-            pass  # Continue with unclustered data
+        except (TypeError, ValueError, KeyError):
+            logger.debug("Semantic clustering skipped, continuing with unclustered data")
 
         result.goal_graph = self._goal_extractor.extract_from_ideas(canvas_data)
 
@@ -1305,8 +1309,8 @@ class IdeaToExecutionPipeline:
             conflicts = self._goal_extractor.detect_goal_conflicts(result.goal_graph)
             if conflicts:
                 result.goal_graph.metadata["conflicts"] = conflicts
-        except Exception:
-            pass
+        except (TypeError, ValueError, KeyError):
+            logger.debug("Conflict detection skipped during stage advance")
 
         # SMART score each goal and adjust priority
         for goal in result.goal_graph.goals:
@@ -1318,8 +1322,8 @@ class IdeaToExecutionPipeline:
                     goal.priority = "high"
                 elif overall < 0.4:
                     goal.priority = "low"
-            except Exception:
-                pass
+            except (TypeError, ValueError, KeyError):
+                logger.debug("SMART scoring skipped for goal %s", goal.id)
 
         # Query KM for precedents
         try:
@@ -1329,8 +1333,8 @@ class IdeaToExecutionPipeline:
             if bridge.available:
                 precedents = bridge.query_similar_goals(result.goal_graph)
                 bridge.enrich_with_precedents(result.goal_graph, precedents)
-        except (ImportError, Exception):
-            pass
+        except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("KM precedent query unavailable: %s", exc)
 
         if result.goal_graph.transition:
             result.transitions.append(result.goal_graph.transition)
