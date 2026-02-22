@@ -274,7 +274,7 @@ SDK_MISSING_ENDPOINTS: dict = {
         "get": {
             "tags": ["Reputation"],
             "summary": "Get agent reputation",
-            "operationId": "getAgentReputation",
+            "operationId": "getReputationByAgentId",
             "parameters": [
                 {"name": "agent_id", "in": "path", "required": True, "schema": _str}
             ],

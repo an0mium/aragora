@@ -402,24 +402,61 @@ class PipelineKMBridge:
         return goal_graph
 
     def store_pipeline_result(self, result: Any) -> bool:
-        """Store completed pipeline in KM for future queries.
+        """Store completed pipeline result in KM for future queries.
+
+        Accepts either:
+        - An object with ``to_dict()`` (PipelineResult, SelfImproveResult)
+        - A plain dict with cycle outcome data
 
         Args:
-            result: PipelineResult to store
+            result: PipelineResult, dict, or object with to_dict()
 
         Returns:
             True if stored successfully, False otherwise
         """
         if not self.available:
             return False
+
+        # Normalize to dict
+        if isinstance(result, dict):
+            result_dict = result
+        elif hasattr(result, "to_dict"):
+            result_dict = result.to_dict()
+        else:
+            result_dict = {"raw": str(result)}
+
+        # Try DecisionPlanAdapter first
         try:
             from aragora.knowledge.mound.adapters.decision_plan_adapter import (
                 DecisionPlanAdapter,
             )
 
             adapter = DecisionPlanAdapter(self._km)
-            adapter.store(result.to_dict())
+            adapter.store(result_dict)
             return True
-        except (ImportError, AttributeError, Exception) as e:
-            logger.debug("Failed to store pipeline result in KM: %s", e)
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+            pass
+
+        # Fallback: store directly in KM as a knowledge item
+        try:
+            objective = result_dict.get("objective", "pipeline result")
+            cycle_id = result_dict.get("cycle_id", "unknown")
+            self._km.add(
+                content=(
+                    f"Pipeline cycle {cycle_id}: {objective}"
+                ),
+                metadata={
+                    "item_type": "pipeline_result",
+                    "cycle_id": cycle_id,
+                    "success": result_dict.get("success", False),
+                    "improvement_score": result_dict.get("improvement_score", 0.0),
+                    "files_changed": result_dict.get("files_changed", []),
+                    "subtasks_completed": result_dict.get("subtasks_completed", 0),
+                    "subtasks_failed": result_dict.get("subtasks_failed", 0),
+                    "tags": ["pipeline", "self_improve", "cycle_result"],
+                },
+            )
+            return True
+        except (AttributeError, TypeError, RuntimeError, ValueError) as exc:
+            logger.debug("Failed to store pipeline result in KM: %s", exc)
             return False
