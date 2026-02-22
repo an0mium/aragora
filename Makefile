@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker
+.PHONY: help install dev test lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop
 
 # Default target
 help:
@@ -32,6 +32,11 @@ help:
 	@echo "  make ci           CI pipeline (lint + typecheck + fast tests)"
 	@echo "  make guard        Check repo hygiene (tracked artifacts)"
 	@echo "  make guard-strict Check repo hygiene (tracked + untracked artifacts)"
+	@echo ""
+	@echo "Demo:"
+	@echo "  make demo         Launch full-stack demo locally (backend + frontend)"
+	@echo "  make demo-docker  Launch demo via Docker Compose"
+	@echo "  make demo-stop    Stop running demo"
 	@echo ""
 	@echo "Development:"
 	@echo "  make serve        Start development server"
@@ -119,6 +124,16 @@ guard:
 
 guard-strict:
 	python3 scripts/guard_repo_clean.py --check-working-tree
+
+# Demo
+demo:
+	@bash scripts/demo.sh
+
+demo-docker:
+	docker compose -f deploy/demo/docker-compose.yml up --build
+
+demo-stop:
+	@bash scripts/demo.sh --stop
 
 # Development
 serve:

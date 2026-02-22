@@ -351,14 +351,17 @@ class IdeaToExecutionPipeline:
             pipeline_id=pipeline_id,
             stage_status={s.value: "pending" for s in PipelineStage},
         )
+        _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=debate")
 
         # Stage 1: Ideas
+        _spectate("pipeline.stage_started", "stage=ideation")
         result.ideas_canvas = debate_to_ideas_canvas(
             cartographer_data,
             canvas_name=f"Ideas from Debate",
         )
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
+        _spectate("pipeline.stage_completed", "stage=ideation")
         logger.info(
             "Pipeline %s: Stage 1 complete — %d idea nodes",
             pipeline_id,
@@ -369,9 +372,11 @@ class IdeaToExecutionPipeline:
             return result
 
         # Stage 2: Goals
+        _spectate("pipeline.stage_started", "stage=goals")
         self._emit_sync(event_callback, "stage_started", {"stage": "goals"})
         result = self._advance_to_goals(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
+        _spectate("pipeline.stage_completed", "stage=goals")
         # Emit node-level events for goals
         if result.goal_graph:
             for goal in result.goal_graph.goals:
@@ -383,9 +388,11 @@ class IdeaToExecutionPipeline:
                 })
 
         # Stage 3: Actions
+        _spectate("pipeline.stage_started", "stage=actions")
         self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
+        _spectate("pipeline.stage_completed", "stage=actions")
         # Emit node-level events for action steps
         if result.actions_canvas:
             for node_id, node in result.actions_canvas.nodes.items():
@@ -397,9 +404,11 @@ class IdeaToExecutionPipeline:
                 })
 
         # Stage 4: Orchestration
+        _spectate("pipeline.stage_started", "stage=orchestration")
         self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
+        _spectate("pipeline.stage_completed", "stage=orchestration")
         # Emit node-level events for orchestration tasks
         if result.orchestration_canvas:
             for node_id, node in result.orchestration_canvas.nodes.items():
@@ -422,6 +431,7 @@ class IdeaToExecutionPipeline:
         except (ImportError, RuntimeError, TypeError) as exc:
             logger.debug("KM pipeline result storage unavailable: %s", exc)
 
+        _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
         return result
 
     def from_ideas(
@@ -446,8 +456,10 @@ class IdeaToExecutionPipeline:
             pipeline_id=pipeline_id,
             stage_status={s.value: "pending" for s in PipelineStage},
         )
+        _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=ideas")
 
         # Stage 1: Convert raw ideas to canvas
+        _spectate("pipeline.stage_started", "stage=ideation")
         result.goal_graph = self._goal_extractor.extract_from_raw_ideas(ideas)
         result.ideas_canvas = Canvas(
             id=f"ideas-raw-{uuid.uuid4().hex[:8]}",
@@ -478,6 +490,7 @@ class IdeaToExecutionPipeline:
 
         result.stage_status[PipelineStage.IDEAS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "ideas"})
+        _spectate("pipeline.stage_completed", "stage=ideation")
         # Emit node-level events for ideas
         for node_id, node in result.ideas_canvas.nodes.items():
             self._emit_sync(event_callback, "pipeline_node_added", {
@@ -531,6 +544,7 @@ class IdeaToExecutionPipeline:
         # Goals already extracted via extract_from_raw_ideas
         result.stage_status[PipelineStage.GOALS.value] = "complete"
         self._emit_sync(event_callback, "stage_completed", {"stage": "goals"})
+        _spectate("pipeline.stage_completed", "stage=goals")
         # Emit node-level events for goals
         if result.goal_graph:
             for goal in result.goal_graph.goals:
@@ -545,9 +559,11 @@ class IdeaToExecutionPipeline:
             return result
 
         # Stage 3: Actions
+        _spectate("pipeline.stage_started", "stage=actions")
         self._emit_sync(event_callback, "stage_started", {"stage": "actions"})
         result = self._advance_to_actions(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "actions"})
+        _spectate("pipeline.stage_completed", "stage=actions")
         # Emit node-level events for action steps
         if result.actions_canvas:
             for node_id, node in result.actions_canvas.nodes.items():
@@ -559,9 +575,11 @@ class IdeaToExecutionPipeline:
                 })
 
         # Stage 4: Orchestration
+        _spectate("pipeline.stage_started", "stage=orchestration")
         self._emit_sync(event_callback, "stage_started", {"stage": "orchestration"})
         result = self._advance_to_orchestration(result)
         self._emit_sync(event_callback, "stage_completed", {"stage": "orchestration"})
+        _spectate("pipeline.stage_completed", "stage=orchestration")
         # Emit node-level events for orchestration tasks
         if result.orchestration_canvas:
             for node_id, node in result.orchestration_canvas.nodes.items():
@@ -586,6 +604,7 @@ class IdeaToExecutionPipeline:
         except (ImportError, RuntimeError, TypeError) as exc:
             logger.debug("KM pipeline result storage unavailable: %s", exc)
 
+        _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
         return result
 
     def advance_stage(
@@ -638,6 +657,7 @@ class IdeaToExecutionPipeline:
             pipeline_id=pipeline_id,
             stage_status={s.value: "pending" for s in PipelineStage},
         )
+        _spectate("pipeline.started", f"pipeline_id={pipeline_id} source=async")
 
         # Create ProvenanceChain for cryptographic audit trail
         provenance_chain = None
@@ -818,6 +838,7 @@ class IdeaToExecutionPipeline:
                 "duration": result.duration,
                 "receipt": result.receipt,
             })
+            _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
 
         except Exception as exc:
             result.duration = time.monotonic() - start_time
@@ -826,6 +847,7 @@ class IdeaToExecutionPipeline:
                 "pipeline_id": pipeline_id,
                 "error": "Pipeline execution failed",
             })
+            _spectate("pipeline.failed", f"pipeline_id={pipeline_id}")
 
         return result
 
@@ -839,6 +861,7 @@ class IdeaToExecutionPipeline:
         sr = StageResult(stage_name="ideation", status="running")
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "ideation"})
+        _spectate("pipeline.stage_started", "stage=ideation")
 
         # Pre-initialize locals to survive exception paths
         canvas = None
@@ -927,6 +950,7 @@ class IdeaToExecutionPipeline:
                 "stage": "ideation",
                 "summary": {"source": "debate" if "debate_result" in debate_data else "text"},
             })
+            _spectate("pipeline.stage_completed", "stage=ideation")
         except Exception as exc:
             sr.status = "failed"
             sr.error = "Ideation stage failed"
@@ -945,6 +969,7 @@ class IdeaToExecutionPipeline:
         sr = StageResult(stage_name="goals", status="running")
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "goals"})
+        _spectate("pipeline.stage_started", "stage=goals")
 
         try:
             goal_graph = None
@@ -1049,6 +1074,15 @@ class IdeaToExecutionPipeline:
                 except (ImportError, RuntimeError, ValueError, TypeError) as exc:
                     logger.debug("KM precedent query unavailable: %s", exc)
 
+                # Query Receipt/Outcome/Debate adapters for decision precedents
+                try:
+                    from aragora.pipeline.km_bridge import PipelineKMBridge as _KMBridge
+
+                    adapter_bridge = _KMBridge()
+                    adapter_bridge.enrich_goals_with_adapter_precedents(goal_graph)
+                except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+                    logger.debug("Adapter precedent enrichment unavailable: %s", exc)
+
                 # Cross-cycle learning: query past Nomic cycles for similar objectives
                 try:
                     from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
@@ -1121,6 +1155,7 @@ class IdeaToExecutionPipeline:
                 "stage": "goals",
                 "summary": {"goal_count": len(goal_graph.goals) if goal_graph else 0},
             })
+            _spectate("pipeline.stage_completed", "stage=goals")
         except Exception as exc:
             sr.status = "failed"
             sr.error = "Goal extraction failed"
@@ -1139,6 +1174,7 @@ class IdeaToExecutionPipeline:
         sr = StageResult(stage_name="workflow", status="running")
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "workflow"})
+        _spectate("pipeline.stage_started", "stage=actions")
 
         try:
             workflow: dict[str, Any] | None = None
@@ -1178,6 +1214,7 @@ class IdeaToExecutionPipeline:
                 "stage": "workflow",
                 "summary": {"step_count": len(workflow.get("steps", []))},
             })
+            _spectate("pipeline.stage_completed", "stage=actions")
         except Exception as exc:
             sr.status = "failed"
             sr.error = "Workflow generation failed"
@@ -1202,6 +1239,7 @@ class IdeaToExecutionPipeline:
         sr = StageResult(stage_name="orchestration", status="running")
         start = time.monotonic()
         self._emit(cfg, "stage_started", {"stage": "orchestration"})
+        _spectate("pipeline.stage_started", "stage=orchestration")
 
         try:
             execution_plan = self._build_execution_plan(workflow, goal_graph)
@@ -1298,6 +1336,7 @@ class IdeaToExecutionPipeline:
                 "stage": "orchestration",
                 "summary": orch_result,
             })
+            _spectate("pipeline.stage_completed", "stage=orchestration")
         except Exception as exc:
             sr.status = "failed"
             sr.error = "Orchestration failed"
@@ -1679,6 +1718,15 @@ class IdeaToExecutionPipeline:
                         )
         except (ImportError, RuntimeError, ValueError, TypeError) as exc:
             logger.debug("KM precedent query unavailable: %s", exc)
+
+        # Query Receipt/Outcome/Debate adapters for decision precedents
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge as _KMBridge
+
+            adapter_bridge = _KMBridge()
+            adapter_bridge.enrich_goals_with_adapter_precedents(result.goal_graph)
+        except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+            logger.debug("Adapter precedent enrichment unavailable: %s", exc)
 
         if result.goal_graph.transition:
             result.transitions.append(result.goal_graph.transition)

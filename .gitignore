@@ -6,6 +6,9 @@ __pycache__/
 # Git worktrees for parallel agent execution
 .worktrees/
 
+# Demo launcher PID/logs
+.demo/
+
 # Multi-agent coordination artifacts
 .aragora_sessions.yaml
 .aragora_sessions.json
