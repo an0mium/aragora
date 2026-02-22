@@ -107,9 +107,24 @@ class TestCaptureMetrics:
     async def test_capture_custom_runner(self, mock_runner):
         mock_runner._results.extend(
             [
-                {"consensus_reached": True, "rounds": 2, "tokens_used": 1000, "brier_scores": [0.1, 0.2]},
-                {"consensus_reached": False, "rounds": 5, "tokens_used": 3000, "brier_scores": [0.3, 0.4]},
-                {"consensus_reached": True, "rounds": 3, "tokens_used": 2000, "brier_scores": [0.2, 0.2]},
+                {
+                    "consensus_reached": True,
+                    "rounds": 2,
+                    "tokens_used": 1000,
+                    "brier_scores": [0.1, 0.2],
+                },
+                {
+                    "consensus_reached": False,
+                    "rounds": 5,
+                    "tokens_used": 3000,
+                    "brier_scores": [0.3, 0.4],
+                },
+                {
+                    "consensus_reached": True,
+                    "rounds": 3,
+                    "tokens_used": 2000,
+                    "brier_scores": [0.2, 0.2],
+                },
             ]
         )
         tracker = NomicOutcomeTracker(scenario_runner=mock_runner)
@@ -519,13 +534,16 @@ class TestLightweightDebateRunner:
     @pytest.mark.asyncio
     async def test_falls_back_to_simulation(self):
         """When Arena/agents are unavailable, should fall back to _default_scenario_runner."""
-        with unittest.mock.patch(
-            "aragora.nomic.outcome_tracker.Arena",
-            side_effect=ImportError("no arena"),
-            create=True,
-        ), unittest.mock.patch(
-            "aragora.agents.base.create_agent",
-            side_effect=ImportError("no agents"),
+        with (
+            unittest.mock.patch(
+                "aragora.nomic.outcome_tracker.Arena",
+                side_effect=ImportError("no arena"),
+                create=True,
+            ),
+            unittest.mock.patch(
+                "aragora.agents.base.create_agent",
+                side_effect=ImportError("no agents"),
+            ),
         ):
             result = await _lightweight_debate_runner("test topic", 2, 3)
         assert "consensus_reached" in result

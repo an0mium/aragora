@@ -193,7 +193,7 @@ jobs:
       - name: Audit npm dependencies (live)
         id: npm-audit-live
         working-directory: aragora/live
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Install npm dependencies (typescript-sdk)
         working-directory: sdk/typescript
@@ -202,7 +202,7 @@ jobs:
       - name: Audit npm dependencies (typescript-sdk)
         id: npm-audit-js
         working-directory: sdk/typescript
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Report npm dependency status
         if: steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'

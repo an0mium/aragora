@@ -266,7 +266,7 @@ class DebateCreateRequest(BaseModel):
         Field(
             description="The topic or question for the debate",
             example="Should we adopt microservices architecture for our e-commerce platform?",
-            max_length=100000,
+            max_length=2000,
             min_length=10,
         ),
     ]
@@ -296,7 +296,7 @@ class DebateCreateRequest(BaseModel):
         Field(
             description="Additional context or background information",
             example="We have 1M daily active users and need 99.9% uptime.",
-            max_length=100000,
+            max_length=10000,
         ),
     ] = None
     debate_format: Annotated[DebateFormat | None, Field(description="Debate protocol preset")] = (
@@ -2584,7 +2584,7 @@ class DebateUpdateRequest(BaseModel):
     rounds: Annotated[int | None, Field(description="Update max rounds", ge=1, le=12)] = None
     consensus: Annotated[Consensus2 | None, Field(description="Change consensus strategy")] = None
     context: Annotated[
-        str | None, Field(description="Append additional context", max_length=100000)
+        str | None, Field(description="Append additional context", max_length=10000)
     ] = None
     metadata: Annotated[
         dict[str, Any] | None,
