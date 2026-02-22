@@ -953,6 +953,19 @@ Examples:
         except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.debug("Codebase knowledge ingestion skipped: %s", e)
 
+    # Progress callback for self-improve pipeline
+    def _print_progress(event: str, data: dict) -> None:
+        if event == "cycle_started":
+            print(f"  [start] Cycle {data.get('cycle_id', '?')}")
+        elif event == "planning_complete":
+            print(f"  [plan] {data['goals']} goals identified")
+        elif event == "decomposition_complete":
+            print(f"  [decompose] {data['subtasks']} subtasks created")
+        elif event == "execution_complete":
+            print(f"  [exec] {data['completed']} completed, {data['failed']} failed")
+        elif event == "cycle_complete":
+            print(f"  [done] {data['completed']} completed, {data['failed']} failed, {data['duration']:.1f}s")
+
     # Self-improve mode: unified pipeline with Claude Code dispatch
     if args.self_improve:
         try:
@@ -968,6 +981,7 @@ Examples:
                 require_approval=args.require_approval,
                 autonomous=args.autonomous,
                 auto_mode=args.auto,
+                progress_callback=_print_progress,
                 run_tests=True,
                 run_review=not args.no_gauntlet,
                 capture_metrics=args.metrics,

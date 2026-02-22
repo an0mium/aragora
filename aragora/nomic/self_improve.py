@@ -237,6 +237,11 @@ class SelfImprovePipeline:
                 result.subtasks_failed += 1
                 result.tests_failed += er.get("tests_failed", 0)
 
+        self._emit_progress("execution_complete", {
+            "completed": result.subtasks_completed,
+            "failed": result.subtasks_failed,
+        })
+
         # Step 5: Capture post-change metrics and compare
         outcome_comparison = None  # OutcomeComparison for feedback loop
         after = None
@@ -299,6 +304,11 @@ class SelfImprovePipeline:
             result.subtasks_total,
             result.duration_seconds,
         )
+        self._emit_progress("cycle_complete", {
+            "completed": result.subtasks_completed,
+            "failed": result.subtasks_failed,
+            "duration": result.duration_seconds,
+        })
 
         return result
 
