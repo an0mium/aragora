@@ -547,28 +547,31 @@ class TestInternalMethods:
     async def test_execute_single_extracts_description_from_various_types(self):
         """_execute_single handles SubTask, TaskDecomposition, TrackAssignment, and str."""
         pipeline = SelfImprovePipeline(
-            config=SelfImproveConfig(enable_debug_loop=False)
+            config=SelfImproveConfig(
+                enable_debug_loop=False, require_approval=False, run_tests=False
+            )
         )
 
-        # Raw string
-        r1 = await pipeline._execute_single("raw string task", "c1")
-        assert r1["subtask"] == "raw string task"
+        with patch("shutil.which", return_value=None):
+            # Raw string
+            r1 = await pipeline._execute_single("raw string task", "c1")
+            assert r1["subtask"] == "raw string task"
 
-        # Object with description
-        obj = MagicMock()
-        obj.description = "mock description"
-        obj.goal = None  # No .goal attribute
-        del obj.goal
-        del obj.original_task
-        r2 = await pipeline._execute_single(obj, "c2")
-        assert r2["subtask"] == "mock description"
+            # Object with description
+            obj = MagicMock()
+            obj.description = "mock description"
+            obj.goal = None  # No .goal attribute
+            del obj.goal
+            del obj.original_task
+            r2 = await pipeline._execute_single(obj, "c2")
+            assert r2["subtask"] == "mock description"
 
-        # Object with original_task (TaskDecomposition-like)
-        obj2 = MagicMock()
-        obj2.original_task = "task decomposition description"
-        del obj2.goal
-        r3 = await pipeline._execute_single(obj2, "c3")
-        assert r3["subtask"] == "task decomposition description"
+            # Object with original_task (TaskDecomposition-like)
+            obj2 = MagicMock()
+            obj2.original_task = "task decomposition description"
+            del obj2.goal
+            r3 = await pipeline._execute_single(obj2, "c3")
+            assert r3["subtask"] == "task decomposition description"
 
     @pytest.mark.asyncio
     async def test_compare_metrics_returns_none_when_baseline_none(self):
