@@ -1,4 +1,13 @@
-"""KnowledgeMound bidirectional bridge for pipeline precedent queries."""
+"""KnowledgeMound bidirectional bridge for pipeline precedent queries.
+
+Queries three KM adapter types for decision precedents:
+- ReceiptAdapter: past decision receipts (verdict, confidence, findings)
+- OutcomeAdapter: past decision outcomes (impact, lessons learned)
+- DebateAdapter: past debate results (consensus, dissenting views)
+
+These precedents are attached to goal metadata so downstream pipeline
+stages can reference historical context when planning actions.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +22,7 @@ class PipelineKMBridge:
 
     Provides bidirectional integration between the pipeline and KM:
     - Forward: query KM for similar past goals and actions (precedents)
+    - Forward: query Receipt/Outcome/Debate adapters for decision precedents
     - Backward: store completed pipeline results for future queries
     """
 

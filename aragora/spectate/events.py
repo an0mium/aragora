@@ -35,6 +35,13 @@ class SpectatorEvents:
     BREAKPOINT = "breakpoint"
     BREAKPOINT_RESOLVED = "breakpoint_resolved"
 
+    # Pipeline lifecycle
+    PIPELINE_STARTED = "pipeline.started"
+    PIPELINE_STAGE_STARTED = "pipeline.stage_started"
+    PIPELINE_STAGE_COMPLETED = "pipeline.stage_completed"
+    PIPELINE_COMPLETED = "pipeline.completed"
+    PIPELINE_FAILED = "pipeline.failed"
+
     # System
     SYSTEM = "system"
     ERROR = "error"
@@ -59,6 +66,11 @@ EVENT_STYLES: dict[str, tuple[str, str]] = {
     SpectatorEvents.MEMORY_RECALL: ("🧠", "\033[94m"),  # Blue - memory retrieval
     SpectatorEvents.BREAKPOINT: ("⚠️", "\033[33m"),  # Yellow/orange - needs attention
     SpectatorEvents.BREAKPOINT_RESOLVED: ("✅", "\033[32m"),  # Green - resolved
+    SpectatorEvents.PIPELINE_STARTED: ("🚀", "\033[95m"),  # Magenta - pipeline kickoff
+    SpectatorEvents.PIPELINE_STAGE_STARTED: ("▶️", "\033[96m"),  # Cyan - stage begin
+    SpectatorEvents.PIPELINE_STAGE_COMPLETED: ("✅", "\033[92m"),  # Green - stage done
+    SpectatorEvents.PIPELINE_COMPLETED: ("🏁", "\033[92m"),  # Green - pipeline done
+    SpectatorEvents.PIPELINE_FAILED: ("❌", "\033[91m"),  # Red - pipeline failure
     SpectatorEvents.SYSTEM: ("⚙️", "\033[0m"),
     SpectatorEvents.ERROR: ("❌", "\033[91m"),
 }
@@ -81,6 +93,11 @@ EVENT_ASCII: dict[str, str] = {
     SpectatorEvents.MEMORY_RECALL: "[MEMORY]",
     SpectatorEvents.BREAKPOINT: "[BREAK]",
     SpectatorEvents.BREAKPOINT_RESOLVED: "[RESOLVED]",
+    SpectatorEvents.PIPELINE_STARTED: "[PIPE_START]",
+    SpectatorEvents.PIPELINE_STAGE_STARTED: "[STAGE_START]",
+    SpectatorEvents.PIPELINE_STAGE_COMPLETED: "[STAGE_DONE]",
+    SpectatorEvents.PIPELINE_COMPLETED: "[PIPE_DONE]",
+    SpectatorEvents.PIPELINE_FAILED: "[PIPE_FAIL]",
     SpectatorEvents.SYSTEM: "[SYS]",
     SpectatorEvents.ERROR: "[ERR]",
 }

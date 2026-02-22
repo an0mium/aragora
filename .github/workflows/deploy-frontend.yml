@@ -53,6 +53,10 @@ jobs:
         working-directory: aragora/live
         run: npm ci
 
+      - name: TypeScript Type Check
+        working-directory: aragora/live
+        run: npx tsc --noEmit
+
       - name: Build frontend (standalone)
         working-directory: aragora/live
         run: npm run build
@@ -94,6 +98,10 @@ jobs:
       - name: Install dependencies
         working-directory: aragora/live
         run: npm ci
+
+      - name: TypeScript Type Check
+        working-directory: aragora/live
+        run: npx tsc --noEmit
 
       - name: Build frontend (static export)
         working-directory: aragora/live

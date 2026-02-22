@@ -55,6 +55,35 @@ from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGra
 logger = logging.getLogger(__name__)
 
 
+def _spectate(event_type: str, details: str) -> None:
+    """Emit a SpectatorStream event using the graceful degradation pattern.
+
+    This is a fire-and-forget helper: if the spectate module is unavailable
+    or the stream is not enabled, the call silently does nothing.  A cached
+    module-level instance is reused across calls to avoid repeated allocations.
+    """
+    try:
+        from aragora.spectate.stream import SpectatorStream
+
+        stream = _get_spectator_stream()
+        stream.emit(event_type=event_type, details=details)
+    except (ImportError, TypeError):
+        pass
+
+
+def _get_spectator_stream() -> Any:
+    """Return a cached SpectatorStream instance (lazy-init)."""
+    global _spectator_stream_cache
+    if _spectator_stream_cache is None:
+        from aragora.spectate.stream import SpectatorStream
+
+        _spectator_stream_cache = SpectatorStream(enabled=True)
+    return _spectator_stream_cache
+
+
+_spectator_stream_cache: Any = None
+
+
 @dataclass
 class PipelineConfig:
     """Configuration for async pipeline execution."""
@@ -1487,6 +1516,20 @@ class IdeaToExecutionPipeline:
                 "duration": sr.duration,
             })
 
+        # Collect precedent references from goal metadata for audit trail
+        precedent_refs: list[dict[str, Any]] = []
+        if result.goal_graph:
+            for goal in result.goal_graph.goals:
+                precs = goal.metadata.get("precedents", [])
+                for p in precs:
+                    precedent_refs.append({
+                        "goal_id": goal.id,
+                        "goal_title": goal.title,
+                        "precedent_title": p.get("title", ""),
+                        "precedent_outcome": p.get("outcome", "unknown"),
+                        "similarity": p.get("similarity", 0.0),
+                    })
+
         stages_completed = sum(
             1 for sr in result.stage_results if sr.status == "completed"
         )
@@ -1504,10 +1547,13 @@ class IdeaToExecutionPipeline:
                 participants=participants,
                 evidence=evidence,
             )
-            return receipt.to_dict()
+            receipt_dict = receipt.to_dict()
+            if precedent_refs:
+                receipt_dict["precedent_references"] = precedent_refs
+            return receipt_dict
         except (ImportError, RuntimeError, ValueError, TypeError) as exc:
             logger.debug("Receipt generation fell back to dict: %s", exc)
-            return {
+            receipt_dict = {
                 "pipeline_id": result.pipeline_id,
                 "integrity_hash": result._compute_integrity_hash(),
                 "stages_completed": stages_completed,
@@ -1515,6 +1561,9 @@ class IdeaToExecutionPipeline:
                 "participants": participants,
                 "evidence": evidence,
             }
+            if precedent_refs:
+                receipt_dict["precedent_references"] = precedent_refs
+            return receipt_dict
 
     def _record_pipeline_outcome(self, result: PipelineResult) -> None:
         """Record pipeline outcome for cross-session learning.
@@ -1599,7 +1648,7 @@ class IdeaToExecutionPipeline:
             except (TypeError, ValueError, KeyError):
                 logger.debug("SMART scoring skipped for goal %s", goal.id)
 
-        # Query KM for precedents
+        # Query KM for precedents and use them to influence goal confidence
         try:
             from aragora.pipeline.km_bridge import PipelineKMBridge
 
@@ -1607,6 +1656,27 @@ class IdeaToExecutionPipeline:
             if bridge.available:
                 precedents = bridge.query_similar_goals(result.goal_graph)
                 bridge.enrich_with_precedents(result.goal_graph, precedents)
+
+                # Consume precedents: adjust goal confidence based on outcomes
+                for goal in result.goal_graph.goals:
+                    precs = goal.metadata.get("precedents", [])
+                    if not precs:
+                        continue
+                    successes = sum(
+                        1 for p in precs if p.get("outcome") == "successful"
+                    )
+                    failures = sum(
+                        1 for p in precs if p.get("outcome") == "failed"
+                    )
+                    if successes > failures:
+                        # Boost confidence for goals similar to past successes
+                        goal.confidence = min(1.0, goal.confidence + 0.1)
+                    elif failures > successes:
+                        # Add warning for goals similar to past failures
+                        goal.confidence = max(0.1, goal.confidence - 0.1)
+                        goal.metadata.setdefault("warnings", []).append(
+                            f"Similar past goals failed ({failures}/{len(precs)})"
+                        )
         except (ImportError, RuntimeError, ValueError, TypeError) as exc:
             logger.debug("KM precedent query unavailable: %s", exc)
 
@@ -2131,6 +2201,19 @@ class IdeaToExecutionPipeline:
             }
             if elo_score is not None:
                 task_dict["elo_score"] = elo_score
+
+            # Surface precedent context from KM so agents get historical hints
+            precs = node.data.get("precedents", [])
+            if precs:
+                task_dict["precedent_hints"] = [
+                    {
+                        "title": p.get("title", ""),
+                        "outcome": p.get("outcome", "unknown"),
+                        "similarity": p.get("similarity", 0.0),
+                    }
+                    for p in precs[:3]
+                ]
+
             tasks.append(task_dict)
 
         # Only include agents that are actually assigned tasks

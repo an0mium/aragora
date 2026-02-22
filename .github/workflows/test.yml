@@ -678,6 +678,10 @@ jobs:
         working-directory: aragora/live
         run: npm ci
 
+      - name: TypeScript Type Check
+        working-directory: aragora/live
+        run: npx tsc --noEmit
+
       - name: Run Jest unit tests
         working-directory: aragora/live
         run: npx jest --ci --passWithNoTests
