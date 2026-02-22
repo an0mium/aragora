@@ -78,6 +78,11 @@ IMPL_MODE_TOOLS = frozenset({
     "extract_goals",
     "get_pipeline_status",
     "advance_pipeline_stage",
+    "assess_codebase",
+    "generate_improvement_goals",
+    "run_self_improvement",
+    "get_daemon_status",
+    "trigger_improvement_cycle",
 })
 
 

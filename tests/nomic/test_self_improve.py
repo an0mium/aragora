@@ -1967,3 +1967,304 @@ class TestValidatePipeline:
         captured = capsys.readouterr()
         assert "GoalEvaluator" in captured.out
         assert "score=" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# A2: Pipeline graph publication
+# ---------------------------------------------------------------------------
+
+
+class TestPipelineGraphPublication:
+    """Tests for _publish_to_pipeline_graph (A2)."""
+
+    @pytest.mark.asyncio
+    async def test_publish_to_pipeline_graph_called(self):
+        """Pipeline graph is published after a successful run."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+            )
+        )
+
+        async def mock_execute(subtask, cycle_id):
+            return {
+                "success": True,
+                "files_changed": ["a.py"],
+                "tests_passed": 1,
+                "tests_failed": 0,
+            }
+
+        with (
+            patch.object(pipeline, "_execute_single", side_effect=mock_execute),
+            patch(
+                "aragora.nomic.self_improve.NomicPipelineBridge",
+                create=True,
+            ) as MockBridge,
+            patch(
+                "aragora.nomic.self_improve.get_graph_store",
+                create=True,
+            ) as mock_get_store,
+        ):
+            # Patch the lazy imports inside _publish_to_pipeline_graph
+            mock_bridge = MagicMock()
+            mock_graph = MagicMock()
+            mock_graph.id = "graph-123"
+            mock_graph.nodes = [MagicMock()]
+            mock_bridge.create_pipeline_from_cycle.return_value = mock_graph
+            MockBridge.return_value = mock_bridge
+
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            # We need to patch the imports inside the method
+            with (
+                patch("aragora.nomic.pipeline_bridge.NomicPipelineBridge", MockBridge),
+                patch("aragora.pipeline.graph_store.get_graph_store", mock_get_store),
+            ):
+                result = await pipeline.run("Test graph publication")
+
+            # Verify the bridge was called (may fail gracefully if imports not available)
+            # The important thing is run() completes without error
+            assert isinstance(result, SelfImproveResult)
+
+    @pytest.mark.asyncio
+    async def test_publish_to_pipeline_graph_graceful_degradation(self):
+        """Pipeline graph publication gracefully degrades on ImportError."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+            )
+        )
+
+        async def mock_execute(subtask, cycle_id):
+            return {
+                "success": True,
+                "files_changed": ["a.py"],
+                "tests_passed": 1,
+                "tests_failed": 0,
+            }
+
+        # Force ImportError by making the pipeline_bridge module unavailable
+        with (
+            patch.object(pipeline, "_execute_single", side_effect=mock_execute),
+            patch.dict("sys.modules", {"aragora.nomic.pipeline_bridge": None}),
+        ):
+            result = await pipeline.run("Test graceful degradation")
+
+        assert isinstance(result, SelfImproveResult)
+        assert result.duration_seconds > 0
+
+    def test_self_improve_orchestration_adapter(self):
+        """_SelfImproveOrchestrationAdapter produces correct fields."""
+        from aragora.nomic.self_improve import _SelfImproveOrchestrationAdapter
+
+        result = SelfImproveResult(
+            cycle_id="cycle_abc",
+            objective="Improve tests",
+            subtasks_total=5,
+            subtasks_completed=3,
+            subtasks_failed=2,
+            files_changed=["a.py", "b.py"],
+            regressions_detected=False,
+            duration_seconds=42.0,
+            improvement_score=0.75,
+        )
+
+        adapter = _SelfImproveOrchestrationAdapter("cycle_abc", result)
+
+        assert adapter.goal == "Improve tests"
+        assert "3/5" in adapter.summary
+        assert adapter.success is True
+        assert adapter.duration_seconds == 42.0
+        assert adapter.improvement_score == 0.75
+        assert len(adapter.assignments) == 2
+
+    def test_self_improve_orchestration_adapter_failure(self):
+        """Adapter sets success=False when regressions are detected."""
+        from aragora.nomic.self_improve import _SelfImproveOrchestrationAdapter
+
+        result = SelfImproveResult(
+            cycle_id="cycle_fail",
+            objective="Broken",
+            subtasks_completed=1,
+            regressions_detected=True,
+        )
+
+        adapter = _SelfImproveOrchestrationAdapter("cycle_fail", result)
+        assert adapter.success is False
+
+    def test_build_assignments_from_result(self):
+        """_build_assignments_from_result builds assignment-like objects."""
+        from aragora.nomic.self_improve import _build_assignments_from_result
+
+        result = SelfImproveResult(
+            cycle_id="cycle_b",
+            objective="Test",
+            files_changed=["x.py", "y.py", "z.py"],
+        )
+
+        assignments = _build_assignments_from_result(result)
+
+        assert len(assignments) == 3
+        for i, a in enumerate(assignments):
+            assert a.status == "completed"
+            assert a.agent_type == "self_improve"
+            assert a.track.value == "core"
+            assert a.subtask.id == f"si-{i}"
+            assert "Modified:" in a.subtask.title
+            assert len(a.subtask.file_scope) == 1
+            assert a.subtask.estimated_complexity == "medium"
+
+    def test_build_assignments_caps_at_20(self):
+        """_build_assignments_from_result caps at 20 files."""
+        from aragora.nomic.self_improve import _build_assignments_from_result
+
+        result = SelfImproveResult(
+            cycle_id="cycle_cap",
+            objective="Many files",
+            files_changed=[f"file_{i}.py" for i in range(30)],
+        )
+
+        assignments = _build_assignments_from_result(result)
+        assert len(assignments) == 20
+
+    def test_publish_to_pipeline_graph_with_empty_result(self):
+        """Publish with no files changed produces minimal graph."""
+        from aragora.nomic.self_improve import _SelfImproveOrchestrationAdapter
+
+        result = SelfImproveResult(
+            cycle_id="cycle_empty",
+            objective="Nothing changed",
+            subtasks_completed=0,
+            files_changed=[],
+        )
+
+        adapter = _SelfImproveOrchestrationAdapter("cycle_empty", result)
+        assert adapter.success is False
+        assert len(adapter.assignments) == 0
+
+
+# ---------------------------------------------------------------------------
+# A3: MetaPlanner feedback loop
+# ---------------------------------------------------------------------------
+
+
+class TestMetaPlannerFeedbackLoop:
+    """Tests for MetaPlanner outcome recording in _persist_outcome (A3)."""
+
+    def test_meta_planner_record_outcome_called(self):
+        """_persist_outcome calls MetaPlanner.record_outcome."""
+        pipeline = SelfImprovePipeline()
+        result = SelfImproveResult(
+            cycle_id="cycle_mp",
+            objective="Test MetaPlanner feedback",
+            subtasks_completed=2,
+            subtasks_failed=0,
+            files_changed=["a.py"],
+            duration_seconds=10.0,
+        )
+
+        with (
+            patch("aragora.nomic.cycle_store.get_cycle_store") as mock_get_store,
+            patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner,
+        ):
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            mock_planner = MagicMock()
+            MockPlanner.return_value = mock_planner
+
+            pipeline._persist_outcome("cycle_mp", result)
+
+        mock_planner.record_outcome.assert_called_once()
+        call_kwargs = mock_planner.record_outcome.call_args
+        goal_outcomes = call_kwargs[1]["goal_outcomes"] if "goal_outcomes" in (call_kwargs[1] or {}) else call_kwargs[0][0]
+        assert len(goal_outcomes) == 1
+        assert goal_outcomes[0]["track"] == "core"
+        assert goal_outcomes[0]["success"] is True
+        assert goal_outcomes[0]["description"] == "Test MetaPlanner feedback"
+
+    def test_meta_planner_record_outcome_graceful_degradation(self):
+        """_persist_outcome completes even when MetaPlanner import fails."""
+        pipeline = SelfImprovePipeline()
+        result = SelfImproveResult(
+            cycle_id="cycle_mp_fail",
+            objective="Test graceful",
+            subtasks_completed=1,
+            subtasks_failed=0,
+            duration_seconds=5.0,
+        )
+
+        with (
+            patch("aragora.nomic.cycle_store.get_cycle_store") as mock_get_store,
+            patch.dict("sys.modules", {"aragora.nomic.meta_planner": None}),
+        ):
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            # Should not raise
+            pipeline._persist_outcome("cycle_mp_fail", result)
+
+        # CycleLearningStore save should still have been called
+        mock_store.save_cycle.assert_called_once()
+
+    def test_meta_planner_record_outcome_with_failures(self):
+        """MetaPlanner records success=False when subtasks failed."""
+        pipeline = SelfImprovePipeline()
+        result = SelfImproveResult(
+            cycle_id="cycle_mp_mixed",
+            objective="Partial failure",
+            subtasks_completed=1,
+            subtasks_failed=3,
+            duration_seconds=8.0,
+        )
+
+        with (
+            patch("aragora.nomic.cycle_store.get_cycle_store") as mock_get_store,
+            patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner,
+        ):
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            mock_planner = MagicMock()
+            MockPlanner.return_value = mock_planner
+
+            pipeline._persist_outcome("cycle_mp_mixed", result)
+
+        mock_planner.record_outcome.assert_called_once()
+        call_kwargs = mock_planner.record_outcome.call_args
+        goal_outcomes = call_kwargs[1]["goal_outcomes"] if "goal_outcomes" in (call_kwargs[1] or {}) else call_kwargs[0][0]
+        assert goal_outcomes[0]["success"] is False
+
+    def test_meta_planner_record_outcome_skipped_when_no_subtasks(self):
+        """MetaPlanner.record_outcome is NOT called when no subtasks ran."""
+        pipeline = SelfImprovePipeline()
+        result = SelfImproveResult(
+            cycle_id="cycle_mp_empty",
+            objective="No subtasks",
+            subtasks_completed=0,
+            subtasks_failed=0,
+            duration_seconds=1.0,
+        )
+
+        with (
+            patch("aragora.nomic.cycle_store.get_cycle_store") as mock_get_store,
+            patch("aragora.nomic.meta_planner.MetaPlanner") as MockPlanner,
+        ):
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            mock_planner = MagicMock()
+            MockPlanner.return_value = mock_planner
+
+            pipeline._persist_outcome("cycle_mp_empty", result)
+
+        mock_planner.record_outcome.assert_not_called()

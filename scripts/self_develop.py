@@ -728,6 +728,12 @@ Examples:
         help="Skip approval gates for fully autonomous execution (requires --self-improve)",
     )
     parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Auto-execute low-risk changes in worktrees, defer high-risk for review. "
+        "Safer than --autonomous (which executes everything).",
+    )
+    parser.add_argument(
         "--scan",
         action="store_true",
         help="Use scan mode: prioritize from codebase signals (git log, untested modules, "
@@ -744,6 +750,24 @@ Examples:
         action="store_true",
         help="Validate that all pipeline components can be imported and initialized. "
         "Runs a non-executing probe: decomposition, bridge, indexer, and evaluator.",
+    )
+    parser.add_argument(
+        "--assess",
+        action="store_true",
+        help="Run autonomous codebase assessment and print health report. "
+        "No LLM calls — pure static analysis. Exits after assessment.",
+    )
+    parser.add_argument(
+        "--daemon",
+        action="store_true",
+        help="Start the continuous self-improvement daemon. "
+        "Runs assess→generate→execute→measure cycles on an interval.",
+    )
+    parser.add_argument(
+        "--daemon-interval",
+        type=float,
+        default=3600.0,
+        help="Seconds between daemon cycles (default: 3600 = 1 hour)",
     )
     parser.add_argument(
         "-v",
@@ -767,11 +791,12 @@ Examples:
     for noisy in ("botocore", "boto3", "urllib3", "asyncio", "websockets"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    # Validate: --goal is required unless --scan is set
-    if args.goal is None and not args.scan:
+    # Validate: --goal is required unless --scan, --assess, or --daemon is set
+    if args.goal is None and not args.scan and not args.assess and not args.daemon:
         parser.error(
-            "--goal is required unless --scan is used. "
+            "--goal is required unless --scan, --assess, or --daemon is used. "
             "Use --scan to let MetaPlanner generate goals from codebase signals, "
+            "--assess for health assessment, --daemon for continuous improvement, "
             "or provide --goal 'your objective'."
         )
 
@@ -779,14 +804,117 @@ Examples:
     if args.validate_pipeline:
         return _validate_pipeline(args.goal or "validate pipeline components")
 
+    # Assess mode: run autonomous assessment and print health report
+    if args.assess:
+        try:
+            from aragora.nomic.assessment_engine import AutonomousAssessmentEngine
+            from aragora.nomic.goal_generator import GoalGenerator
+
+            engine = AutonomousAssessmentEngine()
+            report = asyncio.run(engine.assess())
+
+            print_header("CODEBASE HEALTH ASSESSMENT")
+            print(f"Health Score: {report.health_score:.2f}")
+            print(f"Assessment Duration: {report.assessment_duration_seconds:.1f}s")
+            print(f"\nSignal Sources ({len(report.signal_sources)}):")
+            for src in report.signal_sources:
+                status = f"{len(src.findings)} findings" if not src.error else f"ERROR: {src.error}"
+                print(f"  [{src.name}] weight={src.weight:.2f}  {status}")
+
+            print(f"\nImprovement Candidates ({len(report.improvement_candidates)}):")
+            for i, c in enumerate(report.improvement_candidates[:10], 1):
+                files_str = f" ({', '.join(c.files[:2])})" if c.files else ""
+                print(f"  {i}. [{c.category}] {c.description}{files_str}")
+                print(f"     priority={c.priority:.2f}  source={c.source}")
+
+            if report.improvement_candidates:
+                generator = GoalGenerator()
+                goals = generator.generate_goals(report)
+                if goals:
+                    print(f"\nGenerated Goals ({len(goals)}):")
+                    for g in goals:
+                        print(f"  [{g.track.value}] {g.description}")
+
+            return 0
+
+        except (ImportError, RuntimeError, ValueError) as e:
+            print(f"\nAssessment failed: {e}")
+            return 1
+
+    # Daemon mode: start continuous self-improvement loop
+    if args.daemon:
+        try:
+            from aragora.nomic.daemon import DaemonConfig, SelfImprovementDaemon
+
+            config = DaemonConfig(
+                interval_seconds=args.daemon_interval,
+                dry_run=args.dry_run,
+                require_approval=args.require_approval,
+                autonomous=args.autonomous,
+                budget_limit_per_cycle_usd=args.budget_limit or 5.0,
+                use_worktrees=args.worktree or args.parallel,
+                run_tests=True,
+            )
+            daemon = SelfImprovementDaemon(config)
+
+            print_header("SELF-IMPROVEMENT DAEMON")
+            print(f"Interval: {config.interval_seconds:.0f}s")
+            print(f"Health threshold: {config.health_threshold:.2f}")
+            print(f"Budget per cycle: ${config.budget_limit_per_cycle_usd:.2f}")
+            print(f"Budget cumulative: ${config.budget_limit_cumulative_usd:.2f}")
+            print(f"Dry run: {config.dry_run}")
+            print(f"Max consecutive failures: {config.max_consecutive_failures}")
+            print("\nStarting daemon... (Ctrl+C to stop)")
+
+            try:
+                asyncio.run(daemon.start())
+            except KeyboardInterrupt:
+                print("\n\nDaemon stopped by user.")
+
+            status = daemon.get_status()
+            print(f"\nFinal status: {status.state}")
+            print(f"Cycles completed: {status.cycles_completed}")
+            print(f"Cycles failed: {status.cycles_failed}")
+            return 0
+
+        except (ImportError, RuntimeError, ValueError) as e:
+            print(f"\nDaemon failed: {e}")
+            return 1
+
     # Dry run: just show decomposition (unless --self-improve handles its own dry-run)
     if args.dry_run and not args.self_improve:
         # goal is guaranteed non-None here (validated above: --scan requires --self-improve for None goal)
         assert args.goal is not None, "--goal is required for dry-run without --self-improve"
+
+        # Enrich goal with StrategicScanner findings when --scan is set
+        enriched_goal = args.goal
+        if args.scan:
+            try:
+                from aragora.nomic.strategic_scanner import StrategicScanner
+
+                scanner = StrategicScanner()
+                assessment = scanner.scan(objective=args.goal)
+                if assessment.findings:
+                    top_findings = assessment.findings[:5]
+                    signals = "\n".join(
+                        f"- [{f.category}] {f.file_path}: {f.description[:80]}"
+                        for f in top_findings
+                    )
+                    enriched_goal = (
+                        f"CODEBASE SIGNALS (from StrategicScanner):\n{signals}\n\n"
+                        f"OBJECTIVE: {args.goal}"
+                    )
+                    print(
+                        f"[scan] Found {len(assessment.findings)} findings, "
+                        f"top areas: {', '.join(assessment.focus_areas[:3])}"
+                    )
+            except (ImportError, RuntimeError, ValueError, OSError) as exc:
+                logger.debug("StrategicScanner not available for dry-run: %s", exc)
+
         use_debate = args.debate
         if not use_debate:
             # Run heuristic first; if the goal is abstract, auto-switch to debate
-            result = run_heuristic_decomposition(args.goal)
+            result = run_heuristic_decomposition(enriched_goal)
             if result.recommend_debate:
                 print("[*] Abstract goal detected (score={}/10, no file hints)".format(
                     result.complexity_score))
@@ -796,12 +924,12 @@ Examples:
         if use_debate:
             # Use debate-based decomposition (async)
             try:
-                result = asyncio.run(run_debate_decomposition(args.goal))
+                result = asyncio.run(run_debate_decomposition(enriched_goal))
             except RuntimeError as e:
                 if "No API agents available" in str(e):
                     print(f"[!] Debate mode requires API keys: {e}")
                     print("[!] Falling back to heuristic decomposition...\n")
-                    result = run_heuristic_decomposition(args.goal)
+                    result = run_heuristic_decomposition(enriched_goal)
                 else:
                     raise
 
@@ -839,6 +967,7 @@ Examples:
                 budget_limit_usd=args.budget_limit or 10.0,
                 require_approval=args.require_approval,
                 autonomous=args.autonomous,
+                auto_mode=args.auto,
                 run_tests=True,
                 run_review=not args.no_gauntlet,
                 capture_metrics=args.metrics,

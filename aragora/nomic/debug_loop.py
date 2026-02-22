@@ -250,8 +250,7 @@ class DebugLoop:
             import shutil
 
             if not shutil.which("claude"):
-                logger.debug("Claude CLI not found, returning empty output")
-                return "", ""
+                raise RuntimeError("Claude CLI not found in PATH")
 
             from aragora.harnesses.claude_code import (
                 ClaudeCodeConfig,

@@ -153,6 +153,13 @@ from aragora.mcp.tools_module.business_memory import (
     store_business_knowledge_tool,
     query_business_knowledge_tool,
 )
+from aragora.mcp.tools_module.self_improve import (
+    assess_codebase_tool,
+    generate_improvement_goals_tool,
+    run_self_improvement_tool,
+    get_daemon_status_tool,
+    trigger_improvement_cycle_tool,
+)
 
 __all__ = [
     # Debate tools
@@ -278,4 +285,10 @@ __all__ = [
     # Business memory tools
     "store_business_knowledge_tool",
     "query_business_knowledge_tool",
+    # Self-improvement tools
+    "assess_codebase_tool",
+    "generate_improvement_goals_tool",
+    "run_self_improvement_tool",
+    "get_daemon_status_tool",
+    "trigger_improvement_cycle_tool",
 ]

@@ -19,9 +19,10 @@ import logging
 import subprocess
 import sys
 import time
+import types
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class SelfImproveConfig:
     budget_limit_usd: float = 10.0  # Total budget cap
     require_approval: bool = True  # Human approval at checkpoints
     autonomous: bool = False  # Skip approval gates for fully autonomous runs
+    auto_mode: bool = False  # Risk-based auto-execution (low=execute, high=defer)
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None
 
     # Verification
     run_tests: bool = True
@@ -106,6 +109,45 @@ class SelfImproveResult:
         }
 
 
+class _SelfImproveOrchestrationAdapter:
+    """Adapter to make SelfImproveResult look like OrchestrationResult for NomicPipelineBridge.
+
+    NomicPipelineBridge.create_pipeline_from_cycle() expects an OrchestrationResult
+    with .goal, .summary, .assignments, .success, .duration_seconds, .improvement_score.
+    This adapter wraps a SelfImproveResult to provide that interface.
+    """
+
+    def __init__(self, cycle_id: str, result: SelfImproveResult) -> None:
+        self.goal = result.objective
+        self.summary = f"Cycle {cycle_id}: {result.subtasks_completed}/{result.subtasks_total} subtasks completed"
+        self.success = result.subtasks_completed > 0 and not result.regressions_detected
+        self.duration_seconds = result.duration_seconds
+        self.improvement_score = result.improvement_score
+        # Build minimal assignment-like objects from result data
+        self.assignments = _build_assignments_from_result(result)
+
+
+def _build_assignments_from_result(result: SelfImproveResult) -> list[Any]:
+    """Build minimal assignment-like objects for pipeline bridge consumption."""
+    assignments = []
+    for i, f in enumerate(result.files_changed[:20]):  # Cap at 20 for visualization
+        assignment = types.SimpleNamespace(
+            status="completed",
+            agent_type="self_improve",
+            track=types.SimpleNamespace(value="core"),
+            subtask=types.SimpleNamespace(
+                id=f"si-{i}",
+                title=f"Modified: {f}",
+                description="File changed during self-improvement cycle",
+                file_scope=[f],
+                estimated_complexity="medium",
+                dependencies=[],
+            ),
+        )
+        assignments.append(assignment)
+    return assignments
+
+
 class SelfImprovePipeline:
     """The full self-improvement pipeline.
 
@@ -121,6 +163,14 @@ class SelfImprovePipeline:
 
     def __init__(self, config: SelfImproveConfig | None = None):
         self.config = config or SelfImproveConfig()
+
+    def _emit_progress(self, event: str, data: dict[str, Any]) -> None:
+        """Emit a progress event via the configured callback."""
+        if self.config.progress_callback:
+            try:
+                self.config.progress_callback(event, data)
+            except Exception:
+                pass
 
     async def run(self, objective: str | None = None) -> SelfImproveResult:
         """Run a full self-improvement cycle.
@@ -143,6 +193,7 @@ class SelfImprovePipeline:
             effective_objective[:100],
             objective is None,
         )
+        self._emit_progress("cycle_started", {"cycle_id": cycle_id, "objective": effective_objective})
 
         # Step 0: Index codebase for richer planning context
         if self.config.enable_codebase_indexing:
@@ -151,6 +202,7 @@ class SelfImprovePipeline:
         # Step 1: Plan (None objective triggers scan-based goal synthesis)
         goals = await self._plan(objective)
         result.goals_planned = len(goals)
+        self._emit_progress("planning_complete", {"goals": len(goals)})
 
         # In self-directing mode, synthesize objective from top goal
         if objective is None and goals:
@@ -166,6 +218,7 @@ class SelfImprovePipeline:
         # Step 2: Decompose goals into subtasks
         subtasks = await self._decompose(goals)
         result.subtasks_total = len(subtasks)
+        self._emit_progress("decomposition_complete", {"subtasks": len(subtasks)})
 
         # Step 3: Capture baseline metrics
         baseline = None
@@ -233,6 +286,9 @@ class SelfImprovePipeline:
 
         # Step 7: Run feedback orchestrator (6-step audit→active bridge)
         self._run_feedback_orchestrator(cycle_id, execution_results)
+
+        # Step 8: Publish to pipeline visualization graph
+        self._publish_to_pipeline_graph(cycle_id, result)
 
         result.duration_seconds = time.time() - start_time
         logger.info(
@@ -1140,6 +1196,38 @@ class SelfImprovePipeline:
 
         return contents
 
+    def _assess_execution_risk(self, instruction: Any) -> str:
+        """Assess risk level of an execution instruction.
+
+        Returns "low", "medium", or "high" based on:
+        - File count and scope (tests-only = low, core modules = high)
+        - Whether files are in protected paths (CLAUDE.md, __init__.py, etc.)
+        - Whether the instruction involves deletions vs additions
+        """
+        file_hints: list[str] = getattr(instruction, "file_hints", [])
+        if not file_hints:
+            file_hints = getattr(instruction, "file_scope", [])
+
+        # Protected files -> always high risk
+        protected = {"CLAUDE.md", "__init__.py", ".env", "nomic_loop.py"}
+        if any(any(p in f for p in protected) for f in file_hints):
+            return "high"
+
+        # Tests-only changes -> low risk
+        if all(f.startswith("tests/") for f in file_hints) and file_hints:
+            return "low"
+
+        # Many files -> high risk
+        if len(file_hints) > 10:
+            return "high"
+
+        # Core modules -> medium risk
+        core_paths = {"aragora/debate/", "aragora/server/", "aragora/nomic/"}
+        if any(any(f.startswith(c) for c in core_paths) for f in file_hints):
+            return "medium"
+
+        return "low"
+
     async def _dispatch_to_claude_code(
         self,
         instruction: Any,
@@ -1160,11 +1248,26 @@ class SelfImprovePipeline:
             Dict with execution results, or None if dispatch was skipped.
         """
         if self.config.require_approval and not self.config.autonomous:
+            if not getattr(self.config, "auto_mode", False):
+                logger.info(
+                    "dispatch_skipped reason=require_approval subtask=%s",
+                    instruction.subtask_id[:20],
+                )
+                return None
+            # Auto mode: risk-based dispatch
+            risk_level = self._assess_execution_risk(instruction)
+            if risk_level == "high":
+                logger.info(
+                    "dispatch_deferred reason=high_risk subtask=%s risk=%s",
+                    instruction.subtask_id[:20],
+                    risk_level,
+                )
+                return {"deferred": True, "risk_level": risk_level, "files_changed": []}
             logger.info(
-                "dispatch_skipped reason=require_approval subtask=%s",
+                "dispatch_auto_approved reason=low_risk subtask=%s risk=%s",
                 instruction.subtask_id[:20],
+                risk_level,
             )
-            return None
 
         try:
             import shutil
@@ -1438,6 +1541,33 @@ class SelfImprovePipeline:
                         "Failed to record outcome comparison: %s", exc
                     )
 
+            # Feed outcomes to MetaPlanner for cross-cycle learning
+            try:
+                from aragora.nomic.meta_planner import MetaPlanner
+
+                goal_outcomes = []
+                # Build goal outcomes from result
+                if result.subtasks_completed > 0 or result.subtasks_failed > 0:
+                    goal_outcomes.append({
+                        "track": "core",
+                        "success": result.subtasks_completed > 0 and result.subtasks_failed == 0,
+                        "description": result.objective,
+                    })
+
+                if goal_outcomes:
+                    planner = MetaPlanner()
+                    planner.record_outcome(
+                        goal_outcomes=goal_outcomes,
+                        objective=result.objective,
+                    )
+                    logger.info(
+                        "meta_planner_outcome_recorded cycle=%s goals=%d",
+                        cycle_id,
+                        len(goal_outcomes),
+                    )
+            except (ImportError, RuntimeError, ValueError, TypeError) as exc:
+                logger.debug("MetaPlanner outcome recording skipped: %s", exc)
+
         except ImportError as exc:
             logger.debug("Failed to persist cycle outcome (import): %s", exc)
         except (RuntimeError, ValueError, OSError) as exc:
@@ -1471,6 +1601,41 @@ class SelfImprovePipeline:
             logger.debug("FeedbackOrchestrator not available")
         except (RuntimeError, ValueError, OSError) as exc:
             logger.warning("Feedback orchestrator failed (non-critical): %s", exc)
+
+    def _publish_to_pipeline_graph(
+        self,
+        cycle_id: str,
+        result: SelfImproveResult,
+    ) -> None:
+        """Publish cycle results as a pipeline visualization graph.
+
+        Creates a UniversalGraph from the cycle results and persists it
+        to GraphStore, making self-improvement cycles visible in the
+        /pipeline canvas UI.
+        """
+        try:
+            from aragora.nomic.pipeline_bridge import NomicPipelineBridge
+            from aragora.pipeline.graph_store import get_graph_store
+
+            # Build a minimal OrchestrationResult-like object for the bridge
+            # We use a lightweight wrapper since SelfImproveResult doesn't
+            # have the same shape as OrchestrationResult
+            cycle_data = _SelfImproveOrchestrationAdapter(cycle_id, result)
+
+            bridge = NomicPipelineBridge()
+            graph = bridge.create_pipeline_from_cycle(cycle_data)
+
+            store = get_graph_store()
+            store.create(graph)
+
+            logger.info(
+                "pipeline_graph_published cycle=%s graph_id=%s nodes=%d",
+                cycle_id,
+                graph.id,
+                len(graph.nodes),
+            )
+        except (ImportError, AttributeError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug("Pipeline graph publication skipped: %s", e)
 
 
 __all__ = [

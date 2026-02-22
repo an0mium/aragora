@@ -53,6 +53,12 @@ async def run_pipeline_tool(
                 return {"error": "ideas list is empty"}
 
             result = pipeline.from_ideas(ideas_list, auto_advance=True)
+            # Persist to KnowledgeMound
+            try:
+                from aragora.pipeline.km_bridge import PipelineKMBridge
+                PipelineKMBridge().store_pipeline_result(result)
+            except (ImportError, AttributeError, RuntimeError, ValueError) as exc:
+                logger.debug("KM persistence skipped: %s", exc)
             result_dict = result.to_dict()
             return {
                 "pipeline_id": result.pipeline_id,
@@ -75,6 +81,13 @@ async def run_pipeline_tool(
             get_pipeline_store().save(result.pipeline_id, result_dict)
         except (ImportError, OSError):
             pass
+
+        # Persist to KnowledgeMound
+        try:
+            from aragora.pipeline.km_bridge import PipelineKMBridge
+            PipelineKMBridge().store_pipeline_result(result)
+        except (ImportError, AttributeError, RuntimeError, ValueError) as exc:
+            logger.debug("KM persistence skipped: %s", exc)
 
         return {
             "pipeline_id": result.pipeline_id,

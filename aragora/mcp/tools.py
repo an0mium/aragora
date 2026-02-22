@@ -106,6 +106,13 @@ from aragora.mcp.tools_module.codebase import (
     get_dependencies_tool,
     get_codebase_structure_tool,
 )
+from aragora.mcp.tools_module.self_improve import (
+    assess_codebase_tool,
+    generate_improvement_goals_tool,
+    run_self_improvement_tool,
+    get_daemon_status_tool,
+    trigger_improvement_cycle_tool,
+)
 from aragora.config.settings import AgentSettings, DebateSettings
 
 logger = logging.getLogger(__name__)
@@ -917,6 +924,54 @@ TOOLS_METADATA = [
             "max_depth": {"type": "integer", "default": 3},
         },
     },
+    # Self-improvement tools
+    {
+        "name": "assess_codebase",
+        "description": "Run autonomous codebase assessment and return a health report with scored improvement candidates",
+        "function": assess_codebase_tool,
+        "parameters": {
+            "weights": {
+                "type": "string",
+                "default": "",
+                "description": "Optional JSON string of source weights (e.g. '{\"scanner\": 0.4, \"metrics\": 0.3}')",
+            },
+        },
+    },
+    {
+        "name": "generate_improvement_goals",
+        "description": "Run assessment and convert results to prioritized improvement goals",
+        "function": generate_improvement_goals_tool,
+        "parameters": {
+            "max_goals": {"type": "integer", "default": 5},
+        },
+    },
+    {
+        "name": "run_self_improvement",
+        "description": "Execute a self-improvement cycle (dry_run by default for safety)",
+        "function": run_self_improvement_tool,
+        "parameters": {
+            "objective": {
+                "type": "string",
+                "default": "",
+                "description": "High-level objective. Empty for self-directing mode.",
+            },
+            "dry_run": {"type": "boolean", "default": True},
+        },
+    },
+    {
+        "name": "get_daemon_status",
+        "description": "Get the current self-improvement daemon status, cycle counts, and recent history",
+        "function": get_daemon_status_tool,
+        "parameters": {},
+    },
+    {
+        "name": "trigger_improvement_cycle",
+        "description": "Trigger an immediate self-improvement cycle via the daemon",
+        "function": trigger_improvement_cycle_tool,
+        "parameters": {
+            "dry_run": {"type": "boolean", "default": True},
+        },
+    },
 ]
 
 
@@ -1011,5 +1066,11 @@ __all__ = [
     "get_symbol_tool",
     "get_dependencies_tool",
     "get_codebase_structure_tool",
+    # Self-improvement tools
+    "assess_codebase_tool",
+    "generate_improvement_goals_tool",
+    "run_self_improvement_tool",
+    "get_daemon_status_tool",
+    "trigger_improvement_cycle_tool",
     "TOOLS_METADATA",
 ]

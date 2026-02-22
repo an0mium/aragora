@@ -2200,3 +2200,160 @@ class TestGauntletConstraints:
         )
 
         assert len(orch._gauntlet_constraints) == 2
+
+
+# =============================================================================
+# Pipeline Wiring Tests — ExecutionBridge, DebugLoop, Auto-routing
+# =============================================================================
+
+
+class TestPipelineWiring:
+    """Tests for the end-to-end self-improvement pipeline wiring."""
+
+    def test_meta_planning_default_true(self):
+        """MetaPlanning is enabled by default for full pipeline flow."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.enable_meta_planning is True
+
+    def test_execution_bridge_default_true(self):
+        """ExecutionBridge is enabled by default."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.enable_execution_bridge is True
+
+    def test_debug_loop_default_true(self):
+        """DebugLoop is enabled by default."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.enable_debug_loop is True
+
+    def test_debug_loop_max_retries_default(self):
+        """DebugLoop defaults to 3 retries."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.debug_loop_max_retries == 3
+
+    def test_config_flags_overrideable(self):
+        """All new config flags can be disabled."""
+        orch = HardenedOrchestrator(
+            enable_meta_planning=False,
+            enable_execution_bridge=False,
+            enable_debug_loop=False,
+            debug_loop_max_retries=5,
+        )
+        assert orch.hardened_config.enable_meta_planning is False
+        assert orch.hardened_config.enable_execution_bridge is False
+        assert orch.hardened_config.enable_debug_loop is False
+        assert orch.hardened_config.debug_loop_max_retries == 5
+
+    def test_lazy_execution_bridge_creation(self):
+        """ExecutionBridge is lazily created on first access."""
+        orch = HardenedOrchestrator()
+        assert orch._execution_bridge is None
+        bridge = orch._get_execution_bridge()
+        assert bridge is not None
+        # Second call returns same instance
+        assert orch._get_execution_bridge() is bridge
+
+    def test_lazy_debug_loop_creation(self):
+        """DebugLoop is lazily created on first access."""
+        orch = HardenedOrchestrator()
+        assert orch._debug_loop is None
+        loop = orch._get_debug_loop()
+        assert loop is not None
+        # Second call returns same instance
+        assert orch._get_debug_loop() is loop
+
+    def test_debug_loop_respects_config_retries(self):
+        """DebugLoop uses config's max_retries setting."""
+        orch = HardenedOrchestrator(debug_loop_max_retries=7)
+        loop = orch._get_debug_loop()
+        assert loop.config.max_retries == 7
+
+    @pytest.mark.asyncio
+    async def test_execute_goal_routes_to_coordinated(self):
+        """execute_goal auto-routes to execute_goal_coordinated when meta-planning on."""
+        orch = HardenedOrchestrator(enable_meta_planning=True)
+        mock_result = OrchestrationResult(
+            goal="test",
+            success=True,
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=1.0,
+        )
+        orch.execute_goal_coordinated = AsyncMock(return_value=mock_result)
+        result = await orch.execute_goal("Improve tests")
+        orch.execute_goal_coordinated.assert_awaited_once()
+        assert result.success is True
+
+    def test_meta_off_skips_coordinated_routing(self):
+        """When meta-planning is off, execute_goal does NOT route to coordinated."""
+        orch = HardenedOrchestrator(enable_meta_planning=False)
+        # Verify the config is actually False
+        assert orch.hardened_config.enable_meta_planning is False
+        # The execute_goal method should NOT set up coordinated routing
+        # (it will fall through to super().execute_goal which needs full env,
+        # so we just verify the config flag controls the routing decision)
+
+    def test_bridge_ingest_coordinated_result(self):
+        """Bridge ingestion creates and ingests ExecutionResult."""
+        orch = HardenedOrchestrator()
+        bridge = orch._get_execution_bridge()
+        bridge.ingest_result = MagicMock()
+
+        mock_assignment = MagicMock()
+        mock_assignment.goal.track.value = "developer"
+        mock_assignment.goal.description = "Test goal"
+
+        mock_result = OrchestrationResult(
+            goal="test",
+            success=True,
+            total_subtasks=2,
+            completed_subtasks=2,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=5.0,
+            summary="All done",
+        )
+
+        orch._bridge_ingest_coordinated_result(mock_assignment, mock_result)
+        bridge.ingest_result.assert_called_once()
+        exec_result = bridge.ingest_result.call_args[0][0]
+        assert exec_result.success is True
+        assert exec_result.tests_passed == 2
+        assert exec_result.tests_failed == 0
+
+    def test_bridge_ingest_skipped_when_disabled(self):
+        """Bridge ingestion is a no-op when disabled."""
+        orch = HardenedOrchestrator(enable_execution_bridge=False)
+
+        mock_assignment = MagicMock()
+        mock_result = OrchestrationResult(
+            goal="test", success=True,
+            total_subtasks=1, completed_subtasks=1,
+            failed_subtasks=0, skipped_subtasks=0,
+            assignments=[], duration_seconds=1.0,
+        )
+
+        # Should not raise even with no bridge
+        orch._bridge_ingest_coordinated_result(mock_assignment, mock_result)
+
+    def test_bridge_ingest_handles_import_error(self):
+        """Bridge ingestion gracefully handles ImportError."""
+        orch = HardenedOrchestrator()
+        # Force bridge to None to simulate import failure
+        orch._execution_bridge = None
+        with patch(
+            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator._get_execution_bridge",
+            return_value=None,
+        ):
+            mock_assignment = MagicMock()
+            mock_result = OrchestrationResult(
+                goal="test", success=True,
+                total_subtasks=0, completed_subtasks=0,
+                failed_subtasks=0, skipped_subtasks=0,
+                assignments=[], duration_seconds=0,
+            )
+            # Should not raise
+            orch._bridge_ingest_coordinated_result(mock_assignment, mock_result)

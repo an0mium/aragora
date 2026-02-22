@@ -265,6 +265,26 @@ from aragora.nomic.self_improve import (
     SelfImproveResult,
 )
 
+# Autonomous assessment engine
+from aragora.nomic.assessment_engine import (
+    AutonomousAssessmentEngine,
+    CodebaseHealthReport,
+    ImprovementCandidate,
+    SignalSource,
+)
+
+# Goal generator
+from aragora.nomic.goal_generator import GoalGenerator
+
+# Self-improvement daemon
+from aragora.nomic.daemon import (
+    CycleResult,
+    DaemonConfig,
+    DaemonState,
+    DaemonStatus,
+    SelfImprovementDaemon,
+)
+
 # Code review agent
 from aragora.nomic.code_reviewer import (
     CodeReviewerAgent,
@@ -674,6 +694,19 @@ __all__ = [
     "SelfImprovePipeline",
     "SelfImproveConfig",
     "SelfImproveResult",
+    # Autonomous assessment engine
+    "AutonomousAssessmentEngine",
+    "CodebaseHealthReport",
+    "ImprovementCandidate",
+    "SignalSource",
+    # Goal generator
+    "GoalGenerator",
+    # Self-improvement daemon
+    "SelfImprovementDaemon",
+    "DaemonConfig",
+    "DaemonState",
+    "DaemonStatus",
+    "CycleResult",
     # Codebase indexer
     "CodebaseIndexer",
     "ModuleInfo",

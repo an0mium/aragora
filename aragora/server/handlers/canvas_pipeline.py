@@ -93,6 +93,16 @@ def _persist_universal_graph(result: Any) -> None:
         logger.debug("Could not persist universal graph: %s", e)
 
 
+def _persist_pipeline_to_km(result: Any) -> None:
+    """Persist pipeline result to KnowledgeMound for future precedent queries."""
+    try:
+        from aragora.pipeline.km_bridge import PipelineKMBridge
+        bridge = PipelineKMBridge()
+        bridge.store_pipeline_result(result)
+    except (ImportError, AttributeError, RuntimeError, ValueError) as e:
+        logger.debug("KM persistence skipped: %s", e)
+
+
 class CanvasPipelineHandler:
     """HTTP handler for the idea-to-execution canvas pipeline."""
 
@@ -334,6 +344,7 @@ class CanvasPipelineHandler:
 
             # Persist universal graph if generated
             _persist_universal_graph(result)
+            _persist_pipeline_to_km(result)
 
             return json_response({
                 "pipeline_id": result.pipeline_id,
@@ -404,6 +415,7 @@ class CanvasPipelineHandler:
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
             _persist_universal_graph(result)
+            _persist_pipeline_to_km(result)
 
             return json_response({
                 "pipeline_id": result.pipeline_id,
@@ -464,6 +476,7 @@ class CanvasPipelineHandler:
         result_dict = result.to_dict()
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
+        _persist_pipeline_to_km(result)
 
         return json_response({
             "pipeline_id": result.pipeline_id,
@@ -681,6 +694,7 @@ class CanvasPipelineHandler:
         result_dict = result.to_dict()
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
+        _persist_pipeline_to_km(result)
 
         return json_response({
             "pipeline_id": result.pipeline_id,
@@ -749,6 +763,7 @@ class CanvasPipelineHandler:
                 _get_store().save(pipeline_id, result_dict)
                 _pipeline_objects[pipeline_id] = result
                 _persist_universal_graph(result)
+                _persist_pipeline_to_km(result)
 
             # Generate pipeline_id before launching task
             import uuid
@@ -1246,6 +1261,7 @@ class CanvasPipelineHandler:
         result_dict = result.to_dict()
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
+        _persist_pipeline_to_km(result)
 
         return json_response({
             "pipeline_id": result.pipeline_id,
