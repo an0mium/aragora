@@ -97,8 +97,8 @@ class CodebaseIndexer:
         max_modules: int = 500,
     ):
         self.repo_path = Path(repo_path)
-        self.source_dirs = source_dirs or ["aragora"]
-        self.test_dirs = test_dirs or ["tests"]
+        self.source_dirs = source_dirs if source_dirs is not None else ["aragora"]
+        self.test_dirs = test_dirs if test_dirs is not None else ["tests"]
         self.max_modules = max_modules
         self._modules: list[ModuleInfo] = []
         self._test_map: dict[str, list[str]] = {}  # source_path -> [test_paths]
