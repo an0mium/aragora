@@ -756,7 +756,7 @@ function PipelineCanvasInner({
                       onTransitionApprove?.(pid, tid);
                     }}
                     onReject={(pid, tid) => {
-                      rejectTransition(tid);
+                      rejectTransition(transition.from_stage as PipelineStageType, transition.to_stage as PipelineStageType);
                       onTransitionReject?.(pid, tid);
                     }}
                   />

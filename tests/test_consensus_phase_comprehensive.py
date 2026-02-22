@@ -1208,8 +1208,8 @@ class TestBeliefNetworkAnalysis:
 
     def test_analyze_belief_network_no_analyzer(self, consensus_phase, mock_context):
         """Test belief analysis skipped without analyzer."""
-        # Should not raise
-        consensus_phase._analyze_belief_network(mock_context)
+        # Method was extracted to WinnerSelector
+        consensus_phase._winner_selector.analyze_belief_network(mock_context)
         assert mock_context.result.debate_cruxes == []
 
     def test_analyze_belief_network_no_messages(self, mock_context):
@@ -1228,7 +1228,8 @@ class TestBeliefNetworkAnalysis:
         phase = ConsensusPhase(deps=deps, callbacks=callbacks)
 
         mock_context.result.messages = []
-        phase._analyze_belief_network(mock_context)
+        # Method was extracted to WinnerSelector
+        phase._winner_selector.analyze_belief_network(mock_context)
 
         assert mock_context.result.debate_cruxes == []
 
@@ -1258,7 +1259,11 @@ class TestConsensusStrength:
         total_votes = 9.5
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
+        # Method was extracted to WinnerSelector; requires normalize_choice callback
+        phase._winner_selector.determine_majority_winner(
+            mock_context, vote_counts, total_votes, choice_mapping,
+            normalize_choice=lambda choice, agents, proposals: choice,
+        )
 
         # Variance should be low
         assert mock_context.result.consensus_strength in ["strong", "medium"]
@@ -1279,7 +1284,11 @@ class TestConsensusStrength:
         total_votes = 3.0
         choice_mapping = {"claude": "claude"}
 
-        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
+        # Method was extracted to WinnerSelector; requires normalize_choice callback
+        phase._winner_selector.determine_majority_winner(
+            mock_context, vote_counts, total_votes, choice_mapping,
+            normalize_choice=lambda choice, agents, proposals: choice,
+        )
 
         assert mock_context.result.consensus_strength == "unanimous"
         assert mock_context.result.consensus_variance == 0.0
@@ -1309,7 +1318,11 @@ class TestDissentingViews:
         total_votes = 3.0
         choice_mapping = {"claude": "claude", "gpt4": "gpt4"}
 
-        phase._determine_majority_winner(mock_context, vote_counts, total_votes, choice_mapping)
+        # Method was extracted to WinnerSelector; requires normalize_choice callback
+        phase._winner_selector.determine_majority_winner(
+            mock_context, vote_counts, total_votes, choice_mapping,
+            normalize_choice=lambda choice, agents, proposals: choice,
+        )
 
         # gpt4 and gemini should be in dissenting views
         assert len(mock_context.result.dissenting_views) == 2
@@ -1326,36 +1339,29 @@ class TestEloUpdateFromVerification:
     @pytest.mark.asyncio
     async def test_elo_update_no_system(self, mock_context):
         """Test ELO update skipped without ELO system."""
-        from aragora.debate.phases.consensus_phase import (
-            ConsensusPhase,
-            ConsensusDependencies,
-        )
+        from aragora.debate.phases.consensus_verification import ConsensusVerifier
 
-        deps = ConsensusDependencies()
-        phase = ConsensusPhase(deps=deps)
+        verifier = ConsensusVerifier(elo_system=None)
 
         mock_context.result.verification_results = {"claude": {"verified": 2}}
 
-        # Should not raise
-        await phase._update_elo_from_verification(mock_context)
+        # Should not raise - method was extracted to ConsensusVerifier
+        await verifier._update_elo_from_verification(mock_context)
 
     @pytest.mark.asyncio
     async def test_elo_update_with_results(self, mock_context):
         """Test ELO update called with verification results."""
-        from aragora.debate.phases.consensus_phase import (
-            ConsensusPhase,
-            ConsensusDependencies,
-        )
+        from aragora.debate.phases.consensus_verification import ConsensusVerifier
 
         mock_elo = MagicMock()
         mock_elo.update_from_verification.return_value = 10.0
 
-        deps = ConsensusDependencies(elo_system=mock_elo)
-        phase = ConsensusPhase(deps=deps)
+        verifier = ConsensusVerifier(elo_system=mock_elo)
 
         mock_context.result.verification_results = {"claude": {"verified": 2, "disproven": 0}}
 
-        await phase._update_elo_from_verification(mock_context)
+        # Method was extracted to ConsensusVerifier
+        await verifier._update_elo_from_verification(mock_context)
 
         mock_elo.update_from_verification.assert_called_once()
 

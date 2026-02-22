@@ -46,6 +46,7 @@ from aragora.canvas.models import Canvas
 from aragora.canvas.stages import (
     PipelineStage,
     ProvenanceLink,
+    StageEdgeType,
     StageTransition,
     content_hash,
 )
@@ -1801,6 +1802,33 @@ class IdeaToExecutionPipeline:
                     graph.add_node(node)
                 for edge in orch_ug.edges.values():
                     graph.edges[edge.id] = edge
+
+            # Create cross-stage edges from parent_ids provenance
+            try:
+                from aragora.pipeline.universal_node import UniversalEdge
+
+                for node in list(graph.nodes.values()):
+                    for parent_id in node.parent_ids:
+                        if parent_id in graph.nodes:
+                            parent = graph.nodes[parent_id]
+                            if parent.stage == node.stage:
+                                continue  # Skip same-stage edges
+                            edge_type = StageEdgeType.DERIVED_FROM
+                            if parent.stage == PipelineStage.GOALS and node.stage == PipelineStage.ACTIONS:
+                                edge_type = StageEdgeType.IMPLEMENTS
+                            elif parent.stage == PipelineStage.ACTIONS and node.stage == PipelineStage.ORCHESTRATION:
+                                edge_type = StageEdgeType.EXECUTES
+                            edge_id = f"xstage-{parent_id[:8]}-{node.id[:8]}"
+                            if edge_id not in graph.edges:
+                                graph.edges[edge_id] = UniversalEdge(
+                                    id=edge_id,
+                                    source_id=parent_id,
+                                    target_id=node.id,
+                                    edge_type=edge_type,
+                                    label=edge_type.value,
+                                )
+            except ImportError:
+                logger.debug("UniversalEdge not available for cross-stage edges")
 
             graph.transitions = list(result.transitions)
             result.universal_graph = graph

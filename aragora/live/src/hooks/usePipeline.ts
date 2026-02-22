@@ -248,11 +248,12 @@ export function usePipeline() {
 
   const rejectTransition = useCallback(
     async (pipelineId: string, fromStage: PipelineStageType, toStage: PipelineStageType, reason?: string) => {
-      const result = await advanceApi.post('/api/v1/canvas/pipeline/reject-transition', {
+      const result = await advanceApi.post('/api/v1/canvas/pipeline/approve-transition', {
         pipeline_id: pipelineId,
         from_stage: fromStage,
         to_stage: toStage,
-        reason: reason ?? '',
+        approved: false,
+        comment: reason ?? '',
       });
       if (result?.result) {
         setPipelineData(result.result);

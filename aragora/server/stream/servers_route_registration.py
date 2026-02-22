@@ -120,6 +120,13 @@ try:
 except ImportError:
     WORKFLOW_STREAM_AVAILABLE = False
 
+try:
+    from aragora.server.stream.oracle_stream import register_oracle_stream_routes
+
+    ORACLE_STREAM_AVAILABLE = True
+except ImportError:
+    ORACLE_STREAM_AVAILABLE = False
+
 
 def _register_optional_routes(app: Any) -> None:
     """Register optional handler routes on the aiohttp application.
@@ -330,6 +337,9 @@ class RouteRegistrationMixin:
         if WORKFLOW_STREAM_AVAILABLE:
             register_workflow_stream_routes(app)
             logger.info("Registered workflow stream WebSocket route at /ws/workflow")
+        if ORACLE_STREAM_AVAILABLE:
+            register_oracle_stream_routes(app)
+            logger.info("Registered oracle stream WebSocket route at /ws/oracle")
 
         # Prometheus metrics endpoint (not under /api/)
         app.router.add_get("/metrics", self._handle_metrics)

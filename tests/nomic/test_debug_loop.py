@@ -1131,3 +1131,87 @@ class TestDebugLoopImports:
         assert "DebugLoopConfig" in __all__
         assert "DebugAttempt" in __all__
         assert "DebugLoopResult" in __all__
+
+
+# ---------------------------------------------------------------------------
+# Plan v9: CLI missing raises RuntimeError
+# ---------------------------------------------------------------------------
+
+
+class TestRunAgentCLIMissing:
+    @pytest.mark.asyncio
+    async def test_raises_when_claude_not_in_path(self):
+        """_run_agent raises RuntimeError when claude CLI is not found."""
+        loop = DebugLoop()
+        with patch("shutil.which", return_value=None):
+            with pytest.raises(RuntimeError, match="Claude CLI not found"):
+                await loop._run_agent("test prompt", "/tmp/wt")
+
+    @pytest.mark.asyncio
+    async def test_executes_when_claude_available(self):
+        """_run_agent proceeds when claude CLI is available."""
+        loop = DebugLoop()
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch(
+                "aragora.harnesses.claude_code.ClaudeCodeHarness"
+            ) as MockHarness,
+        ):
+            mock_h = MagicMock()
+            mock_h.execute_implementation = AsyncMock(
+                return_value=("stdout output", "stderr output")
+            )
+            MockHarness.return_value = mock_h
+
+            stdout, stderr = await loop._run_agent("do something", "/tmp/wt")
+
+        assert stdout == "stdout output"
+        assert stderr == "stderr output"
+
+    @pytest.mark.asyncio
+    async def test_import_error_returns_empty(self):
+        """_run_agent returns empty strings when ClaudeCodeHarness import fails."""
+        loop = DebugLoop()
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/claude"),
+            patch.dict("sys.modules", {"aragora.harnesses.claude_code": None}),
+        ):
+            stdout, stderr = await loop._run_agent("test", "/tmp/wt")
+
+        assert stdout == ""
+        assert stderr == ""
+
+    @pytest.mark.asyncio
+    async def test_debug_loop_runtime_error_triggers_fallback(self):
+        """RuntimeError from _run_agent propagates through execute_with_retry.
+
+        When _run_agent raises RuntimeError (CLI missing), the exception
+        propagates to _run_attempt which does NOT catch it, causing
+        execute_with_retry to fail. In the pipeline, this is caught by
+        _execute_with_debug_loop which returns None, triggering fallback
+        to _dispatch_to_claude_code.
+        """
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                enable_debug_loop=True,
+                require_approval=False,
+            )
+        )
+        mock_instruction = MagicMock()
+        mock_instruction.to_agent_prompt.return_value = "test prompt"
+        mock_instruction.subtask_id = "sub_cli_missing"
+
+        # Make DebugLoop raise RuntimeError (simulating CLI missing)
+        mock_debug_loop = MagicMock()
+        mock_debug_loop.execute_with_retry = AsyncMock(
+            side_effect=RuntimeError("Claude CLI not found in PATH")
+        )
+
+        with patch("aragora.nomic.debug_loop.DebugLoop", return_value=mock_debug_loop):
+            with patch("aragora.nomic.debug_loop.DebugLoopConfig"):
+                result = await pipeline._execute_with_debug_loop(
+                    mock_instruction, "/tmp/wt"
+                )
+
+        # Should return None, triggering fallback
+        assert result is None

@@ -35407,7 +35407,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/oauth/github/callback:
     get:
       tags:
@@ -35483,7 +35483,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/oauth/google:
     get:
       tags:
@@ -35571,7 +35571,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/oauth/google/callback:
     get:
       tags:
@@ -35653,7 +35653,7 @@ paths:
                     code: INTERNAL_ERROR
                     trace_id: req_abc123xyz
                     support_url: https://github.com/an0mium/aragora/issues
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/auth/oauth/link:
     post:
       tags:
@@ -37905,7 +37905,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/teams/status:
     get:
       tags:
@@ -38056,7 +38056,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/telegram/webhook/{token}:
     post:
       tags:
@@ -38238,7 +38238,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
     get:
       tags:
       - Bots - WhatsApp
@@ -38311,7 +38311,7 @@ paths:
               description: Server processing time in milliseconds
               schema:
                 type: integer
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/bots/zoom/status:
     get:
       tags:
@@ -53225,7 +53225,7 @@ paths:
           description: Prometheus-format metrics text
           content:
             text/plain: {}
-      x-aragora-stability: experimental
+      x-aragora-stability: stable
   /api/v1/cross-pollination/reset:
     post:
       tags:

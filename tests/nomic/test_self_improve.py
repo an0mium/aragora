@@ -2268,3 +2268,264 @@ class TestMetaPlannerFeedbackLoop:
             pipeline._persist_outcome("cycle_mp_empty", result)
 
         mock_planner.record_outcome.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Plan v9: Risk Assessment
+# ---------------------------------------------------------------------------
+
+
+class TestRiskAssessment:
+    """Test _assess_execution_risk() categorization."""
+
+    def test_tests_only_is_low_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["tests/nomic/test_foo.py", "tests/auth/test_bar.py"]
+        assert pipeline._assess_execution_risk(instr) == "low"
+
+    def test_protected_files_is_high_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["CLAUDE.md"]
+        assert pipeline._assess_execution_risk(instr) == "high"
+
+    def test_protected_init_is_high_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["aragora/__init__.py"]
+        assert pipeline._assess_execution_risk(instr) == "high"
+
+    def test_protected_env_is_high_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = [".env"]
+        assert pipeline._assess_execution_risk(instr) == "high"
+
+    def test_protected_nomic_loop_is_high_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["scripts/nomic_loop.py"]
+        assert pipeline._assess_execution_risk(instr) == "high"
+
+    def test_core_modules_is_medium_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["aragora/server/handlers/auth.py"]
+        assert pipeline._assess_execution_risk(instr) == "medium"
+
+    def test_debate_module_is_medium_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["aragora/debate/orchestrator.py"]
+        assert pipeline._assess_execution_risk(instr) == "medium"
+
+    def test_nomic_module_is_medium_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["aragora/nomic/meta_planner.py"]
+        assert pipeline._assess_execution_risk(instr) == "medium"
+
+    def test_many_files_is_high_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = [f"aragora/module_{i}.py" for i in range(11)]
+        assert pipeline._assess_execution_risk(instr) == "high"
+
+    def test_empty_file_hints_is_low_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = []
+        assert pipeline._assess_execution_risk(instr) == "low"
+
+    def test_non_core_module_is_low_risk(self):
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock()
+        instr.file_hints = ["aragora/billing/cost_tracker.py"]
+        assert pipeline._assess_execution_risk(instr) == "low"
+
+    def test_falls_back_to_file_scope(self):
+        """Falls back to file_scope when file_hints is missing."""
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock(spec=[])
+        instr.file_scope = ["tests/test_foo.py"]
+        assert pipeline._assess_execution_risk(instr) == "low"
+
+    def test_no_hints_no_scope_is_low(self):
+        """Returns low when neither file_hints nor file_scope exists."""
+        pipeline = SelfImprovePipeline()
+        instr = MagicMock(spec=[])
+        assert pipeline._assess_execution_risk(instr) == "low"
+
+
+# ---------------------------------------------------------------------------
+# Plan v9: Auto Mode
+# ---------------------------------------------------------------------------
+
+
+class TestAutoMode:
+    """Test graduated autonomy execution."""
+
+    def test_auto_mode_config_default(self):
+        config = SelfImproveConfig()
+        assert config.auto_mode is False
+
+    def test_auto_mode_config_set(self):
+        config = SelfImproveConfig(auto_mode=True)
+        assert config.auto_mode is True
+
+    @pytest.mark.asyncio
+    async def test_auto_mode_defers_high_risk(self):
+        """Auto mode returns deferred dict for high-risk instructions."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(require_approval=True, autonomous=False, auto_mode=True)
+        )
+        mock_instr = MagicMock()
+        mock_instr.subtask_id = "t_high"
+        mock_instr.file_hints = ["CLAUDE.md"]
+
+        result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
+        assert result is not None
+        assert result["deferred"] is True
+        assert result["risk_level"] == "high"
+        assert result["files_changed"] == []
+
+    @pytest.mark.asyncio
+    async def test_auto_mode_proceeds_for_low_risk(self):
+        """Auto mode proceeds to execution for low-risk instructions."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                require_approval=True, autonomous=False,
+                auto_mode=True, run_tests=False,
+            )
+        )
+        mock_instr = MagicMock()
+        mock_instr.subtask_id = "t_low"
+        mock_instr.file_hints = ["tests/test_foo.py"]
+        mock_instr.to_agent_prompt.return_value = "# Task"
+
+        # CLI not found → returns None past the risk gate (not blocked by approval)
+        with patch("shutil.which", return_value=None):
+            result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
+        # Returns None because CLI not found, but it got PAST the approval gate
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_default_mode_returns_none(self):
+        """Default mode (no auto_mode) returns None when require_approval is True."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(require_approval=True, autonomous=False, auto_mode=False)
+        )
+        mock_instr = MagicMock()
+        mock_instr.subtask_id = "t_default"
+        result = await pipeline._dispatch_to_claude_code(mock_instr, "/tmp/wt")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Plan v9: Progress Callback
+# ---------------------------------------------------------------------------
+
+
+class TestProgressCallback:
+    """Test execution progress streaming."""
+
+    @pytest.mark.asyncio
+    async def test_progress_events_emitted(self):
+        """Progress callback receives events during run()."""
+        events: list[tuple[str, dict]] = []
+
+        def capture(event: str, data: dict) -> None:
+            events.append((event, data))
+
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+                progress_callback=capture,
+            )
+        )
+        await pipeline.run("Test progress")
+
+        event_names = [e[0] for e in events]
+        assert "cycle_started" in event_names
+        assert "planning_complete" in event_names
+        assert "decomposition_complete" in event_names
+        assert "execution_complete" in event_names
+        assert "cycle_complete" in event_names
+
+    @pytest.mark.asyncio
+    async def test_callback_exception_swallowed(self):
+        """Exceptions in the progress callback are swallowed."""
+        def exploding_callback(event: str, data: dict) -> None:
+            raise ValueError("boom")
+
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+                progress_callback=exploding_callback,
+            )
+        )
+        # Should not raise despite the exploding callback
+        result = await pipeline.run("Test exception swallowing")
+        assert isinstance(result, SelfImproveResult)
+
+    @pytest.mark.asyncio
+    async def test_no_callback_no_error(self):
+        """No progress_callback set still works fine."""
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+                progress_callback=None,
+            )
+        )
+        result = await pipeline.run("Test no callback")
+        assert isinstance(result, SelfImproveResult)
+
+    def test_emit_progress_with_no_callback(self):
+        """_emit_progress is a no-op when callback is None."""
+        pipeline = SelfImprovePipeline(SelfImproveConfig(progress_callback=None))
+        # Should not raise
+        pipeline._emit_progress("test_event", {"key": "value"})
+
+    def test_emit_progress_calls_callback(self):
+        """_emit_progress invokes the callback."""
+        events = []
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(progress_callback=lambda e, d: events.append((e, d)))
+        )
+        pipeline._emit_progress("my_event", {"foo": "bar"})
+        assert len(events) == 1
+        assert events[0] == ("my_event", {"foo": "bar"})
+
+    @pytest.mark.asyncio
+    async def test_planning_complete_event_has_goal_count(self):
+        """planning_complete event data includes goal count."""
+        events: list[tuple[str, dict]] = []
+
+        pipeline = SelfImprovePipeline(
+            SelfImproveConfig(
+                use_meta_planner=False,
+                use_worktrees=False,
+                capture_metrics=False,
+                persist_outcomes=False,
+                enable_codebase_indexing=False,
+                progress_callback=lambda e, d: events.append((e, d)),
+            )
+        )
+        await pipeline.run("Test goal count")
+
+        planning_events = [(e, d) for e, d in events if e == "planning_complete"]
+        assert len(planning_events) == 1
+        assert planning_events[0][1]["goals"] >= 1

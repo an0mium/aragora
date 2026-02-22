@@ -245,13 +245,14 @@ class DebugLoop:
         """Execute the agent via ClaudeCodeHarness.
 
         Returns (stdout, stderr) tuple.
+        Raises RuntimeError when claude CLI is not in PATH.
         """
+        import shutil
+
+        if not shutil.which("claude"):
+            raise RuntimeError("Claude CLI not found in PATH")
+
         try:
-            import shutil
-
-            if not shutil.which("claude"):
-                raise RuntimeError("Claude CLI not found in PATH")
-
             from aragora.harnesses.claude_code import (
                 ClaudeCodeConfig,
                 ClaudeCodeHarness,
