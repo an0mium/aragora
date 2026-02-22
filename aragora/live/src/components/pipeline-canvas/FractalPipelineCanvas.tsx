@@ -20,7 +20,6 @@ import { useFractalNavigation } from '../../hooks/useFractalNavigation';
 import type {
   PipelineStageType,
   PipelineResultResponse,
-  ProvenanceLink,
   ReactFlowData,
 } from './types';
 
@@ -72,10 +71,10 @@ export const FractalPipelineCanvas = memo(function FractalPipelineCanvas({
     }
 
     return rfData;
-  }, [pipelineResult, nav.current.stage, nav.current.nodeId, nav.getChildNodeIds]);
+  }, [pipelineResult, nav]);
 
   // Handle node double-click for drill-down
-  const handleNodeDoubleClick = useCallback(
+  const _handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, nodeId: string, nodeLabel: string) => {
       const children = nav.getChildNodeIds(nodeId);
       if (children.length > 0) {

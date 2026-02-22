@@ -8,23 +8,7 @@
 
 import { useCallback, useRef } from 'react';
 
-// Phase tags matching oracle_stream.py
-const PHASE_TAG_REFLEX = 0x00;
-const PHASE_TAG_DEEP = 0x01;
-const PHASE_TAG_TENTACLE = 0x02;
-const PHASE_TAG_SYNTHESIS = 0x03;
-
 export type AudioPhase = 'reflex' | 'deep' | 'tentacle' | 'synthesis';
-
-function phaseFromTag(tag: number): AudioPhase {
-  switch (tag) {
-    case PHASE_TAG_REFLEX: return 'reflex';
-    case PHASE_TAG_DEEP: return 'deep';
-    case PHASE_TAG_TENTACLE: return 'tentacle';
-    case PHASE_TAG_SYNTHESIS: return 'synthesis';
-    default: return 'deep';
-  }
-}
 
 interface UseStreamingAudio {
   /** Append a binary chunk (phase-tag-prefixed mp3 data) from WebSocket. */

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
-import { useOracleWebSocket, type OraclePhase } from '@/hooks/useOracleWebSocket';
+import { useOracleWebSocket } from '@/hooks/useOracleWebSocket';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -648,7 +648,7 @@ export default function Oracle() {
     };
 
     recognition.start();
-  }, [prefetchFillers]);
+  }, [prefetchFillers, oracle]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {

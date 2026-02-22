@@ -8,7 +8,7 @@
  */
 
 import { memo, useCallback } from 'react';
-import { PIPELINE_STAGE_CONFIG, STAGE_COLOR_CLASSES, type PipelineStageType } from './types';
+import { PIPELINE_STAGE_CONFIG, STAGE_COLOR_CLASSES } from './types';
 import type { NavigationLevel } from '../../hooks/useFractalNavigation';
 
 interface FractalBreadcrumbProps {
