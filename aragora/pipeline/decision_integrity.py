@@ -149,7 +149,7 @@ async def capture_context_snapshot(
             tenant_enforcement_enabled,
         )
     except (ImportError, AttributeError):
-        pass
+        logger.debug("RBAC access tracking unavailable")
 
     if context_envelope is not None:
         snapshot.context_envelope = dict(context_envelope)

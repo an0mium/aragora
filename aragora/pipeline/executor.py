@@ -179,7 +179,7 @@ class PlanExecutor:
                 if emitter is not None:
                     emitter.emit(event)
             except (ImportError, AttributeError):
-                pass
+                logger.debug("Global emitter unavailable, event recording disabled")
             logger.info("Pipeline event: %s plan_id=%s", event_type, data.get("plan_id", ""))
         except (KeyError, ImportError, AttributeError, RuntimeError) as exc:
             logger.debug("Failed to emit pipeline event %s: %s", event_type, exc)

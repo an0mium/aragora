@@ -1569,7 +1569,7 @@ class AutonomousOrchestrator:
                     )
                 )
         except (ImportError, AttributeError, TypeError):
-            pass
+            logger.debug("Event recording unavailable, skipping")
 
     def _generate_summary(self, assignments: list[AgentAssignment]) -> str:
         """Generate a summary of the orchestration."""

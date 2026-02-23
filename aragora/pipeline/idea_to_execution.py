@@ -67,7 +67,7 @@ def _spectate(event_type: str, details: str) -> None:
         stream = _get_spectator_stream()
         stream.emit(event_type=event_type, details=details)
     except (ImportError, TypeError):
-        pass
+        logger.debug("SpectatorStream unavailable, event skipped")
 
 
 def _get_spectator_stream() -> Any:
