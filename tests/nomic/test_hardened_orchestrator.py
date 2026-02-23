@@ -798,7 +798,7 @@ class TestAuditReconciliation:
             status="completed",
         )
 
-        with patch("aragora.nomic.hardened_orchestrator.logger") as mock_logger:
+        with patch("aragora.nomic.hardened_audit.logger") as mock_logger:
             orch._reconcile_audits([a1, a2])
             # Should log warning about overlap
             mock_logger.warning.assert_called()
@@ -818,7 +818,7 @@ class TestAuditReconciliation:
             status="completed",
         )
 
-        with patch("aragora.nomic.hardened_orchestrator.logger") as mock_logger:
+        with patch("aragora.nomic.hardened_audit.logger") as mock_logger:
             orch._reconcile_audits([a1, a2])
             mock_logger.info.assert_called()
 
@@ -828,7 +828,7 @@ class TestAuditReconciliation:
 
         a1 = _make_assignment(status="completed")
 
-        with patch("aragora.nomic.hardened_orchestrator.logger") as mock_logger:
+        with patch("aragora.nomic.hardened_audit.logger") as mock_logger:
             orch._reconcile_audits([a1])
             mock_logger.warning.assert_not_called()
             mock_logger.info.assert_not_called()

@@ -33,6 +33,7 @@ import json
 import logging
 import secrets
 import subprocess
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -419,11 +420,68 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 description=ta.goal.description[:100],
             )
             try:
+                # Phase 2: ExecutionBridge instruction generation
+                enriched_context = dict(context or {})
+                if self.hardened_config.enable_execution_bridge:
+                    bridge = self._get_execution_bridge()
+                    if bridge:
+                        try:
+                            from aragora.nomic.task_decomposer import SubTask
+
+                            subtask = SubTask(
+                                id=f"coord_{ta.goal.track.value}_{id(ta)}",
+                                title=ta.goal.description[:100],
+                                description=ta.goal.description,
+                                file_scope=ta.goal.file_hints,
+                            )
+                            instruction = bridge.create_instruction(
+                                subtask=subtask,
+                                goal=ta.goal,
+                                budget_limit_usd=self.hardened_config.budget_limit_usd or 0.0,
+                            )
+                            enriched_context["execution_instruction"] = (
+                                instruction.to_agent_prompt()
+                            )
+                        except (ImportError, RuntimeError, ValueError) as e:
+                            logger.debug("ExecutionBridge instruction generation skipped: %s", e)
+
                 result = await super(HardenedOrchestrator, self).execute_goal(
                     goal=ta.goal.description,
                     tracks=[ta.goal.track.value],
                     max_cycles=max_cycles,
+                    context=enriched_context,
                 )
+
+                # Phase 1: DebugLoop retry on failure
+                if not result.success and self.hardened_config.enable_debug_loop:
+                    debug_loop = self._get_debug_loop()
+                    if debug_loop:
+                        try:
+                            debug_result = await debug_loop.execute_with_retry(
+                                instruction=ta.goal.description,
+                                worktree_path=str(self.aragora_path),
+                                test_scope=self.hardened_config.merge_gate_test_dirs,
+                                subtask_id=f"coord_{ta.goal.track.value}_{id(ta)}",
+                            )
+                            if debug_result.success:
+                                result = OrchestrationResult(
+                                    goal=ta.goal.description,
+                                    success=True,
+                                    total_subtasks=1,
+                                    completed_subtasks=1,
+                                    failed_subtasks=0,
+                                    skipped_subtasks=0,
+                                    assignments=[],
+                                    duration_seconds=result.duration_seconds,
+                                    summary=f"Fixed via DebugLoop in {debug_result.total_attempts} attempts",
+                                )
+                                self._emit_event(
+                                    "debug_loop_fixed",
+                                    track=ta.goal.track.value,
+                                    attempts=debug_result.total_attempts,
+                                )
+                        except (RuntimeError, OSError, ValueError) as e:
+                            logger.debug("DebugLoop retry failed: %s", e)
 
                 # ExecutionBridge: ingest result into Knowledge Mound
                 if self.hardened_config.enable_execution_bridge:
@@ -466,6 +524,34 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             merged=coord_result.merged_branches,
             failed=coord_result.failed_branches,
         )
+
+        # Phase 3: FeedbackOrchestrator records outcomes for next cycle
+        try:
+            from aragora.nomic.feedback_orchestrator import (
+                SelfImproveFeedbackOrchestrator,
+            )
+
+            feedback_orch = SelfImproveFeedbackOrchestrator()
+            cycle_id = f"coordinated_{int(time.time())}"
+            feedback_report = feedback_orch.run(
+                cycle_id=cycle_id,
+                execution_results=[
+                    {
+                        "goal": goal,
+                        "success": coord_result.success,
+                        "merged": coord_result.merged_branches,
+                        "failed": coord_result.failed_branches,
+                        "total": coord_result.total_branches,
+                    },
+                ],
+            )
+            self._emit_event(
+                "feedback_recorded",
+                cycle_id=cycle_id,
+                improvement_goals=len(feedback_report.improvement_goals),
+            )
+        except (ImportError, RuntimeError, ValueError, OSError) as e:
+            logger.debug("FeedbackOrchestrator skipped: %s", e)
 
         coordinator.cleanup_all_worktrees()
 
