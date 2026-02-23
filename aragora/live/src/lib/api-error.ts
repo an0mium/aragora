@@ -210,6 +210,35 @@ export function isAuthError(error: unknown): boolean {
 }
 
 /**
+ * Get a user-friendly display string from any caught error value.
+ *
+ * Replaces the common `err instanceof Error ? err.message : 'Unknown error'`
+ * pattern with richer type-aware messaging. Handles Error objects, fetch
+ * TypeError ("Failed to fetch"), AbortError (timeouts), and non-Error values.
+ */
+export function getDisplayError(error: unknown, fallback = 'An unexpected error occurred'): string {
+  if (error instanceof Error) {
+    if (error.name === 'AbortError') {
+      return 'Request timed out. Please try again.';
+    }
+    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+      return 'Cannot reach the server. Check your connection.';
+    }
+    // Use AragoraError code-based message if available
+    if ('code' in error && typeof (error as { code: unknown }).code === 'string') {
+      const code = (error as { code: string }).code as ErrorCode;
+      const mapped = getErrorMessage(code);
+      if (mapped !== fallback) return mapped;
+    }
+    return error.message || fallback;
+  }
+  if (typeof error === 'string' && error.length > 0) {
+    return error;
+  }
+  return fallback;
+}
+
+/**
  * Extract error details for logging
  */
 export function extractErrorDetails(error: unknown): {
