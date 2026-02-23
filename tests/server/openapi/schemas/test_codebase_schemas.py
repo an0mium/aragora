@@ -102,9 +102,17 @@ class TestSchemaPropertyTypes:
                 continue
             for prop_name, prop in schema.get("properties", {}).items():
                 if "type" in prop:
-                    assert prop["type"] in self.VALID_TYPES, (
-                        f"{schema_name}.{prop_name} has invalid type: {prop['type']}"
-                    )
+                    # OpenAPI 3.1 allows type as list for nullable: ["string", "null"]
+                    prop_type = prop["type"]
+                    if isinstance(prop_type, list):
+                        types = set(prop_type) - {"null"}
+                        assert types <= self.VALID_TYPES, (
+                            f"{schema_name}.{prop_name} has invalid type: {prop_type}"
+                        )
+                    else:
+                        assert prop_type in self.VALID_TYPES, (
+                            f"{schema_name}.{prop_name} has invalid type: {prop_type}"
+                        )
 
     def test_array_properties_have_items(self):
         for schema_name, schema in CODEBASE_SCHEMAS.items():
