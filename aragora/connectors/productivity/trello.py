@@ -57,99 +57,23 @@ class TrelloConnector(BaseConnector):
         }
 
     async def search(self, query: str, limit: int = 10, **kwargs: Any) -> list[Evidence]:
-        """Search Trello for boards, cards, and lists."""
-        if not self._configured:
-            logger.debug("Trello connector not configured")
-            return []
+        """Search Trello for boards, cards, and lists.
 
-        sanitized = _sanitize_query(query)
-        if not sanitized.strip():
-            return []
-
-        auth_params = self._get_auth_params()
-
-        async def _do_request() -> Any:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_TRELLO_API_BASE}/search",
-                    params={
-                        "query": sanitized,
-                        "modelTypes": "cards",
-                        "cards_limit": limit,
-                        **auth_params,
-                    },
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        try:
-            data = await self._request_with_retry(_do_request, "search")
-        except Exception:
-            logger.warning("Trello search failed", exc_info=True)
-            return []
-
-        results: list[Evidence] = []
-        cards = data.get("cards", [])
-        for card in cards[:limit]:
-            card_id = card.get("id", "")
-            card_name = card.get("name", "")
-            card_desc = card.get("desc", "")
-            card_url = card.get("shortUrl", "")
-            board_name = card.get("board", {}).get("name", "") if isinstance(card.get("board"), dict) else ""
-            results.append(
-                Evidence(
-                    id=f"trello_card_{card_id}",
-                    source_type=self.source_type,
-                    source_id=f"trello://cards/{card_id}",
-                    content=card_desc or card_name,
-                    title=card_name,
-                    url=card_url,
-                    confidence=0.7,
-                    freshness=1.0,
-                    authority=0.6,
-                    metadata={
-                        "card_id": card_id,
-                        "board_name": board_name,
-                    },
-                )
-            )
-        return results
+        Raises:
+            NotImplementedError: Trello connector is not yet implemented.
+        """
+        raise NotImplementedError(
+            "TrelloConnector.search() is not yet implemented. "
+            "Configure TRELLO_API_KEY and TRELLO_TOKEN and contribute an implementation."
+        )
 
     async def fetch(self, evidence_id: str, **kwargs: Any) -> Evidence | None:
-        """Fetch a specific card or board from Trello."""
-        if not self._configured:
-            return None
+        """Fetch a specific card or board from Trello.
 
-        auth_params = self._get_auth_params()
-
-        async def _do_request() -> Any:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(
-                    f"{_TRELLO_API_BASE}/cards/{evidence_id}",
-                    params=auth_params,
-                )
-                resp.raise_for_status()
-                return resp.json()
-
-        try:
-            data = await self._request_with_retry(_do_request, "fetch")
-        except Exception:
-            logger.warning("Trello fetch failed", exc_info=True)
-            return None
-
-        card_id = data.get("id", evidence_id)
-        card_name = data.get("name", "")
-        card_desc = data.get("desc", "")
-        card_url = data.get("shortUrl", "")
-        return Evidence(
-            id=f"trello_card_{card_id}",
-            source_type=self.source_type,
-            source_id=f"trello://cards/{card_id}",
-            content=card_desc or card_name,
-            title=card_name,
-            url=card_url,
-            confidence=0.7,
-            freshness=1.0,
-            authority=0.6,
-            metadata={"card_id": card_id},
+        Raises:
+            NotImplementedError: Trello connector is not yet implemented.
+        """
+        raise NotImplementedError(
+            "TrelloConnector.fetch() is not yet implemented. "
+            "Configure TRELLO_API_KEY and TRELLO_TOKEN and contribute an implementation."
         )
