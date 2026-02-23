@@ -296,6 +296,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         include_prior_claims: bool = False,
         enable_introspection: bool = True,
         knowledge_context: str | None = None,
+        vertical: str | None = None,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -314,6 +315,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
             domain: Debate domain for domain-specific ELO lookup
             supermemory_adapter: Optional adapter for external memory context injection
             knowledge_context: Optional pre-fetched Knowledge Mound context string
+            vertical: Optional industry vertical name for weight profile guidance
         """
         self.protocol = protocol
         self.env = env
@@ -327,6 +329,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self.calibration_tracker = calibration_tracker
         self.elo_system = elo_system
         self.domain = domain
+        self.vertical = vertical
 
         # Prior claims kernel for injecting related claims from previous debates
         self.claims_kernel = claims_kernel

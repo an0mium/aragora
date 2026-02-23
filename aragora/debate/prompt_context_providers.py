@@ -85,6 +85,7 @@ class PromptContextMixin:
     _knowledge_context: str
     _km_item_ids: list
     _outcome_context: str
+    vertical: Any
 
     def get_deliberation_template_context(self) -> str:
         """Get deliberation template context for prompt injection.
@@ -517,6 +518,52 @@ class PromptContextMixin:
             context: The codebase context string to inject into prompts.
         """
         self._codebase_context = context or ""
+
+    def get_vertical_context(self) -> str:
+        """Get vertical-specific evaluation weight guidance for prompt injection.
+
+        When a vertical profile is active (e.g. healthcare_hipaa, financial_audit),
+        this method looks up the weight profile from WEIGHT_PROFILES and formats
+        the top evaluation priorities as guidance for agents.
+
+        Returns:
+            Formatted vertical guidance string, or empty string if no vertical set.
+        """
+        vertical = getattr(self, "vertical", None)
+        if not vertical:
+            return ""
+        try:
+            from aragora.evaluation.llm_judge import WEIGHT_PROFILES, EvaluationDimension
+
+            profile = WEIGHT_PROFILES.get(vertical)
+            if not profile:
+                return ""
+
+            # Sort dimensions by weight descending, show top priorities
+            sorted_dims = sorted(profile.items(), key=lambda x: x[1], reverse=True)
+            top = [(d.value.upper(), w) for d, w in sorted_dims if w >= 0.10]
+
+            if not top:
+                return ""
+
+            lines = [f"## Evaluation Profile: {vertical.replace('_', ' ').title()}"]
+            lines.append("Prioritize these dimensions in your response:")
+            for dim_name, weight in top:
+                pct = int(weight * 100)
+                lines.append(f"- **{dim_name}** ({pct}% weight)")
+
+            # Flag zero-weight dimensions as deprioritized
+            zero = [d.value.upper() for d, w in sorted_dims if w == 0.0]
+            if zero:
+                lines.append(f"De-emphasized: {', '.join(zero)}")
+
+            return "\n".join(lines)
+        except ImportError:
+            logger.debug("LLM judge module not available for vertical context")
+            return ""
+        except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+            logger.debug("Vertical context error: %s", exc)
+            return ""
 
     def get_prior_claims_context(self, limit: int = 5) -> str:
         """Get prior claims related to the current topic for context injection.

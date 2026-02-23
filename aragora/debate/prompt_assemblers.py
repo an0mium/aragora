@@ -52,6 +52,7 @@ class PromptAssemblyMixin:
     get_codebase_context: Any
     get_prior_claims_context: Any
     format_pulse_context: Any
+    get_vertical_context: Any
     get_language_constraint: Any
     format_successful_patterns: Any
     format_evidence_for_prompt: Any
@@ -267,6 +268,11 @@ class PromptAssemblyMixin:
         if mode_prompt:
             mode_section = mode_prompt
 
+        vertical_section = ""
+        vertical_ctx = self.get_vertical_context()
+        if vertical_ctx:
+            vertical_section = vertical_ctx
+
         sections = [
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
@@ -288,6 +294,7 @@ class PromptAssemblyMixin:
             ContextSection("introspection", introspection_section.strip()),
             ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
+            ContextSection("vertical", vertical_section.strip()),
         ]
 
         context_block, context_str = self._apply_context_budget(
@@ -408,6 +415,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if mode_prompt:
             mode_section = mode_prompt
 
+        vertical_section = ""
+        vertical_ctx = self.get_vertical_context()
+        if vertical_ctx:
+            vertical_section = vertical_ctx
+
         sections = [
             ContextSection("knowledge_mound", km_section.strip()),
             ContextSection("outcome", outcome_section.strip()),
@@ -422,6 +434,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             ContextSection("template", template_section.strip()),
             ContextSection("active_introspection", active_introspection_section.strip()),
             ContextSection("mode", mode_section.strip()),
+            ContextSection("vertical", vertical_section.strip()),
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 

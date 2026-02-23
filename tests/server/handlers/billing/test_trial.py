@@ -228,7 +228,7 @@ class TestStartTrial:
         assert "10 debates" in data["message"]
 
     def test_start_trial_already_active(self):
-        """Test starting trial when already active returns current status."""
+        """Test starting trial when already active returns current status with remaining days."""
         org = Organization(
             id="org-123",
             name="Test Org",
@@ -252,7 +252,40 @@ class TestStartTrial:
 
         assert result.status_code == 200
         data = json.loads(result.body)
-        assert data["message"] == "Trial already active"
+        assert "Trial already active" in data["message"]
+        assert "day(s) remaining" in data["message"]
+
+    def test_start_trial_expired_returns_403(self):
+        """Test starting trial when trial has expired returns 403 with upgrade message."""
+        org = Organization(
+            id="org-123",
+            name="Test Org",
+            slug="test-org",
+            tier=SubscriptionTier.FREE,
+        )
+        org.trial_started_at = datetime.now(timezone.utc) - timedelta(days=10)
+        org.trial_expires_at = datetime.now(timezone.utc) - timedelta(days=3)
+        org.trial_debates_limit = 10
+
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_id.return_value = MockDBUser(
+            id="user-123", email="test@example.com", org_id="org-123"
+        )
+        mock_user_store.get_organization_by_id.return_value = org
+
+        handler = BillingHandler(ctx={"user_store": mock_user_store})
+        mock_handler = MagicMock()
+        user = MockUser(user_id="user-123")
+
+        fn = handler._start_trial.__wrapped__.__wrapped__
+        result = fn(handler, mock_handler, user=user)
+
+        assert result.status_code == 403
+        data = json.loads(result.body)
+        assert "expired" in data["message"].lower()
+        assert "upgrade" in data["message"].lower()
+        assert data["trial"]["is_expired"] is True
+        assert data["trial"]["is_active"] is False
 
     def test_start_trial_paid_subscription(self):
         """Test starting trial with paid subscription returns error."""
