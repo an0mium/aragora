@@ -210,8 +210,9 @@ def _clear_state():
 @pytest.fixture(autouse=True)
 def _disable_rate_limiting():
     """Disable rate limiting entirely during tests to avoid order-dependent failures."""
-    import aragora.server.handlers.utils.rate_limit as _rl_mod
+    import sys
 
+    _rl_mod = sys.modules["aragora.server.handlers.utils.rate_limit"]
     original = _rl_mod.RATE_LIMITING_DISABLED
     _rl_mod.RATE_LIMITING_DISABLED = True
     yield

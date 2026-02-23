@@ -26,6 +26,9 @@ Covers all handler functions:
 from __future__ import annotations
 
 import asyncio
+import sys
+import types
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -33,6 +36,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.connectors.enterprise import MongoDBConnector
 from aragora.connectors.enterprise.sync.scheduler import (
     SyncHistory,
     SyncJob,
@@ -43,6 +47,7 @@ from aragora.connectors.enterprise.sync.scheduler import (
 
 # Import the handler module under test
 import aragora.server.handlers.connectors as connectors_mod
+import aragora.server.handlers.connectors.legacy as legacy_mod
 from aragora.server.handlers.connectors import (
     _check_permission,
     _create_connector,
@@ -70,6 +75,32 @@ from aragora.server.handlers.connectors import (
 # ---------------------------------------------------------------------------
 # Helpers & Fixtures
 # ---------------------------------------------------------------------------
+
+_REGISTRY_MODULE_KEY = "aragora.connectors.enterprise.registry"
+
+
+@contextmanager
+def _patch_registry(get_connector_return=None):
+    """Inject a fake ``aragora.connectors.enterprise.registry`` module into
+    ``sys.modules`` so that the inline ``from ... import get_connector``
+    inside the handler functions resolves to a controllable mock.
+
+    The real module does not exist on disk, so ``unittest.mock.patch``
+    cannot target it.
+    """
+    mock_get = MagicMock(return_value=get_connector_return)
+    fake_module = types.ModuleType(_REGISTRY_MODULE_KEY)
+    fake_module.get_connector = mock_get  # type: ignore[attr-defined]
+    had_original = _REGISTRY_MODULE_KEY in sys.modules
+    original = sys.modules.get(_REGISTRY_MODULE_KEY)
+    sys.modules[_REGISTRY_MODULE_KEY] = fake_module
+    try:
+        yield mock_get
+    finally:
+        if had_original:
+            sys.modules[_REGISTRY_MODULE_KEY] = original  # type: ignore[assignment]
+        else:
+            sys.modules.pop(_REGISTRY_MODULE_KEY, None)
 
 
 def _make_sync_job(
@@ -1156,14 +1187,10 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_success(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector.aggregate = AsyncMock(return_value=[{"_id": "dept-1", "count": 5}])
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            # Make isinstance check pass
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             result = await handle_mongodb_aggregate(
                 connector_id="my-mongo",
                 collection="users",
@@ -1176,13 +1203,10 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_adds_limit_stage(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector.aggregate = AsyncMock(return_value=[])
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             await handle_mongodb_aggregate(
                 connector_id="my-mongo",
                 collection="users",
@@ -1197,14 +1221,11 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_skips_limit_when_present(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
         mock_connector.aggregate = AsyncMock(return_value=[])
 
         pipeline = [{"$match": {}}, {"$limit": 10}]
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             await handle_mongodb_aggregate(
                 connector_id="my-mongo",
                 collection="users",
@@ -1217,7 +1238,7 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_connector_not_found(self, mock_scheduler):
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=None):
+        with _patch_registry(get_connector_return=None):
             with pytest.raises(ValueError, match="Connector not found"):
                 await handle_mongodb_aggregate(
                     connector_id="nonexistent",
@@ -1227,9 +1248,9 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_not_mongodb_connector(self, mock_scheduler):
-        mock_connector = MagicMock()  # Not a MongoDBConnector
+        mock_connector = MagicMock()  # No spec -- isinstance(mock, MongoDBConnector) fails
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector):
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(ValueError, match="not a MongoDB connector"):
                 await handle_mongodb_aggregate(
                     connector_id="my-pg",
@@ -1239,12 +1260,9 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_invalid_pipeline_not_list(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(ValueError, match="must be a list"):
                 await handle_mongodb_aggregate(
                     connector_id="my-mongo",
@@ -1254,12 +1272,9 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_invalid_pipeline_stage_not_dict(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(ValueError, match="stage 0 must be a document"):
                 await handle_mongodb_aggregate(
                     connector_id="my-mongo",
@@ -1269,12 +1284,9 @@ class TestMongoDBAggregate:
 
     @pytest.mark.asyncio
     async def test_aggregate_empty_pipeline_stage(self, mock_scheduler):
-        mock_connector = MagicMock()
+        mock_connector = MagicMock(spec=MongoDBConnector)
 
-        with patch("aragora.server.handlers.connectors.get_connector", return_value=mock_connector), \
-             patch.object(connectors_mod, "MongoDBConnector") as mongo_cls:
-            mongo_cls.__instancecheck__ = lambda self, x: True
-
+        with _patch_registry(get_connector_return=mock_connector):
             with pytest.raises(ValueError, match="stage 0 is empty"):
                 await handle_mongodb_aggregate(
                     connector_id="my-mongo",
