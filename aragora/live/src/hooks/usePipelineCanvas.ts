@@ -37,6 +37,7 @@ const API_PREFIX = '/api/v1/canvas/pipeline';
 
 const EMPTY_STAGES: Record<PipelineStageType, Node[]> = {
   ideas: [],
+  principles: [],
   goals: [],
   actions: [],
   orchestration: [],
@@ -44,6 +45,7 @@ const EMPTY_STAGES: Record<PipelineStageType, Node[]> = {
 
 const EMPTY_STAGE_EDGES: Record<PipelineStageType, Edge[]> = {
   ideas: [],
+  principles: [],
   goals: [],
   actions: [],
   orchestration: [],
@@ -51,6 +53,7 @@ const EMPTY_STAGE_EDGES: Record<PipelineStageType, Edge[]> = {
 
 const DEFAULT_STAGE_STATUS: Record<PipelineStageType, string> = {
   ideas: 'pending',
+  principles: 'pending',
   goals: 'pending',
   actions: 'pending',
   orchestration: 'pending',
