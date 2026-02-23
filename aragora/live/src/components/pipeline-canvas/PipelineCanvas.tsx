@@ -21,12 +21,11 @@ import { StageNavigator } from './StageNavigator';
 import { PipelinePalette } from './PipelinePalette';
 import { PipelineToolbar } from './PipelineToolbar';
 import { PipelinePropertyEditor } from './editors/PipelinePropertyEditor';
-import { ProvenanceTrail } from './ProvenanceTrail';
+import { ProvenanceNodeDetailPanel } from './ProvenanceNodeDetailPanel';
 import { TemplateSelector } from './TemplateSelector';
 import { ProgressIndicator } from './ProgressIndicator';
 import {
   PIPELINE_STAGE_CONFIG,
-  STAGE_COLOR_CLASSES,
   type PipelineStageType,
   type PipelineResultResponse,
   type ProvenanceLink,
@@ -799,100 +798,25 @@ function PipelineCanvasInner({
         />
       )}
 
-      {/* Right: Provenance Sidebar */}
+      {/* Right: Provenance Detail Panel */}
       {showProvenanceSidebar && selectedNodeId && (
-        <div className="w-80 flex-shrink-0 bg-surface border-l border-border h-full overflow-y-auto p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-mono font-bold text-text uppercase">Provenance</h3>
-            <button
-              onClick={() => {
-                setShowProvenance(false);
-                setSelectedNodeId(null);
-              }}
-              className="text-text-muted hover:text-text text-lg leading-none"
-            >
-              &times;
-            </button>
-          </div>
-
-          {/* Node info */}
-          <div className="mb-4">
-            <p className="text-sm text-text truncate">{selectedNodeLabel}</p>
-            <p className="text-xs text-text-muted font-mono">{selectedNodeId}</p>
-          </div>
-
-          {/* Provenance Trail breadcrumbs */}
-          <div className="mb-4 p-3 bg-bg rounded border border-border">
-            <label className="block text-xs text-text-muted mb-2 uppercase font-bold font-mono">
-              Provenance Chain
-            </label>
-            <ProvenanceTrail
-              selectedNodeId={selectedNodeId}
-              selectedStage={selectedNodeStage}
-              selectedLabel={selectedNodeLabel}
-              provenance={allProvenance}
-              nodeLookup={nodeLookup}
-              onNavigate={handleProvenanceNavigate}
-            />
-          </div>
-
-          {/* Individual provenance links */}
-          {selectedProvenance.length > 0 ? (
-            <>
-              <label className="block text-xs text-text-muted mb-2 uppercase font-bold font-mono">
-                Direct Links ({selectedProvenance.length})
-              </label>
-              <div className="space-y-2">
-                {selectedProvenance.map((link, i) => {
-                  const isSource = link.source_node_id === selectedNodeId;
-                  const relatedStage = isSource ? link.target_stage : link.source_stage;
-                  const colors = STAGE_COLOR_CLASSES[relatedStage] ?? { text: '', bg: '' };
-                  return (
-                    <div key={i} className="p-2 bg-bg rounded border border-border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-text-muted font-mono">
-                          {isSource ? 'Produces' : 'Derived from'}
-                        </span>
-                        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${colors.bg} ${colors.text}`}>
-                          {relatedStage}
-                        </span>
-                      </div>
-                      <p className="text-xs text-text font-mono truncate">
-                        {isSource ? link.target_node_id : link.source_node_id}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-text-muted font-mono">
-                          #{link.content_hash.slice(0, 8)}
-                        </span>
-                        <span className="text-xs text-text-muted font-mono">{link.method}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-text-muted">No provenance links for this node.</p>
-          )}
-
-          {initialData?.provenance_count !== undefined && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-text-muted font-mono">
-                Total provenance links: <span className="text-text">{initialData.provenance_count}</span>
-              </p>
-            </div>
-          )}
-
-          {/* Back to editor button (edit mode only) */}
-          {isEditable && (
-            <button
-              onClick={() => setShowProvenance(false)}
-              className="mt-4 w-full px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:bg-bg transition-colors rounded"
-            >
-              Back to Editor
-            </button>
-          )}
-        </div>
+        <ProvenanceNodeDetailPanel
+          nodeId={selectedNodeId}
+          stage={selectedNodeStage}
+          nodeData={selectedNodeData}
+          nodeLabel={selectedNodeLabel}
+          provenance={allProvenance}
+          transitions={initialData?.transitions ?? []}
+          nodeLookup={nodeLookup}
+          pipelineId={pipelineId}
+          onNavigate={handleProvenanceNavigate}
+          onClose={() => {
+            setShowProvenance(false);
+            setSelectedNodeId(null);
+          }}
+          isEditable={isEditable}
+          onBackToEditor={() => setShowProvenance(false)}
+        />
       )}
     </div>
   );

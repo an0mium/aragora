@@ -126,6 +126,15 @@ jest.mock('../ProvenanceTrail', () => ({
   ProvenanceTrail: () => <div data-testid="provenance-trail" />,
 }));
 
+jest.mock('../ProvenanceNodeDetailPanel', () => ({
+  ProvenanceNodeDetailPanel: ({ nodeLabel }: { nodeLabel: string }) => (
+    <div data-testid="provenance-detail-panel">
+      <span>Provenance</span>
+      <span>{nodeLabel}</span>
+    </div>
+  ),
+}));
+
 jest.mock('../TemplateSelector', () => ({
   TemplateSelector: () => <div data-testid="template-selector" />,
 }));
