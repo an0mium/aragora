@@ -958,6 +958,7 @@ def _try_oracle_tentacles(
             role_prompt,
             source=source,
             model_name=model_cfg["name"],
+            summary_depth=summary_depth,
         )
         text = _call_provider_llm(
             model_cfg["provider"],
