@@ -399,6 +399,16 @@ export class PipelineNamespace {
   }
 
   /**
+   * List saved pipeline graphs.
+   */
+  async listGraphs(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/pipeline/graphs'
+    );
+  }
+
+  /**
    * Create a new pipeline graph.
    *
    * @param graphData - Graph definition (nodes, edges, metadata)
