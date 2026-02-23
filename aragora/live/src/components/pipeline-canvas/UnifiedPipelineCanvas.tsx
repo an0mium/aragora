@@ -99,6 +99,7 @@ function getVisibleStages(zoom: number): Set<PipelineStageType> {
 function getStageForNodeType(type: string): PipelineStageType | null {
   switch (type) {
     case 'ideaNode': return 'ideas';
+    case 'principleNode': return 'principles';
     case 'goalNode': return 'goals';
     case 'actionNode': return 'actions';
     case 'orchestrationNode': return 'orchestration';
@@ -540,6 +541,7 @@ function UnifiedPipelineCanvasInner({
   const miniMapNodeColor = useCallback((node: { type?: string }) => {
     switch (node.type) {
       case 'ideaNode': return STAGE_COLORS.ideas;
+      case 'principleNode': return STAGE_COLORS.principles;
       case 'goalNode': return STAGE_COLORS.goals;
       case 'actionNode': return STAGE_COLORS.actions;
       case 'orchestrationNode': return STAGE_COLORS.orchestration;
