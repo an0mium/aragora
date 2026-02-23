@@ -35,7 +35,7 @@ _DEFAULT_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "strategic_memory.db")
 def _get_db_path() -> str:
     """Resolve the strategic memory database path."""
     try:
-        from aragora.persistence.db_config import resolve_db_path
+        from aragora.config import resolve_db_path
 
         return resolve_db_path("strategic_memory.db")
     except ImportError:

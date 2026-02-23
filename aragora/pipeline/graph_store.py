@@ -38,7 +38,7 @@ _DEFAULT_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "pipeline_graphs.db")
 def _get_db_path() -> str:
     """Resolve the graph store database path."""
     try:
-        from aragora.persistence.db_config import resolve_db_path
+        from aragora.config import resolve_db_path
         return resolve_db_path("pipeline_graphs.db")
     except ImportError:
         return _DEFAULT_DB_PATH
