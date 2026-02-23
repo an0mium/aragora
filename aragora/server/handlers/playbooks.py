@@ -4,102 +4,110 @@ Playbook HTTP handler.
 Endpoints for discovering and running decision playbooks:
 - GET  /api/v1/playbooks          - List available playbooks
 - GET  /api/v1/playbooks/{id}     - Get playbook details
-- POST /api/v1/playbooks/{id}/run - Run a playbook
+- POST /api/v1/playbooks/{id}/run - Run a playbook (starts debate with playbook config)
+
+Follows the BaseHandler pattern from base.py with HandlerResult.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 from .base import (
+    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
 from .utils.decorators import require_permission
-from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
 
-class PlaybookHandler:
-    """Handler for playbook API endpoints."""
+class PlaybookHandler(BaseHandler):
+    """Handler for playbook API endpoints.
+
+    Provides REST APIs for decision playbook discovery and execution.
+    Extends BaseHandler for standard handler dispatch integration.
+    """
 
     ROUTES = [
-        "/api/v1/playbooks",
-        "/api/v1/playbooks/*",
-        "/api/v1/playbooks/*/run",
-        # Legacy unversioned
         "/api/playbooks",
-        "/api/playbooks/*",
-        "/api/playbooks/*/run",
     ]
 
-    MAX_BODY_SIZE = 1_048_576
+    ROUTE_PREFIXES = [
+        "/api/playbooks",
+        "/api/playbooks/",
+        "/api/v1/playbooks",
+        "/api/v1/playbooks/",
+    ]
 
-    def __init__(self, ctx: dict | None = None):
-        """Initialize handler with optional context."""
+    def __init__(self, ctx: dict[str, Any] | None = None) -> None:
+        """Initialize handler with server context."""
         self.ctx = ctx or {}
-
-    def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
-        """Read and parse JSON body from request handler."""
-        try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            if content_length <= 0:
-                return {}
-            if content_length > self.MAX_BODY_SIZE:
-                return None
-            body = handler.rfile.read(content_length)
-            return json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError, TypeError):
-            return None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given request."""
-        if path.rstrip("/").endswith("/run"):
-            return True
-        if "/playbooks" in path:
-            return True
-        return False
+        normalized = strip_version_prefix(path)
+        return normalized == "/api/playbooks" or normalized.startswith("/api/playbooks/")
 
     @require_permission("playbooks:read")
-    def handle(self, method: str, path: str, handler: Any) -> HandlerResult:
-        """Route requests to appropriate handler methods."""
-        path_clean = path.rstrip("/")
-        if path_clean.endswith("/run") and method == "POST":
-            return self._handle_run_playbook(path, handler)
-        if path_clean == "/api/v1/playbooks" or path_clean == "/api/playbooks":
-            return self._handle_list_playbooks(handler)
-        if "/playbooks/" in path and not path_clean.endswith("/run"):
-            return self._handle_get_playbook(path, handler)
-        return error_response("Not found", 404)
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route GET requests."""
+        normalized = strip_version_prefix(path)
+        path_clean = normalized.rstrip("/")
 
-    @rate_limit(requests_per_minute=60)
-    def _handle_list_playbooks(self, handler: Any) -> HandlerResult:
-        """
-        GET /api/v1/playbooks?category=...&tags=...
+        if path_clean == "/api/playbooks":
+            return self._list_playbooks(query_params)
 
-        List available playbooks.
+        if "/playbooks/" in normalized and not path_clean.endswith("/run"):
+            return self._get_playbook(normalized)
+
+        return None
+
+    @handle_errors("run playbook")
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route POST requests."""
+        normalized = strip_version_prefix(path)
+        path_clean = normalized.rstrip("/")
+
+        if path_clean.endswith("/run"):
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("Invalid JSON body", 400)
+            return self._run_playbook(normalized, body)
+
+        return None
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/playbooks
+    # ------------------------------------------------------------------
+
+    @handle_errors("list playbooks")
+    def _list_playbooks(self, query_params: dict[str, Any]) -> HandlerResult:
+        """List available playbooks with optional category/tag filtering.
+
+        Query params:
+            category: Filter by category (e.g. "healthcare", "finance")
+            tags: Comma-separated tag filter (OR matching)
         """
         from aragora.playbooks.registry import get_playbook_registry
 
         registry = get_playbook_registry()
 
-        category = None
-        tags = None
-        if hasattr(handler, "parsed_url") and hasattr(handler.parsed_url, "query"):
-            from urllib.parse import parse_qs
-
-            params = parse_qs(handler.parsed_url.query)
-            category = params.get("category", [None])[0]
-            tags_raw = params.get("tags", [""])[0]
-            if tags_raw:
-                tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+        category = query_params.get("category")
+        tags_raw = query_params.get("tags", "")
+        tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
 
         playbooks = registry.list(category=category, tags=tags)
 
@@ -110,13 +118,13 @@ class PlaybookHandler:
             }
         )
 
-    @rate_limit(requests_per_minute=60)
-    def _handle_get_playbook(self, path: str, handler: Any) -> HandlerResult:
-        """
-        GET /api/v1/playbooks/{id}
+    # ------------------------------------------------------------------
+    # GET /api/v1/playbooks/{id}
+    # ------------------------------------------------------------------
 
-        Get playbook details.
-        """
+    @handle_errors("get playbook")
+    def _get_playbook(self, path: str) -> HandlerResult:
+        """Get a single playbook by ID."""
         from aragora.playbooks.registry import get_playbook_registry
 
         playbook_id = self._extract_playbook_id(path)
@@ -131,16 +139,16 @@ class PlaybookHandler:
 
         return json_response(playbook.to_dict())
 
-    @handle_errors("playbook execution")
-    def _handle_run_playbook(self, path: str, handler: Any) -> HandlerResult:
-        """
-        POST /api/v1/playbooks/{id}/run
+    # ------------------------------------------------------------------
+    # POST /api/v1/playbooks/{id}/run
+    # ------------------------------------------------------------------
 
-        Run a playbook. Accepts input parameters in the body.
+    def _run_playbook(self, path: str, body: dict[str, Any]) -> HandlerResult:
+        """Start a debate using the playbook's configuration.
 
         Body:
-            input: str - The question/topic for the playbook
-            context: dict - Additional context variables
+            input: str  -- The question/topic for the playbook (required)
+            context: dict -- Additional context variables
         """
         from aragora.playbooks.registry import get_playbook_registry
 
@@ -153,10 +161,6 @@ class PlaybookHandler:
 
         if not playbook:
             return error_response(f"Playbook not found: {playbook_id}", 404)
-
-        body = self._read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
 
         input_text = body.get("input", "")
         if not input_text:
@@ -195,8 +199,13 @@ class PlaybookHandler:
 
         return json_response(execution, status=202)
 
-    def _extract_playbook_id(self, path: str, strip_run: bool = False) -> str | None:
-        """Extract playbook ID from path."""
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_playbook_id(path: str, strip_run: bool = False) -> str | None:
+        """Extract playbook ID from a path like /api/playbooks/{id}[/run]."""
         segments = path.strip("/").split("/")
         for i, seg in enumerate(segments):
             if seg == "playbooks" and i + 1 < len(segments):

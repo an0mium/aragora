@@ -393,6 +393,54 @@ class BenchmarkAggregator:
             }
         return comparison
 
+    def group_by(
+        self,
+        debates: list[dict[str, Any]],
+        key: str,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Group debate dicts by a specified key.
+
+        Supports grouping by ``industry``, ``team_size_bucket``, or
+        ``decision_type``.  When *key* is ``"team_size_bucket"`` the raw
+        ``team_size`` integer in each debate is mapped to a privacy-safe
+        bucket label via :func:`_bucket_team_size`.
+
+        Args:
+            debates: List of debate dictionaries.
+            key: One of ``"industry"``, ``"team_size_bucket"``, ``"decision_type"``.
+
+        Returns:
+            Dict mapping each distinct group value to its list of debates.
+        """
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for debate in debates:
+            if key == "team_size_bucket":
+                raw = debate.get("team_size")
+                if raw is not None:
+                    group_val = _bucket_team_size(int(raw))
+                else:
+                    group_val = "unknown"
+            else:
+                group_val = str(debate.get(key, "unknown"))
+            groups[group_val].append(debate)
+        return dict(groups)
+
+    @staticmethod
+    def _add_noise(value: float, epsilon: float = 0.1) -> float:
+        """Add Laplace differential privacy noise to a value.
+
+        This is a convenience wrapper around :func:`_laplace_noise` for
+        callers that want to perturb individual values.
+
+        Args:
+            value: The value to perturb.
+            epsilon: Privacy budget parameter (default 0.1).
+
+        Returns:
+            The value with added Laplace noise.
+        """
+        return value + _laplace_noise(epsilon)
+
     def get_categories(self) -> list[str]:
         """List available benchmark categories that have enough data.
 

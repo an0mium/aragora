@@ -9,10 +9,12 @@ Tests cover:
 - Input validation and error handling
 """
 
+from __future__ import annotations
+
 import json
+
 import pytest
 from unittest.mock import MagicMock, patch
-from collections import OrderedDict
 
 from aragora.server.handlers.governance.outcomes import (
     OutcomeHandler,
@@ -37,15 +39,6 @@ def _make_handler_with_body(body: dict) -> MagicMock:
     return handler
 
 
-def _make_handler_with_query(query: str = "") -> MagicMock:
-    """Create a mock handler with query params."""
-    handler = MagicMock()
-    parsed_url = MagicMock()
-    parsed_url.query = query
-    handler.parsed_url = parsed_url
-    return handler
-
-
 class TestOutcomeHandlerInit:
     """Tests for handler initialization."""
 
@@ -59,8 +52,11 @@ class TestOutcomeHandlerInit:
 
     def test_routes_defined(self):
         assert len(OutcomeHandler.ROUTES) > 0
-        assert "/api/v1/decisions/*/outcome" in OutcomeHandler.ROUTES
-        assert "/api/v1/outcomes/search" in OutcomeHandler.ROUTES
+        assert "/api/outcomes/search" in OutcomeHandler.ROUTES
+
+    def test_route_prefixes_defined(self):
+        assert len(OutcomeHandler.ROUTE_PREFIXES) > 0
+        assert "/api/v1/outcomes/" in OutcomeHandler.ROUTE_PREFIXES
 
 
 class TestCanHandle:
@@ -106,7 +102,7 @@ class TestRecordOutcome:
             }
         )
 
-        result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+        result = h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
         assert result["status"] == 201
         body = json.loads(result["body"])
         assert body["decision_id"] == "dec_abc"
@@ -123,7 +119,7 @@ class TestRecordOutcome:
             }
         )
 
-        result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+        result = h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
         assert result["status"] == 400
 
     def test_record_invalid_outcome_type(self):
@@ -137,7 +133,7 @@ class TestRecordOutcome:
             }
         )
 
-        result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+        result = h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
         assert result["status"] == 400
 
     def test_record_missing_description(self):
@@ -150,7 +146,7 @@ class TestRecordOutcome:
             }
         )
 
-        result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+        result = h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
         assert result["status"] == 400
 
     def test_record_impact_out_of_range(self):
@@ -164,7 +160,7 @@ class TestRecordOutcome:
             }
         )
 
-        result = h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+        result = h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
         assert result["status"] == 400
 
     def test_record_stores_in_memory(self):
@@ -180,7 +176,7 @@ class TestRecordOutcome:
 
         with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock(return_value=True))
-            h._handle_record_outcome("/api/v1/decisions/dec_abc/outcome", handler)
+            h.handle_post("/api/v1/decisions/dec_abc/outcome", {}, handler)
 
         assert len(_outcome_store) == 1
         stored = list(_outcome_store.values())[0]
@@ -195,7 +191,7 @@ class TestListOutcomes:
         h = OutcomeHandler()
         handler = MagicMock()
 
-        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes", handler)
+        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes")
         body = json.loads(result["body"])
         assert body["count"] == 0
         assert body["outcomes"] == []
@@ -206,9 +202,8 @@ class TestListOutcomes:
         _outcome_store["o3"] = {"decision_id": "dec_other", "outcome_type": "success"}
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes", handler)
+        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes")
         body = json.loads(result["body"])
         assert body["count"] == 2
         assert body["decision_id"] == "dec_abc"
@@ -219,9 +214,7 @@ class TestSearchOutcomes:
 
     def test_search_empty_store(self):
         h = OutcomeHandler()
-        handler = _make_handler_with_query("")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({})
         body = json.loads(result["body"])
         assert body["count"] == 0
 
@@ -240,9 +233,7 @@ class TestSearchOutcomes:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("q=vendor")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"q": "vendor"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -261,9 +252,7 @@ class TestSearchOutcomes:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("type=failure")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"type": "failure"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -282,9 +271,7 @@ class TestSearchOutcomes:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("tags=vendor")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"tags": "vendor"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -294,9 +281,8 @@ class TestImpactAnalytics:
 
     def test_impact_empty(self):
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_impact_analytics(handler)
+        result = h._handle_impact_analytics()
         body = json.loads(result["body"])
         assert body["total_outcomes"] == 0
         assert body["avg_impact_score"] == 0.0
@@ -319,9 +305,8 @@ class TestImpactAnalytics:
         }
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_impact_analytics(handler)
+        result = h._handle_impact_analytics()
         body = json.loads(result["body"])
 
         assert body["total_outcomes"] == 3
@@ -344,9 +329,8 @@ class TestImpactAnalytics:
         }
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_impact_analytics(handler)
+        result = h._handle_impact_analytics()
         body = json.loads(result["body"])
         assert body["avg_impact_score"] == 0.5
 
@@ -364,9 +348,8 @@ class TestImpactAnalytics:
         }
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_impact_analytics(handler)
+        result = h._handle_impact_analytics()
         body = json.loads(result["body"])
         lessons = body["top_lessons"]
         assert lessons[0]["lesson"] == "High impact lesson"
@@ -505,18 +488,16 @@ class TestListOutcomesEdgeCases:
 
     def test_list_missing_decision_id(self):
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_list_outcomes("/api/v1/outcomes/search", handler)
+        result = h._handle_list_outcomes("/api/v1/outcomes/search")
         assert result["status"] == 400
 
     def test_list_no_matching_outcomes(self):
         _outcome_store["o1"] = {"decision_id": "dec_other", "outcome_type": "success"}
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes", handler)
+        result = h._handle_list_outcomes("/api/v1/decisions/dec_abc/outcomes")
         body = json.loads(result["body"])
         assert body["count"] == 0
 
@@ -525,9 +506,8 @@ class TestListOutcomesEdgeCases:
         _outcome_store["o1"] = {"decision_id": "dec_abc", "outcome_type": "success"}
 
         h = OutcomeHandler()
-        handler = MagicMock()
 
-        result = h._handle_list_outcomes("/api/decisions/dec_abc/outcomes", handler)
+        result = h._handle_list_outcomes("/api/decisions/dec_abc/outcomes")
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -545,9 +525,7 @@ class TestSearchOutcomesEdgeCases:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("q=vendor")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"q": "vendor"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -562,9 +540,7 @@ class TestSearchOutcomesEdgeCases:
             }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("limit=3")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"limit": "3"})
         body = json.loads(result["body"])
         assert body["count"] == 3
 
@@ -584,9 +560,7 @@ class TestSearchOutcomesEdgeCases:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("q=vendor&type=failure")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"q": "vendor", "type": "failure"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
@@ -600,14 +574,12 @@ class TestSearchOutcomesEdgeCases:
         }
 
         h = OutcomeHandler()
-        handler = _make_handler_with_query("q=vendor")
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({"q": "vendor"})
         body = json.loads(result["body"])
         assert body["count"] == 1
 
-    def test_search_without_parsed_url(self):
-        """Handler without parsed_url should return all outcomes."""
+    def test_search_no_params_returns_all(self):
+        """No search parameters should return all outcomes."""
         _outcome_store["o1"] = {
             "outcome_description": "test",
             "lessons_learned": "",
@@ -616,9 +588,7 @@ class TestSearchOutcomesEdgeCases:
         }
 
         h = OutcomeHandler()
-        handler = MagicMock(spec=[])  # No parsed_url attribute
-
-        result = h._handle_search_outcomes(handler)
+        result = h._handle_search_outcomes({})
         body = json.loads(result["body"])
         assert body["count"] == 1
 

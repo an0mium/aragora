@@ -471,6 +471,85 @@ class TestConstants:
 
 
 # ===========================================================================
+# group_by tests (4 tests)
+# ===========================================================================
+
+
+class TestGroupBy:
+    """Tests for BenchmarkAggregator.group_by()."""
+
+    def test_group_by_industry(self):
+        agg = BenchmarkAggregator(min_k=1, epsilon=0)
+        debates = [
+            {"industry": "healthcare", "topic": "a"},
+            {"industry": "healthcare", "topic": "b"},
+            {"industry": "financial", "topic": "c"},
+        ]
+        groups = agg.group_by(debates, "industry")
+        assert set(groups.keys()) == {"healthcare", "financial"}
+        assert len(groups["healthcare"]) == 2
+        assert len(groups["financial"]) == 1
+
+    def test_group_by_decision_type(self):
+        agg = BenchmarkAggregator(min_k=1, epsilon=0)
+        debates = [
+            {"decision_type": "vendor", "id": 1},
+            {"decision_type": "hiring", "id": 2},
+            {"decision_type": "vendor", "id": 3},
+        ]
+        groups = agg.group_by(debates, "decision_type")
+        assert set(groups.keys()) == {"vendor", "hiring"}
+        assert len(groups["vendor"]) == 2
+
+    def test_group_by_team_size_bucket(self):
+        agg = BenchmarkAggregator(min_k=1, epsilon=0)
+        debates = [
+            {"team_size": 3, "id": 1},
+            {"team_size": 15, "id": 2},
+            {"team_size": 50, "id": 3},
+            {"team_size": 200, "id": 4},
+        ]
+        groups = agg.group_by(debates, "team_size_bucket")
+        assert set(groups.keys()) == {"1-5", "6-20", "21-100", "100+"}
+
+    def test_group_by_missing_key_falls_back_to_unknown(self):
+        agg = BenchmarkAggregator(min_k=1, epsilon=0)
+        debates = [
+            {"industry": "healthcare"},
+            {},  # no industry key
+        ]
+        groups = agg.group_by(debates, "industry")
+        assert "healthcare" in groups
+        assert "unknown" in groups
+        assert len(groups["unknown"]) == 1
+
+    def test_group_by_team_size_bucket_missing_falls_back_to_unknown(self):
+        agg = BenchmarkAggregator(min_k=1, epsilon=0)
+        debates = [{"id": 1}]  # no team_size key
+        groups = agg.group_by(debates, "team_size_bucket")
+        assert "unknown" in groups
+
+
+# ===========================================================================
+# _add_noise tests (2 tests)
+# ===========================================================================
+
+
+class TestAddNoise:
+    """Tests for BenchmarkAggregator._add_noise()."""
+
+    def test_add_noise_returns_perturbed_value(self):
+        """_add_noise with non-zero epsilon should change the value on average."""
+        values = [BenchmarkAggregator._add_noise(100.0, epsilon=1.0) for _ in range(50)]
+        # At least some should differ from exactly 100.0
+        assert any(v != 100.0 for v in values)
+
+    def test_add_noise_zero_epsilon_returns_same(self):
+        """_add_noise with epsilon=0 should return the original value."""
+        assert BenchmarkAggregator._add_noise(42.0, epsilon=0) == 42.0
+
+
+# ===========================================================================
 # Handler endpoint tests (5 tests)
 # ===========================================================================
 

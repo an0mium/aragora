@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineStage(str, Enum):
-    """The four stages of the idea-to-execution pipeline."""
+    """The five stages of the idea-to-execution pipeline."""
 
     IDEAS = "ideas"  # Stage 1: Organizing ideas into relationships
+    PRINCIPLES = "principles"  # Stage 1.5: Values, priorities, constraints
     GOALS = "goals"  # Stage 2: Deriving goals and principles
     ACTIONS = "actions"  # Stage 3: Project management action sequences
     ORCHESTRATION = "orchestration"  # Stage 4: Multi-agent AI execution
@@ -41,6 +42,17 @@ class IdeaNodeType(str, Enum):
     CONSTRAINT = "constraint"
     OBSERVATION = "observation"  # Empirical observation or data point
     HYPOTHESIS = "hypothesis"  # Testable prediction or theory
+
+
+class PrincipleNodeType(str, Enum):
+    """Node types for the Principles stage (values, priorities, constraints)."""
+
+    VALUE = "value"
+    PRINCIPLE = "principle"
+    PRIORITY = "priority"
+    CONSTRAINT = "constraint"
+    CONNECTION = "connection"
+    THEME = "theme"
 
 
 class GoalNodeType(str, Enum):
@@ -92,6 +104,10 @@ class StageEdgeType(str, Enum):
     REFINES = "refines"
     CHALLENGES = "challenges"
     EXEMPLIFIES = "exemplifies"
+    # Principle-stage relationships
+    EMBODIES = "embodies"  # Idea embodies a principle/value
+    CONSTRAINS = "constrains"  # Principle constrains a goal
+    PRIORITIZES = "prioritizes"  # Priority ranks goals/principles
     # Cross-stage provenance
     DERIVED_FROM = "derived_from"  # Goal derived from idea cluster
     IMPLEMENTS = "implements"  # Action implements a goal
@@ -172,6 +188,11 @@ STAGE_COLORS: dict[PipelineStage, dict[str, str]] = {
         "secondary": "#c7d2fe",
         "accent": "#4f46e5",
     },
+    PipelineStage.PRINCIPLES: {
+        "primary": "#8B5CF6",  # Violet
+        "secondary": "#c4b5fd",
+        "accent": "#7c3aed",
+    },
     PipelineStage.GOALS: {
         "primary": "#34d399",  # Emerald
         "secondary": "#a7f3d0",
@@ -201,6 +222,11 @@ NODE_TYPE_COLORS: dict[str, str] = {
     "constraint": "#ddd6fe",
     "observation": "#34d399",  # Emerald (empirical)
     "hypothesis": "#c084fc",  # Purple (theoretical)
+    # Principles
+    "value": "#8B5CF6",
+    "priority": "#a78bfa",
+    "connection": "#c4b5fd",
+    "theme": "#7c3aed",
     # Goals
     "goal": "#34d399",
     "principle": "#10b981",

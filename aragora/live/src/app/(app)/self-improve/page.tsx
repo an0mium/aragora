@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
@@ -96,6 +96,14 @@ function formatDuration(seconds?: number): string {
 // --- Component ---
 
 export default function SelfImprovePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg text-text font-mono flex items-center justify-center"><span className="animate-pulse text-acid-green">Loading...</span></div>}>
+      <SelfImprovePageInner />
+    </Suspense>
+  );
+}
+
+function SelfImprovePageInner() {
   // Tab navigation
   const [activeTab, setActiveTab] = useState<'runs' | 'planner' | 'execution' | 'learning' | 'metrics'>('runs');
 

@@ -1066,18 +1066,12 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen",
             return_value=mock_response,
         ):
-            try:
-                result = handler._get_google_user_info("access-token")
-                if asyncio.iscoroutine(result):
-                    result.close()
-                    pytest.skip("Running in async context")
-                pytest.fail("Expected ValueError")
-            except ValueError as e:
-                assert "Invalid JSON" in str(e)
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                handler._get_google_user_info("access-token")
 
     @pytest.mark.asyncio
     async def test_async_path_returns_user_info(self, handler, impl):
@@ -1280,13 +1274,10 @@ class TestEdgeCases:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
         ):
             result = handler._exchange_code_for_tokens("my-auth-code")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
 
         assert captured_req["url"] == "https://oauth2.googleapis.com/token"
         data_str = captured_req["data"].decode("utf-8")
@@ -1313,13 +1304,10 @@ class TestEdgeCases:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
         ):
             result = handler._get_google_user_info("my-bearer-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
 
         assert captured_req["url"] == "https://www.googleapis.com/oauth2/v2/userinfo"
         assert captured_req["headers"]["Authorization"] == "Bearer my-bearer-token"

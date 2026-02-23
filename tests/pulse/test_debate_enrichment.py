@@ -299,6 +299,7 @@ class TestPromptBuilderIntegration:
         protocol.get_round_phase.return_value = None
         protocol.enable_pulse_context = False
         protocol.enable_trending_injection = False
+        protocol.enable_privacy_anonymization = False
         return protocol
 
     @pytest.fixture

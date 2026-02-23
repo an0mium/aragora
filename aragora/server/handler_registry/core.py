@@ -98,6 +98,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_orchestration_canvas_handler": "extended",
     "_universal_graph_handler": "extended",
     "_pipeline_transitions_handler": "extended",
+    "_outcome_handler": "extended",
     "_benchmarking_handler": "extended",
     "_knowledge_flow_handler": "extended",
     "_self_improve_details_handler": "extended",
@@ -214,6 +215,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_deliberations_handler": "optional",
     "_orchestration_handler": "optional",
     "_voice_handler": "optional",
+    "_playbook_handler": "optional",
 }
 
 
@@ -448,6 +450,12 @@ class RouteIndex:
             "_orchestration_canvas_handler": ["/api/v1/orchestration/canvas"],
             "_universal_graph_handler": ["/api/v1/pipeline/graphs"],
             "_pipeline_transitions_handler": ["/api/v1/pipeline/transitions"],
+            "_outcome_handler": [
+                "/api/v1/decisions/",
+                "/api/decisions/",
+                "/api/v1/outcomes/",
+                "/api/outcomes/",
+            ],
             "_benchmarking_handler": ["/api/benchmarks"],
             "_document_handler": ["/api/documents/"],
             "_document_batch_handler": ["/api/documents/batch", "/api/documents/processing/"],
@@ -674,6 +682,12 @@ class RouteIndex:
             "_audit_trail_handler": [
                 "/api/v1/audit-trails",
                 "/api/v1/receipts",
+            ],
+            "_playbook_handler": [
+                "/api/playbooks",
+                "/api/playbooks/",
+                "/api/v1/playbooks",
+                "/api/v1/playbooks/",
             ],
         }
 

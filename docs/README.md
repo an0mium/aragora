@@ -89,7 +89,8 @@ See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 |----------|-------------|
 | [BOT_INTEGRATIONS](./integrations/BOT_INTEGRATIONS.md) | Slack bot setup |
 | [CHAT_CONNECTOR_GUIDE](./guides/CHAT_CONNECTOR_GUIDE.md) | Telegram and WhatsApp |
-| [MCP_INTEGRATION](./integrations/MCP_INTEGRATION.md) | Model Context Protocol setup |
+| [MCP_SETUP_GUIDE](./integrations/MCP_SETUP_GUIDE.md) | **Start here** — MCP setup, 80-tool catalog, workflows |
+| [MCP_INTEGRATION](./integrations/MCP_INTEGRATION.md) | Model Context Protocol tool parameters |
 | [MCP_ADVANCED](./integrations/MCP_ADVANCED.md) | Advanced MCP patterns |
 | [INTEGRATIONS](./integrations/INTEGRATIONS.md) | Third-party integrations |
 | [GITHUB_PR_REVIEW](./integrations/GITHUB_PR_REVIEW.md) | PR review automation |

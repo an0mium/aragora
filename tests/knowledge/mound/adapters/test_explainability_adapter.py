@@ -325,7 +325,9 @@ class TestExplainabilityAdapterSync:
         """Test that sync_to_km calls mound.store for pending entries."""
         adapter._pending_entries.append(sample_entry)
 
-        mound = AsyncMock()
+        # Use spec=[] so hasattr(mound, "store_item") returns False,
+        # causing the adapter to fall through to mound.store.
+        mound = MagicMock(spec=[])
         mound.store = AsyncMock()
 
         result = await adapter.sync_to_km(mound)
@@ -361,7 +363,7 @@ class TestExplainabilityAdapterSync:
         """Test that sync_to_km handles store errors gracefully."""
         adapter._pending_entries.append(sample_entry)
 
-        mound = AsyncMock()
+        mound = MagicMock(spec=[])
         mound.store = AsyncMock(side_effect=RuntimeError("Store failed"))
 
         result = await adapter.sync_to_km(mound)
@@ -386,10 +388,13 @@ class TestExplainabilityAdapterSync:
         """Test that search_by_topic finds partial word matches."""
         adapter._synced_entries[sample_entry.decision_id] = sample_entry
 
-        results = await adapter.search_by_topic("design")
+        # "gateway" appears as a word in the task but the full query
+        # "gateway optimization" does not appear as a substring, triggering
+        # the word-level fallback path (similarity=0.5).
+        results = await adapter.search_by_topic("gateway optimization")
 
         assert len(results) >= 1
-        assert results[0].similarity == 0.5  # Partial match
+        assert results[0].similarity == 0.5  # Partial word match
 
     @pytest.mark.asyncio
     async def test_search_by_topic_respects_confidence(self, adapter):

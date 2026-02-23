@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..base import (
+    BaseHandler,
     HandlerResult,
     error_response,
     handle_errors,
@@ -41,39 +42,41 @@ def _evict_old_outcomes() -> None:
         _outcome_store.popitem(last=False)
 
 
-class OutcomeHandler:
-    """Handler for decision outcome tracking API endpoints."""
+def _extract_decision_id(path: str) -> str | None:
+    """Extract decision_id from a path containing /decisions/{id}/...
+
+    Walks the path segments looking for 'decisions' and returns the
+    segment immediately following it.
+    """
+    segments = path.strip("/").split("/")
+    for i, seg in enumerate(segments):
+        if seg == "decisions" and i + 1 < len(segments):
+            return segments[i + 1]
+    return None
+
+
+class OutcomeHandler(BaseHandler):
+    """Handler for decision outcome tracking API endpoints.
+
+    Provides CRUD and analytics for decision outcomes, enabling
+    closed-loop learning: decision -> action -> outcome -> next decision.
+    """
 
     ROUTES = [
-        "/api/v1/decisions/*/outcome",
-        "/api/v1/decisions/*/outcomes",
-        "/api/v1/outcomes/search",
-        "/api/v1/outcomes/impact",
-        # Legacy unversioned
-        "/api/decisions/*/outcome",
-        "/api/decisions/*/outcomes",
         "/api/outcomes/search",
         "/api/outcomes/impact",
     ]
 
-    def __init__(self, ctx: dict | None = None):
+    ROUTE_PREFIXES = [
+        "/api/v1/decisions/",
+        "/api/decisions/",
+        "/api/v1/outcomes/",
+        "/api/outcomes/",
+    ]
+
+    def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
-
-    MAX_BODY_SIZE = 1_048_576  # 1 MB
-
-    def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
-        """Read and parse JSON body from request handler."""
-        try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            if content_length <= 0:
-                return {}
-            if content_length > self.MAX_BODY_SIZE:
-                return None
-            body = handler.rfile.read(content_length)
-            return json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError, TypeError):
-            return None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given request."""
@@ -88,19 +91,27 @@ class OutcomeHandler:
         return False
 
     @require_permission("outcomes:read")
-    def handle(self, method: str, path: str, handler: Any) -> HandlerResult:
-        """Route requests to appropriate handler methods."""
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route GET requests to appropriate handler methods."""
         if "/outcomes/search" in path:
-            return self._handle_search_outcomes(handler)
+            return self._handle_search_outcomes(query_params)
         if "/outcomes/impact" in path:
-            return self._handle_impact_analytics(handler)
-        if path.rstrip("/").endswith("/outcome") and method == "POST":
-            return self._handle_record_outcome(path, handler)
-        if path.rstrip("/").endswith("/outcomes") and method == "GET":
-            return self._handle_list_outcomes(path, handler)
-        return error_response("Not found", 404)
+            return self._handle_impact_analytics()
+        if path.rstrip("/").endswith("/outcomes"):
+            return self._handle_list_outcomes(path)
+        return None
 
     @handle_errors("outcome recording")
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route POST requests."""
+        if path.rstrip("/").endswith("/outcome"):
+            return self._handle_record_outcome(path, handler)
+        return None
+
     def _handle_record_outcome(self, path: str, handler: Any) -> HandlerResult:
         """
         POST /api/v1/decisions/{id}/outcome
@@ -117,18 +128,11 @@ class OutcomeHandler:
             lessons_learned: str (optional)
             tags: list[str] (optional)
         """
-        # Extract decision_id from path
-        segments = path.strip("/").split("/")
-        decision_id = None
-        for i, seg in enumerate(segments):
-            if seg == "decisions" and i + 1 < len(segments):
-                decision_id = segments[i + 1]
-                break
-
+        decision_id = _extract_decision_id(path)
         if not decision_id:
             return error_response("Missing decision ID in path", 400)
 
-        body = self._read_json_body(handler)
+        body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
 
@@ -219,20 +223,13 @@ class OutcomeHandler:
 
     @handle_errors("outcome listing")
     @rate_limit(requests_per_minute=60)
-    def _handle_list_outcomes(self, path: str, handler: Any) -> HandlerResult:
+    def _handle_list_outcomes(self, path: str) -> HandlerResult:
         """
         GET /api/v1/decisions/{id}/outcomes
 
         List outcomes for a specific decision.
         """
-        # Extract decision_id from path
-        segments = path.strip("/").split("/")
-        decision_id = None
-        for i, seg in enumerate(segments):
-            if seg == "decisions" and i + 1 < len(segments):
-                decision_id = segments[i + 1]
-                break
-
+        decision_id = _extract_decision_id(path)
         if not decision_id:
             return error_response("Missing decision ID in path", 400)
 
@@ -248,33 +245,25 @@ class OutcomeHandler:
 
     @handle_errors("outcome search")
     @rate_limit(requests_per_minute=60)
-    def _handle_search_outcomes(self, handler: Any) -> HandlerResult:
+    def _handle_search_outcomes(self, query_params: dict[str, Any]) -> HandlerResult:
         """
         GET /api/v1/outcomes/search?q=...&tags=...&type=...&limit=50
 
         Search outcomes by topic, tags, or outcome type.
         """
-        query = ""
+        query = query_params.get("q", "")
+        tags_raw = query_params.get("tags", "")
         tags_filter: list[str] = []
-        type_filter = ""
-        limit = 50
+        if tags_raw:
+            tags_filter = [t.strip() for t in str(tags_raw).split(",") if t.strip()]
+        type_filter = query_params.get("type", "")
 
-        # Parse query params from handler
-        if hasattr(handler, "parsed_url") and hasattr(handler.parsed_url, "query"):
-            from urllib.parse import parse_qs
+        try:
+            limit = min(int(query_params.get("limit", 50)), 200)
+        except (ValueError, TypeError):
+            limit = 50
 
-            params = parse_qs(handler.parsed_url.query)
-            query = params.get("q", [""])[0]
-            tags_raw = params.get("tags", [""])[0]
-            if tags_raw:
-                tags_filter = [t.strip() for t in tags_raw.split(",") if t.strip()]
-            type_filter = params.get("type", [""])[0]
-            try:
-                limit = min(int(params.get("limit", ["50"])[0]), 200)
-            except (ValueError, TypeError):
-                limit = 50
-
-        results = []
+        results: list[dict[str, Any]] = []
         for outcome in _outcome_store.values():
             # Filter by type
             if type_filter and outcome.get("outcome_type") != type_filter:
@@ -291,7 +280,7 @@ class OutcomeHandler:
                     + " "
                     + outcome.get("lessons_learned", "")
                 ).lower()
-                if query.lower() not in searchable:
+                if str(query).lower() not in searchable:
                     continue
             results.append(outcome)
             if len(results) >= limit:
@@ -307,7 +296,7 @@ class OutcomeHandler:
 
     @handle_errors("impact analytics")
     @rate_limit(requests_per_minute=30)
-    def _handle_impact_analytics(self, handler: Any) -> HandlerResult:
+    def _handle_impact_analytics(self) -> HandlerResult:
         """
         GET /api/v1/outcomes/impact
 
