@@ -377,8 +377,10 @@ class StructuredLogger:
             record.extra_fields = kwargs
             self._logger.handle(record)
 
-    def exception(self, message: str, **kwargs: Any) -> None:
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log an exception with traceback."""
+        if args:
+            message = message % args
         self.error(message, exc_info=True, **kwargs)
 
 

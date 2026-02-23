@@ -199,7 +199,7 @@ def discover_connectors(connectors_root: Path) -> list[ConnectorRecord]:
                 )
             )
 
-    return sorted(records, key=lambda record: (record.kind, record.category, record.name))
+    return sorted(records, key=lambda record: (record.kind, record.category, record.name, record.module))
 
 
 def build_registry(connectors_root: Path) -> ConnectorRegistry:

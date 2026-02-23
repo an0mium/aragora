@@ -2,7 +2,7 @@
 
 This catalog is generated from the codebase. Do not edit by hand.
 
-_Generated: 2026-02-23T07:51:08.474960+00:00_
+_Generated: 2026-02-23T17:59:04.553814+00:00_
 
 ## Summary
 
@@ -112,8 +112,8 @@ _Generated: 2026-02-23T07:51:08.474960+00:00_
 - `GustoConnector` — `aragora.connectors.accounting.gusto`
 - `IRSConnector` — `aragora.connectors.accounting.irs`
 - `PlaidConnector` — `aragora.connectors.accounting.plaid`
-- `QuickBooksConnector` — `aragora.connectors.accounting.quickbooks`
 - `QuickBooksConnector` — `aragora.connectors.accounting.qbo`
+- `QuickBooksConnector` — `aragora.connectors.accounting.quickbooks`
 - `XeroConnector` — `aragora.connectors.accounting.xero`
 
 ### advertising

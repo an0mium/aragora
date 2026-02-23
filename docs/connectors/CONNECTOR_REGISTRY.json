@@ -503,17 +503,17 @@
     {
       "category": "accounting",
       "kind": "operational",
-      "module": "aragora.connectors.accounting.quickbooks",
+      "module": "aragora.connectors.accounting.qbo",
       "name": "QuickBooksConnector",
-      "path": "aragora/connectors/accounting/quickbooks.py",
+      "path": "aragora/connectors/accounting/qbo.py",
       "status": "implemented"
     },
     {
       "category": "accounting",
       "kind": "operational",
-      "module": "aragora.connectors.accounting.qbo",
+      "module": "aragora.connectors.accounting.quickbooks",
       "name": "QuickBooksConnector",
-      "path": "aragora/connectors/accounting/qbo.py",
+      "path": "aragora/connectors/accounting/quickbooks.py",
       "status": "implemented"
     },
     {
@@ -1013,6 +1013,6 @@
       "status": "implemented"
     }
   ],
-  "generated_at": "2026-02-23T07:51:08.474960+00:00",
+  "generated_at": "2026-02-23T17:59:04.553814+00:00",
   "total": 121
 }
