@@ -115,9 +115,11 @@ export function useCostSummary(
 }
 
 /**
- * Hook for fetching cost breakdown by provider/feature/model
+ * Hook for fetching cost breakdown by provider/feature/model.
+ * Note: This is distinct from the useCostBreakdown in useUsageDashboard
+ * which fetches from /api/v1/usage/cost-breakdown (by agent/model).
  */
-export function useCostBreakdown(
+export function useCostsBreakdown(
   timeRange: TimeRange = '30d',
   options?: UseSWRFetchOptions<{ data: CostBreakdown }>
 ) {
@@ -238,7 +240,7 @@ export function useCostForecast(options?: UseSWRFetchOptions<{ data: CostForecas
  */
 export function useCosts(timeRange: TimeRange = '30d') {
   const { summary, isLoading: summaryLoading, error: summaryError, mutate: mutateSummary } = useCostSummary(timeRange);
-  const { breakdown, isLoading: breakdownLoading, error: breakdownError } = useCostBreakdown(timeRange);
+  const { breakdown, isLoading: breakdownLoading, error: breakdownError } = useCostsBreakdown(timeRange);
   const { timeline, isLoading: timelineLoading, error: timelineError } = useCostTimeline(timeRange);
   const { alerts, isLoading: alertsLoading, error: alertsError, mutate: mutateAlerts } = useCostAlerts();
 

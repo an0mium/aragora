@@ -113,15 +113,17 @@ export function useOrchCanvas(canvasId: string | null) {
     await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
   }, [canvasId, canvasMeta]);
 
-  const executePipeline = useCallback(async () => {
-    if (!canvasId) return;
+  const executePipeline = useCallback(async (): Promise<{ pipelineId: string } | null> => {
+    if (!canvasId) return null;
     const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
     if (pipelineId) {
       await fetch('/api/v1/canvas/pipeline/run', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pipeline_id: pipelineId }),
       });
+      return { pipelineId };
     }
+    return null;
   }, [canvasId, canvasMeta]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
