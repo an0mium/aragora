@@ -32,6 +32,16 @@ jest.mock('../src/components/costs/CostSummaryWidget', () => ({
   CostSummaryWidget: () => <div data-testid="cost-summary">Cost Summary</div>,
 }));
 
+// Mock TrialStatusWidget
+jest.mock('../src/components/billing/TrialStatusWidget', () => ({
+  TrialStatusWidget: () => <div data-testid="trial-status">Trial Status</div>,
+}));
+
+// Mock TemplateMarketplace
+jest.mock('../src/components/templates/TemplateMarketplace', () => ({
+  TemplateMarketplace: () => <div data-testid="template-marketplace">Templates</div>,
+}));
+
 // Mock RightSidebarContext
 jest.mock('../src/context/RightSidebarContext', () => ({
   useRightSidebar: () => ({

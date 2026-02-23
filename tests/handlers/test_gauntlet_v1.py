@@ -223,9 +223,7 @@ class TestRfc7807Error:
         assert "instance" not in body
 
     def test_extra_fields(self):
-        result = rfc7807_error(
-            400, "Validation", "Invalid", valid_formats=["json", "csv"]
-        )
+        result = rfc7807_error(400, "Validation", "Invalid", valid_formats=["json", "csv"])
         body = _body(result)
         assert body["valid_formats"] == ["json", "csv"]
 
@@ -245,7 +243,9 @@ class TestRfc7807Error:
 
     def test_multiple_extra_fields(self):
         result = rfc7807_error(
-            400, "Err", "Err",
+            400,
+            "Err",
+            "Err",
             available_schemas=["a", "b"],
             current_status="pending",
         )
@@ -400,6 +400,7 @@ class TestRBACPermissions:
             # The handler catches UnauthorizedError, not generic Exception,
             # so let's use the correct type
             from aragora.server.handlers.utils.auth import UnauthorizedError
+
             with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
                 result = await handler.handle(
                     body=None,
@@ -415,6 +416,7 @@ class TestRBACPermissions:
     async def test_schema_handler_forbidden(self):
         handler = GauntletSchemaHandler(ctx={})
         from aragora.server.handlers.utils.auth import ForbiddenError
+
         mock_auth = AsyncMock(return_value=MagicMock())
         with patch.object(handler, "get_auth_context", mock_auth):
             with patch.object(handler, "check_permission", side_effect=ForbiddenError("no perm")):
@@ -432,6 +434,7 @@ class TestRBACPermissions:
     async def test_templates_handler_unauthorized(self):
         handler = GauntletTemplatesListHandler({})
         from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle(
                 body=None,
@@ -444,6 +447,7 @@ class TestRBACPermissions:
     async def test_export_handler_unauthorized(self):
         handler = GauntletReceiptExportHandler({})
         from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle(
                 body={"format": "json"},
@@ -457,6 +461,7 @@ class TestRBACPermissions:
     async def test_validate_handler_unauthorized(self):
         handler = GauntletValidateReceiptHandler(ctx={})
         from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle(
                 body={"receipt_id": "r-001"},
@@ -469,6 +474,7 @@ class TestRBACPermissions:
     async def test_heatmap_handler_forbidden(self):
         handler = GauntletHeatmapExportHandler({})
         from aragora.server.handlers.utils.auth import ForbiddenError
+
         mock_auth = AsyncMock(return_value=MagicMock())
         with patch.object(handler, "get_auth_context", mock_auth):
             with patch.object(handler, "check_permission", side_effect=ForbiddenError("nope")):
@@ -484,6 +490,7 @@ class TestRBACPermissions:
     async def test_all_schemas_handler_unauthorized(self):
         handler = GauntletAllSchemasHandler({})
         from aragora.server.handlers.utils.auth import UnauthorizedError
+
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle(
                 body=None,
@@ -959,7 +966,7 @@ class TestReceiptExportHandler:
     async def test_export_default_format_is_json(self, export_handler):
         receipt = _mock_receipt()
         _add_gauntlet_run("g-006", status="completed", receipt=receipt)
-        with patch("aragora.gauntlet.api.export_receipt", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_receipt", return_value="{}"):
             result = await export_handler.handle(
                 body={},
                 path_params={"gauntlet_id": "g-006"},
@@ -1036,7 +1043,7 @@ class TestReceiptExportHandler:
     async def test_export_none_body_defaults_to_json(self, export_handler):
         receipt = _mock_receipt()
         _add_gauntlet_run("g-none-body", status="completed", receipt=receipt)
-        with patch("aragora.gauntlet.api.export_receipt", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_receipt", return_value="{}"):
             result = await export_handler.handle(
                 body=None,
                 path_params={"gauntlet_id": "g-none-body"},
@@ -1047,7 +1054,7 @@ class TestReceiptExportHandler:
     async def test_export_with_options(self, export_handler):
         receipt = _mock_receipt()
         _add_gauntlet_run("g-opts", status="completed", receipt=receipt)
-        with patch("aragora.gauntlet.api.export_receipt", return_value='{}') as mock_export:
+        with patch("aragora.gauntlet.api.export_receipt", return_value="{}") as mock_export:
             result = await export_handler.handle(
                 body={
                     "format": "json",
@@ -1129,7 +1136,7 @@ class TestReceiptExportHandler:
         mock_result = MagicMock()
         mock_result.to_receipt.return_value = _mock_receipt()
         _add_gauntlet_run("g-to-receipt", status="completed", result=mock_result)
-        with patch("aragora.gauntlet.api.export_receipt", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_receipt", return_value="{}"):
             result = await export_handler.handle(
                 body={"format": "json"},
                 path_params={"gauntlet_id": "g-to-receipt"},
@@ -1161,7 +1168,7 @@ class TestReceiptExportHandler:
             "aragora.server.handlers.gauntlet._get_storage",
             return_value=mock_storage,
         ):
-            with patch("aragora.gauntlet.api.export_receipt", return_value='{}'):
+            with patch("aragora.gauntlet.api.export_receipt", return_value="{}"):
                 result = await export_handler.handle(
                     body={"format": "json"},
                     path_params={"gauntlet_id": "g-stored"},
@@ -1172,7 +1179,7 @@ class TestReceiptExportHandler:
     async def test_export_format_case_insensitive(self, export_handler):
         receipt = _mock_receipt()
         _add_gauntlet_run("g-case", status="completed", receipt=receipt)
-        with patch("aragora.gauntlet.api.export_receipt", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_receipt", return_value="{}"):
             result = await export_handler.handle(
                 body={"format": "JSON"},
                 path_params={"gauntlet_id": "g-case"},
@@ -1299,7 +1306,7 @@ class TestHeatmapExportHandler:
     async def test_export_heatmap_default_format_json(self, heatmap_handler):
         mock_heatmap = MagicMock()
         _add_gauntlet_run("g-hm-default", status="completed", heatmap=mock_heatmap)
-        with patch("aragora.gauntlet.api.export_heatmap", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_heatmap", return_value="{}"):
             result = await heatmap_handler.handle(
                 body=None,
                 path_params={"gauntlet_id": "g-hm-default"},
@@ -1368,7 +1375,7 @@ class TestHeatmapExportHandler:
         mock_heatmap = MagicMock()
         mock_result.to_heatmap.return_value = mock_heatmap
         _add_gauntlet_run("g-hm-from-result", status="completed", result=mock_result)
-        with patch("aragora.gauntlet.api.export_heatmap", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_heatmap", return_value="{}"):
             result = await heatmap_handler.handle(
                 body=None,
                 path_params={"gauntlet_id": "g-hm-from-result"},
@@ -1389,7 +1396,7 @@ class TestHeatmapExportHandler:
             "aragora.server.handlers.gauntlet._get_storage",
             return_value=mock_storage,
         ):
-            with patch("aragora.gauntlet.api.export_heatmap", return_value='{}'):
+            with patch("aragora.gauntlet.api.export_heatmap", return_value="{}"):
                 result = await heatmap_handler.handle(
                     body=None,
                     path_params={"gauntlet_id": "g-stored-hm"},
@@ -1401,7 +1408,7 @@ class TestHeatmapExportHandler:
     async def test_export_heatmap_format_case_insensitive(self, heatmap_handler):
         mock_heatmap = MagicMock()
         _add_gauntlet_run("g-hm-case", status="completed", heatmap=mock_heatmap)
-        with patch("aragora.gauntlet.api.export_heatmap", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_heatmap", return_value="{}"):
             result = await heatmap_handler.handle(
                 body=None,
                 path_params={"gauntlet_id": "g-hm-case"},
@@ -1413,7 +1420,7 @@ class TestHeatmapExportHandler:
     async def test_export_heatmap_none_query_params(self, heatmap_handler):
         mock_heatmap = MagicMock()
         _add_gauntlet_run("g-hm-nq", status="completed", heatmap=mock_heatmap)
-        with patch("aragora.gauntlet.api.export_heatmap", return_value='{}'):
+        with patch("aragora.gauntlet.api.export_heatmap", return_value="{}"):
             result = await heatmap_handler.handle(
                 body=None,
                 path_params={"gauntlet_id": "g-hm-nq"},

@@ -72,11 +72,11 @@ describe('UserMenu', () => {
   });
 
   describe('unauthenticated state', () => {
-    it('shows login and register links when not authenticated', () => {
+    it('shows login and sign up links when not authenticated', () => {
       render(<UserMenu />);
 
       expect(screen.getByRole('link', { name: /login/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /register/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /sign up/i })).toBeInTheDocument();
     });
 
     it('login link points to /auth/login', () => {
@@ -86,11 +86,11 @@ describe('UserMenu', () => {
       expect(loginLink).toHaveAttribute('href', '/auth/login');
     });
 
-    it('register link points to /auth/register', () => {
+    it('sign up link points to /signup', () => {
       render(<UserMenu />);
 
-      const registerLink = screen.getByRole('link', { name: /register/i });
-      expect(registerLink).toHaveAttribute('href', '/auth/register');
+      const signUpLink = screen.getByRole('link', { name: /sign up/i });
+      expect(signUpLink).toHaveAttribute('href', '/signup');
     });
   });
 

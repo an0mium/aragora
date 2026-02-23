@@ -535,7 +535,8 @@ class TestSuccessSummary:
     def test_headline_with_positive_savings(self, handler):
         """When net savings > 0, headline shows savings amount."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=200,
+            total_cost_usd="10.00",
+            total_api_calls=200,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success", {}, h)
@@ -547,7 +548,8 @@ class TestSuccessSummary:
     def test_headline_with_zero_debates(self, handler):
         """When no savings, headline shows debate count."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success", {}, h)
@@ -681,7 +683,8 @@ class TestCFOView:
     def test_cost_per_decision_zero_debates(self, handler):
         """When 0 debates, cost_per_decision should be 0."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/cfo", {}, h)
@@ -771,9 +774,7 @@ class TestPMView:
         result = handler.handle("/api/v1/sme/success/pm", {}, h)
         body = _body(result)
         vel = body["pm_view"]["velocity"]
-        assert vel["time_to_consensus_minutes"] == round(
-            vel["avg_decision_time_minutes"] * 0.8, 1
-        )
+        assert vel["time_to_consensus_minutes"] == round(vel["avg_decision_time_minutes"] * 0.8, 1)
 
     def test_headline_contains_decisions_and_rate(self, handler):
         h = _make_handler()
@@ -899,7 +900,8 @@ class TestMilestones:
     def test_earned_sorted_by_threshold_desc(self, handler):
         """Earned milestones should be sorted by threshold descending."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="1000.00", total_api_calls=5000,
+            total_cost_usd="1000.00",
+            total_api_calls=5000,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/milestones", {}, h)
@@ -927,7 +929,8 @@ class TestMilestones:
     def test_earned_has_earned_date(self, handler):
         """Each earned milestone should have an earned_date."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="100.00", total_api_calls=500,
+            total_cost_usd="100.00",
+            total_api_calls=500,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/milestones", {}, h)
@@ -971,7 +974,8 @@ class TestMilestones:
     def test_first_debate_earned_with_debates(self, handler):
         """first_debate milestone (threshold=1) should be earned if debates > 0."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=100,
+            total_cost_usd="10.00",
+            total_api_calls=100,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/milestones", {}, h)
@@ -982,7 +986,8 @@ class TestMilestones:
     def test_zero_debates_no_milestones_earned(self, handler):
         """With zero debates, debate milestones should not be earned."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/milestones", {}, h)
@@ -1021,7 +1026,8 @@ class TestInsights:
     def test_getting_started_insight_when_zero_debates(self, handler):
         """When 0 debates, should get getting_started insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1032,7 +1038,8 @@ class TestInsights:
     def test_engagement_insight_for_few_debates(self, handler):
         """When 1-4 debates, should get engagement insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="5.00", total_api_calls=30,
+            total_cost_usd="5.00",
+            total_api_calls=30,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1044,7 +1051,8 @@ class TestInsights:
         """When ROI > 100%, should get success insight."""
         # High API calls to generate large ROI
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="1.00", total_api_calls=5000,
+            total_cost_usd="1.00",
+            total_api_calls=5000,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1055,7 +1063,8 @@ class TestInsights:
     def test_optimization_insight_for_positive_roi(self, handler):
         """When 0 < ROI < 100%, should get optimization insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="50.00", total_api_calls=500,
+            total_cost_usd="50.00",
+            total_api_calls=500,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1067,7 +1076,8 @@ class TestInsights:
     def test_path_to_roi_insight_for_negative_roi(self, handler):
         """When ROI < 0 and debates > 0, should get path to positive ROI insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10000.00", total_api_calls=100,
+            total_cost_usd="10000.00",
+            total_api_calls=100,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1078,7 +1088,8 @@ class TestInsights:
     def test_celebration_insight_for_large_time_savings(self, handler):
         """When hours_saved > 10, should get celebration insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=10000,
+            total_cost_usd="10.00",
+            total_api_calls=10000,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1088,7 +1099,8 @@ class TestInsights:
 
     def test_insight_structure(self, handler):
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success/insights", {}, h)
@@ -1104,7 +1116,8 @@ class TestInsights:
     def test_consensus_quality_insight_low_rate(self, handler):
         """When consensus rate < 70% and debates > 5, should get quality insight."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=1000,
+            total_cost_usd="10.00",
+            total_api_calls=1000,
         )
         # Patch consensus to return a low rate
         with patch(
@@ -1128,7 +1141,8 @@ class TestSuccessMetrics:
 
     def test_zero_api_calls_zero_debates(self, handler):
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=0,
+            total_cost_usd="0",
+            total_api_calls=0,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1138,7 +1152,8 @@ class TestSuccessMetrics:
     def test_debates_estimated_from_api_calls(self, handler):
         """Without analytics, debates = max(1, api_calls // 10)."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=100,
+            total_cost_usd="10.00",
+            total_api_calls=100,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1147,7 +1162,8 @@ class TestSuccessMetrics:
     def test_consensus_streak_capped(self, handler):
         """consensus_streak = min(debates, 5)."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="10.00", total_api_calls=30,
+            total_cost_usd="10.00",
+            total_api_calls=30,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1156,7 +1172,8 @@ class TestSuccessMetrics:
     def test_positive_net_savings(self, handler):
         """With low cost and many debates, net savings should be positive."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="5.00", total_api_calls=1000,
+            total_cost_usd="5.00",
+            total_api_calls=1000,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1166,7 +1183,8 @@ class TestSuccessMetrics:
     def test_roi_zero_when_no_cost(self, handler):
         """When total_cost is 0, ROI should be 0 (avoid division by zero)."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="0", total_api_calls=100,
+            total_cost_usd="0",
+            total_api_calls=100,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1202,7 +1220,8 @@ class TestSuccessMetrics:
     def test_minutes_saved_non_negative(self, handler):
         """minutes_saved should always be >= 0."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="100.00", total_api_calls=50,
+            total_cost_usd="100.00",
+            total_api_calls=50,
         )
         now = datetime.now(timezone.utc)
         metrics = handler._calculate_success_metrics("org-001", now, now)
@@ -1281,9 +1300,7 @@ class TestGetRealConsensusRate:
     def test_handles_value_error(self):
         """When rate can't be parsed, return default."""
         mock_store = MagicMock()
-        mock_store.get_consensus_stats.return_value = {
-            "overall_consensus_rate": "bad-data%"
-        }
+        mock_store.get_consensus_stats.return_value = {"overall_consensus_rate": "bad-data%"}
 
         with patch(
             "aragora.memory.debate_store.get_debate_store",
@@ -1447,7 +1464,8 @@ class TestEdgeCases:
     def test_large_debate_count(self, handler):
         """Handler should not crash with very large debate counts."""
         handler._get_cost_tracker.return_value = MockCostTracker(
-            total_cost_usd="1000.00", total_api_calls=100000,
+            total_cost_usd="1000.00",
+            total_api_calls=100000,
         )
         h = _make_handler()
         result = handler.handle("/api/v1/sme/success", {}, h)
@@ -1476,8 +1494,14 @@ class TestCrossEndpointConsistency:
         r3 = handler.handle("/api/v1/sme/success/hr", {}, h3)
         b3 = _body(r3)
 
-        assert b1["success"]["key_metrics"]["consensus_rate"] == b2["pm_view"]["quality"]["consensus_rate_percent"]
-        assert b1["success"]["key_metrics"]["consensus_rate"] == b3["hr_view"]["alignment"]["consensus_rate_percent"]
+        assert (
+            b1["success"]["key_metrics"]["consensus_rate"]
+            == b2["pm_view"]["quality"]["consensus_rate_percent"]
+        )
+        assert (
+            b1["success"]["key_metrics"]["consensus_rate"]
+            == b3["hr_view"]["alignment"]["consensus_rate_percent"]
+        )
 
     def test_total_debates_consistent(self, handler):
         """Total debates should be the same across views."""
@@ -1489,7 +1513,10 @@ class TestCrossEndpointConsistency:
         r2 = handler.handle("/api/v1/sme/success/pm", {}, h2)
         b2 = _body(r2)
 
-        assert b1["success"]["key_metrics"]["decisions_made"] == b2["pm_view"]["velocity"]["total_decisions"]
+        assert (
+            b1["success"]["key_metrics"]["decisions_made"]
+            == b2["pm_view"]["velocity"]["total_decisions"]
+        )
 
     def test_hours_saved_consistent(self, handler):
         """Hours saved should be consistent between summary and HR views."""
@@ -1501,7 +1528,10 @@ class TestCrossEndpointConsistency:
         r2 = handler.handle("/api/v1/sme/success/hr", {}, h2)
         b2 = _body(r2)
 
-        assert b1["success"]["key_metrics"]["time_saved_hours"] == b2["hr_view"]["time_impact"]["hours_saved_total"]
+        assert (
+            b1["success"]["key_metrics"]["time_saved_hours"]
+            == b2["hr_view"]["time_impact"]["hours_saved_total"]
+        )
 
 
 # ============================================================================

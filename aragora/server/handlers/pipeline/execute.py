@@ -73,9 +73,7 @@ class PipelineExecuteHandler(BaseHandler):
         return None
 
     @require_permission("pipeline:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """GET /api/v1/pipeline/:pipeline_id/execute — execution status."""
         pipeline_id = self._extract_pipeline_id(path)
         if not pipeline_id:
@@ -115,9 +113,7 @@ class PipelineExecuteHandler(BaseHandler):
         # Load orchestration nodes from the pipeline graph
         orch_nodes = self._load_orchestration_nodes(pipeline_id)
         if not orch_nodes:
-            return error_response(
-                "No orchestration nodes found in pipeline", 404
-            )
+            return error_response("No orchestration nodes found in pipeline", 404)
 
         # Convert to goals
         goals = self._convert_to_goals(orch_nodes, pipeline_id)
@@ -177,9 +173,7 @@ class PipelineExecuteHandler(BaseHandler):
             logger.warning("Failed to load orchestration nodes: %s", type(e).__name__)
             return []
 
-    def _convert_to_goals(
-        self, orch_nodes: list[dict[str, Any]], pipeline_id: str
-    ) -> list[Any]:
+    def _convert_to_goals(self, orch_nodes: list[dict[str, Any]], pipeline_id: str) -> list[Any]:
         """Convert orchestration nodes to PrioritizedGoal objects."""
         from aragora.nomic.meta_planner import PrioritizedGoal, Track
 
@@ -200,16 +194,18 @@ class PipelineExecuteHandler(BaseHandler):
             }
             track = track_map.get(orch_type, Track.CORE)
 
-            goals.append(PrioritizedGoal(
-                id=f"pipe-goal-{pipeline_id[:8]}-{i}",
-                track=track,
-                description=label,
-                rationale=f"From pipeline {pipeline_id} orchestration node {node.get('id', i)}",
-                estimated_impact="medium",
-                priority=i,
-                focus_areas=[orch_type],
-                file_hints=[],
-            ))
+            goals.append(
+                PrioritizedGoal(
+                    id=f"pipe-goal-{pipeline_id[:8]}-{i}",
+                    track=track,
+                    description=label,
+                    rationale=f"From pipeline {pipeline_id} orchestration node {node.get('id', i)}",
+                    estimated_impact="medium",
+                    priority=i,
+                    focus_areas=[orch_type],
+                    file_hints=[],
+                )
+            )
 
         return goals
 
@@ -237,13 +233,15 @@ class PipelineExecuteHandler(BaseHandler):
             pipeline = SelfImprovePipeline(config=config)
             result = await pipeline.run(combined_goal)
 
-            _executions[pipeline_id].update({
-                "status": "completed" if result.subtasks_completed > 0 else "failed",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-                "total_subtasks": result.subtasks_total,
-                "completed_subtasks": result.subtasks_completed,
-                "failed_subtasks": result.subtasks_failed,
-            })
+            _executions[pipeline_id].update(
+                {
+                    "status": "completed" if result.subtasks_completed > 0 else "failed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "total_subtasks": result.subtasks_total,
+                    "completed_subtasks": result.subtasks_completed,
+                    "failed_subtasks": result.subtasks_failed,
+                }
+            )
 
             # Generate provenance receipt
             try:
@@ -254,23 +252,29 @@ class PipelineExecuteHandler(BaseHandler):
                 logger.debug("Receipt generation skipped: %s", type(e).__name__)
 
         except asyncio.CancelledError:
-            _executions[pipeline_id].update({
-                "status": "cancelled",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-            })
+            _executions[pipeline_id].update(
+                {
+                    "status": "cancelled",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         except ImportError:
             logger.debug("SelfImprovePipeline not available")
-            _executions[pipeline_id].update({
-                "status": "failed",
-                "error": "Self-improvement pipeline not available",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-            })
+            _executions[pipeline_id].update(
+                {
+                    "status": "failed",
+                    "error": "Self-improvement pipeline not available",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error("Pipeline execution failed: %s", type(e).__name__)
-            _executions[pipeline_id].update({
-                "status": "failed",
-                "error": "Pipeline execution failed",
-                "completed_at": datetime.now(timezone.utc).isoformat(),
-            })
+            _executions[pipeline_id].update(
+                {
+                    "status": "failed",
+                    "error": "Pipeline execution failed",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         finally:
             _execution_tasks.pop(pipeline_id, None)

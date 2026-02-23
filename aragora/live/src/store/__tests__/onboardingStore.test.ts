@@ -329,7 +329,7 @@ describe('onboardingStore', () => {
       });
 
       const state = useOnboardingStore.getState();
-      expect(state.stepsCompleted.size).toBe(5); // All 5 steps in STEP_ORDER
+      expect(state.stepsCompleted.size).toBe(8); // All 8 steps in STEP_ORDER
     });
 
     it('skipOnboarding sets skipped state', () => {
@@ -391,13 +391,13 @@ describe('onboardingStore', () => {
           useOnboardingStore.getState().setCurrentStep('launch');
         });
 
-        expect(selectCurrentStepIndex(useOnboardingStore.getState())).toBe(4);
+        expect(selectCurrentStepIndex(useOnboardingStore.getState())).toBe(7);
       });
     });
 
     describe('selectTotalSteps', () => {
-      it('returns 5 total steps', () => {
-        expect(selectTotalSteps()).toBe(5);
+      it('returns 8 total steps', () => {
+        expect(selectTotalSteps()).toBe(8);
       });
     });
 
@@ -478,8 +478,8 @@ describe('onboardingStore', () => {
           useOnboardingStore.getState().markStepComplete('try-debate');
         });
 
-        // 2/5 = 40%
-        expect(selectProgressPercentage(useOnboardingStore.getState())).toBe(40);
+        // 2/8 = 25%
+        expect(selectProgressPercentage(useOnboardingStore.getState())).toBe(25);
       });
 
       it('returns 100 when all steps completed', () => {

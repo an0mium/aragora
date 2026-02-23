@@ -74,9 +74,7 @@ class MockHTTPHandler:
             self.headers = {"Content-Length": "2"}
 
 
-def _make_handler(
-    body: dict[str, Any] | None = None, method: str = "GET"
-) -> MockHTTPHandler:
+def _make_handler(body: dict[str, Any] | None = None, method: str = "GET") -> MockHTTPHandler:
     """Create a MockHTTPHandler with optional body and method."""
     h = MockHTTPHandler(body=body)
     h.command = method
@@ -440,9 +438,7 @@ class TestRateLimiting:
         handler.get_elo_system = MagicMock(return_value=mock_elo)
 
         # Exhaust the rate limiter via patch (auto-restores on exit)
-        with patch.object(
-            mod._analytics_performance_limiter, "is_allowed", return_value=False
-        ):
+        with patch.object(mod._analytics_performance_limiter, "is_allowed", return_value=False):
             h = _make_handler()
             result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
             assert _status(result) == 429
@@ -466,7 +462,8 @@ class TestRBACEnforcement:
         h.auth_context = MagicMock()
 
         denied = AuthorizationDecision(
-            allowed=False, reason="no permission",
+            allowed=False,
+            reason="no permission",
             permission_key=PERM_ANALYTICS_PERFORMANCE,
         )
 
@@ -478,16 +475,16 @@ class TestRBACEnforcement:
                 "aragora.server.handlers.analytics_performance.RBAC_AVAILABLE",
                 True,
             ):
-                result = handler.handle(
-                    "/api/v1/analytics/agents/performance", {}, h
-                )
+                result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
                 assert result is not None
                 assert _status(result) == 403
                 body = _body(result)
                 err = body.get("error", "")
                 if isinstance(err, dict):
-                    assert err.get("code") == "PERMISSION_DENIED" or \
-                        "permission denied" in err.get("message", "").lower()
+                    assert (
+                        err.get("code") == "PERMISSION_DENIED"
+                        or "permission denied" in err.get("message", "").lower()
+                    )
                 else:
                     assert "permission denied" in err.lower()
 
@@ -508,9 +505,7 @@ class TestRBACEnforcement:
                 "aragora.server.handlers.analytics_performance.rbac_fail_closed",
                 return_value=False,
             ):
-                result = handler.handle(
-                    "/api/v1/analytics/agents/performance", {}, h
-                )
+                result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
                 assert result is not None
                 assert _status(result) == 200
 
@@ -527,9 +522,7 @@ class TestRBACEnforcement:
                 "aragora.server.handlers.analytics_performance.rbac_fail_closed",
                 return_value=True,
             ):
-                result = handler.handle(
-                    "/api/v1/analytics/agents/performance", {}, h
-                )
+                result = handler.handle("/api/v1/analytics/agents/performance", {}, h)
                 assert result is not None
                 assert _status(result) == 503
                 body = _body(result)
@@ -562,9 +555,7 @@ class TestAgentsPerformance:
         handler.get_elo_system = MagicMock(return_value=None)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/agents/performance", {"time_range": "7d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/agents/performance", {"time_range": "7d"}, h)
         body = _body(result)
         assert body["time_range"] == "7d"
 
@@ -601,12 +592,15 @@ class TestAgentsPerformance:
 
     def test_multiple_agents_ranking(self, handler):
         agents = [
-            MockAgentRating("claude", elo=1700, win_rate=0.80, games_played=200,
-                            wins=160, losses=30, draws=10),
-            MockAgentRating("gemini", elo=1600, win_rate=0.65, games_played=150,
-                            wins=97, losses=43, draws=10),
-            MockAgentRating("grok", elo=1500, win_rate=0.50, games_played=100,
-                            wins=50, losses=40, draws=10),
+            MockAgentRating(
+                "claude", elo=1700, win_rate=0.80, games_played=200, wins=160, losses=30, draws=10
+            ),
+            MockAgentRating(
+                "gemini", elo=1600, win_rate=0.65, games_played=150, wins=97, losses=43, draws=10
+            ),
+            MockAgentRating(
+                "grok", elo=1500, win_rate=0.50, games_played=100, wins=50, losses=40, draws=10
+            ),
         ]
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = agents
@@ -622,10 +616,12 @@ class TestAgentsPerformance:
 
     def test_summary_calculations(self, handler):
         agents = [
-            MockAgentRating("a1", elo=1600, win_rate=0.80, games_played=100,
-                            wins=80, losses=15, draws=5),
-            MockAgentRating("a2", elo=1400, win_rate=0.60, games_played=200,
-                            wins=120, losses=70, draws=10),
+            MockAgentRating(
+                "a1", elo=1600, win_rate=0.80, games_played=100, wins=80, losses=15, draws=5
+            ),
+            MockAgentRating(
+                "a2", elo=1400, win_rate=0.60, games_played=200, wins=120, losses=70, draws=10
+            ),
         ]
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = agents
@@ -718,9 +714,7 @@ class TestAgentsPerformance:
     def test_invalid_time_range_defaults_to_30d(self, handler):
         handler.get_elo_system = MagicMock(return_value=None)
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/agents/performance", {"time_range": "999d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/agents/performance", {"time_range": "999d"}, h)
         body = _body(result)
         assert body["time_range"] == "30d"
 
@@ -728,9 +722,7 @@ class TestAgentsPerformance:
         handler.get_elo_system = MagicMock(return_value=None)
         for tr in VALID_TIME_RANGES:
             h = _make_handler()
-            result = handler.handle(
-                "/api/v1/analytics/agents/performance", {"time_range": tr}, h
-            )
+            result = handler.handle("/api/v1/analytics/agents/performance", {"time_range": tr}, h)
             body = _body(result)
             assert body["time_range"] == tr
 
@@ -751,9 +743,7 @@ class TestAgentsPerformance:
         handler.get_elo_system = MagicMock(return_value=mock_elo)
 
         h = _make_handler()
-        handler.handle(
-            "/api/v1/analytics/agents/performance", {"limit": "50"}, h
-        )
+        handler.handle("/api/v1/analytics/agents/performance", {"limit": "50"}, h)
         mock_elo.get_leaderboard.assert_called_once_with(limit=50)
 
     def test_limit_default_is_20(self, handler):
@@ -771,9 +761,7 @@ class TestAgentsPerformance:
         handler.get_elo_system = MagicMock(return_value=mock_elo)
 
         h = _make_handler()
-        handler.handle(
-            "/api/v1/analytics/agents/performance", {"limit": "500"}, h
-        )
+        handler.handle("/api/v1/analytics/agents/performance", {"limit": "500"}, h)
         mock_elo.get_leaderboard.assert_called_once_with(limit=100)
 
     def test_generated_at_present(self, handler):
@@ -879,14 +867,28 @@ class TestDebatesSummary:
         now = datetime.now(timezone.utc)
         debates = [
             _make_debate(
-                "d1", consensus_reached=True, created_at=now,
-                result={"outcome_type": "consensus", "rounds_used": 3,
-                        "confidence": 0.9, "domain": "security", "duration_seconds": 30},
+                "d1",
+                consensus_reached=True,
+                created_at=now,
+                result={
+                    "outcome_type": "consensus",
+                    "rounds_used": 3,
+                    "confidence": 0.9,
+                    "domain": "security",
+                    "duration_seconds": 30,
+                },
             ),
             _make_debate(
-                "d2", consensus_reached=False, created_at=now,
-                result={"outcome_type": "dissent", "rounds_used": 5,
-                        "confidence": 0.3, "domain": "general", "duration_seconds": 60},
+                "d2",
+                consensus_reached=False,
+                created_at=now,
+                result={
+                    "outcome_type": "dissent",
+                    "rounds_used": 5,
+                    "confidence": 0.3,
+                    "domain": "general",
+                    "duration_seconds": 60,
+                },
             ),
         ]
         mock_storage = MagicMock()
@@ -904,19 +906,40 @@ class TestDebatesSummary:
         now = datetime.now(timezone.utc)
         debates = [
             _make_debate(
-                "d1", consensus_reached=True, created_at=now,
-                result={"outcome_type": "", "rounds_used": 3,
-                        "confidence": 0.9, "domain": "sec", "duration_seconds": 30},
+                "d1",
+                consensus_reached=True,
+                created_at=now,
+                result={
+                    "outcome_type": "",
+                    "rounds_used": 3,
+                    "confidence": 0.9,
+                    "domain": "sec",
+                    "duration_seconds": 30,
+                },
             ),
             _make_debate(
-                "d2", consensus_reached=True, created_at=now,
-                result={"outcome_type": "", "rounds_used": 3,
-                        "confidence": 0.5, "domain": "sec", "duration_seconds": 30},
+                "d2",
+                consensus_reached=True,
+                created_at=now,
+                result={
+                    "outcome_type": "",
+                    "rounds_used": 3,
+                    "confidence": 0.5,
+                    "domain": "sec",
+                    "duration_seconds": 30,
+                },
             ),
             _make_debate(
-                "d3", consensus_reached=False, created_at=now,
-                result={"outcome_type": "", "rounds_used": 5,
-                        "confidence": 0.3, "domain": "sec", "duration_seconds": 60},
+                "d3",
+                consensus_reached=False,
+                created_at=now,
+                result={
+                    "outcome_type": "",
+                    "rounds_used": 5,
+                    "confidence": 0.3,
+                    "domain": "sec",
+                    "duration_seconds": 60,
+                },
             ),
         ]
         mock_storage = MagicMock()
@@ -927,7 +950,7 @@ class TestDebatesSummary:
         result = handler.handle("/api/v1/analytics/debates/summary", {}, h)
         body = _body(result)
         assert body["by_outcome"]["consensus"] == 1  # confidence >= 0.8
-        assert body["by_outcome"]["majority"] == 1   # consensus but confidence < 0.8
+        assert body["by_outcome"]["majority"] == 1  # consensus but confidence < 0.8
         assert body["by_outcome"]["no_resolution"] == 1
 
     def test_domain_stats_calculated(self, handler):
@@ -963,9 +986,7 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "7d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "7d"}, h)
         body = _body(result)
         assert body["total_debates"] == 1  # Only recent debate
 
@@ -981,18 +1002,14 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "all"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "all"}, h)
         body = _body(result)
         assert body["total_debates"] == 2
 
     def test_invalid_time_range_defaults(self, handler):
         handler.get_storage = MagicMock(return_value=None)
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "badvalue"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "badvalue"}, h)
         body = _body(result)
         assert body["time_range"] == "30d"
 
@@ -1002,9 +1019,7 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        handler.handle(
-            "/api/v1/analytics/debates/summary", {"org_id": "org-456"}, h
-        )
+        handler.handle("/api/v1/analytics/debates/summary", {"org_id": "org-456"}, h)
         mock_storage.list_debates.assert_called_once_with(limit=10000, org_id="org-456")
 
     def test_org_id_in_response(self, handler):
@@ -1013,23 +1028,35 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"org_id": "org-456"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"org_id": "org-456"}, h)
         body = _body(result)
         assert body["org_id"] == "org-456"
 
     def test_avg_confidence_calculation(self, handler):
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.9,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 10,
-            }),
-            _make_debate("d2", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.7,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 10,
-            }),
+            _make_debate(
+                "d1",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.9,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 10,
+                },
+            ),
+            _make_debate(
+                "d2",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.7,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 10,
+                },
+            ),
         ]
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = debates
@@ -1043,14 +1070,28 @@ class TestDebatesSummary:
     def test_avg_duration_calculation(self, handler):
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.9,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 30,
-            }),
-            _make_debate("d2", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.7,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 60,
-            }),
+            _make_debate(
+                "d1",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.9,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 30,
+                },
+            ),
+            _make_debate(
+                "d2",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.7,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 60,
+                },
+            ),
         ]
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = debates
@@ -1077,9 +1118,7 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "30d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "30d"}, h)
         body = _body(result)
         assert 14 in body["peak_hours"]
 
@@ -1090,8 +1129,11 @@ class TestDebatesSummary:
             "debate_id": "d1",
             "consensus_reached": True,
             "result": {
-                "rounds_used": 3, "confidence": 0.9,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 30,
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+                "duration_seconds": 30,
             },
             "agents": ["claude"],
             "created_at": now,  # datetime object, not string
@@ -1110,8 +1152,13 @@ class TestDebatesSummary:
         debate = {
             "debate_id": "d1",
             "consensus_reached": True,
-            "result": {"rounds_used": 3, "confidence": 0.9, "domain": "sec",
-                        "outcome_type": "consensus", "duration_seconds": 30},
+            "result": {
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+                "duration_seconds": 30,
+            },
             "agents": ["claude"],
             "created_at": "not-a-date",
         }
@@ -1120,9 +1167,7 @@ class TestDebatesSummary:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "7d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "7d"}, h)
         body = _body(result)
         assert body["total_debates"] == 0
 
@@ -1135,8 +1180,11 @@ class TestDebatesSummary:
                 self.debate_id = "d1"
                 self.consensus_reached = True
                 self.result = {
-                    "rounds_used": 3, "confidence": 0.8, "domain": "sec",
-                    "outcome_type": "consensus", "duration_seconds": 30,
+                    "rounds_used": 3,
+                    "confidence": 0.8,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 30,
                 }
                 self.agents = ["claude", "gemini"]
                 self.created_at = now.isoformat()
@@ -1155,14 +1203,28 @@ class TestDebatesSummary:
         """Debates with confidence=0 should not count in avg_confidence."""
         now = datetime.now(timezone.utc)
         debates = [
-            _make_debate("d1", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.0,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 10,
-            }),
-            _make_debate("d2", created_at=now, result={
-                "rounds_used": 3, "confidence": 0.8,
-                "domain": "sec", "outcome_type": "consensus", "duration_seconds": 10,
-            }),
+            _make_debate(
+                "d1",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.0,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 10,
+                },
+            ),
+            _make_debate(
+                "d2",
+                created_at=now,
+                result={
+                    "rounds_used": 3,
+                    "confidence": 0.8,
+                    "domain": "sec",
+                    "outcome_type": "consensus",
+                    "duration_seconds": 10,
+                },
+            ),
         ]
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = debates
@@ -1214,9 +1276,7 @@ class TestGeneralTrends:
     def test_invalid_granularity_defaults_to_daily(self, handler):
         handler.get_storage = MagicMock(return_value=None)
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"granularity": "hourly"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"granularity": "hourly"}, h)
         body = _body(result)
         assert body["granularity"] == "daily"
 
@@ -1228,9 +1288,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"granularity": "weekly"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"granularity": "weekly"}, h)
         body = _body(result)
         assert body["granularity"] == "weekly"
         if body["data_points"]:
@@ -1244,9 +1302,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"granularity": "monthly"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"granularity": "monthly"}, h)
         body = _body(result)
         assert body["granularity"] == "monthly"
         if body["data_points"]:
@@ -1283,9 +1339,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "debates"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "debates"}, h)
         body = _body(result)
         if body["data_points"]:
             point = body["data_points"][0]
@@ -1300,9 +1354,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "agents"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "agents"}, h)
         body = _body(result)
         if body["data_points"]:
             point = body["data_points"][0]
@@ -1318,9 +1370,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "tokens"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "tokens"}, h)
         body = _body(result)
         if body["data_points"]:
             point = body["data_points"][0]
@@ -1356,9 +1406,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"time_range": "7d"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"time_range": "7d"}, h)
         body = _body(result)
         assert len(body["data_points"]) == 1
 
@@ -1368,9 +1416,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        handler.handle(
-            "/api/v1/analytics/trends", {"org_id": "org-789"}, h
-        )
+        handler.handle("/api/v1/analytics/trends", {"org_id": "org-789"}, h)
         mock_storage.list_debates.assert_called_once_with(limit=10000, org_id="org-789")
 
     def test_org_id_in_response(self, handler):
@@ -1379,9 +1425,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"org_id": "org-789"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"org_id": "org-789"}, h)
         body = _body(result)
         assert body["org_id"] == "org-789"
 
@@ -1393,9 +1437,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "agents"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "agents"}, h)
         body = _body(result)
         if body["data_points"]:
             assert body["data_points"][0]["active_agents"] == 2
@@ -1409,9 +1451,7 @@ class TestGeneralTrends:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "agents"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "agents"}, h)
         body = _body(result)
         if body["data_points"]:
             assert body["data_points"][0]["active_agents"] == 2
@@ -1420,8 +1460,13 @@ class TestGeneralTrends:
         debate = {
             "debate_id": "d1",
             "consensus_reached": True,
-            "result": {"rounds_used": 3, "confidence": 0.9, "domain": "sec",
-                        "outcome_type": "consensus", "duration_seconds": 30},
+            "result": {
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+                "duration_seconds": 30,
+            },
             "agents": ["claude"],
             "created_at": "not-a-date",
         }
@@ -1604,8 +1649,13 @@ class TestEdgeCases:
         debate = {
             "debate_id": "d1",
             "consensus_reached": True,
-            "result": {"rounds_used": 3, "confidence": 0.9, "domain": "sec",
-                        "outcome_type": "consensus", "duration_seconds": 30},
+            "result": {
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+                "duration_seconds": 30,
+            },
             "agents": "claude,gemini",
             "created_at": now.isoformat(),
         }
@@ -1624,8 +1674,13 @@ class TestEdgeCases:
         debate = {
             "debate_id": "d1",
             "consensus_reached": True,
-            "result": {"rounds_used": 3, "confidence": 0.9, "domain": "sec",
-                        "outcome_type": "consensus", "duration_seconds": 30},
+            "result": {
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+                "duration_seconds": 30,
+            },
             "agents": ["claude"],
             "created_at": "2026-02-20T12:00:00Z",
         }
@@ -1634,9 +1689,7 @@ class TestEdgeCases:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/debates/summary", {"time_range": "all"}, h
-        )
+        result = handler.handle("/api/v1/analytics/debates/summary", {"time_range": "all"}, h)
         body = _body(result)
         assert body["total_debates"] == 1
 
@@ -1650,9 +1703,7 @@ class TestEdgeCases:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "agents"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "agents"}, h)
         body = _body(result)
         if body["data_points"]:
             # Only "claude" has a name, "a1" has no name key
@@ -1661,10 +1712,7 @@ class TestEdgeCases:
     def test_large_number_of_debates(self, handler):
         """Ensure performance with many debates."""
         now = datetime.now(timezone.utc)
-        debates = [
-            _make_debate(f"d{i}", created_at=now - timedelta(hours=i))
-            for i in range(100)
-        ]
+        debates = [_make_debate(f"d{i}", created_at=now - timedelta(hours=i)) for i in range(100)]
         mock_storage = MagicMock()
         mock_storage.list_debates.return_value = debates
         handler.get_storage = MagicMock(return_value=mock_storage)
@@ -1698,8 +1746,12 @@ class TestEdgeCases:
         debate = {
             "debate_id": "d1",
             "consensus_reached": True,
-            "result": {"rounds_used": 3, "confidence": 0.9, "domain": "sec",
-                        "outcome_type": "consensus"},
+            "result": {
+                "rounds_used": 3,
+                "confidence": 0.9,
+                "domain": "sec",
+                "outcome_type": "consensus",
+            },
             "agents": ["claude"],
             "created_at": now.isoformat(),
         }
@@ -1742,9 +1794,7 @@ class TestEdgeCases:
         handler.get_storage = MagicMock(return_value=mock_storage)
 
         h = _make_handler()
-        result = handler.handle(
-            "/api/v1/analytics/trends", {"metrics": "consensus"}, h
-        )
+        result = handler.handle("/api/v1/analytics/trends", {"metrics": "consensus"}, h)
         body = _body(result)
         if body["data_points"]:
             point = body["data_points"][0]

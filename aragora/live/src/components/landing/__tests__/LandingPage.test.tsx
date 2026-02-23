@@ -43,6 +43,10 @@ jest.mock('../Footer', () => ({
   Footer: () => <footer data-testid="footer">Footer</footer>,
 }));
 
+jest.mock('../PricingSection', () => ({
+  PricingSection: () => <section data-testid="pricing-section">Pricing</section>,
+}));
+
 describe('LandingPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
