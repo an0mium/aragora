@@ -95,7 +95,10 @@ SYSTEM_ENDPOINTS = {
                 "200": _ok_response(
                     "Nomic health status",
                     {
-                        "status": {"type": ["string", "null"], "enum": ["healthy", "stalled", "degraded"]},
+                        "status": {
+                            "type": ["string", "null"],
+                            "enum": ["healthy", "stalled", "degraded"],
+                        },
                         "last_activity": {"type": ["string", "null"], "format": "date-time"},
                     },
                 )

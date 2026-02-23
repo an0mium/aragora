@@ -2477,6 +2477,9 @@ class TestCoordinatedGoldPath:
 
         from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
 
+        mock_feedback_report = MagicMock()
+        mock_feedback_report.improvement_goals = []
+
         with (
             patch.object(
                 orch,
@@ -2493,7 +2496,11 @@ class TestCoordinatedGoldPath:
                 new_callable=AsyncMock,
                 return_value=failed_result,
             ),
+            patch(
+                "aragora.nomic.feedback_orchestrator.SelfImproveFeedbackOrchestrator",
+            ) as MockFeedback,
         ):
+            MockFeedback.return_value.run.return_value = mock_feedback_report
             MockCoord.return_value.coordinate_parallel_work = AsyncMock(
                 side_effect=fake_coordinate,
             )

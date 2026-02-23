@@ -97,7 +97,10 @@ ANALYTICS_SCHEMAS: dict[str, Any] = {
             "by_agent": {"type": "object", "additionalProperties": {"type": "integer"}},
             "by_debate": {"type": "object", "additionalProperties": {"type": "integer"}},
             "average_conviction_delta": {"type": "number"},
-            "flip_rate": {"type": ["number", "null"], "description": "Percentage of debates with flips"},
+            "flip_rate": {
+                "type": ["number", "null"],
+                "description": "Percentage of debates with flips",
+            },
         },
     },
     # Insight schemas
@@ -108,7 +111,10 @@ ANALYTICS_SCHEMAS: dict[str, Any] = {
             "id": {"type": "string"},
             "debate_id": {"type": "string"},
             "content": {"type": "string"},
-            "type": {"type": ["string", "null"], "enum": ["observation", "conclusion", "recommendation"]},
+            "type": {
+                "type": ["string", "null"],
+                "enum": ["observation", "conclusion", "recommendation"],
+            },
             "confidence": {"type": "number"},
             "supporting_evidence": {"type": "array", "items": {"type": "string"}},
             "extracted_at": {"type": ["string", "null"], "format": "date-time"},
