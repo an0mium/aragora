@@ -39,6 +39,7 @@ import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_AGENTS } from '@/config';
+import { ArgumentGraph } from '@/components/debate/ArgumentGraph';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -106,7 +107,7 @@ import {
   ScenarioMatrixView,
 } from './page-imports';
 
-type ViewMode = 'tabs' | 'stream' | 'deep-audit';
+type ViewMode = 'tabs' | 'stream' | 'deep-audit' | 'graph';
 
 export default function Home() {
   const router = useRouter();
@@ -537,6 +538,16 @@ export default function Home() {
                 >
                   AUDIT
                 </button>
+                <button
+                  onClick={() => setViewMode('graph')}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === 'graph'
+                      ? 'bg-[var(--acid-green)] text-[var(--bg)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
+                  }`}
+                >
+                  GRAPH
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -673,6 +684,10 @@ export default function Home() {
                   isActive={true}
                   onToggle={() => setViewMode('tabs')}
                 />
+              </PanelErrorBoundary>
+            ) : viewMode === 'graph' ? (
+              <PanelErrorBoundary panelName="Argument Graph">
+                <ArgumentGraph events={events} className="h-[500px] sm:h-[600px]" />
               </PanelErrorBoundary>
             ) : viewMode === 'tabs' ? (
               <PanelErrorBoundary panelName="Debate Dashboard">

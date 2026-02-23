@@ -8,6 +8,10 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useNomicLoopWebSocket } from '@/hooks/useNomicLoopWebSocket';
+import { HealthScoreGauge } from '@/components/nomic/HealthScoreGauge';
+import { CycleTimeline } from '@/components/nomic/CycleTimeline';
+import { RiskRegister } from '@/components/nomic/RiskRegister';
+import { WitnessStatus } from '@/components/nomic/WitnessStatus';
 
 interface NomicState {
   running: boolean;
@@ -45,6 +49,36 @@ interface LogEntry {
   showing: number;
 }
 
+interface NomicMetrics {
+  health_score?: number;
+  cycles_completed?: number;
+  success_rate?: number;
+}
+
+interface RiskEntry {
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  target: string;
+  message: string;
+}
+
+interface WitnessStatusData {
+  patrolling: boolean;
+  alert_count: number;
+  agents_healthy: number;
+  agents_total: number;
+  recommendations?: string[];
+}
+
+interface CycleHistoryEntry {
+  cycle: number;
+  phase: string;
+  files_modified?: number;
+  tests_added?: number;
+  duration_seconds?: number;
+  success: boolean;
+  timestamp: string;
+}
+
 const PHASES = ['context', 'debate', 'design', 'implement', 'verify'] as const;
 
 export default function NomicControlPage() {
@@ -58,6 +92,10 @@ export default function NomicControlPage() {
   const [cycleCount, setCycleCount] = useState(1);
   const [autoApprove, setAutoApprove] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [metrics, setMetrics] = useState<NomicMetrics | null>(null);
+  const [risks, setRisks] = useState<RiskEntry[]>([]);
+  const [witnessStatus, setWitnessStatus] = useState<WitnessStatusData | null>(null);
+  const [cycleHistory, setCycleHistory] = useState<CycleHistoryEntry[]>([]);
 
   // WebSocket hook for real-time updates
   const {
@@ -160,11 +198,89 @@ export default function NomicControlPage() {
     }
   }, [backendConfig.api]);
 
+  // Fetch nomic metrics (observatory)
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/nomic/metrics`);
+      if (!response.ok) throw new Error('Failed to fetch metrics');
+      const data = await response.json();
+      setMetrics(data);
+    } catch {
+      setMetrics(null);
+    }
+  }, [backendConfig.api]);
+
+  // Fetch risk register (observatory)
+  const fetchRisks = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/nomic/risk-register?limit=20`);
+      if (!response.ok) throw new Error('Failed to fetch risks');
+      const data = await response.json();
+      setRisks(data.risks || []);
+    } catch {
+      setRisks([]);
+    }
+  }, [backendConfig.api]);
+
+  // Fetch witness status (observatory)
+  const fetchWitness = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendConfig.api}/api/nomic/witness/status`);
+      if (!response.ok) throw new Error('Failed to fetch witness status');
+      const data = await response.json();
+      setWitnessStatus(data);
+    } catch {
+      setWitnessStatus(null);
+    }
+  }, [backendConfig.api]);
+
+  // Parse cycle history from logs
+  const parseCycleHistory = useCallback((logLines: string[]): CycleHistoryEntry[] => {
+    const entries: CycleHistoryEntry[] = [];
+    const cyclePattern = /cycle\s+(\d+)/i;
+    const phasePattern = /phase[:\s]+(\w+)/i;
+    const successPattern = /\b(success|passed|completed)\b/i;
+    const failPattern = /\b(fail|error|aborted)\b/i;
+    const filesPattern = /(\d+)\s+files?\s+modified/i;
+
+    for (const line of logLines) {
+      const cycleMatch = line.match(cyclePattern);
+      if (!cycleMatch) continue;
+
+      const cycleNum = parseInt(cycleMatch[1], 10);
+      const phaseMatch = line.match(phasePattern);
+      const filesMatch = line.match(filesPattern);
+      const isSuccess = successPattern.test(line) && !failPattern.test(line);
+
+      entries.push({
+        cycle: cycleNum,
+        phase: phaseMatch ? phaseMatch[1] : 'unknown',
+        files_modified: filesMatch ? parseInt(filesMatch[1], 10) : undefined,
+        success: isSuccess,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Deduplicate by cycle number, keeping last entry per cycle
+    const seen = new Map<number, CycleHistoryEntry>();
+    for (const e of entries) {
+      seen.set(e.cycle, e);
+    }
+    return Array.from(seen.values()).slice(-10).reverse();
+  }, []);
+
   // Fetch all data
   const fetchAll = useCallback(async () => {
-    await Promise.all([fetchState(), fetchHealth(), fetchProposals()]);
+    await Promise.all([
+      fetchState(),
+      fetchHealth(),
+      fetchProposals(),
+      fetchMetrics(),
+      fetchRisks(),
+      fetchWitness(),
+    ]);
     setLoading(false);
-  }, [fetchState, fetchHealth, fetchProposals]);
+  }, [fetchState, fetchHealth, fetchProposals, fetchMetrics, fetchRisks, fetchWitness]);
 
   // Initial data fetch
   useEffect(() => {
@@ -177,6 +293,18 @@ export default function NomicControlPage() {
     const interval = setInterval(fetchAll, 3000);
     return () => clearInterval(interval);
   }, [wsConnected, fetchAll]);
+
+  // Parse cycle history when logs change
+  useEffect(() => {
+    if (logs && logs.lines.length > 0) {
+      setCycleHistory(parseCycleHistory(logs.lines));
+    }
+  }, [logs, parseCycleHistory]);
+
+  // Fetch logs on initial load for cycle timeline
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   // Control actions
   const startLoop = async () => {
@@ -628,6 +756,61 @@ export default function NomicControlPage() {
                       </Link>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Observatory Section */}
+              <div className="mt-8">
+                <h2 className="text-xl font-mono text-acid-green mb-6">
+                  OBSERVATORY
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Health Score Gauge */}
+                  <PanelErrorBoundary panelName="HealthScoreGauge">
+                    <div className="card p-4">
+                      <h3 className="font-mono text-sm text-acid-green mb-4">Health Score</h3>
+                      {metrics ? (
+                        <HealthScoreGauge
+                          score={metrics.health_score ?? 0}
+                          label="System Health"
+                        />
+                      ) : (
+                        <div className="text-center text-text-muted font-mono text-xs py-4">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </PanelErrorBoundary>
+
+                  {/* Witness Status */}
+                  <PanelErrorBoundary panelName="WitnessStatus">
+                    <div className="card p-4">
+                      <h3 className="font-mono text-sm text-acid-green mb-4">Witness Patrol</h3>
+                      {witnessStatus ? (
+                        <WitnessStatus status={witnessStatus} />
+                      ) : (
+                        <div className="text-center text-text-muted font-mono text-xs py-4">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </PanelErrorBoundary>
+
+                  {/* Risk Register */}
+                  <PanelErrorBoundary panelName="RiskRegister">
+                    <div className="card p-4 max-h-80 overflow-y-auto">
+                      <h3 className="font-mono text-sm text-acid-green mb-4">Risk Register</h3>
+                      <RiskRegister risks={risks} />
+                    </div>
+                  </PanelErrorBoundary>
+
+                  {/* Cycle Timeline */}
+                  <PanelErrorBoundary panelName="CycleTimeline">
+                    <div className="card p-4 max-h-80 overflow-y-auto">
+                      <h3 className="font-mono text-sm text-acid-green mb-4">Cycle History</h3>
+                      <CycleTimeline cycles={cycleHistory} />
+                    </div>
+                  </PanelErrorBoundary>
                 </div>
               </div>
             )}

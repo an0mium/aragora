@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
@@ -28,7 +28,7 @@ import {
  * - Cost Analysis: spending by model, projected costs
  */
 
-type TabType = 'overview' | 'agents' | 'usage' | 'cost';
+type TabType = 'overview' | 'agents' | 'usage' | 'cost' | 'consensus' | 'topics';
 
 interface DebateOverviewData {
   time_range: string;
@@ -76,6 +76,24 @@ interface CostData {
   };
   by_provider: Record<string, { cost: string; percentage: number }>;
   by_model: Record<string, string>;
+}
+
+interface ConsensusOutcomeData {
+  outcomes: {
+    consensus: number;
+    no_consensus: number;
+    timeout: number;
+    error: number;
+  };
+  total_debates: number;
+  consensus_rate: number;
+}
+
+interface TopicData {
+  topic: string;
+  debate_count: number;
+  consensus_rate: number;
+  avg_rounds: number;
 }
 
 export default function AnalyticsPage() {
@@ -151,6 +169,33 @@ export default function AnalyticsPage() {
     }
   }, [backendConfig.api, timeRange]);
 
+  // Fetch consensus outcomes
+  const consensusFetcher = useCallback(async (): Promise<ConsensusOutcomeData | null> => {
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/analytics/debates/outcomes?time_range=${timeRange}`
+      );
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
+  }, [backendConfig.api, timeRange]);
+
+  // Fetch topic analysis
+  const topicsFetcher = useCallback(async (): Promise<TopicData[]> => {
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/analytics/debates/topics?time_range=${timeRange}`
+      );
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.topics || [];
+    } catch {
+      return [];
+    }
+  }, [backendConfig.api, timeRange]);
+
   const { data: overview, loading: overviewLoading } = useAsyncData(overviewFetcher, {
     immediate: true,
   });
@@ -168,6 +213,14 @@ export default function AnalyticsPage() {
   });
 
   const { data: costData, loading: costLoading } = useAsyncData(costFetcher, {
+    immediate: true,
+  });
+
+  const { data: consensusData, loading: consensusLoading } = useAsyncData(consensusFetcher, {
+    immediate: true,
+  });
+
+  const { data: topicsData, loading: topicsLoading } = useAsyncData(topicsFetcher, {
     immediate: true,
   });
 
@@ -209,6 +262,8 @@ export default function AnalyticsPage() {
     { id: 'agents', label: 'AGENTS' },
     { id: 'usage', label: 'USAGE' },
     { id: 'cost', label: 'COST' },
+    { id: 'consensus', label: 'CONSENSUS' },
+    { id: 'topics', label: 'TOPICS' },
   ];
 
   return (
@@ -400,6 +455,52 @@ export default function AnalyticsPage() {
                       limit={15}
                     />
                   </section>
+
+                  {/* Agent Comparison Grid */}
+                  {leaderboard?.leaderboard && leaderboard.leaderboard.length > 0 && (
+                    <section>
+                      <div className="card p-4">
+                        <h3 className="font-mono text-sm text-acid-green mb-4">
+                          {'>'} TOP AGENT COMPARISON
+                        </h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full font-mono text-sm">
+                            <thead>
+                              <tr className="border-b border-acid-green/30">
+                                <th className="text-left py-2 px-3 text-acid-green">Agent</th>
+                                <th className="text-right py-2 px-3 text-acid-green">ELO</th>
+                                <th className="text-right py-2 px-3 text-acid-green">Win Rate</th>
+                                <th className="text-right py-2 px-3 text-acid-green">Games</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {leaderboard.leaderboard.slice(0, 5).map((agent, i) => (
+                                <tr
+                                  key={agent.agent_name}
+                                  className={`border-b border-acid-green/10 ${
+                                    i % 2 === 0 ? 'bg-acid-green/5' : ''
+                                  }`}
+                                >
+                                  <td className="py-2 px-3 text-acid-cyan">
+                                    {agent.agent_name}
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-text">
+                                    {agent.elo.toFixed(0)}
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-text">
+                                    {agent.win_rate.toFixed(1)}%
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-text-muted">
+                                    {agent.games_played}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </section>
+                  )}
                 </div>
               </PanelErrorBoundary>
             )}
@@ -554,6 +655,115 @@ export default function AnalyticsPage() {
                         </div>
                       </div>
                     </section>
+                  )}
+                </div>
+              </PanelErrorBoundary>
+            )}
+
+            {/* Consensus Tab */}
+            {activeTab === 'consensus' && (
+              <PanelErrorBoundary panelName="Consensus Analysis">
+                <div className="space-y-6">
+                  {consensusLoading ? (
+                    <div className="card p-8 text-center font-mono text-text-muted animate-pulse">
+                      Loading consensus data...
+                    </div>
+                  ) : consensusData ? (
+                    <>
+                      {/* Donut Chart */}
+                      <section>
+                        <h2 className="text-lg font-mono text-acid-green mb-4">
+                          {'>'} OUTCOME DISTRIBUTION
+                        </h2>
+                        <div className="card p-6">
+                          <div className="flex flex-col md:flex-row items-center gap-8">
+                            <ConsensusDonut outcomes={consensusData.outcomes} />
+                            <div className="space-y-3 font-mono text-sm">
+                              <DonutLegendItem
+                                color="#22c55e"
+                                label="Consensus"
+                                value={consensusData.outcomes.consensus}
+                              />
+                              <DonutLegendItem
+                                color="#ef4444"
+                                label="No Consensus"
+                                value={consensusData.outcomes.no_consensus}
+                              />
+                              <DonutLegendItem
+                                color="#eab308"
+                                label="Timeout"
+                                value={consensusData.outcomes.timeout}
+                              />
+                              <DonutLegendItem
+                                color="#6b7280"
+                                label="Error"
+                                value={consensusData.outcomes.error}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* Consensus Metrics */}
+                      <section>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <MetricCard
+                            title="Total Debates"
+                            value={consensusData.total_debates}
+                            color="green"
+                            loading={false}
+                            icon="#"
+                          />
+                          <MetricCard
+                            title="Consensus Rate"
+                            value={`${consensusData.consensus_rate.toFixed(1)}%`}
+                            color="cyan"
+                            loading={false}
+                            icon="%"
+                          />
+                          <MetricCard
+                            title="Successful"
+                            value={consensusData.outcomes.consensus}
+                            subtitle={`of ${consensusData.total_debates} debates`}
+                            color="purple"
+                            loading={false}
+                            icon="+"
+                          />
+                        </div>
+                      </section>
+                    </>
+                  ) : (
+                    <div className="card p-8 text-center font-mono text-text-muted">
+                      No consensus data available for this period.
+                    </div>
+                  )}
+                </div>
+              </PanelErrorBoundary>
+            )}
+
+            {/* Topics Tab */}
+            {activeTab === 'topics' && (
+              <PanelErrorBoundary panelName="Topic Analysis">
+                <div className="space-y-6">
+                  <h2 className="text-lg font-mono text-acid-green mb-4">
+                    {'>'} TOPIC ANALYSIS
+                  </h2>
+                  {topicsLoading ? (
+                    <div className="card p-8 text-center font-mono text-text-muted animate-pulse">
+                      Loading topic data...
+                    </div>
+                  ) : topicsData && topicsData.length > 0 ? (
+                    <section>
+                      <div className="card p-4">
+                        <div className="overflow-x-auto">
+                          <TopicTable topics={topicsData} />
+                        </div>
+                      </div>
+                    </section>
+                  ) : (
+                    <div className="card p-8 text-center font-mono text-text-muted">
+                      No topic data available for this period.
+                    </div>
                   )}
                 </div>
               </PanelErrorBoundary>

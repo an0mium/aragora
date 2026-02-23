@@ -63,6 +63,26 @@ def _mock_codebase_indexer(request, monkeypatch):
         pass
 
 
+@pytest.fixture(autouse=True)
+def _mock_scan_code_markers(request, monkeypatch):
+    """Prevent scan_code_markers from walking the entire repo.
+
+    The NextStepsRunner.scan() calls scan_code_markers() which does
+    os.walk + read_text on up to 5000 files.  On a 3000+ module codebase
+    this takes minutes and causes test timeouts in long suite runs.
+
+    Skipped for tests that specifically test the scanner itself.
+    """
+    if "test_next_steps" in request.fspath.basename:
+        return
+    try:
+        import aragora.compat.openclaw.next_steps_runner as nsr_mod
+
+        monkeypatch.setattr(nsr_mod, "scan_code_markers", lambda repo_path: ([], 0))
+    except ImportError:
+        pass
+
+
 @pytest.fixture
 def mock_aragora_path(tmp_path: Path) -> Path:
     """Create a mock aragora project structure."""

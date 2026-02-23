@@ -379,7 +379,7 @@ export const useKnowledgeExplorerStore = create<KnowledgeExplorerStore>()(
       ),
 
       // Tab navigation
-      setActiveTab: (tab: 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation' | 'quality') => set(
+      setActiveTab: (tab: 'search' | 'browse' | 'graph' | 'stale' | 'shared' | 'federation' | 'quality' | 'adapters' | 'contradictions') => set(
         { activeTab: tab },
         false,
         'setActiveTab'

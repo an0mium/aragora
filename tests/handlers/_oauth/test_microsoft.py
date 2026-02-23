@@ -843,9 +843,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._exchange_microsoft_code("test-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context")
         req = mock_urlopen.call_args[0][0]
         assert req.get_header("Content-type") == "application/x-www-form-urlencoded"
 
@@ -860,9 +857,6 @@ class TestExchangeMicrosoftCodeSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._exchange_microsoft_code("test-code")
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context")
         req = mock_urlopen.call_args[0][0]
         assert "my-org-tenant" in req.full_url
 
@@ -957,6 +951,12 @@ class TestExchangeMicrosoftCodeAsync:
 class TestGetMicrosoftUserInfoSync:
     """Tests for _get_microsoft_user_info sync path."""
 
+    @pytest.fixture(autouse=True)
+    def _force_sync(self):
+        """Force sync path by hiding the running event loop."""
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")):
+            yield
+
     def _make_urlopen_response(self, body: dict) -> MagicMock:
         """Create a context manager mock that returns JSON body bytes."""
         mock_resp = MagicMock()
@@ -979,9 +979,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ):
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
 
         assert isinstance(result, OAuthUserInfo)
         assert result.provider == "microsoft"
@@ -1006,9 +1004,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ):
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
 
         assert result.email == "charlie@contoso.com"
 
@@ -1025,9 +1021,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ):
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
 
         assert result.name == "dana"
 
@@ -1109,9 +1103,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._get_microsoft_user_info("my-secret-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
         req = mock_urlopen.call_args[0][0]
         assert req.get_header("Authorization") == "Bearer my-secret-token"
 
@@ -1129,9 +1121,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ) as mock_urlopen:
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
         req = mock_urlopen.call_args[0][0]
         assert req.full_url == "https://graph.microsoft.com/v1.0/me"
 
@@ -1150,9 +1140,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ):
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
 
         assert result.email == "eve@contoso.com"
 
@@ -1170,9 +1158,7 @@ class TestGetMicrosoftUserInfoSync:
             return_value=resp,
         ):
             result = handler._get_microsoft_user_info("access-token")
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
+            assert not asyncio.iscoroutine(result), "Expected sync path"
 
         assert result.email_verified is True
 

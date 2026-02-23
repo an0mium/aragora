@@ -71,6 +71,22 @@ def _clear_similarity_backend_state():
 
 
 @pytest.fixture(autouse=True)
+def _mock_scan_code_markers(request, monkeypatch):
+    """Prevent scan_code_markers from walking the entire repo.
+
+    MetaPlanner.prioritize_work() → NextStepsRunner.scan() →
+    scan_code_markers() does os.walk on up to 5000 files.
+    This causes timeouts in long suite runs.
+    """
+    try:
+        import aragora.compat.openclaw.next_steps_runner as nsr_mod
+
+        monkeypatch.setattr(nsr_mod, "scan_code_markers", lambda repo_path: ([], 0))
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
 def _resync_convergence_after_backend_reload():
     """Re-synchronize convergence module class references after each test.
 

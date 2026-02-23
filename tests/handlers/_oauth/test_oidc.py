@@ -988,16 +988,12 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
         ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
 
-        if asyncio.iscoroutine(result):
-            result.close()
-            pytest.skip("Running in async context - sync path not reachable")
-        else:
-            assert result["access_token"] == "tok-123"
+        assert result["access_token"] == "tok-123"
 
     def test_sync_path_empty_response_returns_empty_dict(self, handler, impl):
         """Empty response body returns empty dict in sync path."""
@@ -1006,13 +1002,10 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
         ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
             assert result == {}
 
     def test_sync_path_sends_correct_data(self, handler, impl):
@@ -1029,13 +1022,10 @@ class TestExchangeOIDCCode:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch(
+        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
             "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", side_effect=mock_urlopen
         ):
             result = handler._exchange_oidc_code("my-auth-code", MOCK_DISCOVERY)
-            if asyncio.iscoroutine(result):
-                result.close()
-                pytest.skip("Running in async context")
 
         assert captured_req["url"] == "https://idp.example.com/token"
         data_str = captured_req["data"].decode("utf-8")

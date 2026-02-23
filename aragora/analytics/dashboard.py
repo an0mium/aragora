@@ -758,10 +758,87 @@ class AnalyticsDashboard:
                         }
                     )
 
+            # Merge receipt findings as a secondary data source
+            receipt_findings = await self._get_receipt_findings(
+                workspace_id, time_range, offset
+            )
+            if receipt_findings:
+                existing_ids = {f["id"] for f in findings}
+                for rf in receipt_findings:
+                    if rf["id"] not in existing_ids:
+                        findings.append(rf)
+
             return findings
 
         except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.warning("Failed to get findings: %s", e)
+            # Fall back to receipt-only findings
+            return await self._get_receipt_findings(
+                workspace_id, time_range, offset
+            )
+
+    async def _get_receipt_findings(
+        self,
+        workspace_id: str,
+        time_range: TimeRange,
+        offset: timedelta | None = None,
+    ) -> list[dict]:
+        """Extract findings from gauntlet receipts for analytics."""
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            store = get_receipt_store()
+            delta = time_range.to_timedelta()
+            now = datetime.now(timezone.utc)
+
+            if offset:
+                end_time = now - offset
+                start_time = end_time - delta if delta else None
+            else:
+                end_time = now
+                start_time = now - delta if delta else None
+
+            start_ts = start_time.timestamp() if start_time else 0
+            end_ts = end_time.timestamp()
+
+            receipts = await store.list_by_time_range(start_ts, end_ts)
+            findings: list[dict] = []
+
+            for receipt in receipts:
+                data = receipt.get("data", receipt) if isinstance(receipt, dict) else getattr(receipt, "data", {})
+                if not isinstance(data, dict):
+                    continue
+
+                # Extract vulnerability details from receipt
+                for detail in data.get("vulnerability_details", []):
+                    severity = detail.get("severity", "medium")
+                    # Map receipt verdict to finding status
+                    verdict = data.get("verdict", "")
+                    status = "resolved" if verdict == "PASS" else "open"
+
+                    findings.append(
+                        {
+                            "id": f"receipt-{detail.get('id', '')}",
+                            "title": detail.get("title", "Receipt finding"),
+                            "message": detail.get("description", ""),
+                            "severity": severity,
+                            "category": detail.get("category", "gauntlet"),
+                            "status": status,
+                            "created_at": data.get("timestamp", ""),
+                            "resolved_at": (
+                                data.get("timestamp")
+                                if verdict == "PASS"
+                                else None
+                            ),
+                            "source": "gauntlet_receipt",
+                            "receipt_id": data.get("receipt_id", ""),
+                        }
+                    )
+
+            return findings
+
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
+            logger.debug("Receipt findings unavailable: %s", e)
             return []
 
     async def _get_sessions(
