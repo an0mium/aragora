@@ -1309,6 +1309,10 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         # Import, connection, or wiring errors - continue with SQLite store
         logger.info("[upgrade] UserStore upgrade failed: %s: %s", type(e).__name__, e)
         results["user_store"] = "skipped"
+    except Exception as e:
+        # Catch-all for unexpected errors (e.g., read-only replicas)
+        logger.warning("[upgrade] UserStore upgrade failed: %s: %s", type(e).__name__, e)
+        results["user_store"] = "skipped"
 
     # Upgrade additional stores (job queue, governance, inbox).
     # Each entry: (name, module_path, class_name, setter_module, setter_func)
@@ -1362,6 +1366,10 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
             # Connection or wiring errors - continue with existing store
             logger.info("[upgrade] %s upgrade failed: %s: %s", name, type(e).__name__, e)
+            results[name] = "skipped"
+        except Exception as e:
+            # Catch-all for unexpected errors (e.g., read-only replicas)
+            logger.warning("[upgrade] %s upgrade failed: %s: %s", name, type(e).__name__, e)
             results[name] = "skipped"
 
     upgraded = sum(1 for v in results.values() if v == "postgres")

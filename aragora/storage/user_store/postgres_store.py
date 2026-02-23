@@ -218,8 +218,19 @@ class PostgresUserStore(
         if self._initialized:
             return
 
-        async with self._pool.acquire() as conn:
-            await conn.execute(self.INITIAL_SCHEMA)
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(self.INITIAL_SCHEMA)
+        except Exception as e:
+            # Handle read-only replicas gracefully — schema already exists there
+            err_msg = str(e).lower()
+            if "read-only" in err_msg or "read only" in err_msg:
+                logger.info(
+                    "[%s] Read-only database detected, skipping schema init",
+                    self.SCHEMA_NAME,
+                )
+            else:
+                raise
 
         self._initialized = True
         logger.debug("[%s] Schema initialized", self.SCHEMA_NAME)
