@@ -21,7 +21,6 @@ from aragora.mcp.tools_module.browser import (
 )
 
 
-
 @pytest.fixture(autouse=True)
 def reset_browser_connector():
     """Reset global browser connector between tests."""
@@ -93,7 +92,10 @@ class TestBrowserNavigateTool:
             result = await browser_navigate_tool(url="not-a-url")
 
         assert result["success"] is False
-        assert "invalid parameters" in result["error"].lower() or "navigation failed" in result["error"].lower()
+        assert (
+            "invalid parameters" in result["error"].lower()
+            or "navigation failed" in result["error"].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_navigate_generic_exception(self):

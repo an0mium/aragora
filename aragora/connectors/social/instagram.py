@@ -143,8 +143,12 @@ class InstagramConnector(BaseConnector):
                     id=f"ig_media_{media_id}",
                     source_type=self.source_type,
                     source_id=f"instagram://media/{media_id}",
-                    content=f"{media_type}: {caption[:1000]}" if caption else f"{media_type} (no caption)",
-                    title=f"Instagram {media_type.lower()}: {caption[:80]}" if caption else f"Instagram {media_type.lower()}",
+                    content=f"{media_type}: {caption[:1000]}"
+                    if caption
+                    else f"{media_type} (no caption)",
+                    title=f"Instagram {media_type.lower()}: {caption[:80]}"
+                    if caption
+                    else f"Instagram {media_type.lower()}",
                     url=permalink,
                     created_at=timestamp,
                     confidence=0.65,
@@ -244,9 +248,9 @@ class InstagramConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("ig_comment_"):
-            return await self._fetch_comment(evidence_id[len("ig_comment_"):], evidence_id)
+            return await self._fetch_comment(evidence_id[len("ig_comment_") :], evidence_id)
         elif evidence_id.startswith("ig_media_"):
-            return await self._fetch_media(evidence_id[len("ig_media_"):], evidence_id)
+            return await self._fetch_media(evidence_id[len("ig_media_") :], evidence_id)
 
         return None
 
@@ -282,7 +286,9 @@ class InstagramConnector(BaseConnector):
             source_type=self.source_type,
             source_id=f"instagram://media/{media_id}",
             content=f"{media_type}: {caption[:2000]}" if caption else f"{media_type} (no caption)",
-            title=f"Instagram {media_type.lower()}: {caption[:80]}" if caption else f"Instagram {media_type.lower()}",
+            title=f"Instagram {media_type.lower()}: {caption[:80]}"
+            if caption
+            else f"Instagram {media_type.lower()}",
             url=permalink,
             created_at=timestamp,
             confidence=0.7,

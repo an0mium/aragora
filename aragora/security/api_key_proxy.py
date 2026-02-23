@@ -151,12 +151,16 @@ class ProxyConfig:
             rotation_jitter_hours=2.0,
             max_calls_per_minute=20,
             max_calls_per_hour=300,
-            allowed_endpoints=frozenset({
-                "/v1/text-to-speech",
-            }),
-            allowed_voice_ids=frozenset({
-                "EkK5I93UQWFDigLMpZcX",  # JM Husky (legitimate)
-            }),
+            allowed_endpoints=frozenset(
+                {
+                    "/v1/text-to-speech",
+                }
+            ),
+            allowed_voice_ids=frozenset(
+                {
+                    "EkK5I93UQWFDigLMpZcX",  # JM Husky (legitimate)
+                }
+            ),
             active_hours=(6, 23),
             budget_limit_credits=500_000,  # Per rotation period
         )
@@ -235,13 +239,9 @@ class UsageTracker:
     def _prune_old_records(self, service: str) -> None:
         """Remove records older than the window."""
         cutoff = time.time() - self._window_seconds
-        self._records[service] = [
-            r for r in self._records[service] if r.timestamp > cutoff
-        ]
+        self._records[service] = [r for r in self._records[service] if r.timestamp > cutoff]
 
-    def _check_anomalies(
-        self, service: str, record: UsageRecord
-    ) -> list[AnomalyEvent]:
+    def _check_anomalies(self, service: str, record: UsageRecord) -> list[AnomalyEvent]:
         """Check for usage anomalies."""
         anomalies: list[AnomalyEvent] = []
         svc_config = self._config.services.get(service)
@@ -254,29 +254,33 @@ class UsageTracker:
         # Rate spike (per-minute)
         recent_minute = [r for r in records if r.timestamp > now - 60]
         if len(recent_minute) > svc_config.max_calls_per_minute:
-            anomalies.append(AnomalyEvent(
-                timestamp=now,
-                service=service,
-                anomaly_type=AnomalyType.RATE_SPIKE,
-                severity="high",
-                details={
-                    "calls_per_minute": len(recent_minute),
-                    "threshold": svc_config.max_calls_per_minute,
-                },
-            ))
+            anomalies.append(
+                AnomalyEvent(
+                    timestamp=now,
+                    service=service,
+                    anomaly_type=AnomalyType.RATE_SPIKE,
+                    severity="high",
+                    details={
+                        "calls_per_minute": len(recent_minute),
+                        "threshold": svc_config.max_calls_per_minute,
+                    },
+                )
+            )
 
         # Rate spike (per-hour)
         if len(records) > svc_config.max_calls_per_hour:
-            anomalies.append(AnomalyEvent(
-                timestamp=now,
-                service=service,
-                anomaly_type=AnomalyType.RATE_SPIKE,
-                severity="critical",
-                details={
-                    "calls_per_hour": len(records),
-                    "threshold": svc_config.max_calls_per_hour,
-                },
-            ))
+            anomalies.append(
+                AnomalyEvent(
+                    timestamp=now,
+                    service=service,
+                    anomaly_type=AnomalyType.RATE_SPIKE,
+                    severity="critical",
+                    details={
+                        "calls_per_hour": len(records),
+                        "threshold": svc_config.max_calls_per_hour,
+                    },
+                )
+            )
 
         # Unknown voice ID
         if (
@@ -284,66 +288,71 @@ class UsageTracker:
             and svc_config.allowed_voice_ids
             and record.voice_id not in svc_config.allowed_voice_ids
         ):
-            anomalies.append(AnomalyEvent(
-                timestamp=now,
-                service=service,
-                anomaly_type=AnomalyType.UNKNOWN_VOICE,
-                severity="critical",
-                details={
-                    "voice_id": record.voice_id,
-                    "allowed": list(svc_config.allowed_voice_ids),
-                },
-            ))
+            anomalies.append(
+                AnomalyEvent(
+                    timestamp=now,
+                    service=service,
+                    anomaly_type=AnomalyType.UNKNOWN_VOICE,
+                    severity="critical",
+                    details={
+                        "voice_id": record.voice_id,
+                        "allowed": list(svc_config.allowed_voice_ids),
+                    },
+                )
+            )
 
         # Unknown endpoint
         if (
             record.endpoint
             and svc_config.allowed_endpoints
-            and not any(
-                record.endpoint.startswith(ep)
-                for ep in svc_config.allowed_endpoints
-            )
+            and not any(record.endpoint.startswith(ep) for ep in svc_config.allowed_endpoints)
         ):
-            anomalies.append(AnomalyEvent(
-                timestamp=now,
-                service=service,
-                anomaly_type=AnomalyType.UNKNOWN_ENDPOINT,
-                severity="medium",
-                details={
-                    "endpoint": record.endpoint,
-                    "allowed": list(svc_config.allowed_endpoints),
-                },
-            ))
+            anomalies.append(
+                AnomalyEvent(
+                    timestamp=now,
+                    service=service,
+                    anomaly_type=AnomalyType.UNKNOWN_ENDPOINT,
+                    severity="medium",
+                    details={
+                        "endpoint": record.endpoint,
+                        "allowed": list(svc_config.allowed_endpoints),
+                    },
+                )
+            )
 
         # Off-hours usage
         current_hour = datetime.now(timezone.utc).hour
         start_h, end_h = svc_config.active_hours
         if not (start_h <= current_hour <= end_h):
-            anomalies.append(AnomalyEvent(
-                timestamp=now,
-                service=service,
-                anomaly_type=AnomalyType.OFF_HOURS,
-                severity="medium",
-                details={
-                    "current_hour_utc": current_hour,
-                    "active_hours": svc_config.active_hours,
-                },
-            ))
+            anomalies.append(
+                AnomalyEvent(
+                    timestamp=now,
+                    service=service,
+                    anomaly_type=AnomalyType.OFF_HOURS,
+                    severity="medium",
+                    details={
+                        "current_hour_utc": current_hour,
+                        "active_hours": svc_config.active_hours,
+                    },
+                )
+            )
 
         # Budget breach
         if svc_config.budget_limit_credits:
             total_credits = sum(r.credits_used for r in records)
             if total_credits > svc_config.budget_limit_credits:
-                anomalies.append(AnomalyEvent(
-                    timestamp=now,
-                    service=service,
-                    anomaly_type=AnomalyType.BUDGET_BREACH,
-                    severity="critical",
-                    details={
-                        "total_credits": total_credits,
-                        "limit": svc_config.budget_limit_credits,
-                    },
-                ))
+                anomalies.append(
+                    AnomalyEvent(
+                        timestamp=now,
+                        service=service,
+                        anomaly_type=AnomalyType.BUDGET_BREACH,
+                        severity="critical",
+                        details={
+                            "total_credits": total_credits,
+                            "limit": svc_config.budget_limit_credits,
+                        },
+                    )
+                )
 
         # Store anomalies
         self._anomalies.extend(anomalies)
@@ -352,9 +361,7 @@ class UsageTracker:
         if anomalies and self._config.anomaly_callback:
             for anomaly in anomalies:
                 try:
-                    self._config.anomaly_callback(
-                        service, anomaly.anomaly_type, anomaly.details
-                    )
+                    self._config.anomaly_callback(service, anomaly.anomaly_type, anomaly.details)
                 except (TypeError, ValueError, RuntimeError, OSError):
                     logger.exception("Anomaly callback failed")
 
@@ -386,10 +393,13 @@ class UsageTracker:
                 "total_credits_last_hour": sum(r.credits_used for r in records),
                 "unique_endpoints": len({r.endpoint for r in records if r.endpoint}),
                 "unique_voice_ids": len({r.voice_id for r in records if r.voice_id}),
-                "anomalies_last_hour": len([
-                    a for a in self._anomalies
-                    if a.service == service and a.timestamp > now - 3600
-                ]),
+                "anomalies_last_hour": len(
+                    [
+                        a
+                        for a in self._anomalies
+                        if a.service == service and a.timestamp > now - 3600
+                    ]
+                ),
             }
 
 
@@ -460,6 +470,7 @@ class KeyVault:
         # Try aragora.config.secrets first (handles AWS SM + env fallback)
         try:
             from aragora.config.secrets import get_secret
+
             key = get_secret(svc_config.secret_manager_key)
             if key:
                 return key
@@ -592,16 +603,16 @@ class FrequencyHoppingRotator:
                 logger.exception("Rotation loop error")
                 await asyncio.sleep(300)
 
-    def _schedule_next_rotation(
-        self, service: str, config: ServiceKeyConfig
-    ) -> None:
+    def _schedule_next_rotation(self, service: str, config: ServiceKeyConfig) -> None:
         """Calculate and schedule next rotation with jitter."""
         base_hours = config.rotation_interval_hours
 
         if config.rotation_strategy == RotationStrategy.JITTERED:
             # Add random jitter: ±jitter_hours
-            jitter = (secrets.randbelow(int(config.rotation_jitter_hours * 2 * 100)) / 100
-                      - config.rotation_jitter_hours)
+            jitter = (
+                secrets.randbelow(int(config.rotation_jitter_hours * 2 * 100)) / 100
+                - config.rotation_jitter_hours
+            )
             hours = max(1.0, base_hours + jitter)
         elif config.rotation_strategy == RotationStrategy.FIXED:
             hours = base_hours
@@ -611,10 +622,7 @@ class FrequencyHoppingRotator:
         next_time = datetime.now(timezone.utc) + timedelta(hours=hours)
         self._next_rotation[service] = next_time
 
-        logger.info(
-            f"Next rotation for {service}: {next_time.isoformat()} "
-            f"({hours:.1f}h from now)"
-        )
+        logger.info(f"Next rotation for {service}: {next_time.isoformat()} ({hours:.1f}h from now)")
 
     async def _rotate_service(self, service: str) -> dict[str, Any]:
         """Execute key rotation for a service.
@@ -670,9 +678,7 @@ class FrequencyHoppingRotator:
 # =============================================================================
 
 # Service name -> async handler function
-_rotation_handlers: dict[
-    str, Callable[[str, ProxyConfig], Any]
-] = {}
+_rotation_handlers: dict[str, Callable[[str, ProxyConfig], Any]] = {}
 
 
 def register_rotation_handler(
@@ -706,9 +712,7 @@ class APIKeyProxy:
         self._config = config or ProxyConfig.default()
         self._vault = KeyVault(self._config)
         self._tracker = UsageTracker(self._config)
-        self._rotator = FrequencyHoppingRotator(
-            self._config, self._vault, self._tracker
-        )
+        self._rotator = FrequencyHoppingRotator(self._config, self._vault, self._tracker)
 
     @property
     def vault(self) -> KeyVault:
@@ -794,15 +798,14 @@ class APIKeyProxy:
                 {
                     "type": a.anomaly_type.value,
                     "severity": a.severity,
-                    "timestamp": datetime.fromtimestamp(
-                        a.timestamp, tz=timezone.utc
-                    ).isoformat(),
+                    "timestamp": datetime.fromtimestamp(a.timestamp, tz=timezone.utc).isoformat(),
                 }
                 for a in recent_anomalies
             ],
-            "status": "healthy" if not recent_anomalies else (
-                "critical" if any(a.severity == "critical" for a in recent_anomalies)
-                else "warning"
+            "status": "healthy"
+            if not recent_anomalies
+            else (
+                "critical" if any(a.severity == "critical" for a in recent_anomalies) else "warning"
             ),
         }
 

@@ -227,9 +227,9 @@ class TrelloConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("trello_board_"):
-            return await self._fetch_board(evidence_id[len("trello_board_"):], evidence_id)
+            return await self._fetch_board(evidence_id[len("trello_board_") :], evidence_id)
         elif evidence_id.startswith("trello_card_"):
-            return await self._fetch_card(evidence_id[len("trello_card_"):], evidence_id)
+            return await self._fetch_card(evidence_id[len("trello_card_") :], evidence_id)
 
         return None
 
@@ -341,7 +341,7 @@ class TrelloConnector(BaseConnector):
 
         content = f"# {board_name}\n\n{board_desc[:3000]}"
         if list_names:
-            content += f"\n\n## Lists\n\n" + "\n".join(f"- {n}" for n in list_names)
+            content += "\n\n## Lists\n\n" + "\n".join(f"- {n}" for n in list_names)
 
         evidence = Evidence(
             id=evidence_id,

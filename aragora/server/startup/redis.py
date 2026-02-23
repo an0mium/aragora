@@ -109,14 +109,16 @@ async def init_redis_ha() -> dict[str, Any]:
             if client:
                 result["enabled"] = True
                 logger.info(
-                    "Redis HA initialized: %s (latency=%sms)", config.get_mode_description(), health.get('latency_ms', 'unknown')
+                    "Redis HA initialized: %s (latency=%sms)",
+                    config.get_mode_description(),
+                    health.get("latency_ms", "unknown"),
                 )
             else:
                 result["error"] = "Failed to create Redis client"
                 logger.warning("Redis HA client creation failed")
         else:
             result["error"] = health.get("error", "Unknown error")
-            logger.warning("Redis HA health check failed: %s", result['error'])
+            logger.warning("Redis HA health check failed: %s", result["error"])
 
     except ImportError as e:
         result["error"] = f"Redis package not installed: {e}"

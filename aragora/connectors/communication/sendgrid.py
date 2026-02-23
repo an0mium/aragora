@@ -134,8 +134,7 @@ class SendGridConnector(BaseConnector):
                     source_type=self.source_type,
                     source_id=f"sendgrid://messages/{msg_id}",
                     content=(
-                        f"Email: \"{subject}\" from {from_email} to {to_email} "
-                        f"(status: {status})"
+                        f'Email: "{subject}" from {from_email} to {to_email} (status: {status})'
                     ),
                     title=f"Email: {subject}",
                     url=f"https://app.sendgrid.com/email_activity/{quote(msg_id, safe='')}",
@@ -159,6 +158,7 @@ class SendGridConnector(BaseConnector):
 
     async def _search_templates(self, query: str, limit: int) -> list[Evidence]:
         """Search transactional templates via the SendGrid Templates API."""
+
         async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(
@@ -198,7 +198,7 @@ class SendGridConnector(BaseConnector):
                     id=f"sg_tpl_{tpl_id}",
                     source_type=self.source_type,
                     source_id=f"sendgrid://templates/{tpl_id}",
-                    content=f"Template: \"{tpl_name}\" (subject: {subject})",
+                    content=f'Template: "{tpl_name}" (subject: {subject})',
                     title=f"Template: {tpl_name}",
                     url=f"https://mc.sendgrid.com/dynamic-templates/{tpl_id}",
                     created_at=updated_at,
@@ -236,14 +236,15 @@ class SendGridConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("sg_tpl_"):
-            return await self._fetch_template(evidence_id[len("sg_tpl_"):], evidence_id)
+            return await self._fetch_template(evidence_id[len("sg_tpl_") :], evidence_id)
         elif evidence_id.startswith("sg_msg_"):
-            return await self._fetch_message(evidence_id[len("sg_msg_"):], evidence_id)
+            return await self._fetch_message(evidence_id[len("sg_msg_") :], evidence_id)
 
         return None
 
     async def _fetch_message(self, msg_id: str, evidence_id: str) -> Evidence | None:
         """Fetch a single email message from the Activity API."""
+
         async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(
@@ -271,7 +272,7 @@ class SendGridConnector(BaseConnector):
             source_type=self.source_type,
             source_id=f"sendgrid://messages/{msg_id}",
             content=(
-                f"Email: \"{subject}\" from {from_email} to {to_email} "
+                f'Email: "{subject}" from {from_email} to {to_email} '
                 f"(status: {status}, events: {len(events)})"
             ),
             title=f"Email: {subject}",
@@ -297,6 +298,7 @@ class SendGridConnector(BaseConnector):
 
     async def _fetch_template(self, template_id: str, evidence_id: str) -> Evidence | None:
         """Fetch a single transactional template."""
+
         async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(
@@ -326,10 +328,7 @@ class SendGridConnector(BaseConnector):
             id=evidence_id,
             source_type=self.source_type,
             source_id=f"sendgrid://templates/{template_id}",
-            content=(
-                f"Template: \"{tpl_name}\" (subject: {subject})\n\n"
-                f"{html_content[:2000]}"
-            ),
+            content=(f'Template: "{tpl_name}" (subject: {subject})\n\n{html_content[:2000]}'),
             title=f"Template: {tpl_name}",
             url=f"https://mc.sendgrid.com/dynamic-templates/{template_id}",
             created_at=updated_at,

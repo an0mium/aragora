@@ -255,9 +255,9 @@ class TwilioConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("tw_call_"):
-            return await self._fetch_call(evidence_id[len("tw_call_"):], evidence_id)
+            return await self._fetch_call(evidence_id[len("tw_call_") :], evidence_id)
         elif evidence_id.startswith("tw_msg_"):
-            return await self._fetch_message(evidence_id[len("tw_msg_"):], evidence_id)
+            return await self._fetch_message(evidence_id[len("tw_msg_") :], evidence_id)
 
         return None
 

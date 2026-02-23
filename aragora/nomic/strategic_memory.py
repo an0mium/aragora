@@ -169,9 +169,7 @@ class StrategicMemoryStore:
         finally:
             conn.close()
 
-    def get_for_objective(
-        self, objective: str, limit: int = 3
-    ) -> list[StrategicAssessment]:
+    def get_for_objective(self, objective: str, limit: int = 3) -> list[StrategicAssessment]:
         """Get assessments matching an objective (substring match).
 
         Args:
@@ -199,9 +197,7 @@ class StrategicMemoryStore:
         finally:
             conn.close()
 
-    def get_recurring_findings(
-        self, min_occurrences: int = 2
-    ) -> list[StrategicFinding]:
+    def get_recurring_findings(self, min_occurrences: int = 2) -> list[StrategicFinding]:
         """Find findings that appear across multiple assessments.
 
         Groups findings by (category, file_path) and returns those that

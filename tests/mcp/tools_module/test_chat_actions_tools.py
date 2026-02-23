@@ -12,7 +12,6 @@ from aragora.mcp.tools_module.chat_actions import (
 )
 
 
-
 class TestSendMessageTool:
     """Tests for send_message_tool."""
 

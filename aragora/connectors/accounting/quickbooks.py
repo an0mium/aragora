@@ -122,8 +122,7 @@ class QuickBooksConnector(BaseConnector):
         if search_type in ("all", "invoices"):
             inv_limit = limit if search_type == "invoices" else max(1, limit // 2)
             inv_sql = (
-                f"SELECT * FROM Invoice WHERE DocNumber LIKE '%{sanitized}%' "
-                f"MAXRESULTS {inv_limit}"
+                f"SELECT * FROM Invoice WHERE DocNumber LIKE '%{sanitized}%' MAXRESULTS {inv_limit}"
             )
 
             async def _invoice_request() -> Any:
@@ -207,8 +206,7 @@ class QuickBooksConnector(BaseConnector):
                             source_type=self.source_type,
                             source_id=f"quickbooks://payments/{pmt_id}",
                             content=(
-                                f"Payment #{ref_num}: ${total} from {customer}"
-                                f" (date: {txn_date})"
+                                f"Payment #{ref_num}: ${total} from {customer} (date: {txn_date})"
                             ),
                             title=f"Payment #{ref_num}",
                             url=f"{_QB_API_BASE}/v3/company/{realm_id}/payment/{pmt_id}",
@@ -250,10 +248,10 @@ class QuickBooksConnector(BaseConnector):
         # Determine resource type from evidence_id prefix
         if evidence_id.startswith("qb_pmt_"):
             resource_type = "payment"
-            resource_id = evidence_id[len("qb_pmt_"):]
+            resource_id = evidence_id[len("qb_pmt_") :]
         elif evidence_id.startswith("qb_inv_"):
             resource_type = "invoice"
-            resource_id = evidence_id[len("qb_inv_"):]
+            resource_id = evidence_id[len("qb_inv_") :]
         else:
             # Backward compat: bare ID assumed to be invoice
             resource_type = "invoice"

@@ -39,6 +39,7 @@ def _get_db_path() -> str:
     """Resolve the graph store database path."""
     try:
         from aragora.config import resolve_db_path
+
         return resolve_db_path("pipeline_graphs.db")
     except ImportError:
         return _DEFAULT_DB_PATH
@@ -130,11 +131,15 @@ class GraphStore:
                     transitions_json, metadata_json, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    graph.id, graph.name, graph.owner_id, graph.workspace_id,
+                    graph.id,
+                    graph.name,
+                    graph.owner_id,
+                    graph.workspace_id,
                     json.dumps([e.to_dict() for e in graph.edges.values()]),
                     json.dumps([t.to_dict() for t in graph.transitions]),
                     json.dumps(graph.metadata),
-                    graph.created_at, graph.updated_at,
+                    graph.created_at,
+                    graph.updated_at,
                 ),
             )
             for node in graph.nodes.values():
@@ -149,9 +154,7 @@ class GraphStore:
         """Retrieve a graph by ID, including all nodes."""
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT * FROM graphs WHERE id = ?", (graph_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM graphs WHERE id = ?", (graph_id,)).fetchone()
             if row is None:
                 return None
             return self._row_to_graph(conn, row)
@@ -217,11 +220,14 @@ class GraphStore:
                    updated_at=?
                    WHERE id=?""",
                 (
-                    graph.name, graph.owner_id, graph.workspace_id,
+                    graph.name,
+                    graph.owner_id,
+                    graph.workspace_id,
                     json.dumps([e.to_dict() for e in graph.edges.values()]),
                     json.dumps([t.to_dict() for t in graph.transitions]),
                     json.dumps(graph.metadata),
-                    graph.updated_at, graph.id,
+                    graph.updated_at,
+                    graph.id,
                 ),
             )
             conn.commit()
@@ -259,13 +265,12 @@ class GraphStore:
                 (node_id, graph_id),
             )
             # Clean edges from the graph's edges_json
-            row = conn.execute(
-                "SELECT edges_json FROM graphs WHERE id = ?", (graph_id,)
-            ).fetchone()
+            row = conn.execute("SELECT edges_json FROM graphs WHERE id = ?", (graph_id,)).fetchone()
             if row and row["edges_json"]:
                 edges = json.loads(row["edges_json"])
                 edges = [
-                    e for e in edges
+                    e
+                    for e in edges
                     if e.get("source_id") != node_id and e.get("target_id") != node_id
                 ]
                 conn.execute(
@@ -295,23 +300,17 @@ class GraphStore:
         where = " AND ".join(clauses)
         conn = self._connect()
         try:
-            rows = conn.execute(
-                f"SELECT * FROM nodes WHERE {where}", params
-            ).fetchall()
+            rows = conn.execute(f"SELECT * FROM nodes WHERE {where}", params).fetchall()
             return [self._row_to_node(r) for r in rows]
         finally:
             conn.close()
 
-    def get_provenance_chain(
-        self, graph_id: str, node_id: str
-    ) -> list[UniversalNode]:
+    def get_provenance_chain(self, graph_id: str, node_id: str) -> list[UniversalNode]:
         """Walk parent_ids recursively to build a provenance chain."""
         conn = self._connect()
         try:
             # Load all nodes for this graph into memory for traversal
-            rows = conn.execute(
-                "SELECT * FROM nodes WHERE graph_id = ?", (graph_id,)
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM nodes WHERE graph_id = ?", (graph_id,)).fetchall()
             node_map: dict[str, UniversalNode] = {}
             for r in rows:
                 n = self._row_to_node(r)
@@ -327,9 +326,7 @@ class GraphStore:
 
     # -- Helpers ------------------------------------------------------------
 
-    def _insert_node(
-        self, conn: sqlite3.Connection, graph_id: str, node: UniversalNode
-    ) -> None:
+    def _insert_node(self, conn: sqlite3.Connection, graph_id: str, node: UniversalNode) -> None:
         conn.execute(
             """INSERT OR REPLACE INTO nodes
                (id, graph_id, stage, node_subtype, label, description,
@@ -339,22 +336,31 @@ class GraphStore:
                 created_at, updated_at)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                node.id, graph_id, node.stage.value, node.node_subtype,
-                node.label, node.description,
-                node.position_x, node.position_y, node.width, node.height,
-                node.content_hash, node.previous_hash,
+                node.id,
+                graph_id,
+                node.stage.value,
+                node.node_subtype,
+                node.label,
+                node.description,
+                node.position_x,
+                node.position_y,
+                node.width,
+                node.height,
+                node.content_hash,
+                node.previous_hash,
                 json.dumps(node.parent_ids),
                 node.source_stage.value if node.source_stage else None,
-                node.status, node.confidence,
-                json.dumps(node.data), json.dumps(node.style),
+                node.status,
+                node.confidence,
+                json.dumps(node.data),
+                json.dumps(node.style),
                 json.dumps(node.metadata),
-                node.created_at, node.updated_at,
+                node.created_at,
+                node.updated_at,
             ),
         )
 
-    def _row_to_graph(
-        self, conn: sqlite3.Connection, row: sqlite3.Row
-    ) -> UniversalGraph:
+    def _row_to_graph(self, conn: sqlite3.Connection, row: sqlite3.Row) -> UniversalGraph:
         graph = UniversalGraph(
             id=row["id"],
             name=row["name"],
@@ -373,34 +379,35 @@ class GraphStore:
         # Load transitions
         for td in json.loads(row["transitions_json"] or "[]"):
             from aragora.canvas.stages import ProvenanceLink, StageTransition
-            graph.transitions.append(StageTransition(
-                id=td["id"],
-                from_stage=PipelineStage(td["from_stage"]),
-                to_stage=PipelineStage(td["to_stage"]),
-                provenance=[
-                    ProvenanceLink(
-                        source_node_id=p["source_node_id"],
-                        source_stage=PipelineStage(p["source_stage"]),
-                        target_node_id=p["target_node_id"],
-                        target_stage=PipelineStage(p["target_stage"]),
-                        content_hash=p["content_hash"],
-                        timestamp=p.get("timestamp", 0),
-                        method=p.get("method", ""),
-                    )
-                    for p in td.get("provenance", [])
-                ],
-                status=td.get("status", "pending"),
-                confidence=td.get("confidence", 0),
-                ai_rationale=td.get("ai_rationale", ""),
-                human_notes=td.get("human_notes", ""),
-                created_at=td.get("created_at", 0),
-                reviewed_at=td.get("reviewed_at"),
-            ))
+
+            graph.transitions.append(
+                StageTransition(
+                    id=td["id"],
+                    from_stage=PipelineStage(td["from_stage"]),
+                    to_stage=PipelineStage(td["to_stage"]),
+                    provenance=[
+                        ProvenanceLink(
+                            source_node_id=p["source_node_id"],
+                            source_stage=PipelineStage(p["source_stage"]),
+                            target_node_id=p["target_node_id"],
+                            target_stage=PipelineStage(p["target_stage"]),
+                            content_hash=p["content_hash"],
+                            timestamp=p.get("timestamp", 0),
+                            method=p.get("method", ""),
+                        )
+                        for p in td.get("provenance", [])
+                    ],
+                    status=td.get("status", "pending"),
+                    confidence=td.get("confidence", 0),
+                    ai_rationale=td.get("ai_rationale", ""),
+                    human_notes=td.get("human_notes", ""),
+                    created_at=td.get("created_at", 0),
+                    reviewed_at=td.get("reviewed_at"),
+                )
+            )
 
         # Load nodes
-        node_rows = conn.execute(
-            "SELECT * FROM nodes WHERE graph_id = ?", (graph.id,)
-        ).fetchall()
+        node_rows = conn.execute("SELECT * FROM nodes WHERE graph_id = ?", (graph.id,)).fetchall()
         for nr in node_rows:
             node = self._row_to_node(nr)
             graph.nodes[node.id] = node

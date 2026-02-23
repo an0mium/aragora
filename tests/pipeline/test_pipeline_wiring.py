@@ -23,6 +23,7 @@ from aragora.pipeline.idea_to_execution import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def pipeline():
     return IdeaToExecutionPipeline()
@@ -58,12 +59,15 @@ def simple_pipeline_result():
 # 1A: BeliefNetwork → GoalExtractor wiring
 # ---------------------------------------------------------------------------
 
+
 class TestBeliefNetworkWiring:
     """1A: BeliefNetwork results are passed into GoalExtractor."""
 
     @pytest.mark.asyncio
     async def test_belief_network_propagation_passes_to_extractor(
-        self, pipeline, debate_output_with_edges,
+        self,
+        pipeline,
+        debate_output_with_edges,
     ):
         """When debate output has nodes+edges, BeliefNetwork builds and propagates."""
         cfg = PipelineConfig(stages_to_run=["goals"])
@@ -83,7 +87,8 @@ class TestBeliefNetworkWiring:
 
     @pytest.mark.asyncio
     async def test_belief_network_graceful_fallback_on_import_error(
-        self, pipeline,
+        self,
+        pipeline,
     ):
         """If BeliefNetwork import fails, extraction proceeds without it."""
         debate_output = {
@@ -129,6 +134,7 @@ class TestBeliefNetworkWiring:
 # ---------------------------------------------------------------------------
 # 1B: ELO/Calibration logging
 # ---------------------------------------------------------------------------
+
 
 class TestELOLogging:
     """1B: ELO fallback is logged instead of silently swallowed."""
@@ -181,6 +187,7 @@ class TestELOLogging:
 # ---------------------------------------------------------------------------
 # 1C: KM persistence
 # ---------------------------------------------------------------------------
+
 
 class TestKMPersistence:
     """1C: Pipeline results auto-persist to KnowledgeMound."""
@@ -238,6 +245,7 @@ class TestKMPersistence:
 # 2A: Arena mini-debate in Stage 4
 # ---------------------------------------------------------------------------
 
+
 class TestArenaOrchestration:
     """2A: Arena mini-debate as optional Stage 4 backend."""
 
@@ -254,9 +262,11 @@ class TestArenaOrchestration:
         mock_arena = AsyncMock()
         mock_arena.run.return_value = mock_result
 
-        with patch("aragora.debate.orchestrator.Arena", return_value=mock_arena), \
-             patch("aragora.debate.DebateProtocol"), \
-             patch("aragora.core_types.Environment"):
+        with (
+            patch("aragora.debate.orchestrator.Arena", return_value=mock_arena),
+            patch("aragora.debate.DebateProtocol"),
+            patch("aragora.core_types.Environment"),
+        ):
             result = await pipeline._execute_task(task, cfg)
             assert result["backend"] == "arena"
             assert result["status"] == "completed"
@@ -271,8 +281,10 @@ class TestArenaOrchestration:
         mock_harness.analyze.return_value = MagicMock(
             success=True, to_dict=lambda: {"status": "completed"}
         )
-        with patch.dict("sys.modules", {"aragora.debate.orchestrator": None}), \
-             patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness):
+        with (
+            patch.dict("sys.modules", {"aragora.debate.orchestrator": None}),
+            patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness),
+        ):
             result = await pipeline._execute_task(task, cfg)
             # Should fall through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")
@@ -281,6 +293,7 @@ class TestArenaOrchestration:
 # ---------------------------------------------------------------------------
 # 2B: HardenedOrchestrator backend
 # ---------------------------------------------------------------------------
+
 
 class TestHardenedOrchestratorBackend:
     """2B: HardenedOrchestrator as optional Stage 4 backend."""
@@ -319,8 +332,10 @@ class TestHardenedOrchestratorBackend:
         mock_harness.analyze.return_value = MagicMock(
             success=True, to_dict=lambda: {"status": "completed"}
         )
-        with patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}), \
-             patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness):
+        with (
+            patch.dict("sys.modules", {"aragora.nomic.hardened_orchestrator": None}),
+            patch("aragora.harnesses.claude_code.ClaudeCodeHarness", return_value=mock_harness),
+        ):
             result = await pipeline._execute_task(task, cfg)
             # Falls through to DebugLoop or planned
             assert result["status"] in ("planned", "failed", "completed")
@@ -329,6 +344,7 @@ class TestHardenedOrchestratorBackend:
 # ---------------------------------------------------------------------------
 # 2C: MetaPlanner → Pipeline bridge
 # ---------------------------------------------------------------------------
+
 
 class TestMetaPlannerBridge:
     """2C: from_prioritized_goals() classmethod."""
@@ -361,7 +377,8 @@ class TestMetaPlannerBridge:
         ]
 
         result = IdeaToExecutionPipeline.from_prioritized_goals(
-            goals, auto_advance=True,
+            goals,
+            auto_advance=True,
         )
 
         assert isinstance(result, PipelineResult)
@@ -379,7 +396,8 @@ class TestMetaPlannerBridge:
             track: str = "infrastructure"
 
         result = IdeaToExecutionPipeline.from_prioritized_goals(
-            [FakeGoal()], auto_advance=False,
+            [FakeGoal()],
+            auto_advance=False,
         )
 
         assert result.ideas_canvas is not None
@@ -391,6 +409,7 @@ class TestMetaPlannerBridge:
 # ---------------------------------------------------------------------------
 # 2D: Cross-cycle learning
 # ---------------------------------------------------------------------------
+
 
 class TestCrossCycleLearning:
     """2D: NomicCycleAdapter integration in goal extraction."""
@@ -405,15 +424,9 @@ class TestCrossCycleLearning:
             objective: str = "Improve API performance"
             similarity: float = 0.8
             success_rate: float = 0.9
-            what_worked: list[str] = field(
-                default_factory=lambda: ["caching", "rate limiting"]
-            )
-            what_failed: list[str] = field(
-                default_factory=lambda: ["over-indexing"]
-            )
-            recommendations: list[str] = field(
-                default_factory=lambda: ["Start with caching layer"]
-            )
+            what_worked: list[str] = field(default_factory=lambda: ["caching", "rate limiting"])
+            what_failed: list[str] = field(default_factory=lambda: ["over-indexing"])
+            recommendations: list[str] = field(default_factory=lambda: ["Start with caching layer"])
             tracks_affected: list[str] = field(default_factory=list)
 
         mock_adapter = AsyncMock()
