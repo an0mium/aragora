@@ -473,7 +473,7 @@ class ChromaVectorStore(BaseVectorStore):
                 "backend": "chroma",
                 "collections": len(collections),
             }
-        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError):
             return {
                 "status": "unhealthy",
                 "backend": "chroma",

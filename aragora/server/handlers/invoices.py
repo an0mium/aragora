@@ -183,7 +183,7 @@ async def handle_upload_invoice(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error processing invoice")
         return error_response("Invoice processing failed", status=500)
@@ -277,7 +277,7 @@ async def handle_create_invoice(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error creating invoice")
         return error_response("Invoice creation failed", status=500)
@@ -368,7 +368,7 @@ async def handle_list_invoices(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error listing invoices")
         return error_response("Failed to list invoices", status=500)
@@ -409,7 +409,7 @@ async def handle_get_invoice(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error getting invoice")
         return error_response("Failed to retrieve invoice", status=500)
@@ -466,7 +466,7 @@ async def handle_approve_invoice(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error approving invoice")
         return error_response("Invoice approval failed", status=500)
@@ -518,7 +518,7 @@ async def handle_reject_invoice(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error rejecting invoice")
         return error_response("Invoice rejection failed", status=500)
@@ -561,7 +561,7 @@ async def handle_get_pending_approvals(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error getting pending approvals")
         return error_response("Failed to retrieve pending approvals", status=500)
@@ -614,7 +614,7 @@ async def handle_match_to_po(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error matching invoice to PO")
         return error_response("Invoice matching failed", status=500)
@@ -667,7 +667,7 @@ async def handle_get_anomalies(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error detecting anomalies")
         return error_response("Anomaly detection failed", status=500)
@@ -735,7 +735,7 @@ async def handle_schedule_payment(
     except ValueError as e:
         logger.warning("Handler error: %s", e)
         return error_response("Invalid request", status=400)
-    except (ImportError, KeyError, TypeError, OSError, AttributeError, RuntimeError) as e:
+    except (ImportError, KeyError, TypeError, OSError, AttributeError, RuntimeError):
         cb.record_failure()
         logger.exception("Error scheduling payment")
         return error_response("Payment scheduling failed", status=500)
@@ -804,7 +804,7 @@ async def handle_get_scheduled_payments(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error getting scheduled payments")
         return error_response("Failed to retrieve scheduled payments", status=500)
@@ -896,7 +896,7 @@ async def handle_create_purchase_order(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error creating purchase order")
         return error_response("Purchase order creation failed", status=500)
@@ -939,7 +939,7 @@ async def handle_get_invoice_stats(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error getting invoice stats")
         return error_response("Failed to retrieve invoice statistics", status=500)
@@ -983,7 +983,7 @@ async def handle_get_overdue_invoices(
         OSError,
         AttributeError,
         RuntimeError,
-    ) as e:
+    ):
         cb.record_failure()
         logger.exception("Error getting overdue invoices")
         return error_response("Failed to retrieve overdue invoices", status=500)

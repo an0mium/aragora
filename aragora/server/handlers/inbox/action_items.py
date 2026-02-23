@@ -168,7 +168,7 @@ async def handle_extract_action_items(
 
         return success_response(result.to_dict())
 
-    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError):
         logger.exception("Failed to extract action items")
         return error_response("Action item extraction failed", status=500)
 
@@ -269,7 +269,7 @@ async def handle_list_pending_actions(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError):
         logger.exception("Failed to list pending actions")
         return error_response("Failed to list items", status=500)
 
@@ -321,7 +321,7 @@ async def handle_complete_action(
             }
         )
 
-    except (KeyError, ValueError, TypeError) as e:
+    except (KeyError, ValueError, TypeError):
         logger.exception("Failed to complete action")
         return error_response("Completion update failed", status=500)
 
@@ -396,7 +396,7 @@ async def handle_update_action_status(
             }
         )
 
-    except (KeyError, ValueError, TypeError) as e:
+    except (KeyError, ValueError, TypeError):
         logger.exception("Failed to update action status")
         return error_response("Update operation failed", status=500)
 
@@ -474,7 +474,7 @@ async def handle_get_due_soon(
             }
         )
 
-    except (KeyError, ValueError, TypeError) as e:
+    except (KeyError, ValueError, TypeError):
         logger.exception("Failed to get due soon items")
         return error_response("Query execution failed", status=500)
 
@@ -570,7 +570,7 @@ async def handle_batch_extract(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError):
         logger.exception("Failed batch extraction")
         return error_response("Batch extraction failed", status=500)
 
@@ -631,7 +631,7 @@ async def handle_detect_meeting(
 
         return success_response(result.to_dict())
 
-    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError):
         logger.exception("Failed to detect meeting")
         return error_response("Detection operation failed", status=500)
 
@@ -734,7 +734,7 @@ async def handle_auto_snooze_meeting(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError):
         logger.exception("Failed to auto-snooze meeting")
         return error_response("Auto-snooze operation failed", status=500)
 

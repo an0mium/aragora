@@ -506,7 +506,7 @@ class LifecycleManager:
                 else:
                     report["kept"] += 1
 
-            except (RuntimeError, ValueError, OSError, AttributeError) as e:
+            except (RuntimeError, ValueError, OSError, AttributeError):
                 report["errors"].append(
                     {
                         "knowledge_id": knowledge_id,

@@ -497,7 +497,7 @@ class ExternalAgentGateway:
             try:
                 healthy = await adapter.health_check()
                 results[name] = {"healthy": healthy, "error": None}
-            except (OSError, ConnectionError, RuntimeError) as e:
+            except (OSError, ConnectionError, RuntimeError):
                 results[name] = {"healthy": False, "error": "Health check failed"}
         return {
             "gateway_healthy": all(r["healthy"] for r in results.values()),

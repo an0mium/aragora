@@ -194,7 +194,7 @@ async def handle_add_invoice(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error adding invoice")
         return error_response("Invoice creation failed", status=500)
 
@@ -279,7 +279,7 @@ async def handle_list_invoices(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error listing invoices")
         return error_response("Failed to list invoices", status=500)
 
@@ -322,7 +322,7 @@ async def handle_get_invoice(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error getting invoice %s", invoice_id)
         return error_response("Failed to retrieve invoice", status=500)
 
@@ -403,7 +403,7 @@ async def handle_record_payment(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error recording payment for invoice %s", invoice_id)
         return error_response("Payment recording failed", status=500)
 
@@ -491,7 +491,7 @@ async def handle_optimize_payments(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error optimizing payments")
         return error_response("Payment optimization failed", status=500)
 
@@ -564,7 +564,7 @@ async def handle_batch_payments(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error creating batch payment")
         return error_response("Batch creation failed", status=500)
 
@@ -622,7 +622,7 @@ async def handle_get_forecast(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error generating forecast")
         return error_response("Forecast generation failed", status=500)
 
@@ -662,7 +662,7 @@ async def handle_get_discounts(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AP service temporarily unavailable", status=503)
-    except (ValueError, TypeError, KeyError, AttributeError) as e:
+    except (ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error getting discount opportunities")
         return error_response("Failed to retrieve discounts", status=500)
 

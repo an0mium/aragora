@@ -212,7 +212,7 @@ async def handle_mark_followup(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error marking follow-up")
         return error_response("Follow-up marking failed", status=500)
 
@@ -268,7 +268,7 @@ async def handle_get_pending_followups(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error getting pending follow-ups")
         return error_response("Failed to retrieve follow-ups", status=500)
 
@@ -317,7 +317,7 @@ async def handle_resolve_followup(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error resolving follow-up")
         return error_response("Follow-up resolution failed", status=500)
 
@@ -365,7 +365,7 @@ async def handle_check_replies(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error checking replies")
         return error_response("Reply check failed", status=500)
 
@@ -411,7 +411,7 @@ async def handle_auto_detect_followups(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error auto-detecting follow-ups")
         return error_response("Auto-detection failed", status=500)
 
@@ -517,7 +517,7 @@ async def handle_get_snooze_suggestions(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error getting snooze suggestions")
         return error_response("Failed to retrieve suggestions", status=500)
 
@@ -586,7 +586,7 @@ async def handle_apply_snooze(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error applying snooze")
         return error_response("Snooze application failed", status=500)
 
@@ -633,7 +633,7 @@ async def handle_cancel_snooze(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error canceling snooze")
         return error_response("Snooze cancellation failed", status=500)
 
@@ -679,7 +679,7 @@ async def handle_get_snoozed_emails(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError):
         logger.exception("Error getting snoozed emails")
         return error_response("Failed to retrieve snoozed items", status=500)
 
@@ -734,7 +734,7 @@ async def handle_process_due_snoozes(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error processing due snoozes")
         return error_response("Snooze processing failed", status=500)
 
@@ -772,7 +772,7 @@ async def handle_get_categories(
 
         return success_response({"categories": categories})
 
-    except (ImportError, TypeError, ValueError, AttributeError) as e:
+    except (ImportError, TypeError, ValueError, AttributeError):
         logger.exception("Error getting categories")
         return error_response("Failed to retrieve categories", status=500)
 
@@ -828,7 +828,7 @@ async def handle_category_feedback(
             }
         )
 
-    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError):
         logger.exception("Error recording category feedback")
         return error_response("Feedback recording failed", status=500)
 

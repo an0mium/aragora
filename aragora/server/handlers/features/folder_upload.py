@@ -305,7 +305,7 @@ class FolderUploadHandler(BaseHandler):
         except ImportError as e:
             logger.error("Folder scanner not available: %s", e)
             return error_response("Folder scanning not available", 503)
-        except ValueError as e:
+        except ValueError:
             return error_response("Invalid request", 400)
         except (RuntimeError, OSError, TypeError, KeyError) as e:
             logger.error("Folder scan error: %s", e)

@@ -626,7 +626,7 @@ async def handle_get_flow(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError):
         logger.exception("Failed to get onboarding flow")
         return error_response("Failed to retrieve flow", status=500)
 
@@ -731,7 +731,7 @@ async def handle_init_flow(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError):
         logger.exception("Failed to initialize onboarding")
         return error_response("Initialization failed", status=500)
 
@@ -848,7 +848,7 @@ async def handle_update_step(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError):
         logger.exception("Failed to update step")
         return error_response("Update operation failed", status=500)
 
@@ -892,7 +892,7 @@ async def handle_get_templates(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError):
         logger.exception("Failed to get templates")
         return error_response("Failed to retrieve templates", status=500)
 
@@ -986,7 +986,7 @@ async def handle_first_debate(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError):
         logger.exception("Failed to start first debate")
         return error_response("Debate start failed", status=500)
 
@@ -1104,7 +1104,7 @@ async def handle_quick_debate(
             }
         )
 
-    except (ImportError, KeyError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
+    except (ImportError, KeyError, ValueError, TypeError, AttributeError, ConnectionError, OSError):
         logger.exception("Failed to start quick debate")
         return error_response("Quick debate start failed", status=500)
 
@@ -1220,7 +1220,7 @@ async def handle_quick_start(
             }
         )
 
-    except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError):
         logger.exception("Failed to apply quick-start")
         return error_response("Quick-start application failed", status=500)
 
@@ -1286,7 +1286,7 @@ async def handle_analytics(
             }
         )
 
-    except (KeyError, ValueError, TypeError, ZeroDivisionError) as e:
+    except (KeyError, ValueError, TypeError, ZeroDivisionError):
         logger.exception("Failed to get analytics")
         return error_response("Failed to retrieve analytics", status=500)
 

@@ -422,7 +422,7 @@ class BackupHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             return error_response("Resource not found", 404)
 
     @require_permission("backups:delete")

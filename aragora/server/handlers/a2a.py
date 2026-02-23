@@ -398,7 +398,7 @@ class A2AHandler(BaseHandler):
                 )
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError):
             logger.exception("Invalid JSON in task submission request")
             return error_response("Invalid request body", 400)
         except UnicodeDecodeError:

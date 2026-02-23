@@ -587,13 +587,13 @@ class RoutingRulesHandler(SecureHandler):
             # Parse conditions with validation
             try:
                 conditions = [Condition.from_dict(c) for c in data.get("conditions", [])]
-            except (KeyError, ValueError, TypeError) as e:
+            except (KeyError, ValueError, TypeError):
                 return {"status": "error", "error": "Invalid condition format", "code": 400}
 
             # Parse actions with validation
             try:
                 actions = [Action.from_dict(a) for a in data.get("actions", [])]
-            except (KeyError, ValueError, TypeError) as e:
+            except (KeyError, ValueError, TypeError):
                 return {"status": "error", "error": "Invalid action format", "code": 400}
 
             # Create rule
@@ -677,12 +677,12 @@ class RoutingRulesHandler(SecureHandler):
                     existing["conditions"] = [
                         Condition.from_dict(c).to_dict() for c in data["conditions"]
                     ]
-                except (KeyError, ValueError, TypeError) as e:
+                except (KeyError, ValueError, TypeError):
                     return {"status": "error", "error": "Invalid condition format", "code": 400}
             if "actions" in data:
                 try:
                     existing["actions"] = [Action.from_dict(a).to_dict() for a in data["actions"]]
-                except (KeyError, ValueError, TypeError) as e:
+                except (KeyError, ValueError, TypeError):
                     return {"status": "error", "error": "Invalid action format", "code": 400}
             if "priority" in data:
                 existing["priority"] = data["priority"]

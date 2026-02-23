@@ -168,7 +168,7 @@ def deployment_diagnostics(handler: Any) -> HandlerResult:
         else:
             return json_response(response_data, status=200)
 
-    except ImportError as e:
+    except ImportError:
         return json_response(
             {
                 "status": "error",

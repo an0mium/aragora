@@ -229,7 +229,7 @@ class SlackOAuthHandler(SecureHandler):
                 if not require_all:
                     # Any permission is sufficient
                     return True
-            except (ForbiddenError, PermissionError) as e:
+            except (ForbiddenError, PermissionError):
                 errors.append("Permission denied")
                 if require_all:
                     # All permissions required, one failed

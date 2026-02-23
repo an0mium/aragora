@@ -198,7 +198,7 @@ class DevOpsHandler(BaseHandler):
         except UnauthorizedError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Authentication required", 401)
-        except ForbiddenError as e:
+        except ForbiddenError:
             return error_response("Permission denied", 403)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Unhandled DevOps handler error: %s", e)

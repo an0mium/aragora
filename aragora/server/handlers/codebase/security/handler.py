@@ -7,8 +7,11 @@ all security-related endpoints by delegating to submodule handlers.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from aragora.server.handlers.base import (
     BaseHandler,

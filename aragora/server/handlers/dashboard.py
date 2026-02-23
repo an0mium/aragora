@@ -161,7 +161,7 @@ async def handle_get_dashboard(
 
         return success_response(overview)
 
-    except (TypeError, ValueError, KeyError, AttributeError) as e:
+    except (TypeError, ValueError, KeyError, AttributeError):
         logger.exception("Failed to get dashboard")
         return error_response("Dashboard loading failed", status=500)
 
@@ -255,7 +255,7 @@ async def handle_get_stats(
 
         return success_response(stats)
 
-    except (TypeError, ValueError, KeyError) as e:
+    except (TypeError, ValueError, KeyError):
         logger.exception("Failed to get stats")
         return error_response("Statistics retrieval failed", status=500)
 
@@ -381,7 +381,7 @@ async def handle_get_activity(
             }
         )
 
-    except (TypeError, ValueError, KeyError) as e:
+    except (TypeError, ValueError, KeyError):
         logger.exception("Failed to get activity")
         return error_response("Activity retrieval failed", status=500)
 
@@ -473,7 +473,7 @@ async def handle_get_inbox_summary(
 
         return success_response(summary)
 
-    except (TypeError, ValueError, KeyError) as e:
+    except (TypeError, ValueError, KeyError):
         logger.exception("Failed to get inbox summary")
         return error_response("Inbox summary failed", status=500)
 
@@ -553,7 +553,7 @@ async def handle_get_quick_actions(
             }
         )
 
-    except (TypeError, ValueError, KeyError) as e:
+    except (TypeError, ValueError, KeyError):
         logger.exception("Failed to get quick actions")
         return error_response("Failed to retrieve actions", status=500)
 
@@ -634,7 +634,7 @@ async def handle_execute_quick_action(
 
         return success_response(result)
 
-    except (TypeError, ValueError, KeyError) as e:
+    except (TypeError, ValueError, KeyError):
         logger.exception("Failed to execute quick action")
         return error_response("Action execution failed", status=500)
 

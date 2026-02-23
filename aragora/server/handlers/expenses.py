@@ -194,7 +194,7 @@ async def handle_upload_receipt(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError):
         cb.record_failure()
         logger.exception("Error processing receipt")
         return error_response("Receipt processing failed", status=500)
@@ -335,7 +335,7 @@ async def handle_create_expense(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError):
         cb.record_failure()
         logger.exception("Error creating expense")
         return error_response("Expense creation failed", status=500)
@@ -432,7 +432,7 @@ async def handle_list_expenses(
             }
         )
 
-    except (RuntimeError, OSError, LookupError, ValueError, TypeError) as e:
+    except (RuntimeError, OSError, LookupError, ValueError, TypeError):
         cb.record_failure()
         logger.exception("Error listing expenses")
         return error_response("Failed to list expenses", status=500)
@@ -474,7 +474,7 @@ async def handle_get_expense(
         cb.record_success()
         return json_response({"expense": expense.to_dict()})
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error getting expense")
         return error_response("Failed to retrieve expense", status=500)
@@ -598,7 +598,7 @@ async def handle_update_expense(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError):
         cb.record_failure()
         logger.exception("Error updating expense")
         return error_response("Expense update failed", status=500)
@@ -640,7 +640,7 @@ async def handle_delete_expense(
         cb.record_success()
         return json_response({"message": "Expense deleted successfully"})
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error deleting expense")
         return error_response("Expense deletion failed", status=500)
@@ -692,7 +692,7 @@ async def handle_approve_expense(
             }
         )
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error approving expense")
         return error_response("Expense approval failed", status=500)
@@ -748,7 +748,7 @@ async def handle_reject_expense(
             }
         )
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error rejecting expense")
         return error_response("Expense rejection failed", status=500)
@@ -786,7 +786,7 @@ async def handle_get_pending_approvals(
             }
         )
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error getting pending approvals")
         return error_response("Failed to retrieve pending approvals", status=500)
@@ -855,7 +855,7 @@ async def handle_categorize_expenses(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError):
         cb.record_failure()
         logger.exception("Error categorizing expenses")
         return error_response("Expense categorization failed", status=500)
@@ -925,7 +925,7 @@ async def handle_sync_to_qbo(
             }
         )
 
-    except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
+    except (RuntimeError, OSError, ConnectionError, TimeoutError):
         cb.record_failure()
         logger.exception("Error syncing to QBO")
         return error_response("QBO sync failed", status=500)
@@ -989,7 +989,7 @@ async def handle_get_expense_stats(
         cb.record_success()
         return json_response({"stats": stats_data})
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error getting expense stats")
         return error_response("Failed to retrieve expense statistics", status=500)
@@ -1056,7 +1056,7 @@ async def handle_export_expenses(
             }
         )
 
-    except (RuntimeError, OSError, LookupError) as e:
+    except (RuntimeError, OSError, LookupError):
         cb.record_failure()
         logger.exception("Error exporting expenses")
         return error_response("Expense export failed", status=500)

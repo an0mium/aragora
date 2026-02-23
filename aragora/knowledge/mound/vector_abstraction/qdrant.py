@@ -514,7 +514,7 @@ class QdrantVectorStore(BaseVectorStore):
                 "backend": "qdrant",
                 "collections": len(info.collections),
             }
-        except (RuntimeError, ConnectionError, TimeoutError) as e:
+        except (RuntimeError, ConnectionError, TimeoutError):
             return {
                 "status": "unhealthy",
                 "backend": "qdrant",

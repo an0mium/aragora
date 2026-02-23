@@ -399,7 +399,7 @@ class SharingHandler(BaseHandler):
                     if debate_id and debate_id not in ("share", "revoke", ""):
                         return debate_id, None
             return None, "Could not extract debate ID from path"
-        except (IndexError, ValueError) as e:
+        except (IndexError, ValueError):
             return None, "Failed to extract debate ID"
 
     def _resolve_social_user(self, handler: Any, user: Any) -> Any:

@@ -232,7 +232,7 @@ async def handle_analyze_dependencies(
 
         return success_response({**result, "from_cache": False})
 
-    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error analyzing dependencies")
         return error_response("Dependency analysis failed", status=500)
 
@@ -289,7 +289,7 @@ async def handle_generate_sbom(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         logger.exception("Error generating SBOM")
         return error_response("SBOM generation failed", status=500)
 
@@ -364,7 +364,7 @@ async def handle_scan_vulnerabilities(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error scanning vulnerabilities")
         return error_response("Vulnerability scan failed", status=500)
 
@@ -434,7 +434,7 @@ async def handle_check_licenses(
             }
         )
 
-    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError):
         logger.exception("Error checking licenses")
         return error_response("License check failed", status=500)
 
@@ -460,7 +460,7 @@ async def handle_clear_cache(
             }
         )
 
-    except (RuntimeError, OSError) as e:
+    except (RuntimeError, OSError):
         logger.exception("Error clearing cache")
         return error_response("Cache clearing failed", status=500)
 

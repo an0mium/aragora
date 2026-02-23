@@ -996,7 +996,7 @@ class ReceiptStore:
                 "verified_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        except (ValueError, KeyError, TypeError, ImportError) as e:
+        except (ValueError, KeyError, TypeError, ImportError):
             return {
                 "receipt_id": receipt_id,
                 "integrity_valid": False,

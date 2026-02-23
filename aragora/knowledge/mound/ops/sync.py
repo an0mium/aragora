@@ -157,7 +157,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         result.relationships_created,
                         None,  # no error
                     )
-                except (RuntimeError, ValueError, OSError, KeyError) as e:  # noqa: BLE001 - adapter isolation
+                except (RuntimeError, ValueError, OSError, KeyError):  # noqa: BLE001 - adapter isolation
                     # Extract identifier for error message
                     item_id = (
                         req.metadata.get("continuum_id")

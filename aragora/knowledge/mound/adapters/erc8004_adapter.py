@@ -1027,7 +1027,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 "has_signer": self._signer is not None,
                 "rpc_health": provider.get_health_status(),
             }
-        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+        except (OSError, ConnectionError, RuntimeError, ValueError, AttributeError):  # noqa: BLE001 - adapter isolation
             return {
                 "adapter": self.adapter_name,
                 "connected": False,

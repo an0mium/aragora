@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import shutil
+import subprocess
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum

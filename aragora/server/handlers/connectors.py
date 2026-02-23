@@ -11,7 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aragora.audit.unified import audit_admin, audit_data
-from aragora.server.handlers.utils.responses import error_dict
+from aragora.server.handlers.utils.responses import error_dict, error_response
 
 from aragora.connectors.enterprise import (
     SyncSchedule,
@@ -553,7 +553,7 @@ async def handle_get_sync_history(
     try:
         sync_status = SyncStatus(status) if status else None
     except ValueError:
-        return error_response(f"Invalid sync status: {status}", 400)
+        return error_response("Invalid sync status", 400)
 
     history = scheduler.get_history(
         job_id=job_id,

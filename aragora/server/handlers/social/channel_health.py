@@ -247,7 +247,7 @@ class ChannelHealthHandler:
                 result = await connector.test_connection()
                 health["status"] = "healthy" if result.get("success") else "unhealthy"
                 health["details"] = result
-            except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
+            except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError):
                 health["status"] = "unhealthy"
                 health["details"]["error"] = "Health check failed"
         else:

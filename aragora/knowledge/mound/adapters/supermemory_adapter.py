@@ -484,7 +484,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 "adapter": self.adapter_name,
                 "external": health,
             }
-        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+        except (RuntimeError, ValueError, TypeError, AttributeError):  # noqa: BLE001 - adapter isolation
             return {
                 "healthy": False,
                 "error": "Health check failed",

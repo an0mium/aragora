@@ -473,7 +473,7 @@ class WeaviateVectorStore(BaseVectorStore):
                 "version": meta.get("version", "unknown"),
                 "modules": list(meta.get("modules", {}).keys()),
             }
-        except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+        except (OSError, ConnectionError, RuntimeError, ValueError):
             return {
                 "status": "unhealthy",
                 "backend": "weaviate",

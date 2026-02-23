@@ -693,7 +693,7 @@ class DecisionPipelineHandler(SecureHandler):
         except PermissionError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Permission denied", 403)
-        except ValueError as e:
+        except ValueError:
             return error_response("Conflict", 409)
 
         logger.info(

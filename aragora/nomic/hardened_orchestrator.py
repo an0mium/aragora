@@ -37,7 +37,10 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.nomic.task_decomposer import SubTask
 
 from aragora.nomic.autonomous_orchestrator import (
     AgentAssignment,

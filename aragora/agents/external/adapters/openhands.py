@@ -332,7 +332,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                 metadata={"sandbox": self._config.sandbox_type},
             )
 
-        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError) as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError):
             return HealthStatus(
                 adapter_name=self.adapter_name,
                 healthy=False,

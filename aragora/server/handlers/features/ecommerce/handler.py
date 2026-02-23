@@ -545,7 +545,7 @@ class EcommerceHandler(SecureHandler):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error("Connection error fetching order %s from %s: %s", order_id, platform, e)
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
-        except ValueError as e:
+        except ValueError:
             return self._error_response(400, "Invalid order request")
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
@@ -680,7 +680,7 @@ class EcommerceHandler(SecureHandler):
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.error("Connection error fetching product %s from %s: %s", product_id, platform, e)
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
-        except ValueError as e:
+        except ValueError:
             return self._error_response(400, "Invalid product request")
         except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(

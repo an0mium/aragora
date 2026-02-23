@@ -132,7 +132,7 @@ async def handle_send_email(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to send email")
         return error_response("Email send failed", status=500)
 
@@ -190,7 +190,7 @@ async def handle_reply_email(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to reply to email")
         return error_response("Email reply failed", status=500)
 
@@ -250,7 +250,7 @@ async def handle_archive_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to archive message")
         return error_response("Archive operation failed", status=500)
 
@@ -305,7 +305,7 @@ async def handle_trash_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to trash message")
         return error_response("Trash operation failed", status=500)
 
@@ -354,7 +354,7 @@ async def handle_restore_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to restore message")
         return error_response("Restore operation failed", status=500)
 
@@ -444,7 +444,7 @@ async def handle_snooze_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to snooze message")
         return error_response("Snooze operation failed", status=500)
 
@@ -503,7 +503,7 @@ async def handle_mark_read(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to mark message as read")
         return error_response("Mark read operation failed", status=500)
 
@@ -552,7 +552,7 @@ async def handle_mark_unread(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to mark message as unread")
         return error_response("Mark unread operation failed", status=500)
 
@@ -606,7 +606,7 @@ async def handle_star_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to star message")
         return error_response("Star operation failed", status=500)
 
@@ -655,7 +655,7 @@ async def handle_unstar_message(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to unstar message")
         return error_response("Unstar operation failed", status=500)
 
@@ -722,7 +722,7 @@ async def handle_move_to_folder(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to move message")
         return error_response("Move operation failed", status=500)
 
@@ -777,7 +777,7 @@ async def handle_add_label(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to add labels")
         return error_response("Add labels operation failed", status=500)
 
@@ -832,7 +832,7 @@ async def handle_remove_label(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to remove labels")
         return error_response("Remove labels operation failed", status=500)
 
@@ -893,7 +893,7 @@ async def handle_batch_archive(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to batch archive")
         return error_response("Batch archive failed", status=500)
 
@@ -964,7 +964,7 @@ async def handle_batch_trash(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to batch trash")
         return error_response("Batch trash failed", status=500)
 
@@ -1056,7 +1056,7 @@ async def handle_batch_modify(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to batch modify")
         return error_response("Batch modify failed", status=500)
 
@@ -1137,7 +1137,7 @@ async def handle_get_action_logs(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to get action logs")
         return error_response("Failed to retrieve logs", status=500)
 
@@ -1203,7 +1203,7 @@ async def handle_export_action_logs(
         RuntimeError,
         OSError,
         ConnectionError,
-    ) as e:
+    ):
         logger.exception("Failed to export action logs")
         return error_response("Export operation failed", status=500)
 
