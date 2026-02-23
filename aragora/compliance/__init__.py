@@ -45,6 +45,15 @@ from aragora.compliance.eu_ai_act import (
     ComplianceArtifactBundle,
     ComplianceArtifactGenerator,
 )
+from aragora.compliance.artifact_generator import (
+    TransparencyChecklist,
+    EUAIActArtifact,
+    TrustServiceCriteria,
+    SOC2Artifact,
+    HIPAAArtifact,
+    ComplianceArtifactResult,
+    ReceiptComplianceGenerator,
+)
 from aragora.compliance.monitor import (
     ComplianceHealth,
     ViolationTrend,
@@ -78,6 +87,14 @@ __all__ = [
     "ConformityReportGenerator",
     "ComplianceArtifactBundle",
     "ComplianceArtifactGenerator",
+    # Receipt Compliance Artifacts
+    "TransparencyChecklist",
+    "EUAIActArtifact",
+    "TrustServiceCriteria",
+    "SOC2Artifact",
+    "HIPAAArtifact",
+    "ComplianceArtifactResult",
+    "ReceiptComplianceGenerator",
     # Continuous Monitoring
     "ComplianceHealth",
     "ViolationTrend",

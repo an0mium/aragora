@@ -1173,6 +1173,42 @@ class DecisionReceipt:
             },
         )
 
+    def generate_compliance_artifacts(
+        self,
+        frameworks: list[str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Generate regulatory compliance artifacts from this receipt.
+
+        Creates framework-specific compliance documentation suitable for
+        regulatory audit trails. Supported frameworks:
+
+        - ``eu_ai_act``: EU AI Act (Regulation 2024/1689)
+        - ``soc2``: SOC 2 Type II (AICPA Trust Services Criteria)
+        - ``hipaa``: HIPAA Security and Privacy Rule
+
+        Args:
+            frameworks: List of framework identifiers to generate.
+                If ``None``, all supported frameworks are generated.
+            **kwargs: Additional keyword arguments passed to
+                ``ReceiptComplianceGenerator``.
+
+        Returns:
+            ComplianceArtifactResult containing the requested artifacts.
+
+        Example::
+
+            result = receipt.generate_compliance_artifacts(
+                frameworks=["eu_ai_act", "soc2"]
+            )
+            print(result.eu_ai_act.risk_classification)
+            print(result.soc2.to_json())
+        """
+        from aragora.compliance.artifact_generator import ReceiptComplianceGenerator
+
+        generator = ReceiptComplianceGenerator(**kwargs)
+        return generator.generate(self.to_dict(), frameworks=frameworks)
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export."""
         data = {
