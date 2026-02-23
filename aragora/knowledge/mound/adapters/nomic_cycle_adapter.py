@@ -753,14 +753,13 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
         similar_curricula: list[dict[str, Any]] = []
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query=task_description,
                 workspace_id=workspace_id,
                 limit=limit * 2,
-                filters={"type": "nomic_curriculum"},
             )
 
-            for result in results:
+            for result in query_result.items:
                 if not hasattr(result, "metadata"):
                     continue
 
@@ -817,17 +816,16 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return []
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query="nomic cycle outcome improvement",
                 workspace_id=workspace_id,
                 limit=50,
-                filters={"type": "nomic_cycle"},
             )
 
             # Group by objective keywords to find patterns
             pattern_data: dict[str, dict[str, Any]] = {}
 
-            for result in results:
+            for result in query_result.items:
                 metadata = getattr(result, "metadata", {})
                 if metadata.get("type") != "nomic_cycle":
                     continue
@@ -908,18 +906,19 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return []
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query="nomic learning failure what failed",
                 workspace_id=workspace_id,
                 limit=100,
-                filters={"type": "nomic_learning", "learning_type": "failure"},
             )
 
             # Group by failure content similarity
             failure_groups: dict[str, dict[str, Any]] = {}
 
-            for result in results:
+            for result in query_result.items:
                 metadata = getattr(result, "metadata", {})
+                if metadata.get("type") != "nomic_learning":
+                    continue
                 if metadata.get("learning_type") != "failure":
                     continue
 
@@ -1023,14 +1022,13 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
 
         try:
             # Search for cycle summaries with similar objectives
-            results = await mound.search(
+            query_result = await mound.query(
                 query=objective,
                 workspace_id=workspace_id,
                 limit=limit * 2,  # Fetch more to filter
-                filters={"type": "nomic_cycle"},
             )
 
-            for result in results:
+            for result in query_result.items:
                 if not hasattr(result, "metadata"):
                     continue
 
@@ -1091,19 +1089,22 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return []
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query=f"nomic learning {learning_type}",
                 workspace_id=workspace_id,
                 limit=10,
-                filters={
-                    "type": "nomic_learning",
-                    "learning_type": learning_type,
-                    "parent_cycle_id": cycle_id,
-                },
             )
 
             learnings = []
-            for result in results:
+            for result in query_result.items:
+                metadata = getattr(result, "metadata", {})
+                # Filter by learning type and parent cycle
+                if metadata.get("type") != "nomic_learning":
+                    continue
+                if metadata.get("learning_type") != learning_type:
+                    continue
+                if metadata.get("parent_cycle_id") != cycle_id:
+                    continue
                 content = getattr(result, "content", "")
                 # Strip the prefix
                 if content.startswith("WHAT WORKED: "):
@@ -1129,18 +1130,20 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return []
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query="nomic recommendation",
                 workspace_id=workspace_id,
                 limit=5,
-                filters={
-                    "type": "nomic_recommendation",
-                    "parent_cycle_id": cycle_id,
-                },
             )
 
             recommendations = []
-            for result in results:
+            for result in query_result.items:
+                metadata = getattr(result, "metadata", {})
+                # Filter by recommendation type and parent cycle
+                if metadata.get("type") != "nomic_recommendation":
+                    continue
+                if metadata.get("parent_cycle_id") != cycle_id:
+                    continue
                 content = getattr(result, "content", "")
                 # Strip the prefix
                 if content.startswith("RECOMMENDATION: "):
@@ -1173,17 +1176,23 @@ class NomicCycleAdapter(KnowledgeMoundAdapter):
             return None
 
         try:
-            results = await mound.search(
+            query_result = await mound.query(
                 query=cycle_id,
                 workspace_id=workspace_id,
-                limit=1,
-                filters={"type": "nomic_cycle", "cycle_id": cycle_id},
+                limit=10,
             )
 
-            if not results:
+            # Find the matching cycle by metadata
+            result = None
+            for item in query_result.items:
+                item_meta = getattr(item, "metadata", {})
+                if item_meta.get("type") == "nomic_cycle" and item_meta.get("cycle_id") == cycle_id:
+                    result = item
+                    break
+
+            if result is None:
                 return None
 
-            result = results[0]
             metadata = getattr(result, "metadata", {})
 
             return NomicCycleOutcome(

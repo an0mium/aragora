@@ -498,9 +498,12 @@ class TestTimeoutHandling:
     @pytest.mark.asyncio
     async def test_run_returns_partial_result_on_timeout(self, environment, mock_agents):
         """Arena.run() returns partial result on timeout."""
-        protocol = DebateProtocol(rounds=10, timeout_seconds=0.01)
+        # Use a timeout that allows sync init to complete but cuts off
+        # before all 10 rounds finish. delay=0.5s * 3 agents * 10 rounds = 15s
+        # but timeout fires after 2s, well after first await yields.
+        protocol = DebateProtocol(rounds=10, timeout_seconds=2.0)
 
-        slow_agents = [MockAgent(name=f"slow-{i}", delay=5.0) for i in range(3)]
+        slow_agents = [MockAgent(name=f"slow-{i}", delay=0.5) for i in range(3)]
         arena = Arena(environment, slow_agents, protocol)
 
         result = await arena.run()
@@ -522,8 +525,8 @@ class TestTimeoutHandling:
     @pytest.mark.asyncio
     async def test_async_context_manager_cleanup_on_timeout(self, environment, mock_agents):
         """Arena context manager cleans up on timeout."""
-        protocol = DebateProtocol(rounds=10, timeout_seconds=0.01)
-        slow_agents = [MockAgent(name=f"slow-{i}", delay=5.0) for i in range(3)]
+        protocol = DebateProtocol(rounds=10, timeout_seconds=2.0)
+        slow_agents = [MockAgent(name=f"slow-{i}", delay=0.5) for i in range(3)]
         arena = Arena(environment, slow_agents, protocol)
 
         async with arena as a:

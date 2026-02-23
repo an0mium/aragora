@@ -1443,6 +1443,25 @@ IMPORTANT: Avoid repeating past failures listed above. Learn from history.
         except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as exc:
             logger.debug("Pipeline Goal Canvas scan skipped: %s", exc)
 
+        # Signal 11: Feedback-generated goals from previous cycles (SQLite queue)
+        try:
+            from aragora.nomic.feedback_orchestrator import ImprovementQueue as FeedbackQueue
+
+            queue = FeedbackQueue()
+            queued_goals = queue.pop(limit=10)
+            if queued_goals:
+                for qg in queued_goals:
+                    track = self._infer_track(qg.goal, available_tracks)
+                    if track and track.value in track_signals:
+                        track_signals[track.value].append(
+                            f"feedback_goal[{qg.source}]: {qg.goal[:100]}"
+                        )
+                logger.info("scan_feedback_goals", extra={"count": len(queued_goals)})
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, OSError, TypeError) as exc:
+            logger.warning("feedback_queue_unavailable: %s", exc)
+
         # Build goals from signals, ranked by signal count
         ranked = sorted(
             track_signals.items(),

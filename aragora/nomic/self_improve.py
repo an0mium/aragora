@@ -1859,29 +1859,28 @@ class SelfImprovePipeline:
         cycle_id: str,
         execution_results: list[dict[str, Any]],
     ) -> None:
-        """Step 7: Run the 6-step feedback orchestrator.
+        """Step 7: Run the feedback orchestrator (6-step audit -> active bridge).
 
         Bridges Gauntlet, Introspection, Genesis, Learning, Workspace,
         and Pulse into active feedback goals persisted to ImprovementQueue.
-        Next cycle's scan mode reads these as Signal 8.
+        Next cycle's scan mode reads these as Signal 8/10.
         """
         try:
+            from pathlib import Path as _P
+
             from aragora.nomic.feedback_orchestrator import SelfImproveFeedbackOrchestrator
 
-            orchestrator = SelfImproveFeedbackOrchestrator()
-            feedback = orchestrator.run(cycle_id, execution_results)
+            orchestrator = SelfImproveFeedbackOrchestrator(_P.cwd())
+            feedback_report = orchestrator.run(cycle_id, execution_results)
 
             logger.info(
-                "feedback_orchestrator_result cycle=%s goals=%d steps=%d/%d",
-                cycle_id,
-                feedback.goals_generated,
-                feedback.steps_completed,
-                feedback.steps_completed + feedback.steps_failed,
+                "feedback_orchestrator_complete",
+                extra={"goals": len(feedback_report.improvement_goals)},
             )
         except ImportError:
             logger.debug("FeedbackOrchestrator not available")
-        except Exception as exc:  # noqa: BLE001 — feedback is non-critical
-            logger.warning("Feedback orchestrator failed (non-critical): %s", exc)
+        except Exception:  # noqa: BLE001 — feedback is non-critical
+            logger.warning("feedback_orchestrator_failed")
 
     def _publish_to_pipeline_graph(
         self,

@@ -176,7 +176,7 @@ class TestCurriculumIngestion:
         """Create a mock Knowledge Mound."""
         mound = MagicMock()
         mound.store = AsyncMock(return_value=MagicMock(deduplicated=False, item_id="item_1"))
-        mound.search = AsyncMock(return_value=[])
+        mound.query = AsyncMock(return_value=MagicMock(items=[]))
         return mound
 
     @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestFindSimilarCurricula:
             "parent_cycle_id": "cycle_abc",
         }
 
-        mound.search = AsyncMock(return_value=[mock_result])
+        mound.query = AsyncMock(return_value=MagicMock(items=[mock_result]))
         return mound
 
     @pytest.mark.asyncio
