@@ -21,6 +21,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class PlaybookHandler:
             return True
         return False
 
+    @require_permission("playbooks:read")
     def handle(self, method: str, path: str, handler: Any) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         path_clean = path.rstrip("/")

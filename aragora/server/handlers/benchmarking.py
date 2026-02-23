@@ -21,6 +21,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from .utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ class BenchmarkingHandler(BaseHandler):
         # Match both /api/benchmarks and /api/benchmarks/compare
         return normalized in self.ROUTES
 
+    @require_permission("benchmarks:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         normalized = strip_version_prefix(path)
